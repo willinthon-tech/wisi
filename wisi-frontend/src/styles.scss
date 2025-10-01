@@ -1,0 +1,44 @@
+/* Estilos globales del Sistema WISI */
+@import 'bootstrap/dist/css/bootstrap.min.css';
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Arial', sans-serif;
+  background: #f5f5f5;
+  overflow-x: hidden;
+}
+
+html, body {
+  height: auto;
+  min-height: 100%;
+}
+
+/* Asegurar scroll en reportes */
+app-root {
+  display: block;
+  height: auto;
+  min-height: 100vh;
+}
+
+.reporte-container {
+  height: auto !important;
+  min-height: 100vh;
+  overflow-y: visible !important;
+}
+
+/* Estilos para Font Awesome (si se necesita) */
+.fas {
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+}
+
+.fa-users:before { content: '\f0c0'; }
+.fa-gamepad:before { content: '\f11b'; }
+.fa-building:before { content: '\f1ad'; }
+.fa-cog:before { content: '\f013'; }
+.fa-cube:before { content: '\f1b2'; }

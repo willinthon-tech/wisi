@@ -1,0 +1,293 @@
+const { Sequelize } = require('sequelize');
+const path = require('path');
+
+// Configuración de Sequelize con SQLite
+const sequelize = new Sequelize({
+  dialect: 'sqlite',
+  storage: path.join(__dirname, '..', 'database.sqlite'),
+  logging: false, // Cambiar a console.log para ver las consultas SQL
+});
+
+// Importar modelos
+const User = require('./User')(sequelize);
+const Sala = require('./Sala')(sequelize);
+const Module = require('./Module')(sequelize);
+const Permission = require('./Permission')(sequelize);
+const Page = require('./Page')(sequelize);
+const UserSala = require('./UserSala')(sequelize);
+const UserModule = require('./UserModule')(sequelize);
+const UserPermission = require('./UserPermission')(sequelize);
+const UserModulePermission = require('./UserModulePermission')(sequelize);
+const PageModule = require('./PageModule')(sequelize);
+const SalaModule = require('./SalaModule')(sequelize);
+const Libro = require('./Libro')(sequelize);
+const Rango = require('./Rango')(sequelize);
+const Mesa = require('./Mesa')(sequelize);
+const Juego = require('./Juego')(sequelize);
+const Maquina = require('./Maquina')(sequelize);
+const Tecnico = require('./Tecnico')(sequelize);
+const NovedadMaquina = require('./NovedadMaquina')(sequelize);
+const Drop = require('./Drop')(sequelize);
+
+// Definir asociaciones
+User.belongsToMany(Sala, { through: UserSala, foreignKey: 'user_id' });
+Sala.belongsToMany(User, { through: UserSala, foreignKey: 'sala_id' });
+
+// Asociaciones para UserSala
+UserSala.belongsTo(User, { foreignKey: 'user_id' });
+UserSala.belongsTo(Sala, { foreignKey: 'sala_id' });
+User.hasMany(UserSala, { foreignKey: 'user_id' });
+Sala.hasMany(UserSala, { foreignKey: 'sala_id' });
+
+User.belongsToMany(Module, { through: UserModule, foreignKey: 'user_id' });
+Module.belongsToMany(User, { through: UserModule, foreignKey: 'module_id' });
+
+// Asociaciones para UserModule
+UserModule.belongsTo(User, { foreignKey: 'user_id' });
+UserModule.belongsTo(Module, { foreignKey: 'module_id' });
+User.hasMany(UserModule, { foreignKey: 'user_id' });
+Module.hasMany(UserModule, { foreignKey: 'module_id' });
+
+User.belongsToMany(Permission, { through: UserPermission, foreignKey: 'user_id' });
+Permission.belongsToMany(User, { through: UserPermission, foreignKey: 'permission_id' });
+
+// Asociaciones para UserPermission
+UserPermission.belongsTo(User, { foreignKey: 'user_id' });
+UserPermission.belongsTo(Permission, { foreignKey: 'permission_id' });
+User.hasMany(UserPermission, { foreignKey: 'user_id' });
+Permission.hasMany(UserPermission, { foreignKey: 'permission_id' });
+
+// Nuevas relaciones para permisos por módulo
+UserModulePermission.belongsTo(User, { foreignKey: 'user_id' });
+UserModulePermission.belongsTo(Module, { foreignKey: 'module_id' });
+UserModulePermission.belongsTo(Permission, { foreignKey: 'permission_id' });
+
+User.hasMany(UserModulePermission, { foreignKey: 'user_id' });
+Module.hasMany(UserModulePermission, { foreignKey: 'module_id' });
+Permission.hasMany(UserModulePermission, { foreignKey: 'permission_id' });
+
+// Asociaciones para Page y Module (relación uno a muchos)
+Page.hasMany(Module, { foreignKey: 'page_id' });
+Module.belongsTo(Page, { foreignKey: 'page_id' });
+
+Sala.belongsToMany(Module, { through: SalaModule, foreignKey: 'sala_id' });
+Module.belongsToMany(Sala, { through: SalaModule, foreignKey: 'module_id' });
+
+// Asociaciones para Libro
+Libro.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(Libro, { foreignKey: 'sala_id' });
+
+// Asociaciones para Rango
+Rango.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(Rango, { foreignKey: 'sala_id' });
+
+// Asociaciones para Mesa
+Mesa.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(Mesa, { foreignKey: 'sala_id' });
+Mesa.belongsTo(Juego, { foreignKey: 'juego_id' });
+Juego.hasMany(Mesa, { foreignKey: 'juego_id' });
+
+// Asociaciones para Juego
+Juego.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(Juego, { foreignKey: 'sala_id' });
+
+// Asociaciones para Maquina
+Maquina.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(Maquina, { foreignKey: 'sala_id' });
+Maquina.belongsTo(Rango, { foreignKey: 'rango_id' });
+Rango.hasMany(Maquina, { foreignKey: 'rango_id' });
+
+// Asociaciones para Tecnico
+Tecnico.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(Tecnico, { foreignKey: 'sala_id' });
+
+// Asociaciones para NovedadMaquina
+NovedadMaquina.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(NovedadMaquina, { foreignKey: 'sala_id' });
+
+// Importar NovedadMaquinaRegistro
+const NovedadMaquinaRegistro = require('./NovedadMaquinaRegistro')(sequelize);
+const IncidenciaGeneral = require('./IncidenciaGeneral')(sequelize);
+
+// Asociaciones para NovedadMaquinaRegistro
+NovedadMaquinaRegistro.belongsTo(Libro, { foreignKey: 'libro_id' });
+Libro.hasMany(NovedadMaquinaRegistro, { foreignKey: 'libro_id' });
+
+NovedadMaquinaRegistro.belongsTo(Maquina, { foreignKey: 'maquina_id' });
+Maquina.hasMany(NovedadMaquinaRegistro, { foreignKey: 'maquina_id' });
+
+NovedadMaquinaRegistro.belongsTo(NovedadMaquina, { foreignKey: 'novedad_maquina_id' });
+NovedadMaquina.hasMany(NovedadMaquinaRegistro, { foreignKey: 'novedad_maquina_id' });
+
+NovedadMaquinaRegistro.belongsTo(Tecnico, { foreignKey: 'tecnico_id' });
+Tecnico.hasMany(NovedadMaquinaRegistro, { foreignKey: 'tecnico_id' });
+
+// Asociaciones para IncidenciaGeneral
+IncidenciaGeneral.belongsTo(Libro, { foreignKey: 'libro_id' });
+Libro.hasMany(IncidenciaGeneral, { foreignKey: 'libro_id' });
+
+// Asociaciones para Drop
+Drop.belongsTo(Libro, { foreignKey: 'libro_id' });
+Libro.hasMany(Drop, { foreignKey: 'libro_id' });
+Drop.belongsTo(Mesa, { foreignKey: 'mesa_id' });
+Mesa.hasMany(Drop, { foreignKey: 'mesa_id' });
+
+
+// Sincronizar base de datos
+const syncDatabase = async () => {
+  try {
+    await sequelize.sync({ force: false }); // Cambiar a true para recrear tablas
+    console.log('✅ Base de datos SQLite sincronizada correctamente');
+    
+    // Insertar datos iniciales si no existen
+    await insertInitialData();
+  } catch (error) {
+    console.error('❌ Error sincronizando base de datos:', error);
+  }
+};
+
+// Función para insertar datos iniciales
+const insertInitialData = async () => {
+  try {
+    // Verificar si ya existen datos
+    const userCount = await User.count();
+    if (userCount > 0) {
+      console.log('📊 Datos iniciales ya existen');
+      return;
+    }
+
+    // Crear usuario creador
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash('12345678', 10);
+    
+    const creator = await User.create({
+      nombre_apellido: 'Willinthon Carriedo',
+      usuario: 'willinthon',
+      password: hashedPassword,
+      nivel: 'TODO',
+      activo: true
+    });
+
+    // Crear salas
+    const sala1 = await Sala.create({
+      nombre: 'Monagas Royal',
+      activa: true
+    });
+
+    const sala2 = await Sala.create({
+      nombre: 'Roraima',
+      activa: true
+    });
+
+    // Crear módulos
+    const moduleRRHH = await Module.create({
+      nombre: 'MODULO RRHH',
+      icono: 'users',
+      ruta: '/rrhh',
+      activo: true
+    });
+
+    const moduleMaquinas = await Module.create({
+      nombre: 'MODULO MAQUINAS',
+      icono: 'gamepad2',
+      ruta: '/maquinas',
+      activo: true
+    });
+
+    const moduleCecom = await Module.create({
+      nombre: 'MODULO CECOM',
+      icono: 'building',
+      ruta: '/cecom',
+      activo: true
+    });
+
+    const moduleSuperConfig = await Module.create({
+      nombre: 'SUPER MODULO CONFIGURACION',
+      icono: 'settings',
+      ruta: '/super-config',
+      activo: true
+    });
+
+    // Crear permisos base (5 permisos)
+    const permissions = await Permission.bulkCreate([
+      { nombre: 'AGREGAR' },
+      { nombre: 'EDITAR' },
+      { nombre: 'BORRAR' },
+      { nombre: 'REPORTE' },
+      { nombre: 'VER' } // Permiso oculto para acceso a módulos
+    ]);
+
+    // Actualizar permisos existentes si ya existen
+    await Permission.update({ nombre: 'EDITAR' }, { where: { nombre: 'ACTUALIZAR' } });
+    await Permission.update({ nombre: 'REPORTE' }, { where: { nombre: 'VER' } });
+
+    // Crear páginas base
+    const pages = await Page.bulkCreate([
+      { 
+        nombre: 'ADMINISTRACIÓN', 
+        icono: 'settings',
+        orden: 1
+      },
+      { 
+        nombre: 'OPERACIONES', 
+        icono: 'activity',
+        orden: 2
+      },
+      { 
+        nombre: 'REPORTES', 
+        icono: 'chart',
+        orden: 3
+      }
+    ]);
+
+    // Asignar todas las salas al usuario creador
+    await creator.addSalas([sala1, sala2]);
+
+    // Asignar todos los módulos al usuario creador
+    await creator.addModules([moduleRRHH, moduleMaquinas, moduleCecom, moduleSuperConfig]);
+
+    // Asignar todos los permisos al usuario creador
+    await creator.addPermissions(permissions);
+
+    // Asignar módulos a páginas (relación uno a muchos)
+    await moduleSuperConfig.update({ page_id: pages[0].id }); // ADMINISTRACIÓN -> SUPER CONFIG
+    await moduleRRHH.update({ page_id: pages[1].id }); // OPERACIONES -> RRHH
+    await moduleMaquinas.update({ page_id: pages[1].id }); // OPERACIONES -> MÁQUINAS
+    await moduleCecom.update({ page_id: pages[1].id }); // OPERACIONES -> CECOM
+
+    // Asignar módulos a las salas (excepto SUPER CONFIGURACION)
+    await sala1.addModules([moduleRRHH, moduleMaquinas, moduleCecom]);
+    await sala2.addModules([moduleRRHH, moduleMaquinas, moduleCecom]);
+
+    console.log('✅ Datos iniciales insertados correctamente');
+  } catch (error) {
+    console.error('❌ Error insertando datos iniciales:', error);
+  }
+};
+
+module.exports = {
+  sequelize,
+  User,
+  Sala,
+  Module,
+  Permission,
+  Page,
+  UserSala,
+  UserModule,
+  UserPermission,
+  UserModulePermission,
+  PageModule,
+  SalaModule,
+  Libro,
+  Rango,
+  Mesa,
+  Juego,
+  Maquina,
+  Tecnico,
+  NovedadMaquina,
+  NovedadMaquinaRegistro,
+  IncidenciaGeneral,
+  Drop,
+  syncDatabase
+};
+
