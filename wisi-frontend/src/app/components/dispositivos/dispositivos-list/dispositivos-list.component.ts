@@ -846,7 +846,18 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   deleteDispositivo(dispositivo: any): void {
     console.log('Eliminando dispositivo:', dispositivo);
-    // Lógica para eliminar dispositivo
+    if (confirm('¿Estás seguro de que deseas eliminar este dispositivo?')) {
+      this.dispositivosService.deleteDispositivo(dispositivo.id).subscribe({
+        next: (response) => {
+          console.log('Dispositivo eliminado:', response);
+          // Remover el dispositivo del array local
+          this.dispositivos = this.dispositivos.filter(d => d.id !== dispositivo.id);
+        },
+        error: (error) => {
+          console.error('Error eliminando dispositivo:', error);
+        }
+      });
+    }
   }
 
   // Métodos de formularios

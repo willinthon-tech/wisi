@@ -2,10 +2,7 @@
   <div class="header-section">
     <button 
       class="btn-primary" 
-      (click)="navigateToCreate()"
-      [disabled]="!canCreate()"
-      [class.disabled]="!canCreate()"
-      *ngIf="isCreator">
+      (click)="navigateToCreate()">
       Crear Nuevo Dispositivo
     </button>
   </div>
@@ -25,23 +22,21 @@
             </p>
           </div>
         </div>
-        <div class="permission-actions" *ngIf="isCreator">
-          <button 
-            class="btn-edit" 
-            (click)="navigateToEdit(dispositivo.id)">
-            Editar
-          </button>
-          <button 
-            class="btn-delete" 
-            (click)="deleteDispositivo(dispositivo.id)">
-            Eliminar
-          </button>
-        </div>
-        <div class="biometric-actions">
+        <div class="permission-actions">
           <button 
             class="btn-biometric" 
             (click)="openBiometricModal(dispositivo)">
             Gestión Biométrica
+          </button>
+          <button 
+            class="btn-edit" 
+            (click)="navigateToEdit(dispositivo)">
+            Editar
+          </button>
+          <button 
+            class="btn-delete" 
+            (click)="deleteDispositivo(dispositivo)">
+            Eliminar
           </button>
         </div>
       </div>
