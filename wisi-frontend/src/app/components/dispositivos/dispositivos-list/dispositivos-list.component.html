@@ -62,7 +62,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h2>Gestión Biométrica - {{ selectedDispositivo?.nombre }}</h2>
-      <button type="button" class="btn-close" (click)="closeBiometricModal()"></button>
+      <button type="button" class="btn-close btn-close-red" (click)="closeBiometricModal()"></button>
     </div>
     <div class="modal-body">
       <div class="biometric-info" *ngIf="selectedDispositivo">
@@ -121,7 +121,6 @@
       </div>
 
       <div class="biometric-results" *ngIf="biometricResult && currentView !== 'test'">
-        <h6>Resultado:</h6>
         <div class="result-content">
           <div *ngIf="currentView === 'lista'">
             <!-- Spinner de carga para tabla -->
@@ -192,41 +191,30 @@
                    (error)="onImageError($event)" (load)="onImageLoad($event)">
               </div>
               
-              <div *ngIf="!photoLoading && !userPhotoUrl && photoError" class="alert alert-warning">
+              
+              <div *ngIf="!photoLoading && (!userPhotoUrl || userPhotoUrl === '') && photoError" class="alert alert-warning">
                 <i class="fas fa-exclamation-triangle"></i>
                 {{ photoError }}
               </div>
               
-              <!-- Selector de foto y botones -->
+              <!-- Input oculto para selección de archivo -->
+              <input type="file" id="photoInput" accept="image/*" 
+                     (change)="onPhotoSelected($event)" #fileInput 
+                     style="display: none;">
+              
+              <!-- Botones de acción condicionales -->
               <div class="photo-actions mt-3" *ngIf="!photoLoading">
-                <!-- Selector de archivo -->
-                <div class="mb-3">
-                  <label for="photoInput" class="form-label">Seleccionar Nueva Foto</label>
-                  <input type="file" class="form-control" id="photoInput" accept="image/*" 
-                         (change)="onPhotoSelected($event)" #fileInput>
-                  <div class="form-text">Selecciona una imagen (JPG, PNG, GIF)</div>
-                </div>
-                
-                <!-- Vista previa de la foto seleccionada -->
-                <div *ngIf="selectedPhoto" class="mb-3 text-center">
-                  <img [src]="selectedPhoto" alt="Vista previa" class="img-thumbnail" 
-                       style="max-width: 200px; max-height: 200px;">
-                  <div class="mt-2">
-                    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removePhoto()">
-                      <i class="fas fa-trash"></i> Eliminar
-                    </button>
-                  </div>
-                </div>
-                
-                <!-- Botones de acción -->
                 <div class="d-flex justify-content-center gap-3">
-                  <button type="button" class="btn btn-warning" (click)="registrarRostro()" 
-                          [disabled]="!selectedPhoto || photoLoading">
+                  <!-- Botón amarillo: Solo aparece si NO hay foto -->
+                  <button type="button" class="btn btn-warning" (click)="seleccionarYRegistrarRostro()" 
+                          [disabled]="photoLoading" *ngIf="!userPhotoUrl || userPhotoUrl === ''">
                     <span *ngIf="photoLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                     <i *ngIf="!photoLoading" class="fas fa-camera"></i> 
                     {{ photoLoading ? 'Registrando...' : 'Registrar Rostro' }}
                   </button>
-                  <button type="button" class="btn btn-danger" (click)="eliminarSoloFoto()" [disabled]="photoLoading">
+                  
+                  <!-- Botón rojo: Solo aparece si SÍ hay foto -->
+                  <button type="button" class="btn btn-danger" (click)="eliminarSoloFoto()" [disabled]="photoLoading" *ngIf="userPhotoUrl && userPhotoUrl !== ''">
                     <span *ngIf="photoLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                     <i *ngIf="!photoLoading" class="fas fa-trash"></i> 
                     {{ photoLoading ? 'Eliminando...' : 'Eliminar Foto' }}
@@ -420,11 +408,6 @@
                     <span *ngIf="updatingUser" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                     <i *ngIf="!updatingUser" class="fas fa-save"></i> 
                     {{ updatingUser ? 'Actualizando...' : 'Actualizar Usuario' }}
-                  </button>
-                  <button type="button" class="btn btn-danger" (click)="eliminarUsuario(editingUser)" [disabled]="deletingUser">
-                    <span *ngIf="deletingUser" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    <i *ngIf="!deletingUser" class="fas fa-trash"></i> 
-                    {{ deletingUser ? 'Eliminando...' : 'Eliminar' }}
                   </button>
                 </div>
               </form>

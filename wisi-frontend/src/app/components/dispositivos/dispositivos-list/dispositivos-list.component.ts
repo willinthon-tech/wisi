@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -65,7 +65,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private sanitizer: DomSanitizer,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -259,6 +260,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     this.photoLoading = true;
     this.photoError = '';
     
+    // LIMPIAR la variable para que siempre inicie vacía
+    this.userPhotoUrl = '';
+    console.log('🧹 userPhotoUrl inicializado como vacío');
+    
     this.hikvisionService.getUserPhoto(
       this.selectedDispositivo.ip_remota,
       this.selectedDispositivo.usuario,
@@ -268,15 +273,43 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       next: (response) => {
         console.log('Respuesta de getUserPhoto:', response);
         this.photoLoading = false;
-        if (response.success && response.data?.photoUrl) {
-          this.userPhotoUrl = response.data.photoUrl;
+        if (response.success && response.data?.photoUrl && response.data.photoUrl.trim() !== '') {
+          // Validar que la URL base64 sea válida
+          const photoUrl = response.data.photoUrl;
+          console.log('🔍 URL recibida (primeros 100 chars):', photoUrl.substring(0, 100));
+          console.log('🔍 Longitud de URL:', photoUrl.length);
+          
+          // Verificar que sea una URL base64 válida
+          if (photoUrl.startsWith('data:image/') && photoUrl.includes('base64,')) {
+            // Verificar que la URL no esté corrupta (debe tener contenido después de base64,)
+            const base64Index = photoUrl.indexOf('base64,');
+            const base64Data = photoUrl.substring(base64Index + 7);
+            
+            if (base64Data.length > 100) { // Debe tener al menos 100 caracteres de datos
+              // Usar la URL base64 directamente sin modificar
+              this.userPhotoUrl = photoUrl;
+              console.log('✅ Foto válida asignada, datos base64:', base64Data.length, 'caracteres');
+            } else {
+              console.log('❌ URL base64 corrupta, datos insuficientes:', base64Data.length, 'caracteres');
+              this.userPhotoUrl = '';
+              this.photoError = 'Imagen corrupta o incompleta';
+            }
+          } else {
+            console.log('❌ URL base64 inválida, formato incorrecto');
+            this.userPhotoUrl = '';
+            this.photoError = 'Formato de imagen no válido';
+          }
         } else {
-          this.photoError = 'No se pudo cargar la foto';
+          // Si no hay foto, limpiar la URL
+          console.log('❌ No hay foto, limpiando userPhotoUrl');
+          this.userPhotoUrl = '';
+          this.photoError = 'No se encontró foto para este usuario';
         }
       },
       error: (error) => {
         console.error('Error obteniendo foto:', error);
         this.photoLoading = false;
+        this.userPhotoUrl = '';
         this.photoError = 'Error cargando foto: ' + error.message;
       }
     });
@@ -593,6 +626,9 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       reader.onload = (e: any) => {
         this.selectedPhoto = e.target.result;
         console.log('📸 Foto convertida a base64, tamaño:', this.selectedPhoto?.length || 0, 'caracteres');
+        
+        // Automáticamente proceder a registrar el rostro
+        this.registrarRostro();
       };
       reader.readAsDataURL(file);
     }
@@ -603,7 +639,23 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     this.selectedPhoto = null;
   }
 
-  // Método para registrar solo el rostro
+  // Método para seleccionar archivo y registrar rostro automáticamente
+  seleccionarYRegistrarRostro(): void {
+    console.log('📸 Abriendo selector de archivo para registrar rostro...');
+    
+    if (!this.editingUser || !this.editingUser.employeeNo) {
+      console.error('❌ No hay usuario seleccionado para registrar rostro');
+      return;
+    }
+
+    // Abrir el selector de archivo
+    const fileInput = document.getElementById('photoInput') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
+  }
+
+  // Método para registrar solo el rostro (llamado después de seleccionar archivo)
   registrarRostro(): void {
     console.log('📸 Registrando solo el rostro del usuario...');
     
@@ -650,8 +702,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
           next: (response) => {
             console.log('✅ Rostro registrado exitosamente:', response);
             this.photoLoading = false;
-            this.currentView = 'lista'; // Volver a la lista
-            this.getUsers(); // Recargar lista de usuarios
+            // NO cerrar la modal, solo recargar la foto del usuario
+            this.verFoto(this.editingUser);
           },
           error: (error) => {
             console.error('❌ Error registrando rostro:', error);
@@ -719,11 +771,13 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   // Métodos para manejo de imágenes
   onImageError(event: any): void {
-    console.log('Error cargando imagen:', event);
+    console.log('❌ Error cargando imagen:', event);
+    console.log('❌ userPhotoUrl que causó el error:', this.userPhotoUrl);
   }
 
   onImageLoad(event: any): void {
-    console.log('Imagen cargada:', event);
+    console.log('✅ Imagen cargada exitosamente:', event);
+    console.log('✅ userPhotoUrl que se cargó:', this.userPhotoUrl);
   }
 
   // Métodos de navegación
@@ -758,8 +812,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     return this.isCreator;
   }
 
+
   // Método para eliminar solo la foto
   eliminarSoloFoto(): void {
+    console.log('🗑️ INICIANDO eliminarSoloFoto()');
     console.log('🗑️ Eliminando solo la foto del usuario:', this.editingUser);
     
     if (!this.editingUser || !this.editingUser.employeeNo) {
@@ -779,6 +835,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     };
 
     console.log('🗑️ Payload para eliminar foto:', deletePhotoPayload);
+    console.log('🗑️ LLAMANDO al servicio deleteUserPhotoOnly...');
 
     // Llamar al servicio para eliminar solo la foto
     this.hikvisionService.deleteUserPhotoOnly(
@@ -791,9 +848,17 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
         console.log('✅ Foto eliminada exitosamente:', response);
         this.photoLoading = false;
         if (response.success) {
-          // Volver a la lista de usuarios
-          this.currentView = 'lista';
-          this.getUsers(); // Recargar lista
+          // Limpiar la foto actual para actualizar la interfaz
+          console.log('🧹 ANTES de limpiar userPhotoUrl:', this.userPhotoUrl);
+          this.userPhotoUrl = '';
+          this.photoError = 'Foto eliminada correctamente';
+          console.log('🧹 DESPUÉS de limpiar userPhotoUrl:', this.userPhotoUrl);
+          console.log('🧹 Tipo de userPhotoUrl:', typeof this.userPhotoUrl);
+          console.log('🧹 userPhotoUrl === "":', this.userPhotoUrl === '');
+          
+          // Forzar detección de cambios
+          this.cdr.detectChanges();
+          console.log('🧹 Después de detectChanges userPhotoUrl:', this.userPhotoUrl);
         }
       },
       error: (error) => {

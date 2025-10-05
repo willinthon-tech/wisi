@@ -209,6 +209,20 @@
   border-radius: 50%;
 }
 
+.btn-close-red {
+  background: #dc3545 !important;
+  color: white !important;
+  border: 2px solid #dc3545 !important;
+  border-radius: 50% !important;
+  font-weight: bold !important;
+}
+
+.btn-close-red:hover {
+  background: #c82333 !important;
+  border-color: #c82333 !important;
+  transform: scale(1.1);
+}
+
 .modal-body {
   padding: 20px;
 }
