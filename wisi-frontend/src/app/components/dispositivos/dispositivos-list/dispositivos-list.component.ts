@@ -232,6 +232,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   getUsers(): void {
     this.loadingUsers = true;
+    this.currentView = 'lista'; // Cambiar a la vista de lista
     
     this.hikvisionService.getUsers(
       this.selectedDispositivo.ip_remota,
