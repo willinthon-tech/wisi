@@ -11,16 +11,21 @@
   "private": true,
   "dependencies": {
     "@angular/common": "^19.2.0",
-    "@angular/compiler": "^19.2.0",
+    "@angular/compiler": "^19.2.15",
     "@angular/core": "^19.2.0",
     "@angular/forms": "^19.2.0",
     "@angular/platform-browser": "^19.2.0",
     "@angular/platform-browser-dynamic": "^19.2.0",
     "@angular/router": "^19.2.0",
     "@ng-bootstrap/ng-bootstrap": "^18.0.0",
+    "axios": "^1.12.2",
     "bootstrap": "^5.3.8",
+    "canvas": "^3.2.0",
+    "face-api.js": "^0.22.2",
+    "form-data": "^4.0.4",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
+    "uguu-api": "^0.1.8",
     "zone.js": "~0.15.0"
   },
   "devDependencies": {

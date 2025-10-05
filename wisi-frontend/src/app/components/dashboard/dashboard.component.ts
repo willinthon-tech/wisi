@@ -211,7 +211,6 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    console.log('Dashboard component initialized');
     this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
       if (user) {
@@ -221,23 +220,18 @@ export class DashboardComponent implements OnInit {
   }
 
   private loadUserData() {
-    console.log('Loading user data...');
     this.loadPages();
     this.loadUserPages();
   }
 
   private loadPages() {
-    console.log('🔍 Cargando páginas...');
     this.userService.getPages().subscribe({
       next: (pages) => {
-        console.log('📄 Páginas recibidas del backend:', pages);
         // Convertir activo a boolean si viene como string
         this.pages = pages.filter(page => {
           const isActive = page.activo === true || page.activo === 'true' || page.activo === 1;
-          console.log(`Página ${page.nombre}: activo=${page.activo} (tipo: ${typeof page.activo}) -> isActive=${isActive}`);
           return isActive;
         });
-        console.log('✅ Páginas activas filtradas:', this.pages);
       },
       error: (error) => {
         console.error('❌ Error cargando páginas:', error);
@@ -247,14 +241,10 @@ export class DashboardComponent implements OnInit {
 
   private loadUserPages() {
     if (this.currentUser) {
-      console.log('🔍 Cargando páginas del usuario...');
-      console.log('👤 Usuario actual:', this.currentUser);
       
       // Cargar las páginas asignadas al usuario desde el backend
       this.userService.getUserMenu().subscribe({
         next: (menuData) => {
-          console.log('📋 Menú del usuario recibido:', menuData);
-          console.log('📋 Tipo de datos recibidos:', typeof menuData, Array.isArray(menuData));
           
           if (Array.isArray(menuData)) {
             // Extraer las páginas del menú del usuario
@@ -263,11 +253,9 @@ export class DashboardComponent implements OnInit {
               nombre: item.nombre
             }));
           } else {
-            console.log('⚠️ El menú no es un array, usando array vacío');
             this.userPages = [];
           }
           
-          console.log('✅ Páginas del usuario cargadas:', this.userPages);
         },
         error: (error) => {
           console.error('❌ Error cargando páginas del usuario:', error);
@@ -280,27 +268,20 @@ export class DashboardComponent implements OnInit {
 
   hasAccessToPage(page: any): boolean {
     if (!this.currentUser) {
-      console.log('❌ No hay usuario autenticado');
       return false;
     }
     
     // El creador tiene acceso a todo
     if (this.currentUser.nivel === 'TODO') {
-      console.log(`🔓 Creador - Acceso total a página: ${page.nombre}`);
       return true;
     }
     
     // Verificar si el usuario tiene acceso a esta página
     const hasAccess = this.userPages.some(userPage => {
       const match = userPage.id === page.id;
-      console.log(`🔍 Comparando: userPage.id=${userPage.id} === page.id=${page.id} = ${match}`);
       return match;
     });
     
-    console.log(`🔍 Verificando acceso a página "${page.nombre}" (ID: ${page.id})`);
-    console.log(`📋 Páginas del usuario:`, this.userPages);
-    console.log(`📋 Página actual:`, { id: page.id, nombre: page.nombre });
-    console.log(`✅ Tiene acceso: ${hasAccess}`);
     
     return hasAccess;
   }

@@ -41,6 +41,12 @@ import { AuthService } from '../../services/auth.service';
             (click)="navigateTo('usuarios')">
             Gestión de Usuarios
           </button>
+          <button 
+            class="tab-btn" 
+            [class.active]="isActiveRoute('dispositivos')"
+            (click)="navigateTo('dispositivos')">
+            Gestión de Dispositivos
+          </button>
         </div>
 
         <div class="tab-content">

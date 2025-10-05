@@ -225,7 +225,6 @@ export class SalaCreateComponent {
     
     this.userService.createSala(salaData).subscribe({
       next: (response) => {
-        console.log('Sala creada:', response);
         alert('Sala creada exitosamente');
         this.router.navigate(['/super-config/salas']);
       },

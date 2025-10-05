@@ -27,6 +27,31 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'areas',
+    loadComponent: () => import('./components/areas/areas-list/areas-list.component').then(m => m.AreasListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'departamentos',
+    loadComponent: () => import('./components/departamentos/departamentos-list/departamentos-list.component').then(m => m.DepartamentosListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'cargos',
+    loadComponent: () => import('./components/cargos/cargos-list/cargos-list.component').then(m => m.CargosListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'empleados',
+    loadComponent: () => import('./components/empleados/empleados-list/empleados-list.component').then(m => m.EmpleadosListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'horarios',
+    loadComponent: () => import('./components/horarios/horarios-list/horarios-list.component').then(m => m.HorariosListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'maquinas',
     loadComponent: () => import('./components/maquinas/maquinas.component').then(m => m.MaquinasComponent),
     canActivate: [AuthGuard]
@@ -164,6 +189,18 @@ export const routes: Routes = [
       {
         path: 'paginas/editar/:id',
         loadComponent: () => import('./components/super-config/paginas/pagina-edit/pagina-edit.component').then(m => m.PaginaEditComponent)
+      },
+      {
+        path: 'dispositivos',
+        loadComponent: () => import('./components/dispositivos/dispositivos-list/dispositivos-list.component').then(m => m.DispositivosListComponent)
+      },
+      {
+        path: 'dispositivos/crear',
+        loadComponent: () => import('./components/dispositivos/dispositivos-form/dispositivos-form.component').then(m => m.DispositivosFormComponent)
+      },
+      {
+        path: 'dispositivos/editar/:id',
+        loadComponent: () => import('./components/dispositivos/dispositivos-form/dispositivos-form.component').then(m => m.DispositivosFormComponent)
       }
     ]
   },

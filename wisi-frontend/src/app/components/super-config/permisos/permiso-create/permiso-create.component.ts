@@ -342,7 +342,6 @@ export class PermisoCreateComponent implements OnInit {
 
     this.userService.createPermission(permissionData).subscribe({
       next: (response) => {
-        console.log('Permiso creado:', response);
         alert('Permiso creado exitosamente');
         this.router.navigate(['/super-config/permisos']);
       },

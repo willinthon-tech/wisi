@@ -346,7 +346,6 @@ export class ModuloCreateComponent implements OnInit {
   private loadPages() {
     this.userService.getAllPages().subscribe({
       next: (pages) => {
-        console.log('Páginas disponibles:', pages);
         this.availablePages = pages || [];
       },
       error: (error) => {
@@ -375,7 +374,6 @@ export class ModuloCreateComponent implements OnInit {
 
     this.userService.createModule(moduleData).subscribe({
       next: (response) => {
-        console.log('Módulo creado:', response);
         alert('Módulo creado exitosamente');
         this.router.navigate(['/super-config/modulos']);
       },

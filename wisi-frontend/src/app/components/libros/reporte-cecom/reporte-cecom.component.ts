@@ -548,7 +548,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.libroId = +this.route.snapshot.paramMap.get('libroId')!;
-    console.log('Reporte cargado para libro ID:', this.libroId);
     this.loadReportData();
   }
 
@@ -563,7 +562,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     this.http.get(`http://localhost:3000/api/public/libros/${this.libroId}`).subscribe({
       next: (libro: any) => {
         this.libro = libro;
-        console.log('Libro cargado:', libro);
         this.loadRelatedData();
         this.updateMetaTags();
       },
@@ -579,7 +577,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     this.http.get(`http://localhost:3000/api/public/drops/${this.libroId}`).subscribe({
       next: (drops: any) => {
         this.drops = drops;
-        console.log('Drops cargados:', drops);
         this.calculateTotals();
       },
       error: (error: any) => {
@@ -593,8 +590,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
         this.novedades = novedades;
         // Agrupar novedades por [Técnico, Novedad, Hora]
         this.novedadesAgrupadas = this.agruparNovedades(novedades);
-        console.log('Novedades cargadas:', novedades);
-        console.log('Novedades agrupadas:', this.novedadesAgrupadas);
       },
       error: (error: any) => {
         console.error('Error cargando novedades:', error);
@@ -605,7 +600,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     this.http.get(`http://localhost:3000/api/public/incidencias/${this.libroId}`).subscribe({
       next: (incidencias: any) => {
         this.incidencias = incidencias;
-        console.log('Incidencias cargadas:', incidencias);
         this.loading = false;
       },
       error: (error: any) => {
@@ -669,7 +663,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     this.meta.updateTag({ name: 'twitter:title', content: title });
     this.meta.updateTag({ name: 'twitter:description', content: description });
 
-    console.log('Metaetiquetas actualizadas:', { title, description });
   }
 
   agruparNovedades(novedades: any[]): any[] {

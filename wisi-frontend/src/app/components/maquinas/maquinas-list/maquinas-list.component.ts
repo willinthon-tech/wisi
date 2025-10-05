@@ -444,7 +444,6 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados en Maquinas:', permissions);
       this.debugPermissions();
     });
 
@@ -461,27 +460,19 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
   }
 
   debugPermissions(): void {
-    console.log('🔍 Debug de permisos para módulo Maquinas (ID: 2)');
     const allPermissions = this.permissionsService.getCurrentPermissions();
-    console.log('📋 Todos los permisos del usuario:', allPermissions);
 
     // Mostrar todos los módulos únicos que tiene el usuario
     const uniqueModules = [...new Set(allPermissions.map(p => p.moduleId))];
-    console.log('🏢 Módulos únicos que tiene el usuario:', uniqueModules);
 
     // Mostrar permisos por módulo
     uniqueModules.forEach(moduleId => {
       const modulePermissions = allPermissions.filter(p => p.moduleId === moduleId);
-      console.log(`📋 Módulo ${moduleId} tiene permisos:`, modulePermissions.map(p => p.permissionName));
     });
 
-    console.log('✅ Puede agregar:', this.canAdd());
-    console.log('✅ Puede editar:', this.canEdit());
-    console.log('✅ Puede eliminar:', this.canDelete());
 
     // Debug adicional para verificar el módulo específico
     const maquinasPermissions = allPermissions.filter(p => p.moduleId === 2);
-    console.log('🔍 Permisos específicos para módulo 2 (Maquinas):', maquinasPermissions);
   }
 
   // Métodos para verificar permisos
@@ -505,7 +496,6 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
     this.maquinasService.getMaquinas().subscribe({
       next: (maquinas) => {
         this.maquinas = maquinas;
-        console.log('Máquinas cargadas:', maquinas);
       },
       error: (error) => {
         console.error('Error cargando máquinas:', error);
@@ -537,8 +527,6 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
     this.maquinasService.getUserRangos().subscribe({
       next: (rangos) => {
         this.userRangos = rangos;
-        console.log('Rangos del usuario cargados:', rangos);
-        console.log('Cantidad de rangos:', rangos.length);
         if (rangos.length === 0) {
           console.warn('No se encontraron rangos para el usuario');
         }

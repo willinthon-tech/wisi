@@ -47,3 +47,9 @@ module.exports = (sequelize) => {
   return UserModulePermission;
 };
 
+
+
+
+
+
+

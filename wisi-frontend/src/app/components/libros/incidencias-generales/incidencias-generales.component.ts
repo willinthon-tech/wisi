@@ -304,7 +304,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
     
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados en Incidencias Generales:', permissions);
       this.checkPermissions();
     });
 
@@ -312,8 +311,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
     this.route.params.subscribe(params => {
       this.libroId = +params['libroId'];
       this.salaId = +params['salaId'];
-      console.log('ID del libro:', this.libroId);
-      console.log('ID de la sala:', this.salaId);
       
       // Cargar información del libro
       if (this.libroId) {
@@ -336,14 +333,12 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
   private checkPermissions(): void {
     // Incidencias Generales es una operación funcional, no CRUD - siempre permitir acceso
     this.hasAccess = true;
-    console.log('✅ Incidencias Generales - Acceso permitido (operación funcional)');
   }
 
   loadUserSalas() {
     this.userService.getUserSalas().subscribe({
       next: (salas: Sala[]) => {
         this.userSalas = salas;
-        console.log('Salas del usuario cargadas:', this.userSalas);
         // Una vez cargadas las salas, cargar las incidencias
         this.loadIncidencias();
       },
@@ -368,7 +363,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
           if (a.hora > b.hora) return 1;
           return 0;
         });
-        console.log('Incidencias cargadas para libro', this.libroId, ':', this.incidencias);
       },
       error: (error: any) => {
         console.error('Error cargando incidencias:', error);
@@ -396,7 +390,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
 
     this.incidenciasGeneralesService.createIncidenciaGeneral(incidenciaData).subscribe({
       next: (incidencia: IncidenciaGeneral) => {
-        console.log('Incidencia guardada:', incidencia);
         this.loadIncidencias(); // Recargar la lista
         this.resetForm();
         alert('Incidencia guardada correctamente');
@@ -412,7 +405,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
     if (confirm('¿Está seguro de que desea eliminar esta incidencia?')) {
       this.incidenciasGeneralesService.deleteIncidenciaGeneral(id).subscribe({
         next: () => {
-          console.log('Incidencia eliminada');
           this.loadIncidencias(); // Recargar la lista
           alert('Incidencia eliminada correctamente');
         },
@@ -435,7 +427,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
     this.libroService.getLibro(this.libroId).subscribe({
       next: (libro) => {
         this.libro = libro;
-        console.log('Libro cargado:', this.libro);
       },
       error: (error) => {
         console.error('Error cargando libro:', error);

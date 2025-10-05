@@ -436,7 +436,6 @@ export class RangosListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados en Rangos:', permissions);
       this.debugPermissions();
     });
 
@@ -453,27 +452,19 @@ export class RangosListComponent implements OnInit, OnDestroy {
   }
 
   debugPermissions(): void {
-    console.log('🔍 Debug de permisos para módulo Rangos (ID: 4 - Configuración)');
     const allPermissions = this.permissionsService.getCurrentPermissions();
-    console.log('📋 Todos los permisos del usuario:', allPermissions);
 
     // Mostrar todos los módulos únicos que tiene el usuario
     const uniqueModules = [...new Set(allPermissions.map(p => p.moduleId))];
-    console.log('🏢 Módulos únicos que tiene el usuario:', uniqueModules);
 
     // Mostrar permisos por módulo
     uniqueModules.forEach(moduleId => {
       const modulePermissions = allPermissions.filter(p => p.moduleId === moduleId);
-      console.log(`📋 Módulo ${moduleId} tiene permisos:`, modulePermissions.map(p => p.permissionName));
     });
 
-    console.log('✅ Puede agregar:', this.canAdd());
-    console.log('✅ Puede editar:', this.canEdit());
-    console.log('✅ Puede eliminar:', this.canDelete());
 
     // Debug adicional para verificar el módulo específico
     const rangosPermissions = allPermissions.filter(p => p.moduleId === 4);
-    console.log('🔍 Permisos específicos para módulo 4 (Configuración/Rangos):', rangosPermissions);
   }
 
   // Métodos para verificar permisos
@@ -498,7 +489,6 @@ export class RangosListComponent implements OnInit, OnDestroy {
     this.rangosService.getRangos().subscribe({
       next: (rangos) => {
         this.rangos = rangos;
-        console.log('Rangos cargados:', rangos);
       },
       error: (error) => {
         console.error('Error cargando rangos:', error);
@@ -530,8 +520,6 @@ export class RangosListComponent implements OnInit, OnDestroy {
     this.rangosService.getUserSalas().subscribe({
       next: (salas) => {
         this.userSalas = salas;
-        console.log('🏢 Salas del usuario cargadas:', salas);
-        console.log('🏢 Cantidad de salas:', salas.length);
         if (salas.length === 0) {
           console.warn('⚠️ El usuario no tiene salas asignadas');
         }

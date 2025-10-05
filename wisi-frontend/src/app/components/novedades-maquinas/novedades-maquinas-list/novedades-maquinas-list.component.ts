@@ -437,7 +437,6 @@ export class NovedadesMaquinasListComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados en Novedades Máquinas List:', permissions);
     });
 
     this.loadNovedades();
@@ -454,7 +453,6 @@ export class NovedadesMaquinasListComponent implements OnInit, OnDestroy {
     this.novedadesService.getNovedadesMaquinas().subscribe({
       next: (novedades: NovedadMaquina[]) => {
         this.novedades = novedades;
-        console.log('Novedades cargadas:', this.novedades);
       },
       error: (error: any) => {
         console.error('Error cargando novedades:', error);
@@ -467,7 +465,6 @@ export class NovedadesMaquinasListComponent implements OnInit, OnDestroy {
     this.userService.getUserSalas().subscribe({
       next: (salas: any[]) => {
         this.userSalas = salas;
-        console.log('Salas del usuario cargadas:', this.userSalas);
       },
       error: (error: any) => {
         console.error('Error cargando salas del usuario:', error);
@@ -505,7 +502,6 @@ export class NovedadesMaquinasListComponent implements OnInit, OnDestroy {
       const updateData = { nombre: this.nuevaNovedad.nombre };
       this.novedadesService.updateNovedadMaquina(this.selectedNovedad.id, updateData).subscribe({
         next: (novedad: NovedadMaquina) => {
-          console.log('Novedad actualizada:', novedad);
           this.loadNovedades();
           this.closeSalaSelector();
           alert('Novedad actualizada correctamente');
@@ -523,7 +519,6 @@ export class NovedadesMaquinasListComponent implements OnInit, OnDestroy {
       }
       this.novedadesService.createNovedadMaquina(this.nuevaNovedad).subscribe({
         next: (novedad: NovedadMaquina) => {
-          console.log('Novedad creada:', novedad);
           this.loadNovedades();
           this.closeSalaSelector();
           alert('Novedad creada correctamente');
@@ -548,7 +543,6 @@ export class NovedadesMaquinasListComponent implements OnInit, OnDestroy {
     if (confirm('¿Está seguro de que desea eliminar esta novedad?')) {
       this.novedadesService.deleteNovedadMaquina(id).subscribe({
         next: () => {
-          console.log('Novedad eliminada');
           this.loadNovedades();
           alert('Novedad eliminada correctamente');
         },

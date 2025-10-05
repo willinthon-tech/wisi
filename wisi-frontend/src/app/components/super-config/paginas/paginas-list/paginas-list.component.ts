@@ -369,7 +369,6 @@ export class PaginasListComponent implements OnInit {
     
     pageService.subscribe({
       next: (pages) => {
-        console.log('Páginas cargadas:', pages);
         this.pages = pages || [];
         this.loading = false;
       },
@@ -393,7 +392,6 @@ export class PaginasListComponent implements OnInit {
     if (confirm(`¿Estás seguro de que quieres eliminar la página "${page.nombre}"?`)) {
       this.userService.deletePage(page.id).subscribe({
         next: (response) => {
-          console.log('Página eliminada:', response);
           alert('Página eliminada exitosamente');
           this.loadPages(); // Recargar la lista
         },

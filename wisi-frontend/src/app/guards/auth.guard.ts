@@ -13,26 +13,21 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   canActivate(): Observable<boolean> {
-    console.log('🔐 AuthGuard - Verificando autenticación...');
     
     const token = this.authService.getToken();
     if (!token) {
-      console.log('❌ AuthGuard - No hay token, redirigiendo al login');
       this.router.navigate(['/login']);
       return of(false);
     }
     
-    console.log('🔐 AuthGuard - Token presente, verificando...');
     
     // Si ya tenemos el usuario, permitir acceso inmediatamente
     const currentUser = this.authService.getCurrentUser();
     if (currentUser) {
-      console.log('✅ AuthGuard - Usuario ya cargado, permitiendo acceso');
       return of(true);
     }
     
     // Si no tenemos el usuario, esperar a que se complete la verificación
-    console.log('⏳ AuthGuard - Esperando verificación del token...');
     
     // Esperar un poco para que la verificación se complete
     return new Observable(observer => {
@@ -41,7 +36,6 @@ export class AuthGuard implements CanActivate {
       
       // Timeout de 3 segundos
       timeoutId = setTimeout(() => {
-        console.log('⏰ AuthGuard - Timeout esperando verificación');
         this.router.navigate(['/login']);
         observer.next(false);
         observer.complete();
@@ -51,7 +45,6 @@ export class AuthGuard implements CanActivate {
       subscription = this.authService.currentUser$.subscribe({
         next: (user) => {
           if (user) {
-            console.log('✅ AuthGuard - Usuario verificado, permitiendo acceso');
             clearTimeout(timeoutId);
             observer.next(true);
             observer.complete();

@@ -18,6 +18,8 @@ import { NovedadesMaquinasService } from './services/novedades-maquinas.service'
 import { NovedadesMaquinasRegistrosService } from './services/novedades-maquinas-registros.service';
 import { IncidenciasGeneralesService } from './services/incidencias-generales.service';
 import { DropsService } from './services/drops.service';
+import { DispositivosService } from './services/dispositivos.service';
+import { HikvisionIsapiService } from './services/hikvision-isapi.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -36,6 +38,8 @@ export const appConfig: ApplicationConfig = {
     NovedadesMaquinasService,
     NovedadesMaquinasRegistrosService,
     IncidenciasGeneralesService,
-    DropsService
+    DropsService,
+    DispositivosService,
+    HikvisionIsapiService
   ]
 };

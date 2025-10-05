@@ -442,7 +442,6 @@ export class JuegosListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados en Juegos:', permissions);
       this.debugPermissions();
     });
 
@@ -459,27 +458,19 @@ export class JuegosListComponent implements OnInit, OnDestroy {
   }
 
   debugPermissions(): void {
-    console.log('🔍 Debug de permisos para módulo Juegos (ID: 3 - CECOM)');
     const allPermissions = this.permissionsService.getCurrentPermissions();
-    console.log('📋 Todos los permisos del usuario:', allPermissions);
 
     // Mostrar todos los módulos únicos que tiene el usuario
     const uniqueModules = [...new Set(allPermissions.map(p => p.moduleId))];
-    console.log('🏢 Módulos únicos que tiene el usuario:', uniqueModules);
 
     // Mostrar permisos por módulo
     uniqueModules.forEach(moduleId => {
       const modulePermissions = allPermissions.filter(p => p.moduleId === moduleId);
-      console.log(`📋 Módulo ${moduleId} tiene permisos:`, modulePermissions.map(p => p.permissionName));
     });
 
-    console.log('✅ Puede agregar:', this.canAdd());
-    console.log('✅ Puede editar:', this.canEdit());
-    console.log('✅ Puede eliminar:', this.canDelete());
 
     // Debug adicional para verificar el módulo específico
     const juegosPermissions = allPermissions.filter(p => p.moduleId === 3);
-    console.log('🔍 Permisos específicos para módulo 3 (CECOM/Juegos):', juegosPermissions);
   }
 
   // Métodos para verificar permisos
@@ -503,7 +494,6 @@ export class JuegosListComponent implements OnInit, OnDestroy {
     this.juegosService.getJuegos().subscribe({
       next: (juegos) => {
         this.juegos = juegos;
-        console.log('Juegos cargados:', juegos);
       },
       error: (error) => {
         console.error('Error cargando juegos:', error);
@@ -535,7 +525,6 @@ export class JuegosListComponent implements OnInit, OnDestroy {
     this.juegosService.getUserSalas().subscribe({
       next: (salas) => {
         this.userSalas = salas;
-        console.log('Salas del usuario cargadas:', salas);
       },
       error: (error) => {
         console.error('Error cargando salas del usuario:', error);

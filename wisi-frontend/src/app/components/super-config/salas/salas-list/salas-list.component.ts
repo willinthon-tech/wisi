@@ -222,7 +222,6 @@ export class SalasListComponent implements OnInit {
     this.loading = true;
     this.userService.getSalas().subscribe({
       next: (salas) => {
-        console.log('Salas cargadas:', salas);
         this.salas = salas || [];
         this.loading = false;
       },
@@ -246,7 +245,6 @@ export class SalasListComponent implements OnInit {
     if (confirm(`¿Estás seguro de que quieres eliminar la sala "${sala.nombre}"?`)) {
       this.userService.deleteSala(sala.id).subscribe({
         next: (response) => {
-          console.log('Sala eliminada:', response);
           alert('Sala eliminada exitosamente');
           this.loadSalas(); // Recargar la lista
         },

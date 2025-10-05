@@ -108,6 +108,13 @@ Sala.hasMany(NovedadMaquina, { foreignKey: 'sala_id' });
 // Importar NovedadMaquinaRegistro
 const NovedadMaquinaRegistro = require('./NovedadMaquinaRegistro')(sequelize);
 const IncidenciaGeneral = require('./IncidenciaGeneral')(sequelize);
+const Area = require('./Area')(sequelize);
+const Departamento = require('./Departamento')(sequelize);
+const Cargo = require('./Cargo')(sequelize);
+const Empleado = require('./Empleado')(sequelize);
+const Horario = require('./Horario')(sequelize);
+const Bloque = require('./Bloque')(sequelize);
+const Dispositivo = require('./Dispositivo')(sequelize);
 
 // Asociaciones para NovedadMaquinaRegistro
 NovedadMaquinaRegistro.belongsTo(Libro, { foreignKey: 'libro_id' });
@@ -131,6 +138,37 @@ Drop.belongsTo(Libro, { foreignKey: 'libro_id' });
 Libro.hasMany(Drop, { foreignKey: 'libro_id' });
 Drop.belongsTo(Mesa, { foreignKey: 'mesa_id' });
 Mesa.hasMany(Drop, { foreignKey: 'mesa_id' });
+
+// Asociaciones para Area
+Area.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(Area, { foreignKey: 'sala_id' });
+
+// Asociaciones para Departamento
+Departamento.belongsTo(Area, { foreignKey: 'area_id' });
+Area.hasMany(Departamento, { foreignKey: 'area_id' });
+
+// Asociaciones para Cargo
+Cargo.belongsTo(Departamento, { foreignKey: 'departamento_id' });
+Departamento.hasMany(Cargo, { foreignKey: 'departamento_id' });
+
+// Asociaciones para Empleado
+Empleado.belongsTo(Cargo, { foreignKey: 'cargo_id' });
+Cargo.hasMany(Empleado, { foreignKey: 'cargo_id' });
+
+Empleado.belongsTo(Horario, { foreignKey: 'horario_id' });
+Horario.hasMany(Empleado, { foreignKey: 'horario_id' });
+
+// Asociaciones para Horario
+Horario.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(Horario, { foreignKey: 'sala_id' });
+
+// Asociaciones para Dispositivo
+Dispositivo.belongsTo(Sala, { foreignKey: 'sala_id' });
+Sala.hasMany(Dispositivo, { foreignKey: 'sala_id' });
+
+// Asociaciones para Bloque
+Bloque.belongsTo(Horario, { foreignKey: 'horario_id' });
+Horario.hasMany(Bloque, { foreignKey: 'horario_id', as: 'bloques' });
 
 
 // Sincronizar base de datos
@@ -288,6 +326,13 @@ module.exports = {
   NovedadMaquinaRegistro,
   IncidenciaGeneral,
   Drop,
+  Area,
+  Departamento,
+  Cargo,
+  Empleado,
+  Horario,
+  Bloque,
+  Dispositivo,
   syncDatabase
 };
 

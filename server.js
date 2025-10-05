@@ -4,6 +4,10 @@ const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const axios = require('axios');
+const hikConnectRoutes = require('./hik-connect-api');
+const hybridRoutes = require('./wisi-hikvision-hybrid');
+const TPPHikvisionAPI = require('./tpp-hikvision-api');
 const { 
   sequelize, 
   User, 
@@ -27,6 +31,13 @@ const {
   NovedadMaquinaRegistro,
   IncidenciaGeneral,
   Drop,
+  Area,
+  Departamento,
+  Cargo,
+  Empleado,
+  Horario,
+  Bloque,
+  Dispositivo,
   syncDatabase 
 } = require('./models');
 const { Op } = require('sequelize');
@@ -39,35 +50,28 @@ async function assignToCreator(element, elementType) {
     const creator = await User.findOne({ where: { nivel: 'TODO' } });
     
     if (!creator) {
-      console.log('⚠️ No se encontró usuario creador para asignación automática');
       return;
     }
 
-    console.log(`🔄 Asignando ${elementType} al usuario creador:`, creator.usuario);
 
     switch (elementType) {
       case 'sala':
         await creator.addSala(element);
-        console.log(`✅ Sala "${element.nombre}" asignada al creador`);
         break;
         
       case 'module':
         await creator.addModule(element);
-        console.log(`✅ Módulo "${element.nombre}" asignado al creador`);
         break;
         
       case 'permission':
         await creator.addPermission(element);
-        console.log(`✅ Permiso "${element.nombre}" asignado al creador`);
         break;
         
       case 'page':
         // Las páginas no se asignan directamente a usuarios, pero registramos la creación
-        console.log(`✅ Página "${element.nombre}" creada - el creador tiene acceso automático`);
         break;
         
       default:
-        console.log(`⚠️ Tipo de elemento no reconocido para asignación automática: ${elementType}`);
     }
   } catch (error) {
     console.error(`❌ Error asignando ${elementType} al creador:`, error);
@@ -81,6 +85,7 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+
 
 // Rate limiting - Configuración más permisiva para desarrollo
 const limiter = rateLimit({
@@ -121,7 +126,6 @@ const authorizeLevel = (requiredLevel) => {
   return (req, res, next) => {
     const userLevel = req.user.nivel;
     
-    console.log(`Verificando permisos - Usuario: ${req.user.usuario}, Nivel: ${userLevel}, Requerido: ${requiredLevel}`);
     
     // El nivel TODO tiene acceso a todo
     if (userLevel === 'TODO') {
@@ -295,7 +299,6 @@ app.post('/api/users', authenticateToken, authorizeLevel('ADMINISTRADOR'), async
           
           // Agregar automáticamente el permiso VER si no está ya incluido
           if (verPermission && !permissions.includes(verPermission.id)) {
-            console.log(`🔐 Agregando permiso VER automáticamente al módulo ${moduleId}`);
             await UserModulePermission.create({
               user_id: user.id,
               module_id: moduleId,
@@ -391,28 +394,23 @@ app.put('/api/users/:id/assignments', authenticateToken, authorizeLevel('ADMINIS
 
     // Asignar nuevos módulos con permisos específicos
     if (modulePermissions && modulePermissions.length > 0) {
-      console.log('🔧 Asignando módulos y permisos:', modulePermissions);
       
       for (const modulePermission of modulePermissions) {
         const { moduleId, permissions } = modulePermission;
-        console.log(`📋 Procesando módulo ${moduleId} con permisos:`, permissions);
         
         // Verificar que el módulo exista y esté activo
         const module = await Module.findOne({ where: { id: moduleId, activo: true } });
         if (!module) {
-          console.log(`❌ Módulo ${moduleId} no encontrado o inactivo`);
           continue;
         }
 
         // Verificar que el módulo tenga al menos un permiso
         if (!permissions || permissions.length === 0) {
-          console.log(`⚠️ Módulo ${moduleId} sin permisos, saltando...`);
           continue;
         }
 
         // Asignar el módulo al usuario
         await user.addModule(module);
-        console.log(`✅ Módulo ${moduleId} asignado al usuario`);
 
         // Buscar el permiso VER
         const verPermission = await Permission.findOne({ where: { nombre: 'VER' } });
@@ -421,7 +419,6 @@ app.put('/api/users/:id/assignments', authenticateToken, authorizeLevel('ADMINIS
         for (const permissionId of permissions) {
           const permission = await Permission.findByPk(permissionId);
           if (permission) {
-            console.log(`🔐 Asignando permiso ${permissionId} (${permission.nombre}) al módulo ${moduleId}`);
             
             await UserModulePermission.create({
               user_id: id,
@@ -429,13 +426,11 @@ app.put('/api/users/:id/assignments', authenticateToken, authorizeLevel('ADMINIS
               permission_id: permissionId
             });
           } else {
-            console.log(`❌ Permiso ${permissionId} no encontrado`);
           }
         }
         
         // Agregar automáticamente el permiso VER si no está ya incluido
         if (verPermission && !permissions.includes(verPermission.id)) {
-          console.log(`🔐 Agregando permiso VER automáticamente al módulo ${moduleId}`);
           await UserModulePermission.create({
             user_id: id,
             module_id: moduleId,
@@ -567,7 +562,6 @@ app.post('/api/salas', authenticateToken, authorizeLevel('TODO'), async (req, re
   try {
     const { nombre } = req.body;
     
-    console.log('Creando sala:', { nombre, usuario: req.user.usuario });
 
     if (!nombre) {
       return res.status(400).json({ message: 'El nombre es requerido' });
@@ -581,7 +575,6 @@ app.post('/api/salas', authenticateToken, authorizeLevel('TODO'), async (req, re
 
     const sala = await Sala.create({ nombre });
     
-    console.log('Sala creada exitosamente:', sala.toJSON());
 
     // Asignar automáticamente al usuario creador
     await assignToCreator(sala, 'sala');
@@ -672,7 +665,6 @@ app.post('/api/modules', authenticateToken, authorizeLevel('TODO'), async (req, 
   try {
     const { nombre, icono, ruta, page_id } = req.body;
     
-    console.log('Creando módulo:', { nombre, icono, ruta, page_id, usuario: req.user.usuario });
 
     if (!nombre) {
       return res.status(400).json({ message: 'Nombre es requerido' });
@@ -692,7 +684,6 @@ app.post('/api/modules', authenticateToken, authorizeLevel('TODO'), async (req, 
       activo: true 
     });
     
-    console.log('Módulo creado exitosamente:', module.toJSON());
 
     // Asignar automáticamente al usuario creador
     await assignToCreator(module, 'module');
@@ -785,7 +776,6 @@ app.post('/api/pages', authenticateToken, authorizeLevel('TODO'), async (req, re
   try {
     const { nombre, icono, orden } = req.body;
     
-    console.log('Creando página:', { nombre, icono, orden, usuario: req.user.usuario });
 
     if (!nombre) {
       return res.status(400).json({ message: 'Nombre es requerido' });
@@ -804,7 +794,6 @@ app.post('/api/pages', authenticateToken, authorizeLevel('TODO'), async (req, re
       activo: true 
     });
     
-    console.log('Página creada exitosamente:', page.toJSON());
 
     // Asignar automáticamente al usuario creador (las páginas no se asignan directamente, pero el creador tiene acceso)
     await assignToCreator(page, 'page');
@@ -859,11 +848,9 @@ app.get('/api/user/permissions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    console.log('🔍 Obteniendo permisos para usuario ID:', userId, 'Nivel:', userLevel);
     
     // Si es el usuario creador (TODO), devolver todos los permisos de todos los módulos
     if (userLevel === 'TODO') {
-      console.log('🔓 Usuario creador - devolviendo todos los permisos');
       
       const allModules = await Module.findAll({ where: { activo: true } });
       const allPermissions = await Permission.findAll({ where: { activo: true } });
@@ -881,7 +868,6 @@ app.get('/api/user/permissions', authenticateToken, async (req, res) => {
         }
       }
       
-      console.log('📋 Permisos del creador:', creatorPermissions.length);
       return res.json(creatorPermissions);
     }
     
@@ -900,7 +886,6 @@ app.get('/api/user/permissions', authenticateToken, async (req, res) => {
       ]
     });
 
-    console.log('📋 Permisos encontrados:', userPermissions.length);
     
     const permissions = userPermissions.map(up => ({
       module_id: up.Module.id,
@@ -921,14 +906,11 @@ app.get('/api/user/permissions', authenticateToken, async (req, res) => {
 app.post('/api/admin/assign-permissions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log('🔧 Asignando permisos de prueba para usuario:', userId);
     
     // Obtener todos los módulos y permisos
     const modules = await Module.findAll({ where: { activo: true } });
     const permissions = await Permission.findAll({ where: { activo: true } });
     
-    console.log('📋 Módulos disponibles:', modules.map(m => ({ id: m.id, nombre: m.nombre })));
-    console.log('📋 Permisos disponibles:', permissions.map(p => ({ id: p.id, nombre: p.nombre })));
     
     // Asignar todos los permisos a todos los módulos para este usuario
     const userPermissions = [];
@@ -948,7 +930,6 @@ app.post('/api/admin/assign-permissions', authenticateToken, async (req, res) =>
     // Crear nuevos permisos
     await UserModulePermission.bulkCreate(userPermissions);
     
-    console.log('✅ Permisos asignados:', userPermissions.length);
     res.json({ message: 'Permisos asignados correctamente', count: userPermissions.length });
   } catch (error) {
     console.error('❌ Error asignando permisos:', error);
@@ -960,30 +941,24 @@ app.post('/api/admin/assign-permissions', authenticateToken, async (req, res) =>
 app.get('/api/user/menu', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log('🔍 Obteniendo menú para usuario ID:', userId);
     
     // Primero, obtener el usuario básico
     const user = await User.findByPk(userId);
     if (!user) {
-      console.log('❌ Usuario no encontrado');
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    console.log('👤 Usuario encontrado:', user.usuario, 'Nivel:', user.nivel);
 
     // Si es el creador, devolver todas las páginas
     if (user.nivel === 'TODO') {
-      console.log('🔓 Creador - devolviendo todas las páginas');
       const allPages = await Page.findAll({
         where: { activo: true },
         order: [['orden', 'ASC']]
       });
-      console.log('📄 Todas las páginas:', allPages.length);
       return res.json(allPages);
     }
 
     // Obtener módulos del usuario de forma separada
-    console.log('🔍 Buscando módulos del usuario...');
     const userModules = await UserModule.findAll({
       where: { user_id: userId },
       include: [{
@@ -992,22 +967,17 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
       }]
     });
 
-    console.log('📋 Módulos asignados al usuario:', userModules.length);
     userModules.forEach(um => {
-      console.log(`  - ${um.Module.nombre} (ID: ${um.Module.id}, Página: ${um.Module.page_id})`);
     });
 
     if (userModules.length === 0) {
-      console.log('⚠️ Usuario sin módulos asignados');
       return res.json([]);
     }
 
     // Obtener IDs de módulos
     const moduleIds = userModules.map(um => um.Module.id);
-    console.log('🔧 IDs de módulos del usuario:', moduleIds);
 
     // Obtener páginas que contienen estos módulos
-    console.log('🔍 Buscando páginas que contienen estos módulos...');
     const pages = await Page.findAll({
       where: { activo: true },
       include: [{
@@ -1021,9 +991,7 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
       order: [['orden', 'ASC']]
     });
 
-    console.log('📄 Páginas encontradas:', pages.length);
     pages.forEach(page => {
-      console.log(`- Página: ${page.nombre} (ID: ${page.id})`);
     });
 
     res.json(pages);
@@ -1038,7 +1006,6 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
 app.get('/api/user/modules', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log('🔍 Obteniendo módulos para usuario ID:', userId);
     
     // Obtener módulos asignados al usuario
     const userModules = await UserModule.findAll({
@@ -1049,7 +1016,6 @@ app.get('/api/user/modules', authenticateToken, async (req, res) => {
       }]
     });
 
-    console.log('📋 Módulos asignados al usuario:', userModules.length);
     
     // Extraer solo los módulos
     const modules = userModules.map(um => um.Module);
@@ -1065,7 +1031,6 @@ app.get('/api/user/modules', authenticateToken, async (req, res) => {
 app.get('/api/user/salas', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    console.log('🔍 Obteniendo salas para usuario ID:', userId);
     
     // Obtener salas asignadas al usuario
     const userSalas = await UserSala.findAll({
@@ -1076,7 +1041,6 @@ app.get('/api/user/salas', authenticateToken, async (req, res) => {
       }]
     });
 
-    console.log('📋 Salas asignadas al usuario:', userSalas.length);
     
     // Extraer solo las salas
     const salas = userSalas.map(us => us.Sala);
@@ -1206,7 +1170,6 @@ app.post('/api/permissions', authenticateToken, authorizeLevel('TODO'), async (r
   try {
     const { nombre, activo = true } = req.body;
     
-    console.log('Creando permiso:', { nombre, activo, usuario: req.user.usuario });
 
     if (!nombre) {
       return res.status(400).json({ message: 'El nombre es requerido' });
@@ -1223,7 +1186,6 @@ app.post('/api/permissions', authenticateToken, authorizeLevel('TODO'), async (r
 
     const permission = await Permission.create({ nombre, activo });
     
-    console.log('Permiso creado exitosamente:', permission.toJSON());
 
     // Asignar automáticamente al usuario creador
     await assignToCreator(permission, 'permission');
@@ -1281,13 +1243,11 @@ app.get('/api/user/salas', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    console.log('🏢 Obteniendo salas para usuario ID:', userId, 'Nivel:', userLevel);
     
     let salas;
     
     if (userLevel === 'TODO') {
       // El creador tiene acceso a todas las salas
-      console.log('🏢 Usuario creador - obteniendo todas las salas');
       salas = await Sala.findAll({
         where: { activo: true }
       });
@@ -1308,7 +1268,6 @@ app.get('/api/user/salas', authenticateToken, async (req, res) => {
       salas = user.Salas;
     }
 
-    console.log('🏢 Salas disponibles para el usuario:', salas.length);
     res.json(salas);
   } catch (error) {
     console.error('❌ Error obteniendo salas del usuario:', error);
@@ -1321,13 +1280,11 @@ app.get('/api/libros', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    console.log('📚 Obteniendo libros para usuario:', req.user.usuario, 'Nivel:', userLevel);
     
     let libros;
     
     if (userLevel === 'TODO') {
       // El creador ve todos los libros
-      console.log('📚 Usuario creador - obteniendo todos los libros');
       libros = await Libro.findAll({
         where: { activo: true },
         include: [{
@@ -1351,7 +1308,6 @@ app.get('/api/libros', authenticateToken, async (req, res) => {
       }
 
       const userSalaIds = user.Salas.map(sala => sala.id);
-      console.log('📚 Salas del usuario:', userSalaIds);
 
       libros = await Libro.findAll({
         where: { 
@@ -1366,7 +1322,6 @@ app.get('/api/libros', authenticateToken, async (req, res) => {
       });
     }
     
-    console.log('📚 Libros encontrados:', libros.length);
     res.json(libros);
   } catch (error) {
     console.error('❌ Error obteniendo libros:', error);
@@ -1419,10 +1374,7 @@ app.post('/api/libros', authenticateToken, async (req, res) => {
       const ultimaFecha = new Date(ultimoLibroSala.created_at);
       fechaCreacion = new Date(ultimaFecha);
       fechaCreacion.setDate(fechaCreacion.getDate() + 1);
-      console.log(`📅 Última fecha para sala ${sala_id}:`, ultimaFecha.toISOString());
-      console.log(`📅 Nueva fecha para sala ${sala_id}:`, fechaCreacion.toISOString());
     } else {
-      console.log(`📅 Primer libro para sala ${sala_id}, usando fecha actual:`, fechaCreacion.toISOString());
     }
 
     const libro = await Libro.create({
@@ -1503,7 +1455,6 @@ app.get('/api/rangos', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    console.log('📊 Obteniendo rangos para usuario:', req.user.usuario, 'Nivel:', userLevel);
     
     let rangos;
     
@@ -1616,6 +1567,892 @@ app.delete('/api/rangos/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Rango eliminado exitosamente' });
   } catch (error) {
     console.error('Error eliminando rango:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// RUTAS PARA ÁREAS
+// =============================================
+
+// Obtener todas las áreas
+app.get('/api/areas', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let areas;
+    
+    if (userLevel === 'TODO') {
+      areas = await Area.findAll({
+        where: { activo: true },
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: { attributes: [] },
+          where: { activo: true }
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      areas = await Area.findAll({
+        where: { 
+          activo: true,
+          sala_id: userSalaIds
+        },
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    }
+    
+    res.json(areas);
+  } catch (error) {
+    console.error('❌ Error obteniendo áreas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear una nueva área
+app.post('/api/areas', authenticateToken, async (req, res) => {
+  try {
+    const { nombre, sala_id } = req.body;
+    
+    if (!nombre || !sala_id) {
+      return res.status(400).json({ message: 'El nombre y la sala son requeridos' });
+    }
+
+    const sala = await Sala.findByPk(sala_id);
+    if (!sala) {
+      return res.status(404).json({ message: 'Sala no encontrada' });
+    }
+
+    const ultimaAreaSala = await Area.findOne({
+      where: { sala_id: sala_id },
+      order: [['created_at', 'DESC']]
+    });
+
+    let fechaCreacion = new Date();
+    if (ultimaAreaSala) {
+      const ultimaFecha = new Date(ultimaAreaSala.created_at);
+      fechaCreacion = new Date(ultimaFecha);
+      fechaCreacion.setDate(fechaCreacion.getDate() + 1);
+    }
+
+    const area = await Area.create({
+      nombre: nombre,
+      activo: true,
+      sala_id: sala_id,
+      created_at: fechaCreacion,
+      updated_at: fechaCreacion
+    });
+
+    const areaConSala = await Area.findByPk(area.id, {
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }]
+    });
+
+    res.status(201).json(areaConSala);
+  } catch (error) {
+    console.error('Error creando área:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar un área
+app.put('/api/areas/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, sala_id } = req.body;
+    
+    const area = await Area.findByPk(id);
+    if (!area) {
+      return res.status(404).json({ message: 'Área no encontrada' });
+    }
+
+    if (sala_id) {
+      const sala = await Sala.findByPk(sala_id);
+      if (!sala) {
+        return res.status(404).json({ message: 'Sala no encontrada' });
+      }
+    }
+
+    await area.update({
+      nombre: nombre || area.nombre,
+      sala_id: sala_id || area.sala_id
+    });
+
+    const areaActualizada = await Area.findByPk(area.id, {
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }]
+    });
+
+    res.json(areaActualizada);
+  } catch (error) {
+    console.error('Error actualizando área:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar un área
+app.delete('/api/areas/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const area = await Area.findByPk(id);
+    
+    if (!area) {
+      return res.status(404).json({ message: 'Área no encontrada' });
+    }
+    
+    // Eliminar el área (soft delete)
+    await area.update({ activo: false });
+    res.json({ message: 'Área eliminada exitosamente' });
+  } catch (error) {
+    console.error('Error eliminando área:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// RUTAS PARA DEPARTAMENTOS
+// =============================================
+
+// Obtener todas las áreas del usuario (para el selector de departamentos)
+app.get('/api/user/areas', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let areas;
+    
+    if (userLevel === 'TODO') {
+      areas = await Area.findAll({
+        where: { activo: true },
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: { attributes: [] },
+          where: { activo: true }
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      areas = await Area.findAll({
+        where: { 
+          activo: true,
+          sala_id: userSalaIds
+        },
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    }
+    
+    res.json(areas);
+  } catch (error) {
+    console.error('❌ Error obteniendo áreas del usuario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener todos los departamentos
+app.get('/api/departamentos', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let departamentos;
+    
+    if (userLevel === 'TODO') {
+      departamentos = await Departamento.findAll({
+        where: { activo: true },
+        include: [{
+          model: Area,
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre']
+          }]
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: { attributes: [] },
+          where: { activo: true }
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      departamentos = await Departamento.findAll({
+        where: { activo: true },
+        include: [{
+          model: Area,
+          where: { 
+            activo: true,
+            sala_id: userSalaIds
+          },
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre']
+          }]
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    }
+    
+    res.json(departamentos);
+  } catch (error) {
+    console.error('❌ Error obteniendo departamentos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear un nuevo departamento
+app.post('/api/departamentos', authenticateToken, async (req, res) => {
+  try {
+    const { nombre, area_id } = req.body;
+    
+    if (!nombre || !area_id) {
+      return res.status(400).json({ message: 'El nombre y el área son requeridos' });
+    }
+
+    const area = await Area.findByPk(area_id);
+    if (!area) {
+      return res.status(404).json({ message: 'Área no encontrada' });
+    }
+
+    const ultimoDepartamentoArea = await Departamento.findOne({
+      where: { area_id: area_id },
+      order: [['created_at', 'DESC']]
+    });
+
+    let fechaCreacion = new Date();
+    if (ultimoDepartamentoArea) {
+      const ultimaFecha = new Date(ultimoDepartamentoArea.created_at);
+      fechaCreacion = new Date(ultimaFecha);
+      fechaCreacion.setDate(fechaCreacion.getDate() + 1);
+    }
+
+    const departamento = await Departamento.create({
+      nombre: nombre,
+      activo: true,
+      area_id: area_id,
+      created_at: fechaCreacion,
+      updated_at: fechaCreacion
+    });
+
+    const departamentoConArea = await Departamento.findByPk(departamento.id, {
+      include: [{
+        model: Area,
+        attributes: ['id', 'nombre'],
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }]
+      }]
+    });
+
+    res.status(201).json(departamentoConArea);
+  } catch (error) {
+    console.error('Error creando departamento:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar un departamento
+app.put('/api/departamentos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, area_id } = req.body;
+    
+    const departamento = await Departamento.findByPk(id);
+    if (!departamento) {
+      return res.status(404).json({ message: 'Departamento no encontrado' });
+    }
+
+    if (area_id) {
+      const area = await Area.findByPk(area_id);
+      if (!area) {
+        return res.status(404).json({ message: 'Área no encontrada' });
+      }
+    }
+
+    await departamento.update({
+      nombre: nombre || departamento.nombre,
+      area_id: area_id || departamento.area_id
+    });
+
+    const departamentoActualizado = await Departamento.findByPk(departamento.id, {
+      include: [{
+        model: Area,
+        attributes: ['id', 'nombre'],
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }]
+      }]
+    });
+
+    res.json(departamentoActualizado);
+  } catch (error) {
+    console.error('Error actualizando departamento:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar un departamento
+app.delete('/api/departamentos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const departamento = await Departamento.findByPk(id);
+    
+    if (!departamento) {
+      return res.status(404).json({ message: 'Departamento no encontrado' });
+    }
+    
+    // Eliminar el departamento (soft delete)
+    await departamento.update({ activo: false });
+    res.json({ message: 'Departamento eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error eliminando departamento:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// RUTAS PARA CARGOS
+// =============================================
+
+// Obtener todos los departamentos del usuario (para el selector de cargos)
+app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let departamentos;
+    
+    if (userLevel === 'TODO') {
+      departamentos = await Departamento.findAll({
+        where: { activo: true },
+        include: [{
+          model: Area,
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre']
+          }]
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: { attributes: [] },
+          where: { activo: true }
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      departamentos = await Departamento.findAll({
+        where: { activo: true },
+        include: [{
+          model: Area,
+          where: { 
+            activo: true,
+            sala_id: userSalaIds
+          },
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre']
+          }]
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    }
+    
+    res.json(departamentos);
+  } catch (error) {
+    console.error('❌ Error obteniendo departamentos del usuario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener todos los cargos
+app.get('/api/cargos', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let cargos;
+    
+    if (userLevel === 'TODO') {
+      cargos = await Cargo.findAll({
+        where: { activo: true },
+        include: [{
+          model: Departamento,
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Area,
+            attributes: ['id', 'nombre'],
+            include: [{
+              model: Sala,
+              attributes: ['id', 'nombre']
+            }]
+          }]
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: { attributes: [] },
+          where: { activo: true }
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      cargos = await Cargo.findAll({
+        where: { activo: true },
+        include: [{
+          model: Departamento,
+          where: { activo: true },
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Area,
+            where: { 
+              activo: true,
+              sala_id: userSalaIds
+            },
+            attributes: ['id', 'nombre'],
+            include: [{
+              model: Sala,
+              attributes: ['id', 'nombre']
+            }]
+          }]
+        }],
+        order: [['created_at', 'DESC']]
+      });
+    }
+    
+    res.json(cargos);
+  } catch (error) {
+    console.error('❌ Error obteniendo cargos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear un nuevo cargo
+app.post('/api/cargos', authenticateToken, async (req, res) => {
+  try {
+    const { nombre, departamento_id } = req.body;
+    
+    if (!nombre || !departamento_id) {
+      return res.status(400).json({ message: 'El nombre y el departamento son requeridos' });
+    }
+
+    const departamento = await Departamento.findByPk(departamento_id);
+    if (!departamento) {
+      return res.status(404).json({ message: 'Departamento no encontrado' });
+    }
+
+    const ultimoCargoDepartamento = await Cargo.findOne({
+      where: { departamento_id: departamento_id },
+      order: [['created_at', 'DESC']]
+    });
+
+    let fechaCreacion = new Date();
+    if (ultimoCargoDepartamento) {
+      const ultimaFecha = new Date(ultimoCargoDepartamento.created_at);
+      fechaCreacion = new Date(ultimaFecha);
+      fechaCreacion.setDate(fechaCreacion.getDate() + 1);
+    }
+
+    const cargo = await Cargo.create({
+      nombre: nombre,
+      activo: true,
+      departamento_id: departamento_id,
+      created_at: fechaCreacion,
+      updated_at: fechaCreacion
+    });
+
+    const cargoConDepartamento = await Cargo.findByPk(cargo.id, {
+      include: [{
+        model: Departamento,
+        attributes: ['id', 'nombre'],
+        include: [{
+          model: Area,
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre']
+          }]
+        }]
+      }]
+    });
+
+    res.status(201).json(cargoConDepartamento);
+  } catch (error) {
+    console.error('Error creando cargo:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar un cargo
+app.put('/api/cargos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, departamento_id } = req.body;
+    
+    const cargo = await Cargo.findByPk(id);
+    if (!cargo) {
+      return res.status(404).json({ message: 'Cargo no encontrado' });
+    }
+
+    if (departamento_id) {
+      const departamento = await Departamento.findByPk(departamento_id);
+      if (!departamento) {
+        return res.status(404).json({ message: 'Departamento no encontrado' });
+      }
+    }
+
+    await cargo.update({
+      nombre: nombre || cargo.nombre,
+      departamento_id: departamento_id || cargo.departamento_id
+    });
+
+    const cargoActualizado = await Cargo.findByPk(cargo.id, {
+      include: [{
+        model: Departamento,
+        attributes: ['id', 'nombre'],
+        include: [{
+          model: Area,
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre']
+          }]
+        }]
+      }]
+    });
+
+    res.json(cargoActualizado);
+  } catch (error) {
+    console.error('Error actualizando cargo:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar un cargo
+app.delete('/api/cargos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cargo = await Cargo.findByPk(id);
+    
+    if (!cargo) {
+      return res.status(404).json({ message: 'Cargo no encontrado' });
+    }
+    
+    // Eliminar el cargo (soft delete)
+    await cargo.update({ activo: false });
+    res.json({ message: 'Cargo eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error eliminando cargo:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+
+// =============================================
+// RUTAS PARA HORARIOS (SISTEMA DE BLOQUES)
+// =============================================
+
+// Obtener todos los horarios con sus bloques
+app.get('/api/horarios', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let horarios;
+    
+    if (userLevel === 'TODO') {
+      const results = await sequelize.query(`
+        SELECT h.*, s.nombre as sala_nombre 
+        FROM horarios h 
+        LEFT JOIN salas s ON h.sala_id = s.id 
+        WHERE h.activo = 1 
+        ORDER BY h.created_at DESC
+      `, {
+        type: sequelize.QueryTypes.SELECT
+      });
+      
+      horarios = results.map(row => ({
+        id: row.id,
+        nombre: row.nombre,
+        sala_id: row.sala_id,
+        activo: row.activo,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        Sala: {
+          id: row.sala_id,
+          nombre: row.sala_nombre || 'Sala sin nombre'
+        }
+      }));
+      
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: { attributes: [] },
+          where: { activo: true }
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      horarios = await Horario.findAll({
+        where: { 
+          activo: true,
+          sala_id: userSalaIds
+        },
+        order: [['created_at', 'DESC']],
+        raw: true
+      });
+      
+      // Obtener salas por separado
+      const salaIds = [...new Set(horarios.map(h => h.sala_id))];
+      const salas = await Sala.findAll({
+        where: { id: salaIds },
+        attributes: ['id', 'nombre']
+      });
+      
+      // Mapear salas a horarios
+      const salasMap = {};
+      salas.forEach(sala => {
+        salasMap[sala.id] = sala;
+      });
+      
+      horarios = horarios.map(horario => ({
+        ...horario,
+        Sala: salasMap[horario.sala_id]
+      }));
+    }
+    
+    // Obtener bloques para cada horario
+    for (let horario of horarios) {
+      const bloques = await Bloque.findAll({
+        where: { horario_id: horario.id },
+        order: [['orden', 'ASC']],
+        raw: true
+      });
+      horario.bloques = bloques;
+    }
+    
+    res.json(horarios);
+  } catch (error) {
+    console.error('Error obteniendo horarios:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear un nuevo horario con bloques
+app.post('/api/horarios', authenticateToken, async (req, res) => {
+  try {
+    const { nombre, sala_id, bloques } = req.body;
+    
+    if (!nombre || !sala_id || !bloques || !Array.isArray(bloques) || bloques.length === 0) {
+      return res.status(400).json({ message: 'Nombre, sala y al menos un bloque son requeridos' });
+    }
+
+    const sala = await Sala.findByPk(sala_id);
+    if (!sala) {
+      return res.status(404).json({ message: 'Sala no encontrada' });
+    }
+
+    // Crear el horario
+    const horario = await Horario.create({
+      nombre,
+      sala_id
+    });
+
+    // Crear los bloques
+    for (let i = 0; i < bloques.length; i++) {
+      const bloque = bloques[i];
+      await Bloque.create({
+        horario_id: horario.id,
+        hora_entrada: bloque.hora_entrada,
+        hora_salida: bloque.hora_salida,
+        turno: bloque.turno,
+        orden: i + 1
+      });
+    }
+
+    // Obtener el horario completo con bloques
+    const horarioCompleto = await Horario.findByPk(horario.id, {
+      include: [{
+        model: Bloque,
+        as: 'bloques',
+        order: [['orden', 'ASC']]
+      }]
+    });
+
+    if (!horarioCompleto) {
+      return res.status(500).json({ message: 'Error creando horario' });
+    }
+
+    res.status(201).json(horarioCompleto);
+  } catch (error) {
+    console.error('Error creando horario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar un horario con sus bloques
+app.put('/api/horarios/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, sala_id, bloques } = req.body;
+    
+    const horario = await Horario.findByPk(id);
+    if (!horario) {
+      return res.status(404).json({ message: 'Horario no encontrado' });
+    }
+
+    // Actualizar el horario
+    await horario.update({
+      nombre: nombre || horario.nombre,
+      sala_id: sala_id || horario.sala_id
+    });
+
+    // Si se proporcionan bloques, actualizarlos
+    if (bloques && Array.isArray(bloques)) {
+      // Eliminar bloques existentes
+      await Bloque.destroy({ where: { horario_id: id } });
+      
+      // Crear nuevos bloques
+      for (let i = 0; i < bloques.length; i++) {
+        const bloque = bloques[i];
+        await Bloque.create({
+          horario_id: id,
+          hora_entrada: bloque.hora_entrada,
+          hora_salida: bloque.hora_salida,
+          turno: bloque.turno,
+          orden: i + 1
+        });
+      }
+    }
+
+    // Obtener el horario actualizado con bloques
+    const horarioActualizado = await Horario.findByPk(id, {
+      include: [{
+        model: Bloque,
+        as: 'bloques',
+        order: [['orden', 'ASC']]
+      }]
+    });
+
+    if (!horarioActualizado) {
+      return res.status(500).json({ message: 'Error actualizando horario' });
+    }
+
+    res.json(horarioActualizado);
+  } catch (error) {
+    console.error('Error actualizando horario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar un horario (soft delete)
+app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const horario = await Horario.findByPk(id);
+    if (!horario) {
+      return res.status(404).json({ message: 'Horario no encontrado' });
+    }
+
+    // Soft delete - marcar como inactivo
+    await horario.update({ activo: false });
+
+    res.json({ message: 'Horario eliminado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando horario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener un horario específico con sus bloques
+app.get('/api/horarios/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const horario = await Horario.findByPk(id, {
+      include: [{
+        model: Bloque,
+        as: 'bloques',
+        order: [['orden', 'ASC']]
+      }]
+    });
+
+    if (!horario) {
+      return res.status(404).json({ message: 'Horario no encontrado' });
+    }
+
+    res.json(horario);
+  } catch (error) {
+    console.error('Error obteniendo horario:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2994,9 +3831,1682 @@ app.delete('/api/incidencias-generales/:id', authenticateToken, async (req, res)
   }
 });
 
+// ==================== RUTAS DE EMPLEADOS ====================
+
+// GET /api/empleados - Obtener todos los empleados
+app.get('/api/empleados', authenticateToken, async (req, res) => {
+  try {
+    const empleados = await Empleado.findAll({
+      where: { activo: true },
+      include: [
+        {
+          model: Cargo,
+          as: 'Cargo',
+          include: [
+            {
+              model: Departamento,
+              as: 'Departamento',
+              include: [
+                {
+                  model: Area,
+                  as: 'Area',
+                  include: [
+                    {
+                      model: Sala,
+                      as: 'Sala'
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          model: Horario,
+          as: 'Horario',
+          include: [
+            {
+              model: Sala,
+              as: 'Sala'
+            }
+          ]
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    res.json(empleados);
+  } catch (error) {
+    console.error('❌ Error obteniendo empleados:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/empleados/:id - Obtener empleado por ID
+app.get('/api/empleados/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const empleado = await Empleado.findByPk(id, {
+      include: [
+        {
+          model: Cargo,
+          as: 'Cargo',
+          include: [
+            {
+              model: Departamento,
+              as: 'Departamento',
+              include: [
+                {
+                  model: Area,
+                  as: 'Area',
+                  include: [
+                    {
+                      model: Sala,
+                      as: 'Sala'
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          model: Horario,
+          as: 'Horario',
+          include: [
+            {
+              model: Sala,
+              as: 'Sala'
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!empleado) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+
+    res.json(empleado);
+  } catch (error) {
+    console.error('❌ Error obteniendo empleado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/empleados - Crear nuevo empleado
+app.post('/api/empleados', authenticateToken, async (req, res) => {
+  try {
+    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, primer_dia_horario, horario_id } = req.body;
+    
+    if (!nombre || !cedula || !fecha_ingreso || !fecha_cumpleanos || !sexo || !cargo_id) {
+      return res.status(400).json({ message: 'Todos los campos son requeridos' });
+    }
+
+    // Verificar que el cargo existe
+    const cargo = await Cargo.findByPk(cargo_id);
+    if (!cargo) {
+      return res.status(404).json({ message: 'Cargo no encontrado' });
+    }
+
+    // Verificar que la cédula no esté duplicada
+    const empleadoExistente = await Empleado.findOne({ where: { cedula } });
+    if (empleadoExistente) {
+      return res.status(400).json({ message: 'Ya existe un empleado con esta cédula' });
+    }
+
+    const empleado = await Empleado.create({
+      foto: foto || null,
+      nombre,
+      cedula,
+      fecha_ingreso,
+      fecha_cumpleanos,
+      sexo,
+      cargo_id,
+      primer_dia_horario: primer_dia_horario || null,
+      horario_id: horario_id || null,
+      activo: true
+    });
+
+    // Obtener el empleado con sus relaciones
+    const empleadoCompleto = await Empleado.findByPk(empleado.id, {
+      include: [
+        {
+          model: Cargo,
+          as: 'Cargo',
+          include: [
+            {
+              model: Departamento,
+              as: 'Departamento',
+              include: [
+                {
+                  model: Area,
+                  as: 'Area',
+                  include: [
+                    {
+                      model: Sala,
+                      as: 'Sala'
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          model: Horario,
+          as: 'Horario',
+          include: [
+            {
+              model: Sala,
+              as: 'Sala'
+            }
+          ]
+        }
+      ]
+    });
+
+    res.status(201).json(empleadoCompleto);
+  } catch (error) {
+    console.error('❌ Error creando empleado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/empleados/:id - Actualizar empleado
+app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, primer_dia_horario, horario_id } = req.body;
+    
+    const empleado = await Empleado.findByPk(id);
+    if (!empleado) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+
+    // Verificar que el cargo existe
+    if (cargo_id) {
+      const cargo = await Cargo.findByPk(cargo_id);
+      if (!cargo) {
+        return res.status(404).json({ message: 'Cargo no encontrado' });
+      }
+    }
+
+    // Verificar que la cédula no esté duplicada (si se está cambiando)
+    if (cedula && cedula !== empleado.cedula) {
+      const empleadoExistente = await Empleado.findOne({ 
+        where: { cedula, id: { [Op.ne]: id } } 
+      });
+      if (empleadoExistente) {
+        return res.status(400).json({ message: 'Ya existe un empleado con esta cédula' });
+      }
+    }
+
+    await empleado.update({
+      foto: foto !== undefined ? foto : empleado.foto,
+      nombre: nombre || empleado.nombre,
+      cedula: cedula || empleado.cedula,
+      fecha_ingreso: fecha_ingreso || empleado.fecha_ingreso,
+      fecha_cumpleanos: fecha_cumpleanos || empleado.fecha_cumpleanos,
+      sexo: sexo || empleado.sexo,
+      cargo_id: cargo_id || empleado.cargo_id,
+      primer_dia_horario: primer_dia_horario !== undefined ? primer_dia_horario : empleado.primer_dia_horario,
+      horario_id: horario_id !== undefined ? horario_id : empleado.horario_id
+    });
+
+    // Obtener el empleado actualizado con sus relaciones
+    const empleadoActualizado = await Empleado.findByPk(id, {
+      include: [
+        {
+          model: Cargo,
+          as: 'Cargo',
+          include: [
+            {
+              model: Departamento,
+              as: 'Departamento',
+              include: [
+                {
+                  model: Area,
+                  as: 'Area',
+                  include: [
+                    {
+                      model: Sala,
+                      as: 'Sala'
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          model: Horario,
+          as: 'Horario',
+          include: [
+            {
+              model: Sala,
+              as: 'Sala'
+            }
+          ]
+        }
+      ]
+    });
+
+    res.json(empleadoActualizado);
+  } catch (error) {
+    console.error('❌ Error actualizando empleado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /api/empleados/:id - Eliminar empleado
+app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const empleado = await Empleado.findByPk(id);
+    if (!empleado) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+
+    await empleado.update({ activo: false });
+    res.json({ message: 'Empleado eliminado correctamente' });
+  } catch (error) {
+    console.error('❌ Error eliminando empleado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// ==================== RUTAS DE HIKVISION ISAPI ====================
+
+const HikvisionISAPI = require('./hikvision-isapi');
+
+// Función para parsear información del dispositivo desde XML
+function parseDeviceInfo(xmlData) {
+  try {
+    // Extraer información básica del XML
+    const modelMatch = xmlData.match(/<modelName>(.*?)<\/modelName>/);
+    const versionMatch = xmlData.match(/<firmwareVersion>(.*?)<\/firmwareVersion>/);
+    const serialMatch = xmlData.match(/<serialNumber>(.*?)<\/serialNumber>/);
+    
+    return {
+      model: modelMatch ? modelMatch[1] : 'N/A',
+      version: versionMatch ? versionMatch[1] : 'N/A',
+      serial: serialMatch ? serialMatch[1] : 'N/A',
+      status: 'Online',
+      manufacturer: 'Hikvision',
+      protocol: 'ISAPI'
+    };
+  } catch (error) {
+    console.error('Error parsing device info:', error);
+    return {
+      model: 'N/A',
+      version: 'N/A',
+      serial: 'N/A',
+      status: 'Unknown',
+      manufacturer: 'Hikvision',
+      protocol: 'ISAPI'
+    };
+  }
+}
+
+// Función para parsear usuarios desde XML
+function parseUsers(data) {
+  try {
+    const users = [];
+    
+    // Verificar si es JSON o XML
+    if (typeof data === 'object' && data.UserInfoSearch && data.UserInfoSearch.UserInfo) {
+      // Es JSON - parsear directamente
+      const userInfoArray = Array.isArray(data.UserInfoSearch.UserInfo) 
+        ? data.UserInfoSearch.UserInfo 
+        : [data.UserInfoSearch.UserInfo];
+      
+      userInfoArray.forEach(user => {
+        users.push({
+          id: user.id || user.employeeNo,
+          name: user.name || user.userName,
+          employeeNo: user.employeeNo,
+          status: user.status || (user.Valid && user.Valid.enable ? 'active' : 'inactive'),
+          userType: user.userType || 'normal',
+          doorRight: user.doorRight || '1',
+          valid: user.Valid || null
+        });
+      });
+      
+      return users;
+    } else if (typeof data === 'string' && data.includes('<?xml')) {
+      // Es XML - parsear con regex
+      const userMatches = data.match(/<UserInfo>(.*?)<\/UserInfo>/gs);
+      
+      if (userMatches) {
+        userMatches.forEach(userXml => {
+          const idMatch = userXml.match(/<id>(.*?)<\/id>/);
+          const nameMatch = userXml.match(/<name>(.*?)<\/name>/);
+          const employeeNoMatch = userXml.match(/<employeeNo>(.*?)<\/employeeNo>/);
+          const statusMatch = userXml.match(/<status>(.*?)<\/status>/);
+        
+          users.push({
+            id: idMatch ? idMatch[1] : 'N/A',
+            name: nameMatch ? nameMatch[1] : 'Sin nombre',
+            employeeNo: employeeNoMatch ? employeeNoMatch[1] : 'N/A',
+            status: statusMatch ? statusMatch[1] : 'Active'
+          });
+        });
+      }
+    }
+    
+    return users;
+  } catch (error) {
+    console.error('Error parsing users:', error);
+    return [];
+  }
+}
+
+// Función para parsear eventos desde XML
+function parseEvents(xmlData) {
+  try {
+    const events = [];
+    const eventMatches = xmlData.match(/<AcsEvent>(.*?)<\/AcsEvent>/gs);
+    
+    if (eventMatches) {
+      eventMatches.forEach(eventXml => {
+        const idMatch = eventXml.match(/<id>(.*?)<\/id>/);
+        const employeeNoMatch = eventXml.match(/<employeeNo>(.*?)<\/employeeNo>/);
+        const timeMatch = eventXml.match(/<time>(.*?)<\/time>/);
+        const eventTypeMatch = eventXml.match(/<eventType>(.*?)<\/eventType>/);
+        
+        events.push({
+          id: idMatch ? idMatch[1] : 'N/A',
+          employeeNo: employeeNoMatch ? employeeNoMatch[1] : 'N/A',
+          eventTime: timeMatch ? timeMatch[1] : new Date().toISOString(),
+          eventType: eventTypeMatch ? eventTypeMatch[1] : 'Access'
+        });
+      });
+    }
+    
+    return events;
+  } catch (error) {
+    console.error('Error parsing events:', error);
+    return [];
+  }
+}
+
+// POST /api/hikvision/test-connection - Probar conexión con biométrico
+app.post('/api/hikvision/test-connection', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    console.log('🔍 Credenciales recibidas:');
+    console.log('🔍 IP:', ip);
+    console.log('🔍 Usuario:', usuario);
+    console.log('🔍 Clave:', clave ? '[SET]' : '[NOT SET]');
+    
+    // Probar credenciales comunes de Hikvision si las actuales fallan
+    const commonCredentials = [
+      { user: 'admin', pass: '12345' },
+      { user: 'admin', pass: 'admin' },
+      { user: 'admin', pass: '123456' },
+      { user: 'root', pass: '12345' },
+      { user: 'admin', pass: 'hikvision' }
+    ];
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    // Intentar primero con las credenciales proporcionadas
+    let hikvision = new HikvisionISAPI(ip, usuario, clave);
+    let result = await hikvision.getDeviceInfo();
+    
+    if (!result.success) {
+      console.log('❌ Credenciales originales fallaron, probando credenciales comunes...');
+      
+      // Probar credenciales comunes
+      for (const cred of commonCredentials) {
+        console.log(`🔍 Probando: ${cred.user} / ${cred.pass}`);
+        hikvision = new HikvisionISAPI(ip, cred.user, cred.pass);
+        result = await hikvision.getDeviceInfo();
+        
+        if (result.success) {
+          console.log(`✅ ¡Credenciales encontradas! ${cred.user} / ${cred.pass}`);
+          break;
+        }
+      }
+      
+      if (!result.success) {
+        console.log('❌ Todas las credenciales comunes fallaron');
+        result = { success: false, error: 'Todas las credenciales probadas fallaron' };
+      }
+    }
+    
+    if (result.success) {
+      // Parsear XML de respuesta para extraer información del dispositivo
+      const deviceInfo = parseDeviceInfo(result.data);
+      res.json({
+        success: true,
+        data: deviceInfo
+      });
+    } else {
+      res.json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error testing connection:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/hikvision/device-info - Obtener información del dispositivo
+app.post('/api/hikvision/device-info', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.getDeviceInfo();
+    
+    if (result.success) {
+      const deviceInfo = parseDeviceInfo(result.data);
+      res.json({
+        success: true,
+        data: deviceInfo
+      });
+    } else {
+      res.json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error getting device info:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/hikvision/users - Obtener usuarios registrados
+app.post('/api/hikvision/users', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    console.log('👥 Obteniendo usuarios - Credenciales:');
+    console.log('👥 IP:', ip);
+    console.log('👥 Usuario:', usuario);
+    console.log('👥 Clave:', clave ? '[SET]' : '[NOT SET]');
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.getUsers();
+    
+    console.log('👥 Resultado de getUsers:', result);
+    
+    if (result.success) {
+      // result.data ya es el objeto JSON parseado, no necesita parseUsers()
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error getting users:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/hikvision/events - Obtener eventos de acceso
+app.post('/api/hikvision/events', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, startTime, endTime } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.getEvents(startTime, endTime);
+    
+    if (result.success) {
+      // result.data ya es el objeto JSON parseado, no necesita parseEvents()
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error getting events:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/hikvision/photos - Obtener fotos registradas
+app.post('/api/hikvision/photos', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.getPhotos();
+    
+    if (result.success) {
+      // Por ahora devolvemos un array vacío ya que las fotos se manejan de forma diferente
+      res.json({
+        success: true,
+        data: []
+      });
+    } else {
+      res.json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error getting photos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/hikvision/sync - Sincronizar datos
+app.post('/api/hikvision/sync', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.syncData();
+    
+    if (result.success) {
+      res.json({
+        success: true,
+        data: result.data
+      });
+    } else {
+      res.json({
+        success: false,
+        error: result.error
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error syncing data:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== RUTAS DE DISPOSITIVOS ====================
+
+// GET /api/dispositivos - Obtener todos los dispositivos
+app.get('/api/dispositivos', authenticateToken, async (req, res) => {
+  try {
+    const dispositivos = await Dispositivo.findAll({
+      where: { activo: true },
+      include: [
+        {
+          model: Sala,
+          as: 'Sala'
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    res.json(dispositivos);
+  } catch (error) {
+    console.error('❌ Error obteniendo dispositivos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/dispositivos/:id - Obtener dispositivo por ID
+app.get('/api/dispositivos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const dispositivo = await Dispositivo.findByPk(id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Sala'
+        }
+      ]
+    });
+
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+
+    res.json(dispositivo);
+  } catch (error) {
+    console.error('❌ Error obteniendo dispositivo:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/dispositivos - Crear nuevo dispositivo
+app.post('/api/dispositivos', authenticateToken, async (req, res) => {
+  try {
+    const { nombre, sala_id, ip_local, ip_remota, usuario, clave } = req.body;
+    
+    if (!nombre || !sala_id || !ip_local) {
+      return res.status(400).json({ message: 'Nombre, sala e IP local son requeridos' });
+    }
+
+    // Verificar que la sala existe
+    const sala = await Sala.findByPk(sala_id);
+    if (!sala) {
+      return res.status(404).json({ message: 'Sala no encontrada' });
+    }
+
+    const dispositivo = await Dispositivo.create({
+      nombre,
+      sala_id,
+      ip_local,
+      ip_remota: ip_remota || null,
+      usuario: usuario || null,
+      clave: clave || null,
+      activo: true
+    });
+
+    // Obtener el dispositivo con sus relaciones
+    const dispositivoCompleto = await Dispositivo.findByPk(dispositivo.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Sala'
+        }
+      ]
+    });
+
+    res.status(201).json(dispositivoCompleto);
+  } catch (error) {
+    console.error('❌ Error creando dispositivo:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/dispositivos/:id - Actualizar dispositivo
+app.put('/api/dispositivos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, sala_id, ip_local, ip_remota, usuario, clave } = req.body;
+    
+    const dispositivo = await Dispositivo.findByPk(id);
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+
+    // Verificar que la sala existe
+    if (sala_id) {
+      const sala = await Sala.findByPk(sala_id);
+      if (!sala) {
+        return res.status(404).json({ message: 'Sala no encontrada' });
+      }
+    }
+
+    await dispositivo.update({
+      nombre: nombre || dispositivo.nombre,
+      sala_id: sala_id || dispositivo.sala_id,
+      ip_local: ip_local || dispositivo.ip_local,
+      ip_remota: ip_remota !== undefined ? ip_remota : dispositivo.ip_remota,
+      usuario: usuario !== undefined ? usuario : dispositivo.usuario,
+      clave: clave !== undefined ? clave : dispositivo.clave
+    });
+
+    // Obtener el dispositivo actualizado con sus relaciones
+    const dispositivoActualizado = await Dispositivo.findByPk(id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Sala'
+        }
+      ]
+    });
+
+    res.json(dispositivoActualizado);
+  } catch (error) {
+    console.error('❌ Error actualizando dispositivo:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /api/dispositivos/:id - Eliminar dispositivo (soft delete)
+app.delete('/api/dispositivos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const dispositivo = await Dispositivo.findByPk(id);
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+
+    await dispositivo.update({ activo: false });
+    res.json({ message: 'Dispositivo eliminado correctamente' });
+  } catch (error) {
+    console.error('❌ Error eliminando dispositivo:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // Iniciar servidor
+// Ruta para descubrir endpoints disponibles
+app.post('/api/hikvision/discover', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.discoverEndpoints();
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/discover:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para obtener capacidades de usuarios
+app.post('/api/hikvision/user-capabilities', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.getUserCapabilities();
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/user-capabilities:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para obtener capacidades del dispositivo
+app.post('/api/hikvision/device-capabilities', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.getDeviceCapabilities();
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/device-capabilities:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para obtener stream de cámara
+app.post('/api/hikvision/camera-stream', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, streamType = 'preview' } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.getCameraStream(streamType);
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/camera-stream:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para obtener foto del usuario
+app.post('/api/hikvision/user-photo', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, fpid } = req.body;
+    
+    if (!ip || !usuario || !clave || !fpid) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave y FPID son requeridos' });
+    }
+
+    console.log(`📸 Obteniendo foto para FPID: ${fpid}`);
+    console.log(`📸 Dispositivo: ${ip}, Usuario: ${usuario}`);
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.getUserPhoto(fpid);
+    
+    console.log(`📸 Resultado de getUserPhoto:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/user-photo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para obtener información específica de un usuario
+app.post('/api/hikvision/get-user-info', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, employeeNo } = req.body;
+    
+    if (!ip || !usuario || !clave || !employeeNo) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave y employeeNo son requeridos' });
+    }
+
+    console.log(`👤 Obteniendo información del usuario: ${employeeNo}`);
+    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.getUserInfo(employeeNo);
+    
+    console.log(`👤 Resultado de getUserInfo:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/get-user-info:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para eliminar rostro de usuario
+app.post('/api/hikvision/delete-user-face', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, employeeNo } = req.body;
+    
+    if (!ip || !usuario || !clave || !employeeNo) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave y employeeNo son requeridos' });
+    }
+
+    console.log(`🗑️ Eliminando rostro del usuario: ${employeeNo}`);
+    console.log(`🗑️ Dispositivo: ${ip}, Usuario: ${usuario}`);
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.deleteUserFace(employeeNo);
+    
+    console.log(`🗑️ Resultado de deleteUserFace:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/delete-user-face:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para eliminar usuario completo
+app.post('/api/hikvision/delete-user', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, employeeNo } = req.body;
+    
+    console.log(`🗑️ Recibiendo solicitud de eliminación de usuario:`, { ip, usuario, clave, employeeNo });
+    
+    if (!ip || !usuario || !clave || !employeeNo) {
+      console.log(`❌ Faltan parámetros requeridos`);
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave y employeeNo son requeridos' });
+    }
+    
+    console.log(`🗑️ Eliminando usuario completo: ${employeeNo}`);
+    console.log(`🗑️ Dispositivo: ${ip}, Usuario: ${usuario}`);
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.deleteUser(employeeNo);
+    
+    console.log(`🗑️ Resultado de deleteUser:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/delete-user:', error);
+    console.error('Error completo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para eliminar solo la foto del usuario
+app.post('/api/hikvision/delete-user-photo-only', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, deletePhotoPayload } = req.body;
+    
+    if (!ip || !usuario || !clave || !deletePhotoPayload) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave y deletePhotoPayload son requeridos' });
+    }
+
+    console.log(`🗑️ Eliminando solo la foto del usuario`);
+    console.log(`🗑️ Dispositivo: ${ip}, Usuario: ${usuario}`);
+    console.log(`🗑️ Payload:`, deletePhotoPayload);
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.deleteUserPhotoOnly(deletePhotoPayload);
+
+    console.log(`🗑️ Resultado de deleteUserPhotoOnly:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/delete-user-photo-only:', error);
+    console.error('Error completo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para registrar rostro de usuario con payload completo
+app.post('/api/hikvision/register-user-face-payload', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, facePayload } = req.body;
+    
+    if (!ip || !usuario || !clave || !facePayload) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave y facePayload son requeridos' });
+    }
+
+    console.log(`📸 Registrando rostro del usuario`);
+    console.log(`📸 Dispositivo: ${ip}, Usuario: ${usuario}`);
+    console.log(`📸 Payload:`, facePayload);
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.registerUserFaceWithPayload(facePayload);
+
+    console.log(`📸 Resultado de registerUserFaceWithPayload:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/register-user-face-payload:', error);
+    console.error('Error completo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para registrar rostro de usuario
+app.post('/api/hikvision/register-user-face', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, employeeNo, name, gender, faceDataBase64 } = req.body;
+    
+    if (!ip || !usuario || !clave || !employeeNo || !name || !faceDataBase64) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name y faceDataBase64 son requeridos' });
+    }
+
+    console.log(`👤 Registrando rostro del usuario: ${employeeNo}`);
+    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
+    console.log(`👤 Nombre: ${name}, Gender: ${gender}`);
+    console.log(`👤 Tamaño de imagen base64: ${faceDataBase64.length} caracteres`);
+    console.log(`👤 IMAGEN BASE64 COMPLETA:`);
+    console.log(faceDataBase64);
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.registerUserFace(employeeNo, name, gender, faceDataBase64);
+    
+    console.log(`👤 Resultado de registerUserFace:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/register-user-face:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
+// Ruta para probar límites del campo faceURL
+app.post('/api/hikvision/test-faceurl-limit', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    console.log(`🔍 Probando límites del campo faceURL...`);
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    
+    // Probar con diferentes tamaños de base64
+    const testSizes = [
+      { size: 1000, description: '1KB' },
+      { size: 5000, description: '5KB' },
+      { size: 10000, description: '10KB' },
+      { size: 20000, description: '20KB' },
+      { size: 50000, description: '50KB' },
+      { size: 100000, description: '100KB' }
+    ];
+    
+    const results = [];
+    
+    for (const test of testSizes) {
+      // Generar base64 de prueba del tamaño especificado
+      const testBase64 = 'data:image/jpeg;base64,' + 'A'.repeat(test.size);
+      
+      console.log(`🔍 Probando con ${test.description} (${testBase64.length} caracteres)...`);
+      
+      const testPayload = {
+        "faceURL": testBase64,
+        "faceLibType": "blackFD",
+        "FDID": "1",
+        "FPID": "TEST123",
+        "name": "Test User",
+        "gender": "male",
+        "featurePointType": "face"
+      };
+      
+      try {
+        const result = await hikvision.makeRequest('/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json', 'POST', testPayload);
+        
+        results.push({
+          size: test.size,
+          description: test.description,
+          characters: testBase64.length,
+          success: result.success,
+          statusCode: result.data?.statusCode,
+          statusString: result.data?.statusString,
+          errorMsg: result.data?.errorMsg
+        });
+        
+        console.log(`🔍 ${test.description}: ${result.success ? '✅ ÉXITO' : '❌ FALLO'} - ${result.data?.statusString || 'Sin respuesta'}`);
+        
+      } catch (error) {
+        results.push({
+          size: test.size,
+          description: test.description,
+          characters: testBase64.length,
+          success: false,
+          error: error.message
+        });
+        
+        console.log(`🔍 ${test.description}: ❌ ERROR - ${error.message}`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        message: 'Prueba de límites completada',
+        results: results
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error en /api/hikvision/test-faceurl-limit:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Map para almacenar imágenes temporales con URLs cortas
+const tempImages = new Map();
+
+// Función para subir imagen a servidor PHP (eliminación automática en 5 minutos)
+async function uploadToPhpServer(base64Image) {
+  try {
+    console.log('📤 Subiendo imagen a servidor PHP (eliminación automática en 5 minutos)...');
+    
+    // Remover el prefijo data:image/...;base64, del base64
+    const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
+    
+    // Convertir base64 a Buffer
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    
+    console.log('📤 Tamaño del buffer:', imageBuffer.length, 'bytes');
+    
+    // Crear FormData usando el módulo form-data
+    const FormData = require('form-data');
+    const formData = new FormData();
+    
+    // Agregar el archivo directamente como Buffer
+    formData.append('image', imageBuffer, {
+      filename: 'image.jpg',
+      contentType: 'image/jpeg'
+    });
+    
+    console.log('📤 Headers FormData:', formData.getHeaders());
+    
+    // Usar axios en lugar de fetch para mejor compatibilidad
+    const axios = require('axios');
+    
+    const response = await axios.post('http://hotelroraimainn.com/upload.php', formData, {
+      headers: {
+        ...formData.getHeaders()
+      },
+      timeout: 30000 // 30 segundos timeout
+    });
+    
+    console.log('📤 Status del servidor PHP:', response.status);
+    console.log('📤 Headers del servidor PHP:', response.headers);
+    console.log('📤 Respuesta del servidor PHP:', response.data);
+    
+    if (response.data && response.data.success && response.data.url) {
+      console.log('✅ Imagen subida al servidor PHP exitosamente!');
+      console.log('📤 URL temporal:', response.data.url);
+      console.log('📤 Tamaño de URL:', response.data.url.length, 'caracteres');
+      console.log('📤 ¿Dentro del límite de 1024?:', response.data.url.length <= 1024 ? '✅ SÍ' : '❌ NO');
+      console.log('📤 Accesible desde cualquier dispositivo');
+      console.log('📤 ⏰ Eliminación automática en 5 minutos');
+      console.log('📤 Sin autenticación requerida');
+      return response.data.url;
+    } else {
+      console.error('❌ Error subiendo al servidor PHP:', response.data);
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Error en uploadToPhpServer:', error.message);
+    if (error.response) {
+      console.error('❌ Status:', error.response.status);
+      console.error('❌ Headers:', error.response.headers);
+      console.error('❌ Data:', error.response.data);
+    }
+    return null;
+  }
+}
+
+// Limpiar imágenes expiradas cada 5 minutos
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, imageData] of tempImages.entries()) {
+    if (imageData.expires < now) {
+      tempImages.delete(id);
+      console.log('🗑️ Imagen temporal eliminada:', id);
+    }
+  }
+}, 5 * 60 * 1000); // 5 minutos
+
+// Ruta para servir imágenes temporales
+app.get('/img/:id', (req, res) => {
+  const imageId = req.params.id;
+  const imageData = tempImages.get(imageId);
+  
+  if (!imageData) {
+    return res.status(404).json({ error: 'Imagen no encontrada' });
+  }
+  
+  // Decodificar base64 y servir como imagen
+  const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
+  const imageBuffer = Buffer.from(base64Data, 'base64');
+  
+  res.set('Content-Type', 'image/jpeg');
+  res.set('Cache-Control', 'no-cache');
+  res.send(imageBuffer);
+});
+
+// Ruta para registrar rostro de usuario con ImgBB (URL pública gratuita)
+app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, employeeNo, name, gender, imageBase64 } = req.body;
+    
+    if (!ip || !usuario || !clave || !employeeNo || !name || !imageBase64) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name e imageBase64 son requeridos' });
+    }
+
+    console.log(`👤 Registrando rostro del usuario con servidor PHP: ${employeeNo}`);
+    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
+    console.log(`👤 Nombre: ${name}, Gender: ${gender}`);
+    console.log(`👤 Tamaño de base64: ${imageBase64.length} caracteres`);
+    
+    // Subir imagen a servidor PHP y obtener URL temporal
+    const publicURL = await uploadToPhpServer(imageBase64);
+    
+    if (!publicURL) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'No se pudo subir la imagen al servidor PHP' 
+      });
+    }
+    
+    console.log(`👤 URL temporal generada por servidor PHP: ${publicURL}`);
+    console.log(`👤 Longitud de URL: ${publicURL.length} caracteres`);
+    console.log(`👤 ¿Dentro del límite de 1024?: ${publicURL.length <= 1024 ? '✅ SÍ' : '❌ NO'}`);
+    console.log(`👤 URL completa para probar en navegador: ${publicURL}`);
+    console.log(`👤 ⏰ Esta imagen se eliminará automáticamente en 5 minutos`);
+    
+    // Crear el payload que se enviará al dispositivo
+    const payloadToDevice = {
+      "faceURL": publicURL,
+      "faceLibType": "blackFD",
+      "FDID": "1",
+      "FPID": employeeNo,
+      "name": name,
+      "gender": gender || "male",
+      "featurePointType": "face"
+    };
+    
+    console.log(`👤 PAYLOAD COMPLETO QUE SE ENVÍA AL DISPOSITIVO:`);
+    console.log(`👤 faceURL (URL del servidor PHP): ${payloadToDevice.faceURL}`);
+    console.log(`👤 faceURL (primeros 100 chars): ${payloadToDevice.faceURL.substring(0, 100)}...`);
+    console.log(`👤 faceURL (últimos 50 chars): ...${payloadToDevice.faceURL.substring(payloadToDevice.faceURL.length - 50)}`);
+    console.log(`👤 Payload completo:`, JSON.stringify(payloadToDevice, null, 2));
+    
+    // 🧪 CONSOLE PARA COPIAR Y PEGAR LA URL EN EL NAVEGADOR
+    console.log(`\n🧪 ===== COPIA Y PEGA ESTA URL EN EL NAVEGADOR =====`);
+    console.log(`📋 URL del servidor PHP para probar (expira en 5 minutos):`);
+    console.log(publicURL);
+    console.log(`🧪 ===== FIN DE LA URL PARA COPIAR =====\n`);
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.registerUserFace(employeeNo, name, gender, publicURL);
+    
+    console.log(`👤 Resultado de registerUserFace:`, result);
+    
+    // Agregar el payload a la respuesta para verificación
+    if (result.success) {
+      result.data.payloadToDevice = payloadToDevice;
+      result.data.publicURL = publicURL;
+      result.data.faceURL = publicURL;
+    } else {
+      result.payloadToDevice = payloadToDevice;
+      result.publicURL = publicURL;
+      result.faceURL = publicURL;
+    }
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/register-user-face-imgbb:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para registrar rostro de usuario con URL externa (mantener compatibilidad)
+app.post('/api/hikvision/register-user-face-url', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, employeeNo, name, gender, imageBase64 } = req.body;
+    
+    if (!ip || !usuario || !clave || !employeeNo || !name || !imageBase64) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name e imageBase64 son requeridos' });
+    }
+
+    console.log(`👤 Registrando rostro del usuario con URL externa: ${employeeNo}`);
+    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
+    console.log(`👤 Nombre: ${name}, Gender: ${gender}`);
+    console.log(`👤 Tamaño de base64: ${imageBase64.length} caracteres`);
+    
+    // Generar ID único para la imagen
+    const imageId = `face_${employeeNo}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Almacenar imagen en memoria
+    tempImages.set(imageId, imageBase64);
+    
+    // Crear URL externa corta
+    const faceURL = `http://${ip.split(':')[0]}:3000/img/${imageId}`;
+    
+    console.log(`👤 URL generada: ${faceURL}`);
+    console.log(`👤 Longitud de URL: ${faceURL.length} caracteres`);
+    console.log(`👤 ¿Dentro del límite de 1024?: ${faceURL.length <= 1024 ? '✅ SÍ' : '❌ NO'}`);
+    
+    // Crear el payload que se enviará al dispositivo
+    const payloadToDevice = {
+      "faceURL": faceURL,
+      "faceLibType": "blackFD",
+      "FDID": "1",
+      "FPID": employeeNo,
+      "name": name,
+      "gender": gender || "male",
+      "featurePointType": "face"
+    };
+    
+    console.log(`👤 PAYLOAD COMPLETO QUE SE ENVÍA AL DISPOSITIVO:`);
+    console.log(`👤 faceURL (primeros 200 chars): ${payloadToDevice.faceURL.substring(0, 200)}...`);
+    console.log(`👤 faceURL (últimos 50 chars): ...${payloadToDevice.faceURL.substring(payloadToDevice.faceURL.length - 50)}`);
+    console.log(`👤 Payload completo:`, JSON.stringify(payloadToDevice, null, 2));
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.registerUserFace(employeeNo, name, gender, faceURL);
+    
+    console.log(`👤 Resultado de registerUserFace:`, result);
+    
+    // Limpiar imagen temporal después de 5 minutos
+    setTimeout(() => {
+      tempImages.delete(imageId);
+      console.log(`🧹 Imagen temporal eliminada: ${imageId}`);
+    }, 5 * 60 * 1000);
+    
+    // Agregar el payload a la respuesta para verificación
+    if (result.success) {
+      result.data.payloadToDevice = payloadToDevice;
+      result.data.imageId = imageId;
+      result.data.faceURL = faceURL;
+    } else {
+      result.payloadToDevice = payloadToDevice;
+      result.imageId = imageId;
+      result.faceURL = faceURL;
+    }
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/register-user-face-url:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para registrar rostro de usuario con base64 comprimido (mantener compatibilidad)
+app.post('/api/hikvision/register-user-face-compressed', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, employeeNo, name, gender, compressedBase64 } = req.body;
+    
+    if (!ip || !usuario || !clave || !employeeNo || !name || !compressedBase64) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name y compressedBase64 son requeridos' });
+    }
+
+    console.log(`👤 Registrando rostro del usuario con base64 comprimido: ${employeeNo}`);
+    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
+    console.log(`👤 Nombre: ${name}, Gender: ${gender}`);
+    console.log(`👤 Tamaño de base64 comprimido: ${compressedBase64.length} caracteres`);
+    
+    // Usar directamente el base64 optimizado que viene del frontend (WebP/PNG/JPEG)
+    const faceURL = compressedBase64;
+    console.log(`👤 Base64 optimizado recibido del frontend:`);
+    console.log(`👤 Primeros 100 chars: ${faceURL.substring(0, 100)}...`);
+    console.log(`👤 Tamaño total: ${faceURL.length} caracteres`);
+    console.log(`👤 Tamaño en KB: ${(faceURL.length / 1024).toFixed(2)} KB`);
+    console.log(`👤 Prefijo detectado: ${faceURL.substring(0, 30)}`);
+    console.log(`👤 Formato: ${faceURL.includes('image/webp') ? 'WebP' : faceURL.includes('image/png') ? 'PNG' : 'JPEG'}`);
+    console.log(`👤 LÍMITE RECOMENDADO: < 7,000 caracteres para evitar beyondARGSRangeLimit`);
+    console.log(`👤 ¿Dentro del límite?: ${faceURL.length < 7000 ? '✅ SÍ' : '❌ NO'}`);
+    
+    // Crear el payload que se enviará al dispositivo
+    const payloadToDevice = {
+      "faceURL": faceURL,
+      "faceLibType": "blackFD",
+      "FDID": "1",
+      "FPID": employeeNo,
+      "name": name,
+      "gender": gender || "male",
+      "featurePointType": "face"
+    };
+    
+    console.log(`👤 PAYLOAD COMPLETO QUE SE ENVÍA AL DISPOSITIVO:`);
+    console.log(`👤 faceURL (primeros 200 chars): ${payloadToDevice.faceURL.substring(0, 200)}...`);
+    console.log(`👤 faceURL (últimos 50 chars): ...${payloadToDevice.faceURL.substring(payloadToDevice.faceURL.length - 50)}`);
+    console.log(`👤 Payload completo:`, JSON.stringify(payloadToDevice, null, 2));
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.registerUserFace(employeeNo, name, gender, faceURL);
+    
+    console.log(`👤 Resultado de registerUserFace:`, result);
+    
+    // Agregar el payload a la respuesta para verificación
+    if (result.success) {
+      result.data.payloadToDevice = payloadToDevice;
+      result.data.base64Length = faceURL.length;
+    } else {
+      result.payloadToDevice = payloadToDevice;
+      result.base64Length = faceURL.length;
+    }
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/register-user-face-compressed:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para actualizar usuario
+app.post('/api/hikvision/update-user', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave, userData } = req.body;
+    
+    if (!ip || !usuario || !clave || !userData) {
+      return res.status(400).json({ success: false, error: 'IP, usuario, clave y userData son requeridos' });
+    }
+
+    console.log(`✏️ Actualizando usuario: ${userData.employeeNo}`);
+    console.log(`✏️ Dispositivo: ${ip}, Usuario: ${usuario}`);
+    console.log(`✏️ Datos del usuario:`, userData);
+    
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.updateUser(userData);
+    
+    console.log(`✏️ Resultado de updateUser:`, result);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/update-user:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para servir imágenes como proxy (evitar CORS)
+app.get('/api/hikvision/image-proxy', async (req, res) => {
+  try {
+    const { url, ip, usuario, clave } = req.query;
+    
+    if (!url) {
+      return res.status(400).json({ success: false, error: 'URL es requerida' });
+    }
+
+    console.log(`🖼️ Proxying image: ${url}`);
+    console.log(`🖼️ Device: ${ip}, User: ${usuario}`);
+    
+    // Si tenemos credenciales del dispositivo, usar autenticación digest
+    if (ip && usuario && clave) {
+      try {
+        // Implementar digest authentication manualmente para imágenes
+        const crypto = require('crypto');
+        
+        // Primera petición para obtener el challenge
+        const challengeResponse = await axios.get(url, {
+          timeout: 10000,
+          validateStatus: function (status) {
+            return status === 401; // Solo aceptar 401
+          }
+        });
+        
+        const wwwAuthenticate = challengeResponse.headers['www-authenticate'];
+        if (wwwAuthenticate && wwwAuthenticate.includes('Digest')) {
+          // Parsear el challenge
+          const realm = wwwAuthenticate.match(/realm="([^"]+)"/)?.[1];
+          const nonce = wwwAuthenticate.match(/nonce="([^"]+)"/)?.[1];
+          const qop = wwwAuthenticate.match(/qop="([^"]+)"/)?.[1];
+          
+          if (realm && nonce) {
+            // Generar respuesta digest
+            const ha1 = crypto.createHash('md5').update(`${usuario}:${realm}:${clave}`).digest('hex');
+            const ha2 = crypto.createHash('md5').update(`GET:${url}`).digest('hex');
+            const response = crypto.createHash('md5').update(`${ha1}:${nonce}:${ha2}`).digest('hex');
+            
+            // Segunda petición con digest
+            const digestResponse = await axios.get(url, {
+              responseType: 'stream',
+              timeout: 15000,
+              headers: {
+                'Authorization': `Digest username="${usuario}", realm="${realm}", nonce="${nonce}", uri="${url}", response="${response}"`,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'image/*'
+              }
+            });
+            
+            // Enviar la imagen
+            res.set({
+              'Content-Type': digestResponse.headers['content-type'] || 'image/jpeg',
+              'Content-Length': digestResponse.headers['content-length'],
+              'Cache-Control': 'public, max-age=3600',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Methods': 'GET',
+              'Access-Control-Allow-Headers': 'Content-Type'
+            });
+            
+            return digestResponse.data.pipe(res);
+          }
+        }
+      } catch (digestError) {
+        console.log('❌ Autenticación digest falló, intentando básica...');
+      }
+    }
+    
+    // Fallback a autenticación básica
+    try {
+      const response = await axios.get(url, {
+        responseType: 'stream',
+        timeout: 15000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'image/*',
+          'Accept-Encoding': 'identity'
+        },
+        auth: {
+          username: usuario || 'admin',
+          password: clave || 'admin123'
+        }
+      });
+      
+      // Copiar headers de la respuesta original
+      res.set({
+        'Content-Type': response.headers['content-type'] || 'image/jpeg',
+        'Content-Length': response.headers['content-length'],
+        'Cache-Control': 'public, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      });
+      
+      // Pipe la imagen al response
+      response.data.pipe(res);
+      
+    } catch (basicError) {
+      console.log('❌ Autenticación básica también falló');
+      throw basicError;
+    }
+    
+  } catch (error) {
+    console.error('Error proxying image:', error.message);
+    console.error('Error details:', error.response?.status, error.response?.statusText);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error cargando imagen',
+      details: error.message,
+      status: error.response?.status
+    });
+  }
+});
+
+// Ruta para descubrir canales de streaming
+app.post('/api/hikvision/discover-channels', authenticateToken, async (req, res) => {
+  try {
+    const { ip, usuario, clave } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const hikvision = new HikvisionISAPI(ip, usuario, clave);
+    const result = await hikvision.discoverStreamingChannels();
+    
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/hikvision/discover-channels:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== RUTAS DE HIK-CONNECT ====================
+
+// Usar las rutas de Hik-Connect
+app.use('/api/hik-connect', hikConnectRoutes);
+
+// ==================== RUTAS HÍBRIDAS WISI-HIKVISION ====================
+// Usar las rutas híbridas
+app.use('/api/wisi-hikvision', hybridRoutes);
+
+// ==================== RUTAS TPP HIKVISION ====================
+// Inicializar cliente TPP
+const tppClient = new TPPHikvisionAPI();
+
+// Ruta para autenticar con TPP
+app.post('/api/tpp/authenticate', authenticateToken, async (req, res) => {
+  try {
+    const result = await tppClient.authenticate();
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/tpp/authenticate:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para obtener dispositivos TPP
+app.get('/api/tpp/devices', authenticateToken, async (req, res) => {
+  try {
+    const result = await tppClient.getDevices();
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/tpp/devices:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para obtener usuarios de un dispositivo TPP
+app.get('/api/tpp/devices/:deviceId/users', authenticateToken, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const result = await tppClient.getDeviceUsers(deviceId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/tpp/devices/:deviceId/users:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para obtener eventos de un dispositivo TPP
+app.get('/api/tpp/devices/:deviceId/events', authenticateToken, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { startTime, endTime } = req.query;
+    const result = await tppClient.getDeviceEvents(deviceId, startTime, endTime);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/tpp/devices/:deviceId/events:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para obtener foto de usuario desde TPP
+app.get('/api/tpp/devices/:deviceId/users/:userId/photo', authenticateToken, async (req, res) => {
+  try {
+    const { deviceId, userId } = req.params;
+    const result = await tppClient.getUserPhoto(deviceId, userId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/tpp/devices/:deviceId/users/:userId/photo:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Ruta para sincronizar TPP con ISAPI
+app.post('/api/tpp/sync/:deviceId', authenticateToken, async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { ip, usuario, clave } = req.body;
+    
+    if (!ip || !usuario || !clave) {
+      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+    }
+
+    const HikvisionISAPI = require('./hikvision-isapi');
+    const isapiClient = new HikvisionISAPI(ip, usuario, clave);
+    
+    const result = await tppClient.syncWithISAPI(deviceId, isapiClient);
+    res.json(result);
+  } catch (error) {
+    console.error('Error en /api/tpp/sync/:deviceId:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor WISI ejecutándose en puerto ${PORT}`);
-  console.log(`📊 Módulos disponibles: RRHH, MÁQUINAS, CECOM`);
-  console.log(`🔐 Usuario creador: willinthon`);
+  console.log(`Servidor ejecutándose en puerto ${PORT}`);
+  console.log(`🌐 Hik-Connect API: http://localhost:${PORT}/api/hik-connect`);
+  console.log(`🔧 WISI-Hikvision Hybrid API: http://localhost:${PORT}/api/wisi-hikvision`);
+  console.log(`🚀 TPP Hikvision API: http://localhost:${PORT}/api/tpp`);
 });

@@ -329,7 +329,6 @@ export class SalaEditComponent implements OnInit {
       activa: this.sala.activa
     }).subscribe({
       next: (response) => {
-        console.log('Sala actualizada:', response);
         alert('Sala actualizada exitosamente');
         this.router.navigate(['/super-config/salas']);
       },

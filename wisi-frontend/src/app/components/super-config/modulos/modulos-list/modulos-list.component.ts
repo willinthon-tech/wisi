@@ -363,7 +363,6 @@ export class ModulosListComponent implements OnInit {
     
     moduleService.subscribe({
       next: (modules) => {
-        console.log('Módulos cargados:', modules);
         this.modules = modules || [];
         this.checkLoadingComplete();
       },
@@ -376,7 +375,6 @@ export class ModulosListComponent implements OnInit {
     
     pageService.subscribe({
       next: (pages) => {
-        console.log('Páginas cargadas:', pages);
         this.pages = pages || [];
         this.checkLoadingComplete();
       },
@@ -412,7 +410,6 @@ export class ModulosListComponent implements OnInit {
     if (confirm(`¿Estás seguro de que quieres eliminar el módulo "${module.nombre}"?`)) {
       this.userService.deleteModule(module.id).subscribe({
         next: (response) => {
-          console.log('Módulo eliminado:', response);
           alert('Módulo eliminado exitosamente');
           this.loadData(); // Recargar la lista
         },

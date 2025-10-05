@@ -445,7 +445,6 @@ export class UsuariosListComponent implements OnInit {
     // Cargar usuarios, páginas, módulos y permisos en paralelo
     this.userService.getUsers().subscribe({
       next: (usuarios) => {
-        console.log('Usuarios cargados:', usuarios);
         // Filtrar al creador (nivel 'TODO') de la lista
         this.usuarios = (usuarios || []).filter(usuario => usuario.nivel !== 'TODO');
         this.checkLoadingComplete();
@@ -459,7 +458,6 @@ export class UsuariosListComponent implements OnInit {
 
     this.userService.getPages().subscribe({
       next: (pages) => {
-        console.log('Páginas cargadas:', pages);
         this.pages = pages || [];
         this.checkLoadingComplete();
       },
@@ -472,7 +470,6 @@ export class UsuariosListComponent implements OnInit {
 
     this.userService.getModules().subscribe({
       next: (modules) => {
-        console.log('Módulos cargados:', modules);
         this.modules = modules || [];
         this.checkLoadingComplete();
       },
@@ -485,7 +482,6 @@ export class UsuariosListComponent implements OnInit {
 
     this.userService.getPermissions().subscribe({
       next: (permissions) => {
-        console.log('Permisos cargados:', permissions);
         this.permissions = permissions || [];
         this.checkLoadingComplete();
       },
@@ -522,7 +518,6 @@ export class UsuariosListComponent implements OnInit {
     if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${usuario.nombre_apellido}"?`)) {
       this.userService.deleteUser(usuario.id).subscribe({
         next: (response) => {
-          console.log('Usuario eliminado:', response);
           alert('Usuario eliminado exitosamente');
           this.loadData(); // Recargar la lista
         },

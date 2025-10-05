@@ -473,7 +473,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
     
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados en Drop Mesas:', permissions);
       this.checkPermissions();
     });
 
@@ -481,8 +480,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
     this.route.params.subscribe(params => {
       this.libroId = +params['libroId'];
       this.salaId = +params['salaId'];
-      console.log('ID del libro:', this.libroId);
-      console.log('ID de la sala:', this.salaId);
       
       // Cargar información del libro
       if (this.libroId) {
@@ -506,14 +503,12 @@ export class DropMesasComponent implements OnInit, OnDestroy {
   private checkPermissions(): void {
     // Drop de Mesas es una operación funcional, no CRUD - siempre permitir acceso
     this.hasAccess = true;
-    console.log('✅ Drop de Mesas - Acceso permitido (operación funcional)');
   }
 
   loadUserSalas() {
     this.userService.getUserSalas().subscribe({
       next: (salas: Sala[]) => {
         this.userSalas = salas;
-        console.log('Salas del usuario cargadas:', this.userSalas);
       },
       error: (error: any) => {
         console.error('Error cargando salas del usuario:', error);
@@ -531,7 +526,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
     this.dropsService.getDrops(this.libroId).subscribe({
       next: (drops: Drop[]) => {
         this.drops = drops;
-        console.log('Drops cargados para libro', this.libroId, ':', this.drops);
       },
       error: (error: any) => {
         console.error('Error cargando drops:', error);
@@ -547,7 +541,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
         this.userMesas = mesas.filter(mesa => 
           mesa.Juego && mesa.Juego.Sala && mesa.Juego.Sala.id === this.salaId
         );
-        console.log('Mesas filtradas por sala:', this.salaId, this.userMesas);
       },
       error: (error: any) => {
         console.error('Error cargando mesas del usuario:', error);
@@ -557,8 +550,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
   }
 
   onMesaChange() {
-    console.log('Mesa seleccionada:', this.selectedMesaId);
-    console.log('Drops disponibles:', this.drops);
     
     if (this.selectedMesaId) {
       // Convertir selectedMesaId a número para comparación
@@ -566,7 +557,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
       
       // Buscar si ya existe un drop para esta mesa
       const existingDrop = this.drops.find(drop => drop.mesa_id === mesaId);
-      console.log('Drop existente encontrado:', existingDrop);
       
       if (existingDrop) {
         // Llenar los campos con los datos existentes
@@ -578,7 +568,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
           denominacion_5: existingDrop.denominacion_5,
           denominacion_1: existingDrop.denominacion_1
         };
-        console.log('Campos llenados con datos existentes:', this.dropData);
       } else {
         // Limpiar los campos
         this.dropData = {
@@ -589,7 +578,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
           denominacion_5: 0,
           denominacion_1: 0
         };
-        console.log('Campos limpiados para nueva mesa');
       }
     }
   }
@@ -618,7 +606,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
 
     this.dropsService.createOrUpdateDrop(dropData).subscribe({
       next: (drop: Drop) => {
-        console.log('Drop guardado:', drop);
         this.loadDrops(); // Recargar la lista
         this.resetForm();
         alert('Drop guardado correctamente');
@@ -634,7 +621,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
     if (confirm('¿Está seguro de que desea eliminar este drop?')) {
       this.dropsService.deleteDrop(id).subscribe({
         next: () => {
-          console.log('Drop eliminado');
           this.loadDrops(); // Recargar la lista
           alert('Drop eliminado correctamente');
         },
@@ -682,7 +668,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
     this.libroService.getLibro(this.libroId).subscribe({
       next: (libro) => {
         this.libro = libro;
-        console.log('Libro cargado:', this.libro);
       },
       error: (error) => {
         console.error('Error cargando libro:', error);

@@ -55,10 +55,40 @@ import { Subscription } from 'rxjs';
         </div>
         
         <div class="feature-grid">
-          <div class="feature-card">
+          <div class="feature-card" (click)="navigateToAreas()">
+            <div class="feature-icon">🏢</div>
+            <h3>Gestión de Áreas</h3>
+            <p>Administra áreas por sala</p>
+          </div>
+          
+          <div class="feature-card" (click)="navigateToDepartamentos()">
+            <div class="feature-icon">🏛️</div>
+            <h3>Gestión de Departamentos</h3>
+            <p>Administra departamentos por área</p>
+          </div>
+          
+          <div class="feature-card" (click)="navigateToCargos()">
+            <div class="feature-icon">👔</div>
+            <h3>Gestión de Cargos</h3>
+            <p>Administra cargos por departamento</p>
+          </div>
+          
+          <div class="feature-card" (click)="navigateToEmpleados()">
             <div class="feature-icon">👥</div>
+            <h3>Gestión de Empleados</h3>
+            <p>Administra empleados y sus datos personales</p>
+          </div>
+          
+          <div class="feature-card" (click)="navigateToHorarios()">
+            <div class="feature-icon">🕒</div>
+            <h3>Gestión de Horarios</h3>
+            <p>Administra plantillas de horarios</p>
+          </div>
+          
+          <div class="feature-card">
+            <div class="feature-icon">📋</div>
             <h3>Gestión de Personal</h3>
-            <p>Administra empleados, contratos y nóminas</p>
+            <p>Administra contratos y nóminas</p>
           </div>
           
           <div class="feature-card">
@@ -170,6 +200,7 @@ import { Subscription } from 'rxjs';
       text-align: center;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
       transition: transform 0.3s ease;
+      cursor: pointer;
     }
 
     .feature-card:hover {
@@ -206,7 +237,6 @@ export class RrhhComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados en RRHH:', permissions);
       this.debugPermissions();
     });
 
@@ -221,28 +251,19 @@ export class RrhhComponent implements OnInit, OnDestroy {
   }
 
   debugPermissions(): void {
-    console.log('🔍 Debug de permisos para módulo RRHH (ID: 1)');
     const allPermissions = this.permissionsService.getCurrentPermissions();
-    console.log('📋 Todos los permisos del usuario:', allPermissions);
 
     // Mostrar todos los módulos únicos que tiene el usuario
     const uniqueModules = [...new Set(allPermissions.map(p => p.moduleId))];
-    console.log('🏢 Módulos únicos que tiene el usuario:', uniqueModules);
 
     // Mostrar permisos por módulo
     uniqueModules.forEach(moduleId => {
       const modulePermissions = allPermissions.filter(p => p.moduleId === moduleId);
-      console.log(`📋 Módulo ${moduleId} tiene permisos:`, modulePermissions.map(p => p.permissionName));
     });
 
-    console.log('✅ Puede agregar:', this.canAdd());
-    console.log('✅ Puede editar:', this.canEdit());
-    console.log('✅ Puede reporte:', this.canReport());
-    console.log('✅ Puede eliminar:', this.canDelete());
 
     // Debug adicional para verificar el módulo específico
     const rrhhPermissions = allPermissions.filter(p => p.moduleId === 1);
-    console.log('🔍 Permisos específicos para módulo 1 (RRHH):', rrhhPermissions);
   }
 
   // Métodos para verificar permisos
@@ -264,23 +285,39 @@ export class RrhhComponent implements OnInit, OnDestroy {
 
   // Métodos de navegación
   navigateToAdd(): void {
-    console.log('Navegando a agregar RRHH');
     // this.router.navigate(['/rrhh/add']);
   }
 
   navigateToEdit(): void {
-    console.log('Navegando a editar RRHH');
     // this.router.navigate(['/rrhh/edit']);
   }
 
   navigateToReport(): void {
-    console.log('Navegando a reporte RRHH');
     // this.router.navigate(['/rrhh/report']);
   }
 
   navigateToDelete(): void {
-    console.log('Navegando a eliminar RRHH');
     // this.router.navigate(['/rrhh/delete']);
+  }
+
+  navigateToAreas(): void {
+    this.router.navigate(['/areas']);
+  }
+
+  navigateToDepartamentos(): void {
+    this.router.navigate(['/departamentos']);
+  }
+
+  navigateToCargos(): void {
+    this.router.navigate(['/cargos']);
+  }
+
+  navigateToEmpleados(): void {
+    this.router.navigate(['/empleados']);
+  }
+
+  navigateToHorarios(): void {
+    this.router.navigate(['/horarios']);
   }
 }
 

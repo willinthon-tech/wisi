@@ -31,36 +31,28 @@ export class AuthService {
     private http: HttpClient,
     private tokenService: TokenService
   ) {
-    console.log('AuthService inicializado');
     // Verificar si hay un token guardado al inicializar
     this.initializeAuth();
   }
 
   private initializeAuth(): void {
     const token = this.tokenService.getToken();
-    console.log('🔍 Inicializando autenticación...');
-    console.log('Token encontrado en localStorage:', !!token);
     if (token) {
-      console.log('✅ Token encontrado, verificando...');
       this.verifyToken();
     } else {
-      console.log('❌ No hay token, usuario no autenticado');
       this.currentUserSubject.next(null);
     }
   }
 
   login(usuario: string, password: string): Observable<LoginResponse> {
-    console.log('Intentando login para usuario:', usuario);
     return this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, {
       usuario,
       password
     }).pipe(
       tap(response => {
-        console.log('Respuesta de login:', response);
         if (response.token) {
           this.tokenService.setToken(response.token);
           this.currentUserSubject.next(response.user);
-          console.log('Usuario autenticado:', response.user);
         }
       })
     );
@@ -87,46 +79,34 @@ export class AuthService {
   testVerifyEndpoint(): void {
     const token = this.getToken();
     if (token) {
-      console.log('Probando endpoint de verificación...');
       this.http.get(`${this.apiUrl}/auth/verify`, {
         headers: { Authorization: `Bearer ${token}` }
       }).subscribe({
         next: (response) => {
-          console.log('✅ Endpoint funciona:', response);
         },
         error: (error) => {
           console.error('❌ Error en endpoint:', error);
         }
       });
     } else {
-      console.log('No hay token para probar');
     }
   }
 
   private verifyToken(): void {
     const token = this.getToken();
     if (!token) {
-      console.log('❌ No hay token para verificar');
       this.currentUserSubject.next(null);
       return;
     }
 
-    console.log('🔍 Verificando token existente...');
-    console.log('🔍 Token:', token);
-    console.log('🔍 URL de verificación:', `${this.apiUrl}/auth/verify`);
     
     this.http.get(`${this.apiUrl}/auth/verify`, {
       headers: { Authorization: `Bearer ${token}` }
     }).subscribe({
       next: (response: any) => {
-        console.log('🔍 Respuesta de verificación:', response);
         if (response && response.valid && response.user) {
-          console.log('✅ Token válido, restaurando usuario:', response.user);
-          console.log('👤 Nombre del usuario:', response.user.nombre_apellido);
           this.currentUserSubject.next(response.user);
         } else {
-          console.log('❌ Token inválido o respuesta incorrecta, cerrando sesión');
-          console.log('❌ Response:', response);
           this.logout();
         }
       },
@@ -134,7 +114,6 @@ export class AuthService {
         console.error('❌ Error verificando token:', error);
         console.error('❌ Error status:', error.status);
         console.error('❌ Error message:', error.message);
-        console.log('❌ Error en verificación, cerrando sesión');
         this.logout();
       }
     });

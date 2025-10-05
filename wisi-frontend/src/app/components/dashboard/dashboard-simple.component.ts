@@ -369,7 +369,6 @@ export class DashboardSimpleComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    console.log('Dashboard simple component initialized');
     this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
     });

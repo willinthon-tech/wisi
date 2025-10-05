@@ -565,7 +565,6 @@ export class PaginaEditComponent implements OnInit {
 
     this.userService.updatePage(this.page.id, pageData).subscribe({
       next: (response) => {
-        console.log('Página actualizada:', response);
         alert('Página actualizada exitosamente');
         this.router.navigate(['/super-config/paginas']);
       },

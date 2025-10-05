@@ -462,7 +462,6 @@ export class ModuloEditComponent implements OnInit {
   private loadPages() {
     this.userService.getAllPages().subscribe({
       next: (pages) => {
-        console.log('Páginas disponibles:', pages);
         this.availablePages = pages || [];
       },
       error: (error) => {
@@ -514,7 +513,6 @@ export class ModuloEditComponent implements OnInit {
 
     this.userService.updateModule(this.module.id, moduleData).subscribe({
       next: (response) => {
-        console.log('Módulo actualizado:', response);
         alert('Módulo actualizado exitosamente');
         this.router.navigate(['/super-config/modulos']);
       },

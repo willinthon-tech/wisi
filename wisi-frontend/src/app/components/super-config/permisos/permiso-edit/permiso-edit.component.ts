@@ -430,7 +430,6 @@ export class PermisoEditComponent implements OnInit {
 
     this.userService.updatePermission(this.permission.id, permissionData).subscribe({
       next: (response) => {
-        console.log('Permiso actualizado:', response);
         alert('Permiso actualizado exitosamente');
         this.router.navigate(['/super-config/permisos']);
       },

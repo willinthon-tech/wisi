@@ -302,7 +302,6 @@ export class UserMenuComponent implements OnInit {
     
     this.userService.getUserMenu().subscribe({
       next: (pages) => {
-        console.log('Menú del usuario cargado:', pages);
         // Agregar propiedad expanded a cada página
         this.pages = pages.map(page => ({
           ...page,

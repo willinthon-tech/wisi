@@ -164,7 +164,6 @@ export class NavbarComponent implements OnInit {
     this.userService.getUserSalas().subscribe({
       next: (salas: any[]) => {
         this.salas = salas;
-        console.log('Salas del usuario cargadas en navbar:', this.salas);
       },
       error: (error: any) => {
         console.error('Error cargando salas del usuario para navbar:', error);

@@ -415,7 +415,6 @@ export class PaginaCreateComponent implements OnInit {
 
     this.userService.createPage(pageData).subscribe({
       next: (response) => {
-        console.log('Página creada:', response);
         alert('Página creada exitosamente');
         this.router.navigate(['/super-config/paginas']);
       },

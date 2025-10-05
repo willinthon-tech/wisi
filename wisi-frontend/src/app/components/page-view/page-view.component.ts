@@ -223,7 +223,6 @@ export class PageViewComponent implements OnInit {
         this.modules = modules.filter(module => 
           module.page_id === this.pageId && module.activo
         );
-        console.log('Módulos de la página:', this.modules);
       },
       error: (error) => {
         console.error('Error cargando módulos:', error);
@@ -244,7 +243,6 @@ export class PageViewComponent implements OnInit {
     this.userService.getUserModules().subscribe({
       next: (modules) => {
         this.userModules = modules;
-        console.log('Módulos del usuario cargados:', this.userModules);
       },
       error: (error) => {
         console.error('Error cargando módulos del usuario:', error);
@@ -258,20 +256,15 @@ export class PageViewComponent implements OnInit {
     
     // El creador tiene acceso a todo
     if (this.currentUser.nivel === 'TODO') {
-      console.log(`🔓 Creador - Acceso total a módulo: ${module.nombre}`);
       return true;
     }
     
     // Verificar si el usuario tiene acceso a este módulo específico
     const hasAccess = this.userModules.some(userModule => {
       const match = userModule.id === module.id;
-      console.log(`🔍 Comparando: userModule.id=${userModule.id} === module.id=${module.id} = ${match}`);
       return match;
     });
     
-    console.log(`🔍 Verificando acceso a módulo "${module.nombre}" (ID: ${module.id})`);
-    console.log(`📋 Módulos del usuario:`, this.userModules);
-    console.log(`✅ Tiene acceso: ${hasAccess}`);
     
     return hasAccess;
   }
@@ -287,15 +280,10 @@ export class PageViewComponent implements OnInit {
   }
 
   navigateToModule(module: any) {
-    console.log('🔄 Navegando a módulo:', module);
-    console.log('🔄 Ruta del módulo:', module.ruta);
-    console.log('🔄 Tiene acceso:', this.hasAccessToModule(module));
     
     if (this.hasAccessToModule(module)) {
-      console.log('✅ Navegando a:', module.ruta);
       this.router.navigate([module.ruta]);
     } else {
-      console.log('❌ Sin acceso al módulo');
     }
   }
 }

@@ -197,7 +197,6 @@ export class CecomComponent implements OnInit, OnDestroy {
     
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados en CECOM:', permissions);
       this.checkPermissions();
     });
   }
@@ -213,16 +212,11 @@ export class CecomComponent implements OnInit, OnDestroy {
     const permissions = this.permissionsService.getCurrentPermissions();
     const cecomPermissions = permissions.filter(p => p.moduleId === this.CECOM_MODULE_ID);
     
-    console.log('🔍 Verificando acceso a CECOM (módulo 3):');
-    console.log('📋 Permisos del usuario:', permissions);
-    console.log('🏢 Permisos para CECOM:', cecomPermissions);
     
     this.hasAccess = cecomPermissions.length > 0;
     
-    console.log('✅ Tiene acceso a CECOM:', this.hasAccess);
     
     if (!this.hasAccess) {
-      console.log('❌ Usuario sin permisos para CECOM, redirigiendo...');
       // Opcional: redirigir automáticamente después de un tiempo
       setTimeout(() => {
         this.goBack();

@@ -444,7 +444,6 @@ export class MesasListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados en Mesas:', permissions);
       this.debugPermissions();
     });
 
@@ -461,33 +460,21 @@ export class MesasListComponent implements OnInit, OnDestroy {
   }
 
   debugPermissions(): void {
-    console.log('🔍 Debug de permisos para módulo Mesas (ID: 12 - Gestion de Mesas)');
     const allPermissions = this.permissionsService.getCurrentPermissions();
-    console.log('📋 Todos los permisos del usuario:', allPermissions);
 
     // Mostrar todos los módulos únicos que tiene el usuario
     const uniqueModules = [...new Set(allPermissions.map(p => p.moduleId))];
-    console.log('🏢 Módulos únicos que tiene el usuario:', uniqueModules);
 
     // Mostrar permisos por módulo
     uniqueModules.forEach(moduleId => {
       const modulePermissions = allPermissions.filter(p => p.moduleId === moduleId);
-      console.log(`📋 Módulo ${moduleId} tiene permisos:`, modulePermissions.map(p => p.permissionName));
     });
 
-    console.log('✅ Puede agregar:', this.canAdd());
-    console.log('✅ Puede editar:', this.canEdit());
-    console.log('✅ Puede eliminar:', this.canDelete());
 
     // Verificar estado de botones
-    console.log('🔘 Estado de botones en Mesas:');
-    console.log('  - Botón Agregar:', this.canAdd() ? 'HABILITADO' : 'DESHABILITADO');
-    console.log('  - Botón Editar:', this.canEdit() ? 'HABILITADO' : 'DESHABILITADO');
-    console.log('  - Botón Eliminar:', this.canDelete() ? 'HABILITADO' : 'DESHABILITADO');
 
     // Debug adicional para verificar el módulo específico
     const mesasPermissions = allPermissions.filter(p => p.moduleId === 12);
-    console.log('🔍 Permisos específicos para módulo 12 (Gestion de Mesas):', mesasPermissions);
   }
 
   // Métodos para verificar permisos
@@ -515,7 +502,6 @@ export class MesasListComponent implements OnInit, OnDestroy {
     this.mesasService.getMesas().subscribe({
       next: (mesas) => {
         this.mesas = mesas;
-        console.log('Mesas cargadas:', mesas);
       },
       error: (error) => {
         console.error('Error cargando mesas:', error);
@@ -547,7 +533,6 @@ export class MesasListComponent implements OnInit, OnDestroy {
     this.mesasService.getUserJuegos().subscribe({
       next: (juegos) => {
         this.userJuegos = juegos;
-        console.log('Juegos del usuario cargados:', juegos);
       },
       error: (error) => {
         console.error('Error cargando juegos del usuario:', error);

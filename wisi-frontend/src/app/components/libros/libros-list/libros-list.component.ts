@@ -452,7 +452,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
-      console.log('🔄 Permisos actualizados:', permissions);
       this.debugPermissions();
     });
     
@@ -468,35 +467,21 @@ export class LibrosListComponent implements OnInit, OnDestroy {
 
   // Método para debuggear permisos
   debugPermissions(): void {
-    console.log('🔍 Debug de permisos para módulo de libros (ID: 5)');
     const allPermissions = this.permissionsService.getCurrentPermissions();
-    console.log('📋 Todos los permisos del usuario:', allPermissions);
 
     // Mostrar todos los módulos únicos que tiene el usuario
     const uniqueModules = [...new Set(allPermissions.map(p => p.moduleId))];
-    console.log('🏢 Módulos únicos que tiene el usuario:', uniqueModules);
 
     // Mostrar permisos por módulo
     uniqueModules.forEach(moduleId => {
       const modulePermissions = allPermissions.filter(p => p.moduleId === moduleId);
-      console.log(`📋 Módulo ${moduleId} tiene permisos:`, modulePermissions.map(p => p.permissionName));
     });
 
-    console.log('✅ Puede agregar:', this.canAdd());
-    console.log('✅ Puede editar:', this.canEdit());
-    console.log('✅ Puede reporte:', this.canReport());
-    console.log('✅ Puede eliminar:', this.canDelete());
 
     // Verificar estado de botones
-    console.log('🔘 Estado de botones:');
-    console.log('  - Botón Agregar:', this.canAdd() ? 'HABILITADO' : 'DESHABILITADO');
-    console.log('  - Botón Editar:', this.canEdit() ? 'HABILITADO' : 'DESHABILITADO');
-    console.log('  - Botón Reporte:', this.canReport() ? 'HABILITADO' : 'DESHABILITADO');
-    console.log('  - Botón Eliminar:', this.canDelete() ? 'HABILITADO' : 'DESHABILITADO');
 
     // Debug adicional para verificar el módulo específico
     const librosPermissions = allPermissions.filter(p => p.moduleId === 5);
-    console.log('🔍 Permisos específicos para módulo 5 (Libros):', librosPermissions);
   }
 
   // Métodos para verificar permisos
@@ -524,7 +509,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     this.libroService.getLibros().subscribe({
       next: (libros) => {
         this.libros = libros;
-        console.log('Libros cargados:', libros);
       },
       error: (error) => {
         console.error('Error cargando libros:', error);
@@ -554,7 +538,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     this.libroService.getUserSalas().subscribe({
       next: (salas) => {
         this.userSalas = salas;
-        console.log('Salas del usuario cargadas:', salas);
       },
       error: (error) => {
         console.error('Error cargando salas del usuario:', error);
@@ -583,7 +566,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
   }
 
   operacionDrop(libroId: number): void {
-    console.log('Operación Drop de Mesas para libro ID:', libroId);
     // Buscar el libro para obtener su salaId
     const libro = this.libros.find(l => l.id === libroId);
     if (libro && libro.Sala) {
@@ -606,7 +588,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
   }
 
   operacionIncidenciasGenerales(libroId: number): void {
-    console.log('Operación Incidencias Generales para libro ID:', libroId);
     // Buscar el libro para obtener su salaId
     const libro = this.libros.find(l => l.id === libroId);
     if (libro && libro.Sala) {

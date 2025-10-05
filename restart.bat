@@ -17,3 +17,9 @@ start "Frontend" cmd /k "cd wisi-frontend && npm start"
 
 echo Listo!
 
+
+
+
+
+
+

@@ -864,8 +864,6 @@ export class UsuarioCreateComponent implements OnInit {
   }
 
   toggleModule(moduleId: number, event: any) {
-    console.log('🔄 Toggle módulo (VER):', moduleId, 'checked:', event.target.checked);
-    console.log('📋 modulePermissions antes:', this.modulePermissions);
     
     if (event.target.checked) {
       // Agregar módulo con permiso "VER" por defecto
@@ -877,35 +875,26 @@ export class UsuarioCreateComponent implements OnInit {
           moduleId, 
           permissions: [defaultPermissionId]
         });
-        console.log('✅ Módulo agregado con permiso VER:', moduleId);
       } else {
         // Si el módulo ya existe, agregar VER si no está presente
         const modulePermission = this.modulePermissions.find(mp => mp.moduleId === moduleId);
         const verPermission = this.availablePermissions.find(p => p.nombre === 'VER');
         if (modulePermission && verPermission && !modulePermission.permissions.includes(verPermission.id)) {
           modulePermission.permissions.push(verPermission.id);
-          console.log('✅ Permiso VER agregado al módulo existente:', moduleId);
         }
       }
     } else {
       // Desmarcar VER: eliminar TODOS los permisos del módulo
       this.modulePermissions = this.modulePermissions.filter(mp => mp.moduleId !== moduleId);
-      console.log('❌ Módulo removido completamente (VER desmarcado):', moduleId);
     }
     
-    console.log('📋 modulePermissions después:', this.modulePermissions);
   }
 
   toggleModulePermission(moduleId: number, permissionId: number, event: any) {
-    console.log('🔐 Toggle permiso:', moduleId, permissionId, 'checked:', event.target.checked);
-    console.log('📋 modulePermissions antes del toggle:', this.modulePermissions);
     
     let modulePermission = this.modulePermissions.find(mp => mp.moduleId === moduleId);
-    console.log('📋 modulePermission encontrado:', modulePermission);
     
     if (!modulePermission) {
-      console.log('❌ No se encontró modulePermission para módulo:', moduleId);
-      console.log('🔧 Creando modulePermission para módulo:', moduleId);
       
       // Crear modulePermission si no existe
       modulePermission = {
@@ -913,31 +902,25 @@ export class UsuarioCreateComponent implements OnInit {
         permissions: []
       };
       this.modulePermissions.push(modulePermission);
-      console.log('✅ modulePermission creado:', modulePermission);
-      console.log('📋 modulePermissions después de crear:', this.modulePermissions);
     }
     
     this.processPermissionToggle(modulePermission, permissionId, event.target.checked);
   }
 
   private processPermissionToggle(modulePermission: any, permissionId: number, isChecked: boolean) {
-    console.log('🔄 Procesando toggle para modulePermission:', modulePermission);
     
     if (isChecked) {
       if (!modulePermission.permissions.includes(permissionId)) {
         modulePermission.permissions.push(permissionId);
-        console.log('✅ Permiso agregado:', permissionId);
         
         // Agregar permiso VER automáticamente si no existe
         const verPermission = this.availablePermissions.find(p => p.nombre === 'VER');
         if (verPermission && !modulePermission.permissions.includes(verPermission.id)) {
           modulePermission.permissions.push(verPermission.id);
-          console.log('✅ Permiso VER agregado automáticamente');
         }
       }
     } else {
       modulePermission.permissions = modulePermission.permissions.filter((id: number) => id !== permissionId);
-      console.log('❌ Permiso removido:', permissionId);
       
       // Si no quedan permisos visibles, remover también VER
       const visiblePermissions = this.getVisiblePermissions();
@@ -949,12 +932,10 @@ export class UsuarioCreateComponent implements OnInit {
         const verPermission = this.availablePermissions.find(p => p.nombre === 'VER');
         if (verPermission) {
           modulePermission.permissions = modulePermission.permissions.filter((id: number) => id !== verPermission.id);
-          console.log('❌ Permiso VER removido (no hay permisos visibles)');
         }
       }
     }
     
-    console.log('📋 modulePermissions después del toggle:', this.modulePermissions);
   }
 
   isModuleSelected(moduleId: number): boolean {
@@ -995,7 +976,6 @@ export class UsuarioCreateComponent implements OnInit {
 
     this.userService.createUser(userData).subscribe({
       next: (response) => {
-        console.log('Usuario creado:', response);
         alert('Usuario creado exitosamente');
         this.router.navigate(['/super-config/usuarios']);
       },
@@ -1029,10 +1009,7 @@ export class UsuarioCreateComponent implements OnInit {
   }
 
   getPageName(pageId: number): string {
-    console.log('🔍 Buscando página con ID:', pageId);
-    console.log('📋 Páginas disponibles:', this.availablePages);
     const page = this.availablePages.find(p => p.id === pageId);
-    console.log('📄 Página encontrada:', page);
     return page ? page.nombre : 'Página desconocida';
   }
 
@@ -1092,14 +1069,12 @@ export class UsuarioCreateComponent implements OnInit {
           permissions: visiblePermissionIds
         });
       }
-      console.log('✅ Todos los permisos visibles seleccionados (sin tocar VER)');
     } else {
       // Deseleccionar solo permisos visibles, mantener VER si existe
       if (modulePermission) {
         const existingVer = modulePermission.permissions.includes(verPermission?.id || 0);
         modulePermission.permissions = existingVer && verPermission ? [verPermission.id] : [];
       }
-      console.log('❌ Solo permisos visibles deseleccionados (VER se mantiene si existía)');
     }
   }
 

@@ -328,7 +328,6 @@ export class PermisosListComponent implements OnInit {
     this.loading = true;
     this.userService.getPermissions().subscribe({
       next: (permissions) => {
-        console.log('Permisos cargados:', permissions);
         this.permissions = permissions || [];
         this.loading = false;
       },
@@ -363,7 +362,6 @@ export class PermisosListComponent implements OnInit {
     if (confirm(`¿Estás seguro de que quieres eliminar el permiso "${permission.nombre}"?`)) {
       this.userService.deletePermission(permission.id).subscribe({
         next: (response) => {
-          console.log('Permiso eliminado:', response);
           alert('Permiso eliminado exitosamente');
           this.loadPermissions(); // Recargar la lista
         },

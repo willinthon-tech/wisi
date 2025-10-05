@@ -1,0 +1,361 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Router, ActivatedRoute } from '@angular/router';
+import { DispositivosService } from '../../../services/dispositivos.service';
+import { AuthService } from '../../../services/auth.service';
+
+@Component({
+  selector: 'app-dispositivos-form',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
+    <div class="dispositivo-form-container">
+      <div class="form-header">
+        <button class="btn-back" (click)="goBack()">
+          ← Volver
+        </button>
+      </div>
+
+      <div class="form-content">
+        <form (ngSubmit)="saveDispositivo()" class="dispositivo-form">
+          <div class="form-group">
+            <label for="nombre">Nombre:</label>
+            <input 
+              type="text" 
+              id="nombre" 
+              [(ngModel)]="dispositivo.nombre"
+              name="nombre"
+              class="form-control"
+              required
+              placeholder="Ej: Terminal Principal"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="sala">Sala:</label>
+            <select 
+              id="sala" 
+              [(ngModel)]="dispositivo.sala_id"
+              name="sala_id"
+              class="form-control"
+              required
+            >
+              <option value="">Seleccione una sala</option>
+              <option *ngFor="let sala of salas" [value]="sala.id">
+                {{ sala.nombre }}
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="ip_local">IP Local:</label>
+            <input 
+              type="text" 
+              id="ip_local" 
+              [(ngModel)]="dispositivo.ip_local"
+              name="ip_local"
+              class="form-control"
+              required
+              placeholder="192.168.1.100"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="ip_remota">IP Remota (Opcional):</label>
+            <input 
+              type="text" 
+              id="ip_remota" 
+              [(ngModel)]="dispositivo.ip_remota"
+              name="ip_remota"
+              class="form-control"
+              placeholder="10.0.0.100"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="usuario">Usuario (Opcional):</label>
+            <input 
+              type="text" 
+              id="usuario" 
+              [(ngModel)]="dispositivo.usuario"
+              name="usuario"
+              class="form-control"
+              placeholder="admin"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="clave">Clave (Opcional):</label>
+            <input 
+              type="text" 
+              id="clave" 
+              [(ngModel)]="dispositivo.clave"
+              name="clave"
+              class="form-control"
+              placeholder="password123"
+            />
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" (click)="goBack()">
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary" [disabled]="loading">
+              {{ loading ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear') }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .dispositivo-form-container {
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .form-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e9ecef;
+    }
+
+    .form-header h2 {
+      margin: 0;
+      color: #333;
+      font-size: 28px;
+    }
+
+    .btn-back {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+
+    .btn-back:hover {
+      background: #5a6268;
+      transform: translateY(-2px);
+    }
+
+    .form-content {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e9ecef;
+    }
+
+    .dispositivo-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-group label {
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .form-control {
+      padding: 12px 16px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: #4CAF50;
+      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 15px;
+      justify-content: flex-end;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #e9ecef;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #5a6268;
+      transform: translateY(-2px);
+    }
+
+    .btn-primary {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #45a049;
+      transform: translateY(-2px);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-primary:disabled:hover {
+      background: #4CAF50;
+      transform: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .form-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+      }
+
+      .form-actions {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+  `]
+})
+export class DispositivosFormComponent implements OnInit {
+  dispositivo = {
+    id: null,
+    nombre: '',
+    sala_id: null,
+    ip_local: '',
+    ip_remota: '',
+    usuario: '',
+    clave: ''
+  };
+  
+  salas: any[] = [];
+  loading = false;
+  isEdit = false;
+  dispositivoId: number | null = null;
+
+  constructor(
+    private dispositivosService: DispositivosService,
+    private authService: AuthService,
+    private router: Router,
+    private route: ActivatedRoute
+  ) {}
+
+  ngOnInit(): void {
+    this.route.params.subscribe(params => {
+      if (params['id']) {
+        this.isEdit = true;
+        this.dispositivoId = +params['id'];
+        this.loadDispositivo();
+      }
+    });
+    
+    this.loadSalas();
+  }
+
+  loadDispositivo(): void {
+    if (this.dispositivoId) {
+      this.loading = true;
+      this.dispositivosService.getDispositivo(this.dispositivoId).subscribe({
+        next: (dispositivo: any) => {
+          this.dispositivo = dispositivo;
+          this.loading = false;
+        },
+        error: (error: any) => {
+          console.error('Error cargando dispositivo:', error);
+          alert('Error cargando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
+          this.loading = false;
+          this.goBack();
+        }
+      });
+    }
+  }
+
+  loadSalas(): void {
+    this.dispositivosService.getSalas().subscribe({
+      next: (salas: any[]) => {
+        this.salas = salas;
+      },
+      error: (error: any) => {
+        console.error('Error cargando salas:', error);
+        alert('Error cargando salas: ' + (error.error?.message || error.message || 'Error desconocido'));
+      }
+    });
+  }
+
+  saveDispositivo(): void {
+    if (!this.dispositivo.nombre || !this.dispositivo.sala_id || !this.dispositivo.ip_local) {
+      alert('Por favor complete todos los campos obligatorios');
+      return;
+    }
+
+    this.loading = true;
+
+    if (this.isEdit && this.dispositivoId) {
+      this.dispositivosService.updateDispositivo(this.dispositivoId, this.dispositivo).subscribe({
+        next: (response: any) => {
+          alert('Dispositivo actualizado exitosamente');
+          this.goBack();
+        },
+        error: (error: any) => {
+          console.error('Error actualizando dispositivo:', error);
+          alert('Error actualizando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
+          this.loading = false;
+        }
+      });
+    } else {
+      this.dispositivosService.createDispositivo(this.dispositivo).subscribe({
+        next: (response: any) => {
+          alert('Dispositivo creado exitosamente');
+          this.goBack();
+        },
+        error: (error: any) => {
+          console.error('Error creando dispositivo:', error);
+          alert('Error creando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
+          this.loading = false;
+        }
+      });
+    }
+  }
+
+  goBack(): void {
+    this.router.navigate(['/super-config/dispositivos']);
+  }
+}

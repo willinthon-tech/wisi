@@ -816,8 +816,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     this.route.params.subscribe(params => {
       this.libroId = +params['libroId'];
       this.salaId = +params['salaId'];
-      console.log('ID del libro:', this.libroId);
-      console.log('ID de la sala:', this.salaId);
       
       // Cargar información del libro
       if (this.libroId) {
@@ -838,14 +836,12 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   private checkPermissions(): void {
     // Novedades de Máquinas es una operación funcional, no CRUD - siempre permitir acceso
     this.hasAccess = true;
-    console.log('✅ Novedades de Máquinas - Acceso permitido (operación funcional)');
   }
 
   loadUserSalas() {
     this.userService.getUserSalas().subscribe({
       next: (salas: Sala[]) => {
         this.userSalas = salas;
-        console.log('Salas del usuario cargadas:', this.userSalas);
         // Una vez cargadas las salas, cargar los demás datos
         this.loadNovedades();
         this.loadMaquinas();
@@ -876,8 +872,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         
         // Agrupar novedades por [Técnico, Novedad, Hora]
         this.novedadesAgrupadas = this.agruparNovedades(this.novedades);
-        console.log('Novedades cargadas para libro', this.libroId, ':', this.novedades);
-        console.log('Novedades agrupadas:', this.novedadesAgrupadas);
       },
       error: (error: any) => {
         console.error('Error cargando novedades:', error);
@@ -889,8 +883,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   loadMaquinas() {
     this.maquinasService.getMaquinas().subscribe({
       next: (maquinas: Maquina[]) => {
-        console.log('Todas las máquinas cargadas:', maquinas);
-        console.log('Sala ID para filtrar:', this.salaId);
         
         // Filtrar máquinas por la sala específica de la ruta
         // Las máquinas pueden tener la sala directamente o a través del Rango
@@ -906,7 +898,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
           return false;
         });
         
-        console.log('Máquinas filtradas por sala:', this.salaId, this.maquinas);
       },
       error: (error: any) => {
         console.error('Error cargando máquinas:', error);
@@ -922,7 +913,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         this.novedadesMaquinas = novedades.filter(novedad => 
           novedad.Sala && novedad.Sala.id === this.salaId
         );
-        console.log('Novedades de máquinas filtradas por sala:', this.salaId, this.novedadesMaquinas);
       },
       error: (error: any) => {
         console.error('Error cargando novedades de máquinas:', error);
@@ -938,7 +928,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         this.tecnicos = tecnicos.filter(tecnico => 
           tecnico.Sala && tecnico.Sala.id === this.salaId
         );
-        console.log('Técnicos filtrados por sala:', this.salaId, this.tecnicos);
       },
       error: (error: any) => {
         console.error('Error cargando técnicos:', error);
@@ -955,26 +944,17 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     } else {
       this.selectedMaquinaIds = this.selectedMaquinaIds.filter(id => id !== maquinaId);
     }
-    console.log('Máquinas seleccionadas:', this.selectedMaquinaIds);
   }
 
   selectAllMaquinas() {
     this.selectedMaquinaIds = this.maquinas.map(maquina => maquina.id);
-    console.log('Todas las máquinas seleccionadas:', this.selectedMaquinaIds);
   }
 
   deselectAllMaquinas() {
     this.selectedMaquinaIds = [];
-    console.log('Todas las máquinas deseleccionadas');
   }
 
   saveNovedad() {
-    console.log('🔍 Debug saveNovedad:');
-    console.log('- selectedMaquinaIds:', this.selectedMaquinaIds);
-    console.log('- selectedNovedadId:', this.selectedNovedadId);
-    console.log('- selectedTecnicoId:', this.selectedTecnicoId);
-    console.log('- novedadData.hora:', this.novedadData.hora);
-    console.log('- libroId:', this.libroId);
 
     if (this.selectedMaquinaIds.length === 0) {
       alert('Por favor seleccione al menos una máquina');
@@ -1016,7 +996,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
 
       this.novedadesRegistrosService.createNovedadMaquinaRegistro(novedadData).subscribe({
         next: (novedad: NovedadMaquinaRegistro) => {
-          console.log(`Novedad guardada para máquina ${maquinaId}:`, novedad);
           completed++;
           
           // Si es la última máquina, recargar y resetear
@@ -1053,7 +1032,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     if (confirm('¿Está seguro de que desea eliminar esta novedad?')) {
       this.novedadesRegistrosService.deleteNovedadMaquinaRegistro(id).subscribe({
         next: () => {
-          console.log('Novedad eliminada');
           this.loadNovedades(); // Recargar la lista
           alert('Novedad eliminada correctamente');
         },
@@ -1084,7 +1062,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     this.libroService.getLibro(this.libroId).subscribe({
       next: (libro) => {
         this.libro = libro;
-        console.log('Libro cargado:', this.libro);
       },
       error: (error) => {
         console.error('Error cargando libro:', error);

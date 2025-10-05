@@ -44,3 +44,9 @@ module.exports = (sequelize) => {
   return PageModule;
 };
 
+
+
+
+
+
+
