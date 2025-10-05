@@ -34,6 +34,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   // Variables para el modo de vista (lista, foto, editar, test)
   currentView = 'lista'; // 'lista', 'foto', 'editar', 'test'
+  showUserTable = false; // Controla si se muestra la tabla de usuarios
   editingUser: any = null;
   
   // Variables de estado para spinners
@@ -188,6 +189,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     this.showBiometricModal = true;
     this.currentView = 'lista';
     this.biometricUsers = [];
+    this.showUserTable = false; // Ocultar tabla inicialmente
     
     // Probar conexión automáticamente
     setTimeout(() => {
@@ -201,6 +203,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     this.currentView = 'lista';
     this.biometricUsers = [];
     this.editingUser = null;
+    this.showUserTable = false; // Resetear tabla
   }
 
   testConnection(): void {
@@ -234,6 +237,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   getUsers(): void {
     this.loadingUsers = true;
     this.currentView = 'lista'; // Cambiar a la vista de lista
+    this.showUserTable = true; // Mostrar tabla cuando se hace clic en "Ver Usuarios Registrados"
     
     this.hikvisionService.getUsers(
       this.selectedDispositivo.ip_remota,

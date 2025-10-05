@@ -122,7 +122,7 @@
 
       <div class="biometric-results" *ngIf="biometricResult && currentView !== 'test'">
         <div class="result-content">
-          <div *ngIf="currentView === 'lista'">
+          <div *ngIf="currentView === 'lista' && showUserTable">
             <!-- Spinner de carga para tabla -->
             <div class="spinner-container" *ngIf="loadingUsers">
               <div class="spinner-border text-primary" role="status">
