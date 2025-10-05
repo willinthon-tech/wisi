@@ -160,11 +160,11 @@
                         <i *ngIf="!updatingUser" class="fas fa-edit"></i> 
                         {{ updatingUser ? 'Editando...' : 'Editar' }}
                       </button>
-                      <button class="btn btn-danger btn-sm" title="Eliminar Usuario" (click)="eliminarUsuario(user)" [disabled]="updatingUser || deletingUser"
+                      <button class="btn btn-danger btn-sm" title="Eliminar Usuario" (click)="eliminarUsuario(user)" [disabled]="updatingUser || deletingUsers[user.employeeNo]"
                               style="padding: 6px 12px; border-radius: 4px; font-size: 12px; min-width: 70px;">
-                        <span *ngIf="deletingUser" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                        <i *ngIf="!deletingUser" class="fas fa-trash"></i> 
-                        {{ deletingUser ? 'Eliminando...' : 'Eliminar' }}
+                        <span *ngIf="deletingUsers[user.employeeNo]" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <i *ngIf="!deletingUsers[user.employeeNo]" class="fas fa-trash"></i> 
+                        {{ deletingUsers[user.employeeNo] ? 'Eliminando...' : 'Eliminar' }}
                       </button>
                     </td>
                   </tr>

@@ -42,6 +42,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   creatingUser = false;
   updatingUser = false;
   deletingUser = false;
+  deletingUsers: { [key: string]: boolean } = {}; // Estado individual para cada usuario
 
   // Variables para agregar usuario
   addUserForm: any;
@@ -204,6 +205,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     this.biometricUsers = [];
     this.editingUser = null;
     this.showUserTable = false; // Resetear tabla
+    this.deletingUsers = {}; // Limpiar estados individuales de eliminación
   }
 
   testConnection(): void {
@@ -374,7 +376,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   eliminarUsuario(user: any): void {
     console.log('Eliminando usuario:', user);
-    this.deletingUser = true;
+    this.deletingUsers[user.employeeNo] = true; // Estado individual para este usuario
     
     this.hikvisionService.deleteUser(
       this.selectedDispositivo.ip_remota,
@@ -384,17 +386,66 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (response) => {
         console.log('Usuario eliminado:', response);
-        this.deletingUser = false;
         if (response.success) {
-          this.getUsers(); // Recargar lista
-          this.currentView = 'lista';
+          // Si el usuario se eliminó exitosamente, proceder a eliminar la foto
+          console.log('✅ Usuario eliminado exitosamente, ahora eliminando foto...');
+          this.eliminarFotoDelUsuario(user.employeeNo);
+        } else {
+          this.deletingUsers[user.employeeNo] = false;
+          console.log('❌ No se pudo eliminar el usuario, manteniendo en la lista');
         }
       },
       error: (error) => {
         console.error('Error eliminando usuario:', error);
-        this.deletingUser = false;
+        this.deletingUsers[user.employeeNo] = false;
       }
     });
+  }
+
+  eliminarFotoDelUsuario(employeeNo: string): void {
+    console.log('🗑️ Eliminando foto del usuario:', employeeNo);
+    
+    // Construir payload para eliminar solo la foto
+    const deletePhotoPayload = {
+      "FPID": [
+        {
+          "value": employeeNo
+        }
+      ]
+    };
+
+    console.log('🗑️ Payload para eliminar foto:', deletePhotoPayload);
+
+    // Llamar al servicio para eliminar solo la foto
+    this.hikvisionService.deleteUserPhotoOnly(
+      this.selectedDispositivo.ip_remota,
+      this.selectedDispositivo.usuario,
+      this.selectedDispositivo.clave,
+      deletePhotoPayload
+    ).subscribe({
+      next: (response) => {
+        console.log('✅ Foto eliminada exitosamente:', response);
+        this.deletingUsers[employeeNo] = false; // Estado individual para este usuario
+        // Remover solo el usuario específico del array
+        this.removerUsuarioDelArray(employeeNo);
+        this.currentView = 'lista';
+      },
+      error: (error) => {
+        console.error('❌ Error eliminando foto:', error);
+        // Aunque falle la eliminación de la foto, el usuario ya fue eliminado
+        // así que continuamos con el flujo normal
+        this.deletingUsers[employeeNo] = false; // Estado individual para este usuario
+        this.removerUsuarioDelArray(employeeNo);
+        this.currentView = 'lista';
+      }
+    });
+  }
+
+  removerUsuarioDelArray(employeeNo: string): void {
+    console.log('🗑️ Removiendo usuario del array:', employeeNo);
+    // Filtrar el array para remover solo el usuario específico
+    this.biometricUsers = this.biometricUsers.filter(user => user.employeeNo !== employeeNo);
+    console.log('✅ Usuario removido del array. Usuarios restantes:', this.biometricUsers.length);
   }
 
   actualizarUsuario(): void {
