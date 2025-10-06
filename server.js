@@ -4238,26 +4238,39 @@ app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res)
       marcaje_empleado_fin_dispositivo
     });
 
-    const result = await sequelize.query(
-      `INSERT INTO tareas_dispositivo_usuarios (
-        user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
-        nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
-        usuario_login_dispositivo, clave_login_dispositivo, accion_realizar, 
-        marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      {
-        replacements: [
+    // Usar SQLite directamente para evitar problemas con Sequelize
+    const sqlite3 = require('sqlite3').verbose();
+    const db = new sqlite3.Database('./database.sqlite');
+    
+    const result = await new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO tareas_dispositivo_usuarios (
+          user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
+          nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
+          usuario_login_dispositivo, clave_login_dispositivo, accion_realizar, 
+          marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
           user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
           nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
           usuario_login_dispositivo, clave_login_dispositivo, accion_realizar,
           marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
-        ]
-      }
-    );
+        ],
+        function(err) {
+          if (err) {
+            reject(err);
+          } else {
+            resolve({ id: this.lastID });
+          }
+        }
+      );
+    });
+    
+    db.close();
 
     res.status(201).json({ 
       message: 'Tarea creada correctamente',
-      id: result[0]
+      id: result.id
     });
   } catch (error) {
     console.error('❌ Error creando tarea:', error);

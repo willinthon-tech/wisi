@@ -2322,7 +2322,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     // Obtener el usuario del AuthService
     const user = this.authService.getCurrentUser();
     if (user) {
-      this.router.navigate(['/super-config/tareas', user.id]);
+      this.router.navigate(['/empleados/user', user.id, 'tareas']);
     } else {
       console.error('No se encontró información del usuario logueado');
       alert('Error: No se encontró información del usuario');

@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 
 @Component({
@@ -10,10 +10,9 @@ import { HttpClient } from '@angular/common/http';
   template: `
     <div class="tareas-container">
       <div class="header">
-        <button class="btn btn-secondary" (click)="goBack()">
-          ← Volver
+        <button class="btn btn-warning" (click)="ejecutarTodas()">
+          Ejecutar Todo
         </button>
-        <h2>Gestión de Tareas</h2>
       </div>
       
       <div class="table-wrapper">
@@ -22,7 +21,7 @@ import { HttpClient } from '@angular/common/http';
             <tr>
               <th>N°</th>
               <th>Foto</th>
-              <th>Nombre Empleado</th>
+              <th>Nombre</th>
               <th>Cédula</th>
               <th>Cargo</th>
               <th>Sala</th>
@@ -76,50 +75,58 @@ import { HttpClient } from '@angular/common/http';
     }
 
     .header {
+      margin-bottom: 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 30px;
-      padding-bottom: 20px;
-      border-bottom: 2px solid #e9ecef;
-    }
-
-    .header h2 {
-      margin: 0;
-      color: #333;
-      font-size: 28px;
     }
 
     .btn {
-      padding: 10px 20px;
+      padding: 8px 16px;
       border: none;
-      border-radius: 8px;
+      border-radius: 4px;
       cursor: pointer;
-      font-weight: bold;
-      transition: all 0.3s;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .btn-warning {
+      background-color: #ffc107;
+      color: #212529;
+      border: 1px solid #ffc107;
+    }
+
+    .btn-warning:hover {
+      background-color: #e0a800;
+      border-color: #d39e00;
+      transform: translateY(-1px);
     }
 
     .btn-secondary {
-      background: #6c757d;
+      background-color: #6c757d;
       color: white;
+      border: 1px solid #6c757d;
     }
 
     .btn-secondary:hover {
-      background: #5a6268;
-      transform: translateY(-2px);
+      background-color: #5a6268;
+      border-color: #545b62;
+      transform: translateY(-1px);
     }
 
     .table-wrapper {
       background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e9ecef;
-      overflow-x: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border: 1px solid #dee2e6;
+      overflow: hidden;
     }
 
     .table {
       width: 100%;
       margin-bottom: 0;
+      border-collapse: collapse;
     }
 
     .table-dark {
@@ -129,32 +136,40 @@ import { HttpClient } from '@angular/common/http';
 
     .table-dark th {
       border: none;
-      padding: 15px 10px;
-      font-weight: bold;
+      padding: 12px 8px;
+      font-weight: 600;
       text-align: center;
       vertical-align: middle;
+      font-size: 13px;
     }
 
     .table tbody tr {
-      transition: all 0.3s;
+      transition: background-color 0.2s ease;
     }
 
     .table tbody tr:hover {
       background-color: #f8f9fa;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .table tbody tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+
+    .table tbody tr:nth-child(even):hover {
+      background-color: #e9ecef;
     }
 
     .table tbody td {
-      padding: 12px 10px;
+      padding: 10px 8px;
       vertical-align: middle;
       text-align: center;
       border-top: 1px solid #dee2e6;
+      font-size: 13px;
     }
 
     .employee-photo {
-      width: 40px;
-      height: 40px;
+      width: 35px;
+      height: 35px;
       border-radius: 50%;
       object-fit: cover;
       border: 2px solid #e9ecef;
@@ -163,25 +178,25 @@ import { HttpClient } from '@angular/common/http';
     .no-photo {
       color: #6c757d;
       font-style: italic;
-      font-size: 12px;
+      font-size: 11px;
     }
 
     .no-data {
       text-align: center;
-      padding: 40px;
+      padding: 30px;
       color: #6c757d;
     }
 
     .no-data p {
       margin: 0;
-      font-size: 18px;
+      font-size: 16px;
     }
 
     /* Responsive */
     @media (max-width: 768px) {
       .header {
         flex-direction: column;
-        gap: 15px;
+        gap: 10px;
         align-items: flex-start;
       }
 
@@ -190,7 +205,7 @@ import { HttpClient } from '@angular/common/http';
       }
 
       .table {
-        min-width: 1200px;
+        min-width: 1000px;
       }
     }
   `]
@@ -201,7 +216,6 @@ export class TareasListComponent implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router,
     private http: HttpClient
   ) {}
 
@@ -215,7 +229,7 @@ export class TareasListComponent implements OnInit {
   }
 
   loadTareas(): void {
-    this.http.get(`/api/tareas-dispositivo-usuarios/user/${this.userId}`).subscribe({
+    this.http.get(`http://localhost:3000/api/tareas-dispositivo-usuarios/user/${this.userId}`).subscribe({
       next: (response: any) => {
         this.tareas = response.data || response;
         console.log('Tareas cargadas:', this.tareas);
@@ -238,7 +252,9 @@ export class TareasListComponent implements OnInit {
     });
   }
 
-  goBack(): void {
-    this.router.navigate(['/super-config/empleados']);
+  ejecutarTodas(): void {
+    console.log('🚀 Ejecutando todas las tareas...');
+    // Aquí implementarías la lógica para ejecutar todas las tareas
+    alert('Funcionalidad de "Ejecutar Todo" en desarrollo');
   }
 }

@@ -47,6 +47,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'empleados/user/:id/tareas',
+    loadComponent: () => import('./components/tareas/tareas-list/tareas-list.component').then(m => m.TareasListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'horarios',
     loadComponent: () => import('./components/horarios/horarios-list/horarios-list.component').then(m => m.HorariosListComponent),
     canActivate: [AuthGuard]
@@ -202,10 +207,6 @@ export const routes: Routes = [
         path: 'dispositivos/editar/:id',
         loadComponent: () => import('./components/dispositivos/dispositivos-form/dispositivos-form.component').then(m => m.DispositivosFormComponent)
       },
-      {
-        path: 'tareas/:id',
-        loadComponent: () => import('./components/tareas/tareas-list/tareas-list.component').then(m => m.TareasListComponent)
-      }
     ]
   },
   {
