@@ -10,8 +10,21 @@ import { HttpClient } from '@angular/common/http';
   template: `
     <div class="tareas-container">
       <div class="header">
-        <button class="btn btn-warning" (click)="ejecutarTodas()">
-          Ejecutar Todo
+        <button 
+          class="btn btn-success" 
+          [disabled]="ejecutandoTodas || rechazandoTodas"
+          (click)="ejecutarTodas()">
+          <span *ngIf="ejecutandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <span *ngIf="!ejecutandoTodas">Ejecutar Todo</span>
+          <span *ngIf="ejecutandoTodas">Ejecutando Todas...</span>
+        </button>
+        <button 
+          class="btn btn-danger" 
+          [disabled]="ejecutandoTodas || rechazandoTodas"
+          (click)="rechazarTodas()">
+          <span *ngIf="rechazandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <span *ngIf="!rechazandoTodas">Rechazar Todo</span>
+          <span *ngIf="rechazandoTodas">Rechazando Todas...</span>
         </button>
       </div>
       
@@ -42,13 +55,26 @@ import { HttpClient } from '@angular/common/http';
                 </span>
               </td>
               <td>
-                <button class="btn btn-info btn-sm" (click)="verDetalles(tarea)">
+                <button class="btn btn-secondary btn-sm" (click)="verDetalles(tarea)">
                   Ver
                 </button>
               </td>
               <td>
-                <button class="btn btn-danger btn-sm" (click)="ejecutarTarea(tarea)">
-                  Ejecutar
+                <button 
+                  class="btn btn-success btn-sm me-2" 
+                  [disabled]="!isTareaActiva(tarea) || (ejecutandoTodas && ejecutandoTarea !== tarea.id) || (rechazandoTodas && rechazandoTarea !== tarea.id)"
+                  (click)="ejecutarTarea(tarea)">
+                  <span *ngIf="ejecutandoTarea === tarea.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                  <span *ngIf="ejecutandoTarea !== tarea.id">Ejecutar</span>
+                  <span *ngIf="ejecutandoTarea === tarea.id">Ejecutando...</span>
+                </button>
+                <button 
+                  class="btn btn-danger btn-sm" 
+                  [disabled]="!isTareaActiva(tarea) || (ejecutandoTodas && ejecutandoTarea !== tarea.id) || (rechazandoTodas && rechazandoTarea !== tarea.id)"
+                  (click)="rechazarTarea(tarea)">
+                  <span *ngIf="rechazandoTarea === tarea.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                  <span *ngIf="rechazandoTarea !== tarea.id">Rechazar</span>
+                  <span *ngIf="rechazandoTarea === tarea.id">Rechazando...</span>
                 </button>
               </td>
             </tr>
@@ -57,6 +83,124 @@ import { HttpClient } from '@angular/common/http';
         
         <div *ngIf="tareas.length === 0" class="no-data">
           <p>No hay tareas registradas</p>
+        </div>
+      </div>
+
+      <!-- Modal para ver detalles de tarea -->
+      <div *ngIf="showDetailsModal" class="modal-overlay" (click)="closeDetailsModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Detalles de la Tarea</h3>
+            <button class="close-btn" (click)="closeDetailsModal()">&times;</button>
+          </div>
+          <div class="modal-body" *ngIf="selectedTarea">
+            <div class="tarea-details">
+              <!-- Foto del empleado -->
+              <div class="photo-section">
+                <div class="photo-container">
+                  <img 
+                    *ngIf="selectedTarea.foto_empleado" 
+                    [src]="'data:image/jpeg;base64,' + selectedTarea.foto_empleado" 
+                    alt="Foto del empleado"
+                    class="employee-photo-large"
+                  />
+                  <span *ngIf="!selectedTarea.foto_empleado" class="no-photo-large">Sin foto</span>
+                </div>
+              </div>
+
+              <!-- Información del empleado -->
+              <div class="info-section">
+                <h4>Información del Empleado</h4>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Cédula:</label>
+                    <input type="text" [value]="selectedTarea.numero_cedula_empleado" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" [value]="selectedTarea.nombre_empleado" disabled>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Género:</label>
+                    <input type="text" [value]="selectedTarea.nombre_genero" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label>Cargo:</label>
+                    <input type="text" [value]="selectedTarea.nombre_cargo" disabled>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Sala:</label>
+                    <input type="text" [value]="selectedTarea.nombre_sala" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label>Área:</label>
+                    <input type="text" [value]="selectedTarea.nombre_area" disabled>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Departamento:</label>
+                  <input type="text" [value]="selectedTarea.nombre_departamento" disabled>
+                </div>
+              </div>
+
+              <!-- Información del dispositivo -->
+              <div class="info-section">
+                <h4>Información del Dispositivo</h4>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>IP Pública:</label>
+                    <input type="text" [value]="selectedTarea.ip_publica_dispositivo" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label>IP Local:</label>
+                    <input type="text" [value]="selectedTarea.ip_local_dispositivo" disabled>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Usuario Login:</label>
+                    <input type="text" [value]="selectedTarea.usuario_login_dispositivo" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label>Clave Login:</label>
+                    <input type="text" [value]="getMaskedPassword(selectedTarea.clave_login_dispositivo)" disabled>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Información de la tarea -->
+              <div class="info-section">
+                <h4>Información de la Tarea</h4>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Acción a Realizar:</label>
+                    <input type="text" [value]="selectedTarea.accion_realizar" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label>Fecha de Creación:</label>
+                    <input type="text" [value]="formatDate(selectedTarea.created_at)" disabled>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Marcaje Inicio:</label>
+                    <input type="text" [value]="selectedTarea.marcaje_empleado_inicio_dispositivo" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label>Marcaje Fin:</label>
+                    <input type="text" [value]="selectedTarea.marcaje_empleado_fin_dispositivo" disabled>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="closeDetailsModal()">Cerrar</button>
+          </div>
         </div>
       </div>
     </div>
@@ -71,7 +215,8 @@ import { HttpClient } from '@angular/common/http';
     .header {
       margin-bottom: 20px;
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
+      gap: 20px;
       align-items: center;
     }
 
@@ -148,33 +293,75 @@ import { HttpClient } from '@angular/common/http';
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
 
+    .btn-sm:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-sm:disabled:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Estilos para spinners */
+    .spinner-border-sm {
+      width: 1rem;
+      height: 1rem;
+      border-width: 0.1em;
+    }
+
+    .spinner-border {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      vertical-align: -0.125em;
+      border: 0.125em solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: spinner-border 0.75s linear infinite;
+    }
+
+    @keyframes spinner-border {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
     /* Estilos para tarjetas de método */
     .method-badge {
       display: inline-block;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 12px;
+      padding: 4px 16px;
+      border-radius: 0px 20px;
+      font-size: 10px;
       font-weight: 600;
       text-align: center;
       color: white;
       border: none;
       cursor: default;
       transition: all 0.2s ease;
+      width: 140px;
+      min-width: 140px;
+      max-width: 140px;
     }
 
     .method-delete {
-      background-color: #dc3545;
+      background-color: #e74c3c;
       color: white;
+      opacity: 1;
     }
 
     .method-add {
-      background-color: #28a745;
+      background-color: #27ae60;
       color: white;
+      opacity: 1;
     }
 
     .method-edit {
-      background-color: #17a2b8;
+      background-color: #3498db;
       color: white;
+      opacity: 1;
     }
 
     .method-default {
@@ -278,15 +465,186 @@ import { HttpClient } from '@angular/common/http';
         overflow-x: auto;
       }
 
-      .table {
-        min-width: 1000px;
-      }
+    .table {
+      min-width: 1000px;
     }
+  }
+
+  /* Estilos para el modal */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .modal-header h3 {
+    margin: 0;
+    color: #333;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .close-btn:hover {
+    color: #dc3545;
+  }
+
+  .modal-body {
+    padding: 20px;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 20px;
+    border-top: 1px solid #e9ecef;
+  }
+
+  /* Estilos para los detalles de la tarea */
+  .tarea-details {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .photo-section {
+    text-align: center;
+  }
+
+  .photo-section label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: #333;
+  }
+
+  .photo-container {
+    display: flex;
+    justify-content: center;
+  }
+
+  .employee-photo-large {
+    width: 380px;
+    height: 380px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+  }
+
+  .no-photo-large {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 380px;
+    height: 380px;
+    border-radius: 50%;
+    background: #f8f9fa;
+    color: #6c757d;
+    font-style: italic;
+    font-size: 24px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+  }
+
+  .info-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+  }
+
+  .info-section h4 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 16px;
+    border-bottom: 2px solid #dee2e6;
+    padding-bottom: 8px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-group label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+
+  .form-group input {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    color: #495057;
+    font-size: 14px;
+  }
+
+  .form-group input:disabled {
+    background-color: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+  }
+
+  .form-group span {
+    display: inline-block;
+  }
   `]
 })
 export class TareasListComponent implements OnInit {
   tareas: any[] = [];
   userId: number | null = null;
+  showDetailsModal: boolean = false;
+  selectedTarea: any = null;
+  tareaActiva: any = null; // La tarea que puede ser ejecutada
+  ejecutandoTarea: number | null = null; // ID de la tarea que se está ejecutando
+  rechazandoTarea: number | null = null; // ID de la tarea que se está rechazando
+  ejecutandoTodas: boolean = false; // Estado de ejecutar todas las tareas
+  rechazandoTodas: boolean = false; // Estado de rechazar todas las tareas
 
   constructor(
     private route: ActivatedRoute,
@@ -306,7 +664,10 @@ export class TareasListComponent implements OnInit {
     this.http.get(`http://localhost:3000/api/tareas-dispositivo-usuarios/user/${this.userId}`).subscribe({
       next: (response: any) => {
         this.tareas = response.data || response;
+        // La primera tarea (por orden de base de datos) es la activa
+        this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
         console.log('Tareas cargadas:', this.tareas);
+        console.log('Tarea activa:', this.tareaActiva);
       },
       error: (error) => {
         console.error('Error cargando tareas:', error);
@@ -314,34 +675,208 @@ export class TareasListComponent implements OnInit {
     });
   }
 
-  formatDate(dateString: string): string {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  async ejecutarTodas(): Promise<void> {
+    if (this.ejecutandoTodas || this.rechazandoTodas) return;
+    
+    this.ejecutandoTodas = true;
+    console.log('🚀 Ejecutando todas las tareas...');
+    
+    try {
+      // Procesar tareas una por una hasta que no queden más
+      while (this.tareas.length > 0) {
+        const tarea = this.tareas[0]; // Siempre tomar la primera tarea
+        console.log(`Haciendo clic en botón Ejecutar de tarea restante:`, tarea);
+        console.log(`Tareas restantes: ${this.tareas.length}`);
+        
+        // Simular hacer clic en el botón individual
+        await this.simularClicEjecutar(tarea);
+        
+        // Verificar que la tarea se eliminó correctamente
+        console.log(`Tareas después de eliminar: ${this.tareas.length}`);
+        
+        // Pequeña pausa para que se vea el cambio
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      console.log('✅ Todas las tareas ejecutadas correctamente');
+    } catch (error) {
+      console.error('❌ Error ejecutando todas las tareas:', error);
+    } finally {
+      this.ejecutandoTodas = false;
+    }
   }
 
-  ejecutarTodas(): void {
-    console.log('🚀 Ejecutando todas las tareas...');
-    // Aquí implementarías la lógica para ejecutar todas las tareas
-    alert('Funcionalidad de "Ejecutar Todo" en desarrollo');
+  async rechazarTodas(): Promise<void> {
+    if (this.ejecutandoTodas || this.rechazandoTodas) return;
+    
+    this.rechazandoTodas = true;
+    console.log('❌ Rechazando todas las tareas...');
+    
+    try {
+      // Procesar tareas una por una hasta que no queden más
+      while (this.tareas.length > 0) {
+        const tarea = this.tareas[0]; // Siempre tomar la primera tarea
+        console.log(`Haciendo clic en botón Rechazar de tarea restante:`, tarea);
+        console.log(`Tareas restantes: ${this.tareas.length}`);
+        
+        // Simular hacer clic en el botón individual
+        await this.simularClicRechazar(tarea);
+        
+        // Verificar que la tarea se eliminó correctamente
+        console.log(`Tareas después de eliminar: ${this.tareas.length}`);
+        
+        // Pequeña pausa para que se vea el cambio
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      console.log('✅ Todas las tareas rechazadas correctamente');
+    } catch (error) {
+      console.error('❌ Error rechazando todas las tareas:', error);
+    } finally {
+      this.rechazandoTodas = false;
+    }
   }
 
   verDetalles(tarea: any): void {
     console.log('🔍 Ver detalles de tarea:', tarea);
-    // Aquí implementarías la lógica para mostrar los detalles de la tarea
-    alert(`Detalles de la tarea:\n\nEmpleado: ${tarea.nombre_empleado}\nCédula: ${tarea.numero_cedula_empleado}\nAcción: ${tarea.accion_realizar}\nSala: ${tarea.nombre_sala}`);
+    this.selectedTarea = tarea;
+    this.showDetailsModal = true;
+  }
+
+  closeDetailsModal(): void {
+    this.showDetailsModal = false;
+    this.selectedTarea = null;
+  }
+
+  formatDate(dateString: string): string {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
+  getMaskedPassword(password: string): string {
+    if (!password) return '';
+    return '*'.repeat(password.length);
+  }
+
+  isTareaActiva(tarea: any): boolean {
+    return this.tareaActiva && this.tareaActiva.id === tarea.id;
+  }
+
+  eliminarTarea(tareaId: number): void {
+    this.http.delete(`http://localhost:3000/api/tareas-dispositivo-usuarios/${tareaId}`).subscribe({
+      next: (response) => {
+        console.log('Tarea eliminada:', response);
+        // Recargar la lista de tareas para actualizar la tarea activa
+        this.loadTareas();
+      },
+      error: (error) => {
+        console.error('Error eliminando tarea:', error);
+        alert('Error al eliminar la tarea');
+      }
+    });
+  }
+
+  eliminarTareaAsync(tareaId: number): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.http.delete(`http://localhost:3000/api/tareas-dispositivo-usuarios/${tareaId}`).subscribe({
+        next: (response) => {
+          console.log('Tarea eliminada:', response);
+          resolve(response);
+        },
+        error: (error) => {
+          console.error('Error eliminando tarea:', error);
+          reject(error);
+        }
+      });
+    });
+  }
+
+  async simularClicEjecutar(tarea: any): Promise<void> {
+    // Simular exactamente lo que hace el botón individual
+    if (!this.isTareaActiva(tarea)) {
+      console.log('Tarea no activa, saltando...');
+      return;
+    }
+
+    this.ejecutandoTarea = tarea.id;
+    console.log('🚀 Ejecutando tarea:', tarea);
+    
+    // Simular proceso de ejecución
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Eliminar la tarea después de ejecutarla
+    await this.eliminarTareaAsync(tarea.id);
+    
+    // Actualizar la lista de tareas
+    this.tareas = this.tareas.filter(t => t.id !== tarea.id);
+    this.ejecutandoTarea = null;
+  }
+
+  async simularClicRechazar(tarea: any): Promise<void> {
+    // Simular exactamente lo que hace el botón individual
+    if (!this.isTareaActiva(tarea)) {
+      console.log('Tarea no activa, saltando...');
+      return;
+    }
+
+    this.rechazandoTarea = tarea.id;
+    console.log('❌ Rechazando tarea:', tarea);
+    
+    // Simular proceso de rechazo
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Eliminar la tarea después de rechazarla
+    await this.eliminarTareaAsync(tarea.id);
+    
+    // Actualizar la lista de tareas
+    this.tareas = this.tareas.filter(t => t.id !== tarea.id);
+    this.rechazandoTarea = null;
   }
 
   ejecutarTarea(tarea: any): void {
+    if (!this.isTareaActiva(tarea)) {
+      alert('Esta tarea no está disponible. Debe completar las tareas anteriores primero.');
+      return;
+    }
+
+    this.ejecutandoTarea = tarea.id;
     console.log('🚀 Ejecutando tarea:', tarea);
-    // Aquí implementarías la lógica para ejecutar la tarea específica
-    alert(`Ejecutando tarea:\n\nEmpleado: ${tarea.nombre_empleado}\nMétodo: ${tarea.accion_realizar}\nSala: ${tarea.nombre_sala}`);
+    
+    // Simular proceso de ejecución con delay
+    setTimeout(() => {
+      // Aquí implementarías la lógica real para ejecutar la tarea
+      console.log('Tarea ejecutada correctamente');
+      // Eliminar la tarea después de ejecutarla
+      this.eliminarTarea(tarea.id);
+      this.ejecutandoTarea = null;
+    }, 2000); // 2 segundos de simulación
+  }
+
+  rechazarTarea(tarea: any): void {
+    if (!this.isTareaActiva(tarea)) {
+      alert('Esta tarea no está disponible. Debe completar las tareas anteriores primero.');
+      return;
+    }
+
+    this.rechazandoTarea = tarea.id;
+    console.log('❌ Rechazando tarea:', tarea);
+    
+    // Simular proceso de rechazo con delay
+    setTimeout(() => {
+      // Aquí implementarías la lógica para rechazar la tarea
+      console.log('Tarea rechazada');
+      // Eliminar la tarea después de rechazarla
+      this.eliminarTarea(tarea.id);
+      this.rechazandoTarea = null;
+    }, 1500); // 1.5 segundos de simulación
   }
 
   getMethodClass(accion: string): string {
