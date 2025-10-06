@@ -54,112 +54,6 @@
   </div>
 </div>
 
-<!-- Modal de Edición de Dispositivo -->
-<div class="modal" [class.show]="showEditModal" *ngIf="showEditModal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2>Editar Dispositivo</h2>
-      <button type="button" class="btn-close btn-close-red" (click)="closeEditModal()"></button>
-    </div>
-    <div class="modal-body">
-      <form (ngSubmit)="updateDispositivo()" #editForm="ngForm">
-        <div class="form-group">
-          <label for="editNombre">Nombre:</label>
-          <input 
-            type="text" 
-            id="editNombre" 
-            name="editNombre"
-            [(ngModel)]="editingDispositivo.nombre"
-            class="form-control"
-            required
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="editIpLocal">IP Local:</label>
-          <input 
-            type="text" 
-            id="editIpLocal" 
-            name="editIpLocal"
-            [(ngModel)]="editingDispositivo.ip_local"
-            class="form-control"
-            required
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="editIpRemota">IP Remota:</label>
-          <input 
-            type="text" 
-            id="editIpRemota" 
-            name="editIpRemota"
-            [(ngModel)]="editingDispositivo.ip_remota"
-            class="form-control"
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="editUsuario">Usuario:</label>
-          <input 
-            type="text" 
-            id="editUsuario" 
-            name="editUsuario"
-            [(ngModel)]="editingDispositivo.usuario"
-            class="form-control"
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="editClave">Clave:</label>
-          <input 
-            type="password" 
-            id="editClave" 
-            name="editClave"
-            [(ngModel)]="editingDispositivo.clave"
-            class="form-control"
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="editMarcajeInicio">Marcaje Inicio:</label>
-          <input 
-            type="text" 
-            id="editMarcajeInicio" 
-            name="editMarcajeInicio"
-            [(ngModel)]="editingDispositivo.marcaje_inicio"
-            class="form-control"
-            readonly
-            (click)="openDatePicker('marcaje_inicio')"
-            placeholder="Haga clic para seleccionar fecha de inicio"
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="editMarcajeFin">Marcaje Fin:</label>
-          <input 
-            type="text" 
-            id="editMarcajeFin" 
-            name="editMarcajeFin"
-            [(ngModel)]="editingDispositivo.marcaje_fin"
-            class="form-control"
-            readonly
-            (click)="openDatePicker('marcaje_fin')"
-            placeholder="Haga clic para seleccionar fecha de fin"
-          />
-        </div>
-        
-        <div class="form-actions">
-          <button type="button" class="btn btn-secondary" (click)="closeEditModal()">
-            Cancelar
-          </button>
-          <button type="submit" class="btn btn-primary" [disabled]="!editForm.form.valid">
-            Actualizar
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
 
 <!-- Modal Biométrico -->
 <div class="modal" [class.show]="showBiometricModal" *ngIf="showBiometricModal">
@@ -453,8 +347,8 @@
                     </div>
                     <div class="col-md-6">
                       <div class="mb-3">
-                        <label for="editValidBeginTime" class="form-label">beginTime</label>
-                        <input type="text" class="form-control" id="editValidBeginTime" formControlName="ValidBeginTime" readonly (click)="openDatePicker('beginTime')" style="cursor: pointer;">
+                        <label for="editValidBeginTime" class="form-label">beginTime ({{ userBeginTime }})</label>
+                        <input type="text" class="form-control" id="editValidBeginTime" formControlName="ValidBeginTime" readonly style="cursor: pointer;">
                       </div>
                     </div>
                   </div>
@@ -462,8 +356,8 @@
                   <div class="row">
                     <div class="col-md-6">
                       <div class="mb-3">
-                        <label for="editValidEndTime" class="form-label">endTime</label>
-                        <input type="text" class="form-control" id="editValidEndTime" formControlName="ValidEndTime" readonly (click)="openDatePicker('endTime')" style="cursor: pointer;">
+                        <label for="editValidEndTime" class="form-label">endTime ({{ userEndTime }})</label>
+                        <input type="text" class="form-control" id="editValidEndTime" formControlName="ValidEndTime" readonly style="cursor: pointer;">
                       </div>
                     </div>
                     <div class="col-md-6">
@@ -644,7 +538,7 @@
                     <div class="col-md-6">
                       <div class="mb-3">
                         <label for="createValidBeginTime" class="form-label">beginTime</label>
-                        <input type="text" class="form-control" id="createValidBeginTime" formControlName="ValidBeginTime" (click)="openDatePicker('beginTime')" style="cursor: pointer;">
+                        <input type="text" class="form-control" id="createValidBeginTime" formControlName="ValidBeginTime" readonly>
                       </div>
                     </div>
                   </div>
@@ -653,7 +547,7 @@
                     <div class="col-md-6">
                       <div class="mb-3">
                         <label for="createValidEndTime" class="form-label">endTime</label>
-                        <input type="text" class="form-control" id="createValidEndTime" formControlName="ValidEndTime" (click)="openDatePicker('endTime')" style="cursor: pointer;">
+                        <input type="text" class="form-control" id="createValidEndTime" formControlName="ValidEndTime" readonly>
                       </div>
                     </div>
                     <div class="col-md-6">
@@ -803,8 +697,8 @@
             <div class="col-md-6">
               <div class="mb-3">
                 <label for="addBeginTime" class="form-label">beginTime</label>
-                <input type="datetime-local" class="form-control" id="addBeginTime" formControlName="ValidBeginTime" 
-                       required>
+                <input type="text" class="form-control" id="addBeginTime" formControlName="ValidBeginTime" 
+                       readonly>
                 <div class="invalid-feedback" *ngIf="addUserForm.get('ValidBeginTime')?.invalid && addUserForm.get('ValidBeginTime')?.touched">
                   La fecha de inicio es requerida
                 </div>
@@ -813,8 +707,8 @@
             <div class="col-md-6">
               <div class="mb-3">
                 <label for="addEndTime" class="form-label">endTime</label>
-                <input type="datetime-local" class="form-control" id="addEndTime" formControlName="ValidEndTime" 
-                       required>
+                <input type="text" class="form-control" id="addEndTime" formControlName="ValidEndTime" 
+                       readonly>
                 <div class="invalid-feedback" *ngIf="addUserForm.get('ValidEndTime')?.invalid && addUserForm.get('ValidEndTime')?.touched">
                   La fecha de fin es requerida
                 </div>

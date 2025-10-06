@@ -97,6 +97,34 @@ import { AuthService } from '../../../services/auth.service';
             />
           </div>
 
+          <div class="form-group" *ngIf="isEdit">
+            <label for="marcaje_inicio">Marcaje Inicio:</label>
+            <input 
+              type="text" 
+              id="marcaje_inicio" 
+              [(ngModel)]="dispositivo.marcaje_inicio"
+              name="marcaje_inicio"
+              class="form-control"
+              readonly
+              (click)="openDatePicker('marcaje_inicio')"
+              placeholder="Haga clic para seleccionar fecha de inicio"
+            />
+          </div>
+
+          <div class="form-group" *ngIf="isEdit">
+            <label for="marcaje_fin">Marcaje Fin:</label>
+            <input 
+              type="text" 
+              id="marcaje_fin" 
+              [(ngModel)]="dispositivo.marcaje_fin"
+              name="marcaje_fin"
+              class="form-control"
+              readonly
+              (click)="openDatePicker('marcaje_fin')"
+              placeholder="Haga clic para seleccionar fecha de fin"
+            />
+          </div>
+
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" (click)="goBack()">
               Cancelar
@@ -272,6 +300,7 @@ export class DispositivosFormComponent implements OnInit {
   loading = false;
   isEdit = false;
   dispositivoId: number | null = null;
+  
 
   constructor(
     private dispositivosService: DispositivosService,
@@ -369,6 +398,82 @@ export class DispositivosFormComponent implements OnInit {
           this.loading = false;
         }
       });
+    }
+  }
+
+  openDatePicker(field: string): void {
+    console.log('🗓️ Abriendo date picker para:', field);
+    
+    // Crear un input temporal de tipo date
+    const input = document.createElement('input');
+    input.type = 'date';
+    input.style.position = 'fixed';
+    input.style.top = '50%';
+    input.style.left = '50%';
+    input.style.transform = 'translate(-50%, -50%)';
+    input.style.zIndex = '9999';
+    input.style.opacity = '0';
+    input.style.width = '1px';
+    input.style.height = '1px';
+    input.style.border = 'none';
+    input.style.outline = 'none';
+    
+    // Establecer valor actual si existe
+    if (field === 'marcaje_inicio' && this.dispositivo.marcaje_inicio) {
+      const currentDate = this.dispositivo.marcaje_inicio.split('T')[0];
+      input.value = currentDate;
+    } else if (field === 'marcaje_fin' && this.dispositivo.marcaje_fin) {
+      const currentDate = this.dispositivo.marcaje_fin.split('T')[0];
+      input.value = currentDate;
+    }
+    
+    document.body.appendChild(input);
+    
+    // Función para limpiar el input
+    const cleanup = () => {
+      if (document.body.contains(input)) {
+        document.body.removeChild(input);
+      }
+    };
+    
+    // Manejar la selección de fecha
+    input.addEventListener('change', (event: any) => {
+      const selectedDate = event.target.value;
+      console.log('🗓️ Fecha seleccionada:', selectedDate);
+      
+      if (selectedDate) {
+        if (field === 'marcaje_inicio') {
+          this.dispositivo.marcaje_inicio = selectedDate + 'T00:00:00';
+          console.log('🗓️ Marcaje inicio actualizado:', this.dispositivo.marcaje_inicio);
+        } else if (field === 'marcaje_fin') {
+          this.dispositivo.marcaje_fin = selectedDate + 'T23:59:59';
+          console.log('🗓️ Marcaje fin actualizado:', this.dispositivo.marcaje_fin);
+        }
+      }
+      
+      // Limpiar después de un pequeño delay para evitar conflictos
+      setTimeout(cleanup, 100);
+    });
+    
+    // Limpiar el input temporal si se cancela
+    input.addEventListener('blur', () => {
+      setTimeout(cleanup, 100);
+    });
+    input.addEventListener('cancel', () => {
+      setTimeout(cleanup, 100);
+    });
+    
+    // Forzar el foco y abrir el date picker inmediatamente
+    input.focus();
+    input.click();
+    
+    // También intentar con showPicker si está disponible
+    if (input.showPicker) {
+      try {
+        input.showPicker();
+      } catch (error) {
+        console.log('showPicker no disponible:', error);
+      }
     }
   }
 

@@ -20,9 +20,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   loading = true;
   isCreator = false;
   showBiometricModal = false;
-  showEditModal = false;
   selectedDispositivo: any = null;
-  editingDispositivo: any = null;
   connectionStatus = 'disconnected';
   testing = false;
   biometricResult: string = '';
@@ -50,6 +48,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   addUserForm: any;
   selectedPhoto: string | null = null;
   isAddingUser = false;
+  
+  // Variables para datos del usuario en modal de editar
+  userBeginTime = '';
+  userEndTime = '';
   
   // Variables para editar usuario
   editUserForm: any;
@@ -105,8 +107,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       numOfCard: [0],
       numOfFace: [1],
       ValidEnable: [true],
-      ValidBeginTime: ['2024-01-01T00:00:00'],
-      ValidEndTime: ['2030-12-31T23:59:59'],
+      ValidBeginTime: [''],
+      ValidEndTime: [''],
       ValidTimeType: ['local'],
       RightPlanDoorNo: ['1'],
       RightPlanTemplateNo: ['1'],
@@ -132,8 +134,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       numOfCard: [{value: 0, disabled: true}],
       numOfFace: [{value: 0, disabled: true}],
       ValidEnable: [{value: true, disabled: true}],
-      ValidBeginTime: [''],
-      ValidEndTime: [''],
+      ValidBeginTime: [{value: '', disabled: true}],
+      ValidEndTime: [{value: '', disabled: true}],
       ValidTimeType: [{value: 'local', disabled: true}],
       RightPlanDoorNo: [{value: '', disabled: true}],
       RightPlanTemplateNo: [{value: '', disabled: true}],
@@ -159,8 +161,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       numOfCard: [{value: 0, disabled: true}],
       numOfFace: [{value: 1, disabled: true}],
       ValidEnable: [{value: true, disabled: true}],
-      ValidBeginTime: ['2024-01-01T00:00:00'],
-      ValidEndTime: ['2030-12-31T23:59:59'],
+      ValidBeginTime: [''],
+      ValidEndTime: [''],
       ValidTimeType: [{value: 'local', disabled: true}],
       RightPlanDoorNo: [{value: '1', disabled: true}],
       RightPlanTemplateNo: [{value: '1', disabled: true}],
@@ -188,16 +190,85 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   openBiometricModal(dispositivo: any): void {
+    console.log('🔧 Abriendo modal biométrico para dispositivo:', dispositivo);
     this.selectedDispositivo = dispositivo;
     this.showBiometricModal = true;
     this.currentView = 'lista';
     this.biometricUsers = [];
     this.showUserTable = false; // Ocultar tabla inicialmente
     
+    // Establecer valores de marcaje del dispositivo en los formularios con delay
+    console.log('🔧 Llamando setMarcajeValuesFromDispositivo...');
+    setTimeout(() => {
+      this.setMarcajeValuesFromDispositivo(dispositivo);
+    }, 100);
+    
     // Probar conexión automáticamente
     setTimeout(() => {
       this.testConnection();
     }, 500);
+  }
+
+  setMarcajeValuesFromDispositivo(dispositivo: any): void {
+    console.log('📅 Estableciendo valores de marcaje del dispositivo:', dispositivo);
+    console.log('📅 Dispositivo marcaje_inicio:', dispositivo.marcaje_inicio);
+    console.log('📅 Dispositivo marcaje_fin:', dispositivo.marcaje_fin);
+    
+    // Valores por defecto si no existen en el dispositivo
+    const marcajeInicio = dispositivo.marcaje_inicio || this.getDefaultMarcajeInicio();
+    const marcajeFin = dispositivo.marcaje_fin || this.getDefaultMarcajeFin();
+    
+    console.log('📅 Marcaje inicio del dispositivo:', marcajeInicio);
+    console.log('📅 Marcaje fin del dispositivo:', marcajeFin);
+    console.log('📅 addUserForm existe:', !!this.addUserForm);
+    console.log('📅 createUserForm existe:', !!this.createUserForm);
+    
+    // Establecer valores en el formulario de agregar usuario (addUserForm)
+    if (this.addUserForm) {
+      console.log('📅 Estableciendo valores en addUserForm:', marcajeInicio, marcajeFin);
+      this.addUserForm.get('ValidBeginTime')?.setValue(marcajeInicio);
+      this.addUserForm.get('ValidEndTime')?.setValue(marcajeFin);
+      
+      // Deshabilitar los campos después de establecer los valores
+      this.addUserForm.get('ValidBeginTime')?.disable();
+      this.addUserForm.get('ValidEndTime')?.disable();
+      
+      console.log('📅 Valores establecidos en addUserForm:', this.addUserForm.get('ValidBeginTime')?.value, this.addUserForm.get('ValidEndTime')?.value);
+      
+      // Forzar detección de cambios
+      this.cdr.detectChanges();
+    } else {
+      console.log('❌ addUserForm no está disponible');
+    }
+    
+    // También establecer valores en el formulario de crear usuario (createUserForm)
+    if (this.createUserForm) {
+      console.log('📅 Estableciendo valores en createUserForm:', marcajeInicio, marcajeFin);
+      this.createUserForm.get('ValidBeginTime')?.setValue(marcajeInicio);
+      this.createUserForm.get('ValidEndTime')?.setValue(marcajeFin);
+      
+      // Deshabilitar los campos después de establecer los valores
+      this.createUserForm.get('ValidBeginTime')?.disable();
+      this.createUserForm.get('ValidEndTime')?.disable();
+      
+      console.log('📅 Valores establecidos en createUserForm:', this.createUserForm.get('ValidBeginTime')?.value, this.createUserForm.get('ValidEndTime')?.value);
+      
+      // Forzar detección de cambios
+      this.cdr.detectChanges();
+    } else {
+      console.log('❌ createUserForm no está disponible');
+    }
+  }
+
+  getDefaultMarcajeInicio(): string {
+    const today = new Date();
+    return today.toISOString().split('T')[0] + 'T00:00:00';
+  }
+
+  getDefaultMarcajeFin(): string {
+    const futureDate = new Date();
+    futureDate.setFullYear(futureDate.getFullYear() + 5);
+    return futureDate.toISOString().split('T')[0] + 'T23:59:59';
   }
 
   closeBiometricModal(): void {
@@ -349,6 +420,17 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   private populateEditForm(userData: any): void {
+    // Guardar datos del usuario para mostrar en labels
+    this.userBeginTime = userData.Valid?.beginTime || '';
+    this.userEndTime = userData.Valid?.endTime || '';
+    
+    // Obtener datos del dispositivo para mostrar en campos
+    const dispositivoBeginTime = this.selectedDispositivo?.marcaje_inicio || this.getDefaultMarcajeInicio();
+    const dispositivoEndTime = this.selectedDispositivo?.marcaje_fin || this.getDefaultMarcajeFin();
+    
+    console.log('📝 Datos del usuario para labels:', this.userBeginTime, this.userEndTime);
+    console.log('📝 Datos del dispositivo para campos:', dispositivoBeginTime, dispositivoEndTime);
+    
     this.editUserForm.patchValue({
       employeeNo: userData.employeeNo || '',
       name: userData.name || '',
@@ -367,8 +449,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       numOfCard: userData.numOfCard || 0,
       numOfFace: userData.numOfFace || 0,
       ValidEnable: userData.Valid?.enable || true,
-      ValidBeginTime: userData.Valid?.beginTime || '',
-      ValidEndTime: userData.Valid?.endTime || '',
+      ValidBeginTime: dispositivoBeginTime, // Datos del dispositivo sin comillas
+      ValidEndTime: dispositivoEndTime, // Datos del dispositivo sin comillas
       ValidTimeType: userData.Valid?.timeType || 'local',
       RightPlanDoorNo: userData.RightPlan?.[0]?.doorNo || '',
       RightPlanTemplateNo: userData.RightPlan?.[0]?.planTemplateNo || '',
@@ -454,7 +536,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     console.log('Actualizando usuario...');
     this.updatingUser = true;
     
-    const formData = this.editUserForm.value;
+    const formData = this.editUserForm.getRawValue();
     const originalData = this.originalUserData;
     
     // Construir payload con datos originales para campos deshabilitados
@@ -497,6 +579,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     };
 
     console.log('Payload de actualización:', userPayload);
+    console.log('🔍 Valores de los campos del formulario:', {
+      ValidBeginTime: formData.ValidBeginTime,
+      ValidEndTime: formData.ValidEndTime
+    });
 
     this.hikvisionService.updateUser(
       this.selectedDispositivo.ip_remota,
@@ -522,14 +608,17 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   abrirVistaCrear(): void {
     this.currentView = 'crear';
     this.inicializarFormularioCrear();
+    
+    // Establecer valores del dispositivo en el formulario de crear
+    if (this.selectedDispositivo) {
+      this.setMarcajeValuesFromDispositivo(this.selectedDispositivo);
+    }
   }
 
   inicializarFormularioCrear(): void {
-    // Establecer valores por defecto para fechas
-    this.createUserForm.patchValue({
-      ValidBeginTime: '2024-01-01T00:00:00',
-      ValidEndTime: '2030-12-31T23:59:59'
-    });
+    // Los valores se establecerán desde setMarcajeValuesFromDispositivo
+    // No establecer valores hardcodeados aquí
+    console.log('📝 Inicializando formulario crear - valores se establecerán desde dispositivo');
   }
 
 
@@ -542,7 +631,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     console.log('Creando usuario...');
     this.creatingUser = true;
 
-    const formData = this.createUserForm.value;
+    const formData = this.createUserForm.getRawValue();
     console.log('Datos del formulario:', formData);
 
     const userPayload = {
@@ -584,6 +673,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     };
 
     console.log('Payload para crear usuario:', userPayload);
+    console.log('🔍 Valores de los campos del formulario:', {
+      ValidBeginTime: formData.ValidBeginTime,
+      ValidEndTime: formData.ValidEndTime
+    });
 
     this.hikvisionService.updateUser(
       this.selectedDispositivo.ip_remota,
@@ -600,9 +693,9 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       error: (error) => {
         console.error('Error creando usuario:', error);
         this.creatingUser = false;
-      }
-    });
-  }
+        }
+      });
+    }
 
   // Métodos para el modal de agregar usuario
   openAddUserModal(): void {
@@ -797,107 +890,9 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   navigateToEdit(dispositivo: any): void {
-    this.editingDispositivo = { ...dispositivo };
-    
-    // Establecer valores inteligentes para marcaje
-    const today = new Date();
-    const futureDate = new Date();
-    futureDate.setFullYear(today.getFullYear() + 5);
-    
-    // Formatear fechas en el formato requerido
-    const todayFormatted = today.toISOString().split('T')[0] + 'T00:00:00';
-    const futureFormatted = futureDate.toISOString().split('T')[0] + 'T23:59:59';
-    
-    // Solo establecer valores si no existen o están vacíos
-    if (!this.editingDispositivo.marcaje_inicio || this.editingDispositivo.marcaje_inicio === 'AAAA-MM-DDT00:00:00') {
-      this.editingDispositivo.marcaje_inicio = todayFormatted;
-    }
-    if (!this.editingDispositivo.marcaje_fin || this.editingDispositivo.marcaje_fin === 'AAAA-MM-DDT23:59:59') {
-      this.editingDispositivo.marcaje_fin = futureFormatted;
-    }
-    
-    this.showEditModal = true;
+    this.router.navigate(['/super-config/dispositivos/editar', dispositivo.id]);
   }
 
-  closeEditModal(): void {
-    this.showEditModal = false;
-    this.editingDispositivo = null;
-  }
-
-  updateDispositivo(): void {
-    if (this.editingDispositivo) {
-      this.dispositivosService.updateDispositivo(this.editingDispositivo.id, this.editingDispositivo).subscribe({
-        next: (response) => {
-          console.log('Dispositivo actualizado:', response);
-          // Actualizar el dispositivo en el array local
-          const index = this.dispositivos.findIndex(d => d.id === this.editingDispositivo.id);
-          if (index !== -1) {
-            this.dispositivos[index] = { ...this.editingDispositivo };
-          }
-          this.closeEditModal();
-      },
-      error: (error) => {
-          console.error('Error actualizando dispositivo:', error);
-        }
-      });
-    }
-  }
-
-  openDatePicker(field: string): void {
-    // Obtener la fecha actual para marcaje_inicio
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    
-    // Crear un input temporal de tipo date
-    const dateInput = document.createElement('input');
-    dateInput.type = 'date';
-    
-    // Establecer fecha inicial inteligente
-    if (field === 'marcaje_inicio') {
-      dateInput.value = `${year}-${month}-${day}`;
-    } else if (field === 'marcaje_fin') {
-      // Para marcaje_fin, usar fecha actual + 5 años
-      const futureDate = new Date();
-      futureDate.setFullYear(today.getFullYear() + 5);
-      const futureYear = futureDate.getFullYear();
-      const futureMonth = String(futureDate.getMonth() + 1).padStart(2, '0');
-      const futureDay = String(futureDate.getDate()).padStart(2, '0');
-      dateInput.value = `${futureYear}-${futureMonth}-${futureDay}`;
-    }
-    
-    // Agregar al DOM temporalmente
-    dateInput.style.position = 'absolute';
-    dateInput.style.left = '-9999px';
-    document.body.appendChild(dateInput);
-    
-    // Abrir el date picker
-    dateInput.showPicker();
-    
-    // Manejar la selección
-    dateInput.addEventListener('change', () => {
-      const selectedDate = dateInput.value;
-      if (selectedDate) {
-        if (field === 'marcaje_inicio') {
-          this.editingDispositivo.marcaje_inicio = `${selectedDate}T00:00:00`;
-        } else if (field === 'marcaje_fin') {
-          this.editingDispositivo.marcaje_fin = `${selectedDate}T23:59:59`;
-        }
-      }
-      // Limpiar el input temporal
-      document.body.removeChild(dateInput);
-    });
-    
-    // Limpiar si se cancela
-    dateInput.addEventListener('blur', () => {
-      setTimeout(() => {
-        if (document.body.contains(dateInput)) {
-          document.body.removeChild(dateInput);
-        }
-      }, 100);
-    });
-  }
 
   deleteDispositivo(dispositivo: any): void {
     console.log('Eliminando dispositivo:', dispositivo);
@@ -910,9 +905,9 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
           console.error('Error eliminando dispositivo:', error);
-        }
-      });
-    }
+      }
+    });
+  }
   }
 
   // Métodos de formularios
