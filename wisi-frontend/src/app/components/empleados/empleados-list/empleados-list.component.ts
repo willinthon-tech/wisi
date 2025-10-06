@@ -6,6 +6,8 @@ import { BiometricImageService } from '../../../services/biometric-image.service
 import { ImageValidationService } from '../../../services/image-validation.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { TareasAutomaticasService } from '../../../services/tareas-automaticas.service';
+import { AuthService } from '../../../services/auth.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -1173,6 +1175,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   userHorarios: any[] = [];
   userDispositivos: any[] = [];
   tareasCount: number = 0;
+  dispositivosAnteriores: number[] = [];
+  dispositivosNuevos: number[] = [];
   showCargoModal = false;
   selectedEmpleado: any = null;
   nuevoEmpleado = {
@@ -1230,12 +1234,21 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     private biometricImageService: BiometricImageService,
     private imageValidationService: ImageValidationService,
     private permissionsService: PermissionsService,
-    private router: Router
+    private router: Router,
+    private tareasAutomaticasService: TareasAutomaticasService,
+    private authService: AuthService
   ) {}
 
   ngOnInit(): void {
     this.loadEmpleados();
-    this.loadTareasCount();
+    
+    // Esperar a que el usuario esté disponible antes de cargar tareas
+    this.authService.currentUser$.subscribe(user => {
+      if (user) {
+        this.loadTareasCount();
+      }
+    });
+    
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {
       // Los permisos se actualizan automáticamente
     });
@@ -2152,8 +2165,16 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     if (this.selectedEmpleado) {
       // Actualizar empleado existente
       console.log('🔄 Actualizando empleado:', this.nuevoEmpleado);
+      
+      // Obtener dispositivos anteriores y nuevos
+      const dispositivosAnteriores = this.selectedEmpleado.dispositivos?.map((d: any) => d.id) || [];
+      const dispositivosNuevos = this.nuevoEmpleado.dispositivos || [];
+      
+      console.log('🔄 Dispositivos anteriores:', dispositivosAnteriores);
+      console.log('🔄 Dispositivos nuevos:', dispositivosNuevos);
+      
       this.empleadosService.updateEmpleado(this.selectedEmpleado.id, this.nuevoEmpleado).subscribe({
-        next: (empleado) => {
+        next: async (empleado) => {
           console.log('✅ Empleado actualizado:', empleado);
           const index = this.empleados.findIndex(e => e.id === empleado.id);
           if (index !== -1) {
@@ -2161,6 +2182,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             this.empleados[index] = empleado;
             console.log('🔄 Lista de empleados actualizada');
           }
+          
+          // Crear tareas automáticas para la edición
+          await this.crearTareasEditarEmpleado(empleado, dispositivosAnteriores, dispositivosNuevos);
+          
           this.closeCargoSelector();
           // Pequeño delay para asegurar que el backend haya procesado los cambios
           setTimeout(() => {
@@ -2177,9 +2202,15 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       // Crear nuevo empleado
       console.log('🔄 Creando empleado:', this.nuevoEmpleado);
       this.empleadosService.createEmpleado(this.nuevoEmpleado).subscribe({
-        next: (empleado) => {
+        next: async (empleado) => {
           console.log('✅ Empleado creado:', empleado);
           this.empleados.unshift(empleado);
+          
+          // Crear tareas automáticas para el nuevo empleado
+          console.log('🔄 Llamando a crearTareasNuevoEmpleado...');
+          console.log('🔄 Dispositivos del nuevo empleado:', this.nuevoEmpleado.dispositivos);
+          await this.crearTareasNuevoEmpleado(empleado, this.nuevoEmpleado.dispositivos || []);
+          
           this.closeCargoSelector();
           alert('Empleado creado exitosamente');
         },
@@ -2242,8 +2273,20 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   deleteEmpleado(id: number): void {
     if (confirm('¿Estás seguro de que quieres eliminar este empleado?')) {
+      // Obtener el empleado antes de eliminarlo para crear las tareas
+      const empleado = this.empleados.find(e => e.id === id);
+      const dispositivosIds = empleado?.dispositivos?.map((d: any) => d.id) || [];
+      
+      console.log('🗑️ Eliminando empleado:', empleado?.nombre);
+      console.log('🗑️ Dispositivos asociados:', dispositivosIds);
+      
       this.empleadosService.deleteEmpleado(id).subscribe({
-        next: () => {
+        next: async () => {
+          // Crear tareas automáticas para la eliminación ANTES de eliminar del frontend
+          if (empleado && dispositivosIds.length > 0) {
+            await this.crearTareasEliminarEmpleado(empleado, dispositivosIds);
+          }
+          
           this.empleados = this.empleados.filter(empleado => empleado.id !== id);
           alert('Empleado eliminado exitosamente');
         },
@@ -2256,10 +2299,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   loadTareasCount(): void {
-    // Obtener el ID del usuario logueado desde el localStorage
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-      const user = JSON.parse(userData);
+    // Obtener el usuario del AuthService
+    const user = this.authService.getCurrentUser();
+    if (user) {
       this.empleadosService.getTareasByUser(user.id).subscribe({
         next: (tareas: any) => {
           this.tareasCount = Array.isArray(tareas) ? tareas.length : 0;
@@ -2271,20 +2313,372 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         }
       });
     } else {
-      console.error('No se encontró información del usuario logueado');
+      console.log('Usuario no disponible aún, tareas en 0');
       this.tareasCount = 0;
     }
   }
 
   goToTareas(): void {
-    // Obtener el ID del usuario logueado desde el localStorage
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-      const user = JSON.parse(userData);
+    // Obtener el usuario del AuthService
+    const user = this.authService.getCurrentUser();
+    if (user) {
       this.router.navigate(['/super-config/tareas', user.id]);
     } else {
       console.error('No se encontró información del usuario logueado');
       alert('Error: No se encontró información del usuario');
+    }
+  }
+
+  // ==================== MÉTODOS PARA TAREAS AUTOMÁTICAS ====================
+
+  // Función auxiliar para obtener el usuario logueado
+  private getCurrentUser(): any {
+    // Obtener del auth service
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser) {
+      return { id: currentUser.id };
+    }
+    
+    // Si no hay usuario en el auth service, obtener del backend
+    return null;
+  }
+
+  // Crear tareas para nuevo empleado
+  async crearTareasNuevoEmpleado(empleado: any, dispositivosIds: number[]): Promise<void> {
+    try {
+      console.log('🔄 Creando tareas para nuevo empleado:', empleado.nombre);
+      console.log('🔄 Dispositivos seleccionados:', dispositivosIds);
+      console.log('🔄 Empleado completo:', empleado);
+
+      if (dispositivosIds.length === 0) {
+        console.log('⚠️ No hay dispositivos seleccionados, no se crearán tareas');
+        return;
+      }
+
+      // Obtener información de los dispositivos
+      const dispositivos = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds).toPromise();
+      console.log('🔄 Dispositivos obtenidos:', dispositivos);
+
+      // Obtener ID del usuario logueado
+      let user = this.getCurrentUser();
+      
+      // Si no se pudo obtener del token, obtener del backend
+      if (!user) {
+        try {
+          const userData = await this.empleadosService.getCurrentUser().toPromise();
+          user = { id: userData.id };
+          console.log('🔍 Usuario obtenido del backend:', user);
+        } catch (error) {
+          console.error('❌ Error obteniendo usuario del backend:', error);
+          return;
+        }
+      } else {
+        console.log('🔍 Usuario obtenido del token:', user);
+      }
+
+        // Obtener información completa del empleado con relaciones
+        const empleadoCompleto = await this.tareasAutomaticasService.getEmpleadoById(empleado.id).toPromise();
+        console.log('🔍 Empleado completo obtenido:', empleadoCompleto);
+        console.log('🔍 Cargo del empleado:', empleadoCompleto.Cargo);
+        console.log('🔍 Departamento del cargo:', empleadoCompleto.Cargo?.Departamento);
+        console.log('🔍 Area del departamento:', empleadoCompleto.Cargo?.Departamento?.Area);
+
+        // Crear tareas: 2 por cada dispositivo (Agregar Usuario + Agregar Foto)
+        const tareas = [];
+        if (dispositivos && dispositivos.length > 0) {
+          for (const dispositivo of dispositivos) {
+          console.log('🔧 Procesando dispositivo:', dispositivo.nombre);
+          
+          // Tarea 1: Agregar Usuario
+          const tareaUsuario = {
+            user_id: user.id,
+            numero_cedula_empleado: empleadoCompleto.cedula,
+            nombre_empleado: empleadoCompleto.nombre,
+            nombre_genero: empleadoCompleto.sexo === 'masculino' ? 'male' : 'female',
+            nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+            nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+            foto_empleado: empleadoCompleto.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Agregar Usuario',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          };
+          console.log('🔧 Tarea Usuario creada:', tareaUsuario);
+          tareas.push(tareaUsuario);
+
+          // Tarea 2: Agregar Foto
+          const tareaFoto = {
+            user_id: user.id,
+            numero_cedula_empleado: empleadoCompleto.cedula,
+            nombre_empleado: empleadoCompleto.nombre,
+            nombre_genero: empleadoCompleto.sexo === 'masculino' ? 'male' : 'female',
+            nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+            nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+            foto_empleado: empleadoCompleto.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Agregar Foto',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          };
+          console.log('🔧 Tarea Foto creada:', tareaFoto);
+          tareas.push(tareaFoto);
+          }
+        }
+
+      console.log(`🔄 Creando ${tareas.length} tareas para ${dispositivosIds.length} dispositivos`);
+      console.log('🔄 Tareas a crear:', tareas);
+      
+      // Crear todas las tareas
+      const resultados = await this.tareasAutomaticasService.createMultipleTareas(tareas).toPromise();
+      console.log('✅ Resultados de creación de tareas:', resultados);
+      
+      console.log('✅ Tareas creadas exitosamente');
+      
+      // Actualizar contador de tareas
+      this.loadTareasCount();
+      
+    } catch (error) {
+      console.error('❌ Error creando tareas para nuevo empleado:', error);
+    }
+  }
+
+  // Crear tareas para eliminar empleado
+  async crearTareasEliminarEmpleado(empleado: any, dispositivosIds: number[]): Promise<void> {
+    try {
+      console.log('🗑️ Creando tareas para eliminar empleado:', empleado.nombre);
+      console.log('🗑️ Dispositivos asociados:', dispositivosIds);
+
+      if (dispositivosIds.length === 0) {
+        console.log('⚠️ No hay dispositivos asociados, no se crearán tareas');
+        return;
+      }
+
+      // Obtener información completa del empleado con relaciones ANTES de eliminarlo
+      const empleadoCompleto = await this.tareasAutomaticasService.getEmpleadoById(empleado.id).toPromise();
+      console.log('🔍 Empleado completo para eliminación:', empleadoCompleto);
+      console.log('🔍 Cargo del empleado:', empleadoCompleto.Cargo);
+      console.log('🔍 Departamento del cargo:', empleadoCompleto.Cargo?.Departamento);
+      console.log('🔍 Area del departamento:', empleadoCompleto.Cargo?.Departamento?.Area);
+      console.log('🔍 Nombre del área:', empleadoCompleto.Cargo?.Departamento?.Area?.nombre);
+      console.log('🔍 Estructura completa del cargo:', JSON.stringify(empleadoCompleto.Cargo, null, 2));
+
+      // Obtener información de los dispositivos
+      const dispositivos = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds).toPromise();
+      console.log('🗑️ Dispositivos obtenidos:', dispositivos);
+
+      // Obtener ID del usuario logueado
+      const user = this.authService.getCurrentUser();
+      if (!user) {
+        console.log('⚠️ Usuario no disponible aún');
+        return;
+      }
+
+      // Crear tareas: 2 por cada dispositivo (Borrar Usuario + Borrar Foto)
+      const tareas = [];
+      if (dispositivos && dispositivos.length > 0) {
+        for (const dispositivo of dispositivos) {
+        // Tarea 1: Borrar Usuario
+        tareas.push({
+          user_id: user.id,
+          numero_cedula_empleado: empleadoCompleto.cedula,
+          nombre_empleado: empleadoCompleto.nombre,
+          nombre_genero: empleadoCompleto.sexo === 'masculino' ? 'male' : 'female',
+          nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+          nombre_sala: dispositivo.Sala?.nombre || '',
+          nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+          nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+          foto_empleado: empleadoCompleto.foto || '',
+          ip_publica_dispositivo: dispositivo.ip_remota || '',
+          ip_local_dispositivo: dispositivo.ip_local || '',
+          usuario_login_dispositivo: dispositivo.usuario || '',
+          clave_login_dispositivo: dispositivo.clave || '',
+          accion_realizar: 'Borrar Usuario',
+          marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+          marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+        });
+
+        // Tarea 2: Borrar Foto
+        tareas.push({
+          user_id: user.id,
+          numero_cedula_empleado: empleadoCompleto.cedula,
+          nombre_empleado: empleadoCompleto.nombre,
+          nombre_genero: empleadoCompleto.sexo === 'masculino' ? 'male' : 'female',
+          nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+          nombre_sala: dispositivo.Sala?.nombre || '',
+          nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+          nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+          foto_empleado: empleadoCompleto.foto || '',
+          ip_publica_dispositivo: dispositivo.ip_remota || '',
+          ip_local_dispositivo: dispositivo.ip_local || '',
+          usuario_login_dispositivo: dispositivo.usuario || '',
+          clave_login_dispositivo: dispositivo.clave || '',
+          accion_realizar: 'Borrar Foto',
+          marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+          marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+        });
+        }
+      }
+
+      console.log(`🗑️ Creando ${tareas.length} tareas para ${dispositivosIds.length} dispositivos`);
+      console.log('🗑️ Tareas de eliminación a crear:', tareas);
+      
+      // Crear todas las tareas
+      const resultados = await this.tareasAutomaticasService.createMultipleTareas(tareas).toPromise();
+      console.log('✅ Resultados de eliminación de tareas:', resultados);
+      
+      console.log('✅ Tareas de eliminación creadas exitosamente');
+      
+      // Actualizar contador de tareas
+      this.loadTareasCount();
+      
+    } catch (error) {
+      console.error('❌ Error creando tareas para eliminar empleado:', error);
+    }
+  }
+
+  // Crear tareas para editar empleado
+  async crearTareasEditarEmpleado(empleado: any, dispositivosAnteriores: number[], dispositivosNuevos: number[]): Promise<void> {
+    try {
+      console.log('✏️ Creando tareas para editar empleado:', empleado.nombre);
+      console.log('✏️ Dispositivos anteriores:', dispositivosAnteriores);
+      console.log('✏️ Dispositivos nuevos:', dispositivosNuevos);
+
+      // Obtener ID del usuario logueado
+      const user = this.authService.getCurrentUser();
+      if (!user) {
+        console.log('⚠️ Usuario no disponible aún');
+        return;
+      }
+
+      const tareas = [];
+
+      // 1. Crear tareas de eliminación para dispositivos anteriores
+      if (dispositivosAnteriores.length > 0) {
+        const dispositivosAnterioresData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosAnteriores).toPromise();
+        
+        if (dispositivosAnterioresData && dispositivosAnterioresData.length > 0) {
+          for (const dispositivo of dispositivosAnterioresData) {
+          // Tarea: Borrar Usuario
+          tareas.push({
+            user_id: user.id,
+            numero_cedula_empleado: empleado.cedula,
+            nombre_empleado: empleado.nombre,
+            nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+            nombre_cargo: empleado.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_area: empleado.Cargo?.Area?.nombre || '',
+            nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+            foto_empleado: empleado.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Borrar Usuario',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          });
+
+          // Tarea: Borrar Foto
+          tareas.push({
+            user_id: user.id,
+            numero_cedula_empleado: empleado.cedula,
+            nombre_empleado: empleado.nombre,
+            nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+            nombre_cargo: empleado.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_area: empleado.Cargo?.Area?.nombre || '',
+            nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+            foto_empleado: empleado.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Borrar Foto',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          });
+          }
+        }
+      }
+
+      // 2. Crear tareas de creación para dispositivos nuevos
+      if (dispositivosNuevos.length > 0) {
+        const dispositivosNuevosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosNuevos).toPromise();
+        
+        if (dispositivosNuevosData && dispositivosNuevosData.length > 0) {
+          for (const dispositivo of dispositivosNuevosData) {
+          // Tarea: Agregar Usuario
+          tareas.push({
+            user_id: user.id,
+            numero_cedula_empleado: empleado.cedula,
+            nombre_empleado: empleado.nombre,
+            nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+            nombre_cargo: empleado.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_area: empleado.Cargo?.Area?.nombre || '',
+            nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+            foto_empleado: empleado.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Agregar Usuario',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          });
+
+          // Tarea: Agregar Foto
+          tareas.push({
+            user_id: user.id,
+            numero_cedula_empleado: empleado.cedula,
+            nombre_empleado: empleado.nombre,
+            nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+            nombre_cargo: empleado.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_area: empleado.Cargo?.Area?.nombre || '',
+            nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+            foto_empleado: empleado.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Agregar Foto',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          });
+          }
+        }
+      }
+
+      console.log(`✏️ Creando ${tareas.length} tareas totales`);
+      console.log(`✏️ - ${dispositivosAnteriores.length * 2} tareas de eliminación`);
+      console.log(`✏️ - ${dispositivosNuevos.length * 2} tareas de creación`);
+      console.log('✏️ Tareas de edición a crear:', tareas);
+      
+      if (tareas.length > 0) {
+        // Crear todas las tareas
+        const resultados = await this.tareasAutomaticasService.createMultipleTareas(tareas).toPromise();
+        console.log('✅ Resultados de edición de tareas:', resultados);
+        console.log('✅ Tareas de edición creadas exitosamente');
+        
+        // Actualizar contador de tareas
+        this.loadTareasCount();
+      } else {
+        console.log('⚠️ No hay cambios en dispositivos, no se crearán tareas');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error creando tareas para editar empleado:', error);
     }
   }
 }

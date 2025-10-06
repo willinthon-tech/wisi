@@ -4219,19 +4219,38 @@ app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res)
       marcaje_empleado_fin_dispositivo
     } = req.body;
 
+    console.log('🔍 Datos recibidos para crear tarea:', {
+      user_id,
+      numero_cedula_empleado,
+      nombre_empleado,
+      nombre_genero,
+      nombre_cargo,
+      nombre_sala,
+      nombre_area,
+      nombre_departamento,
+      foto_empleado: foto_empleado ? `Base64 (${foto_empleado.length} chars)` : 'null',
+      ip_publica_dispositivo,
+      ip_local_dispositivo,
+      usuario_login_dispositivo,
+      clave_login_dispositivo,
+      accion_realizar,
+      marcaje_empleado_inicio_dispositivo,
+      marcaje_empleado_fin_dispositivo
+    });
+
     const result = await sequelize.query(
       `INSERT INTO tareas_dispositivo_usuarios (
         user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
         nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
-        ip_local_dispositivo, usuario_login_dispositivo, clave_login_dispositivo,
-        accion_realizar, marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo
+        usuario_login_dispositivo, clave_login_dispositivo, accion_realizar, 
+        marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       {
         replacements: [
           user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
           nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
-          ip_local_dispositivo, usuario_login_dispositivo, clave_login_dispositivo,
-          accion_realizar, marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo
+          usuario_login_dispositivo, clave_login_dispositivo, accion_realizar,
+          marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
         ]
       }
     );
@@ -4242,7 +4261,54 @@ app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res)
     });
   } catch (error) {
     console.error('❌ Error creando tarea:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ Error code:', error.code);
+    console.error('❌ Error errno:', error.errno);
+    res.status(500).json({ 
+      message: 'Error interno del servidor',
+      error: error.message,
+      code: error.code
+    });
+  }
+});
+
+// GET /api/test-tarea - Endpoint de prueba simple (sin autenticación)
+app.get('/api/test-tarea', async (req, res) => {
+  try {
+    console.log('🧪 Probando creación de tarea simple...');
+    
+    const result = await sequelize.query(
+      `INSERT INTO tareas_dispositivo_usuarios (
+        user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
+        nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
+        usuario_login_dispositivo, clave_login_dispositivo, accion_realizar, 
+        marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      {
+        replacements: [
+          1, '123456', 'Test User', 'male', 'Test Cargo',
+          'Test Sala', 'Test Area', 'Test Dept', '', '192.168.1.1',
+          'admin', 'password', 'Test Action',
+          '2025-01-01T00:00:00', '2025-12-31T23:59:59', '192.168.1.1'
+        ]
+      }
+    );
+
+    console.log('✅ Tarea de prueba creada exitosamente:', result);
+    res.status(201).json({ 
+      message: 'Tarea de prueba creada correctamente',
+      id: result[0]
+    });
+  } catch (error) {
+    console.error('❌ Error en tarea de prueba:', error);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error code:', error.code);
+    res.status(500).json({ 
+      message: 'Error en tarea de prueba',
+      error: error.message,
+      code: error.code
+    });
   }
 });
 
@@ -4676,6 +4742,35 @@ app.get('/api/dispositivos', authenticateToken, async (req, res) => {
     res.json(dispositivos);
   } catch (error) {
     console.error('❌ Error obteniendo dispositivos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/dispositivos/by-ids - Obtener dispositivos por IDs
+app.post('/api/dispositivos/by-ids', authenticateToken, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'IDs de dispositivos requeridos' });
+    }
+
+    const dispositivos = await Dispositivo.findAll({
+      where: { 
+        id: { [Op.in]: ids },
+        activo: true 
+      },
+      include: [
+        {
+          model: Sala,
+          as: 'Sala'
+        }
+      ]
+    });
+
+    res.json(dispositivos);
+  } catch (error) {
+    console.error('❌ Error obteniendo dispositivos por IDs:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

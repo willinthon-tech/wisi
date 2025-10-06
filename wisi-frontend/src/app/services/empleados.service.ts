@@ -45,4 +45,8 @@ export class EmpleadosService {
   getTareasByUser(userId: number): Observable<any[]> {
     return this.http.get<any[]>(`http://localhost:3000/api/tareas-dispositivo-usuarios/user/${userId}`);
   }
+
+  getCurrentUser(): Observable<any> {
+    return this.http.get<any>('http://localhost:3000/api/verify');
+  }
 }
