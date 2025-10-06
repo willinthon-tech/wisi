@@ -108,7 +108,7 @@ import { Subscription } from 'rxjs';
                   (change)="onFileSelected($event)"
                   class="hidden-file-input"
                   accept="image/*"
-                  required
+                  [required]="!selectedEmpleado || !selectedEmpleado?.foto"
                 />
                 
                 <!-- Estado inicial: solo área de selección -->
@@ -174,6 +174,7 @@ import { Subscription } from 'rxjs';
                 <span>{{ processingMessage }}</span>
               </div>
               
+              
               <div class="form-group">
                 <label for="cedulaEmpleado">Cédula:</label>
                 <input 
@@ -184,6 +185,7 @@ import { Subscription } from 'rxjs';
                   (keyup)="validarCedula()"
                   class="form-control"
                   [class.is-invalid]="cedulaError"
+                  [disabled]="selectedEmpleado"
                   placeholder="Ingrese la cédula"
                   required
                 />
@@ -1208,6 +1210,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   // Variables para validación de cédula
   cedulaError: string = '';
   validandoCedula: boolean = false;
+  
+  // Variable para rastrear si se está editando la foto
+  editandoFoto: boolean = false;
 
   // Variables para el recorte manual
   showCropModal = false;
@@ -1438,6 +1443,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     // Limpiar errores de validación
     this.cedulaError = '';
     this.validandoCedula = false;
+    this.editandoFoto = false;
     this.cropData = {
       x: 50,
       y: 50,
@@ -1461,6 +1467,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     const file = event.target.files[0];
     if (file) {
       try {
+        // Marcar que se está editando la foto (crear o editar)
+        this.editandoFoto = true;
+        
         // Verificar que sea una imagen válida
         if (!file.type.startsWith('image/')) {
           alert('Por favor selecciona un archivo de imagen válido');
@@ -2105,6 +2114,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.initialValidation = null;
         this.isInitialValidating = false;
         
+        // Marcar que ya no se está editando la foto
+        this.editandoFoto = false;
+        
         // Limpiar originalImage después de guardar
         setTimeout(() => {
           this.originalImage = '';
@@ -2154,7 +2166,17 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   cancelImageEdit(): void {
     this.originalImage = '';
     this.processingMessage = '';
-    this.nuevoEmpleado.foto = '';
+    
+    // Si se está editando un empleado, restaurar la foto original
+    if (this.selectedEmpleado) {
+      this.nuevoEmpleado.foto = this.selectedEmpleado.foto || '';
+    } else {
+      // Si se está creando un empleado, limpiar la foto (validación quedará en false)
+      this.nuevoEmpleado.foto = '';
+    }
+    
+    // Marcar que ya no se está editando la foto
+    this.editandoFoto = false;
   }
 
   formatDate(dateString: string): string {
@@ -2739,13 +2761,23 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   isFotoValid(): boolean {
-    // Para editar empleado, la foto no es requerida si ya tiene una
-    if (this.selectedEmpleado) {
-      return true;
+    // Si se está editando la foto (crear o editar), la validación queda en false hasta que se procese
+    if (this.editandoFoto) {
+      return false;
     }
     
     // Para crear empleado, la foto es requerida
-    return !!(this.nuevoEmpleado.foto && this.nuevoEmpleado.foto.trim() !== '');
+    if (!this.selectedEmpleado) {
+      return !!(this.nuevoEmpleado.foto && this.nuevoEmpleado.foto.trim() !== '');
+    }
+    
+    // Para editar empleado:
+    // - Si ya tiene foto existente, está bien
+    // - Si no tiene foto existente, debe tener foto nueva
+    const tieneFotoExistente = this.selectedEmpleado.foto && this.selectedEmpleado.foto.trim() !== '';
+    const tieneFotoNueva = this.nuevoEmpleado.foto && this.nuevoEmpleado.foto.trim() !== '';
+    
+    return tieneFotoExistente || tieneFotoNueva;
   }
 
   validarCedula(): void {
@@ -2757,8 +2789,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       return;
     }
     
-    // Si es edición y la cédula no cambió, no validar
-    if (this.selectedEmpleado && this.selectedEmpleado.cedula === this.nuevoEmpleado.cedula) {
+    // Si es edición, no validar (la cédula está deshabilitada)
+    if (this.selectedEmpleado) {
       return;
     }
     
