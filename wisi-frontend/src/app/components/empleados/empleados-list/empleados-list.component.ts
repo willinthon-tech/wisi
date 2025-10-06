@@ -239,6 +239,7 @@ import { Subscription } from 'rxjs';
                   id="cargoSelect" 
                   name="cargoSelect"
                   [(ngModel)]="nuevoEmpleado.cargo_id"
+                  (change)="onCargoChange()"
                   class="form-control"
                   required
                 >
@@ -247,6 +248,37 @@ import { Subscription } from 'rxjs';
                     {{ cargo.nombre }} ({{ cargo.Departamento?.Area?.Sala?.nombre || 'Sin sala' }})
                   </option>
                 </select>
+              </div>
+
+              <div class="form-group">
+                <label for="dispositivosSelect">Dispositivos:</label>
+                <div class="dispositivos-checkbox-container" [class.disabled]="!nuevoEmpleado.cargo_id">
+                  <div *ngIf="!nuevoEmpleado.cargo_id" class="no-cargo-selected">
+                    <p class="text-muted">Primero selecciona un cargo para ver los dispositivos disponibles</p>
+                  </div>
+                  <div *ngIf="nuevoEmpleado.cargo_id && userDispositivos.length === 0" class="no-dispositivos-sala">
+                    <p class="text-muted">No hay dispositivos asociados en la sala seleccionada</p>
+                  </div>
+                  <div *ngFor="let dispositivo of userDispositivos" class="dispositivo-checkbox-item">
+                    <input 
+                      type="checkbox" 
+                      [id]="'dispositivo_' + dispositivo.id"
+                      [value]="dispositivo.id"
+                      [checked]="nuevoEmpleado.dispositivos.includes(dispositivo.id)"
+                      [disabled]="!nuevoEmpleado.cargo_id"
+                      (change)="onDispositivoChange(dispositivo.id, $event)"
+                      class="dispositivo-checkbox"
+                    />
+                    <label [for]="'dispositivo_' + dispositivo.id" class="dispositivo-label" [class.disabled]="!nuevoEmpleado.cargo_id">
+                      {{ dispositivo.nombre }} - {{ dispositivo.Sala?.nombre || 'Sin sala' }}
+                    </label>
+                  </div>
+                </div>
+                <small class="form-text text-muted">
+                  <span *ngIf="!nuevoEmpleado.cargo_id">Selecciona un cargo primero</span>
+                  <span *ngIf="nuevoEmpleado.cargo_id && userDispositivos.length > 0">Selecciona uno o varios dispositivos de la sala</span>
+                  <span *ngIf="nuevoEmpleado.cargo_id && userDispositivos.length === 0">Esta sala no tiene dispositivos disponibles</span>
+                </small>
               </div>
               
 
@@ -1005,6 +1037,76 @@ import { Subscription } from 'rxjs';
       100% { transform: rotate(360deg); }
     }
 
+    /* Estilos para checkboxes de dispositivos */
+    .dispositivos-checkbox-container {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #e9ecef;
+      border-radius: 6px;
+      padding: 10px;
+      background: #f8f9fa;
+    }
+
+    .dispositivo-checkbox-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 5px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+    }
+
+    .dispositivo-checkbox-item:hover {
+      background-color: #e9ecef;
+    }
+
+    .dispositivo-checkbox {
+      margin-right: 10px;
+      transform: scale(1.2);
+      cursor: pointer;
+    }
+
+    .dispositivo-label {
+      cursor: pointer;
+      font-size: 14px;
+      color: #495057;
+      margin: 0;
+      flex: 1;
+      line-height: 1.4;
+    }
+
+    .dispositivo-label:hover {
+      color: #28a745;
+    }
+
+    .dispositivos-checkbox-container.disabled {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+
+    .dispositivo-label.disabled {
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    .dispositivo-checkbox:disabled {
+      cursor: not-allowed;
+    }
+
+    .no-cargo-selected {
+      text-align: center;
+      padding: 20px;
+      color: #6c757d;
+      font-style: italic;
+    }
+
+    .no-dispositivos-sala {
+      text-align: center;
+      padding: 20px;
+      color: #6c757d;
+      font-style: italic;
+    }
+
     @media (max-width: 768px) {
       .photo-edit-container {
         gap: 10px;
@@ -1021,6 +1123,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   empleados: any[] = [];
   userCargos: any[] = [];
   userHorarios: any[] = [];
+  userDispositivos: any[] = [];
   showCargoModal = false;
   selectedEmpleado: any = null;
   nuevoEmpleado = {
@@ -1033,7 +1136,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     sexo: '',
     cargo_id: null,
     primer_dia_horario: '',
-    horario_id: null
+    horario_id: null,
+    dispositivos: [] as number[]
   };
 
   // Variables para el recorte manual
@@ -1120,6 +1224,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   showCargoSelector(): void {
     this.loadUserCargos();
     this.loadUserHorarios();
+    // No cargar dispositivos inicialmente, se cargarán cuando se seleccione un cargo
+    this.userDispositivos = [];
     this.resetForm();
     this.showCargoModal = true;
   }
@@ -1131,12 +1237,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   loadUserCargos(): void {
+    console.log('🔍 Cargando cargos...');
     this.empleadosService.getUserCargos().subscribe({
       next: (cargos) => {
+        console.log('✅ Cargos cargados:', cargos);
         this.userCargos = cargos;
       },
       error: (error) => {
-        console.error('Error cargando cargos:', error);
+        console.error('❌ Error cargando cargos:', error);
         alert('Error cargando cargos');
       }
     });
@@ -1152,6 +1260,76 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         alert('Error cargando horarios');
       }
     });
+  }
+
+  loadUserDispositivos(): void {
+    // Solo cargar dispositivos si hay un cargo seleccionado
+    if (this.nuevoEmpleado.cargo_id) {
+      console.log('🔍 Cargando dispositivos para cargo ID:', this.nuevoEmpleado.cargo_id, 'tipo:', typeof this.nuevoEmpleado.cargo_id);
+      console.log('🔍 Cargos disponibles:', this.userCargos);
+      console.log('🔍 Primeros 3 cargos con sus IDs:', this.userCargos.slice(0, 3).map(c => ({ id: c.id, tipo: typeof c.id, nombre: c.nombre })));
+      
+      // Buscar el cargo seleccionado (manejar tanto string como number)
+      const cargoSeleccionado = this.userCargos.find(cargo => 
+        cargo.id == this.nuevoEmpleado.cargo_id || 
+        cargo.id === Number(this.nuevoEmpleado.cargo_id) ||
+        Number(cargo.id) === this.nuevoEmpleado.cargo_id
+      );
+      console.log('🔍 Cargo seleccionado:', cargoSeleccionado);
+      
+      if (cargoSeleccionado) {
+        this.empleadosService.getUserDispositivos().subscribe({
+          next: (dispositivos: any[]) => {
+            console.log('🔍 Todos los dispositivos:', dispositivos);
+            
+            // Filtrar dispositivos por la sala del cargo seleccionado
+            if (cargoSeleccionado.Departamento?.Area?.Sala?.id) {
+              const salaId = cargoSeleccionado.Departamento.Area.Sala.id;
+              console.log('🔍 Filtrando por sala ID:', salaId);
+              
+              this.userDispositivos = dispositivos.filter(dispositivo => {
+                console.log('🔍 Dispositivo:', dispositivo.nombre, 'Sala ID:', dispositivo.Sala?.id, 'Coincide:', dispositivo.Sala?.id === salaId);
+                return dispositivo.Sala?.id === salaId;
+              });
+              
+              console.log('🔍 Dispositivos filtrados:', this.userDispositivos);
+              console.log('🔍 Dispositivos ya seleccionados del empleado:', this.nuevoEmpleado.dispositivos);
+            } else {
+              console.log('❌ No se encontró sala en el cargo');
+              this.userDispositivos = [];
+            }
+          },
+          error: (error: any) => {
+            console.error('Error cargando dispositivos:', error);
+            alert('Error cargando dispositivos');
+          }
+        });
+      } else {
+        console.log('❌ No se encontró el cargo seleccionado');
+        this.userDispositivos = [];
+      }
+    } else {
+      this.userDispositivos = [];
+    }
+  }
+
+  onCargoChange(): void {
+    // Limpiar dispositivos seleccionados cuando cambie el cargo
+    this.nuevoEmpleado.dispositivos = [];
+    // Cargar dispositivos de la nueva sala
+    this.loadUserDispositivos();
+  }
+
+  onDispositivoChange(dispositivoId: number, event: any): void {
+    if (event.target.checked) {
+      // Agregar dispositivo si no está ya seleccionado
+      if (!this.nuevoEmpleado.dispositivos.includes(dispositivoId)) {
+        this.nuevoEmpleado.dispositivos.push(dispositivoId);
+      }
+    } else {
+      // Remover dispositivo
+      this.nuevoEmpleado.dispositivos = this.nuevoEmpleado.dispositivos.filter(id => id !== dispositivoId);
+    }
   }
 
   resetForm(): void {
@@ -1170,7 +1348,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         sexo: '',
         cargo_id: null,
         primer_dia_horario: todayString,
-        horario_id: null
+        horario_id: null,
+        dispositivos: []
       };
       
       // Limpiar variables de procesamiento de imagen solo si no hay imagen
@@ -1192,6 +1371,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       this.nuevoEmpleado.cargo_id = null;
       this.nuevoEmpleado.primer_dia_horario = todayString;
       this.nuevoEmpleado.horario_id = null;
+      this.nuevoEmpleado.dispositivos = [];
     }
     this.cropData = {
       x: 50,
@@ -1921,13 +2101,21 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   createEmpleado(): void {
     if (this.selectedEmpleado) {
       // Actualizar empleado existente
+      console.log('🔄 Actualizando empleado:', this.nuevoEmpleado);
       this.empleadosService.updateEmpleado(this.selectedEmpleado.id, this.nuevoEmpleado).subscribe({
         next: (empleado) => {
+          console.log('✅ Empleado actualizado:', empleado);
           const index = this.empleados.findIndex(e => e.id === empleado.id);
           if (index !== -1) {
+            // Actualizar el empleado en la lista con los datos completos
             this.empleados[index] = empleado;
+            console.log('🔄 Lista de empleados actualizada');
           }
           this.closeCargoSelector();
+          // Pequeño delay para asegurar que el backend haya procesado los cambios
+          setTimeout(() => {
+            this.loadEmpleados();
+          }, 500);
           alert('Empleado actualizado exitosamente');
         },
         error: (error) => {
@@ -1937,8 +2125,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       });
     } else {
       // Crear nuevo empleado
+      console.log('🔄 Creando empleado:', this.nuevoEmpleado);
       this.empleadosService.createEmpleado(this.nuevoEmpleado).subscribe({
         next: (empleado) => {
+          console.log('✅ Empleado creado:', empleado);
           this.empleados.unshift(empleado);
           this.closeCargoSelector();
           alert('Empleado creado exitosamente');
@@ -1952,6 +2142,25 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   editEmpleado(empleado: any): void {
+    console.log('🔍 Editando empleado:', empleado);
+    console.log('🔍 Dispositivos del empleado:', empleado.dispositivos);
+    
+    // Log detallado de dispositivos asociados al empleado
+    if (empleado.dispositivos && empleado.dispositivos.length > 0) {
+      console.log('📱 DISPOSITIVOS ASOCIADOS AL EMPLEADO:');
+      empleado.dispositivos.forEach((dispositivo: any, index: number) => {
+        console.log(`📱 Dispositivo ${index + 1}:`, {
+          id: dispositivo.id,
+          nombre: dispositivo.nombre,
+          sala: dispositivo.sala_nombre || 'Sin sala',
+          ip_local: dispositivo.ip_local,
+          ip_remota: dispositivo.ip_remota
+        });
+      });
+    } else {
+      console.log('📱 El empleado NO tiene dispositivos asociados');
+    }
+    
     this.selectedEmpleado = empleado;
     this.nuevoEmpleado = {
       id: empleado.id,
@@ -1963,9 +2172,21 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       sexo: empleado.sexo,
       cargo_id: empleado.cargo_id,
       primer_dia_horario: empleado.primer_dia_horario || '',
-      horario_id: empleado.horario_id || null
+      horario_id: empleado.horario_id || null,
+      dispositivos: empleado.dispositivos ? empleado.dispositivos.map((d: any) => d.id) : []
     };
+    
+    console.log('🔍 Dispositivos mapeados (IDs):', this.nuevoEmpleado.dispositivos);
+    
+    // Cargar cargos primero, luego los demás datos
+    this.loadUserCargos();
     this.loadUserHorarios();
+    
+    // Esperar a que se carguen los cargos antes de cargar dispositivos
+    setTimeout(() => {
+      this.loadUserDispositivos();
+    }, 100);
+    
     this.showCargoModal = true;
   }
 

@@ -3875,6 +3875,18 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
       order: [['created_at', 'DESC']]
     });
 
+    // Agregar dispositivos a cada empleado
+    for (let empleado of empleados) {
+      const dispositivos = await sequelize.query(
+        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+        {
+          replacements: [empleado.id],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      empleado.dataValues.dispositivos = dispositivos;
+    }
+
     res.json(empleados);
   } catch (error) {
     console.error('❌ Error obteniendo empleados:', error);
@@ -3938,7 +3950,7 @@ app.get('/api/empleados/:id', authenticateToken, async (req, res) => {
 // POST /api/empleados - Crear nuevo empleado
 app.post('/api/empleados', authenticateToken, async (req, res) => {
   try {
-    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, primer_dia_horario, horario_id } = req.body;
+    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, primer_dia_horario, horario_id, dispositivos } = req.body;
     
     if (!nombre || !cedula || !fecha_ingreso || !fecha_cumpleanos || !sexo || !cargo_id) {
       return res.status(400).json({ message: 'Todos los campos son requeridos' });
@@ -3968,6 +3980,16 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
       horario_id: horario_id || null,
       activo: true
     });
+
+    // Manejar dispositivos si se proporcionan
+    if (dispositivos && dispositivos.length > 0) {
+      for (const dispositivoId of dispositivos) {
+        await sequelize.query(
+          'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
+          { replacements: [empleado.id, dispositivoId] }
+        );
+      }
+    }
 
     // Obtener el empleado con sus relaciones
     const empleadoCompleto = await Empleado.findByPk(empleado.id, {
@@ -4018,7 +4040,7 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
 app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, primer_dia_horario, horario_id } = req.body;
+    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, primer_dia_horario, horario_id, dispositivos } = req.body;
     
     const empleado = await Empleado.findByPk(id);
     if (!empleado) {
@@ -4054,6 +4076,24 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
       primer_dia_horario: primer_dia_horario !== undefined ? primer_dia_horario : empleado.primer_dia_horario,
       horario_id: horario_id !== undefined ? horario_id : empleado.horario_id
     });
+
+    // Manejar dispositivos si se proporcionan
+    if (dispositivos !== undefined) {
+      // Eliminar todas las relaciones existentes
+      await sequelize.query('DELETE FROM empleado_dispositivos WHERE empleado_id = ?', {
+        replacements: [id]
+      });
+
+      // Crear nuevas relaciones si se proporcionan dispositivos
+      if (dispositivos && dispositivos.length > 0) {
+        for (const dispositivoId of dispositivos) {
+          await sequelize.query(
+            'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
+            { replacements: [id, dispositivoId] }
+          );
+        }
+      }
+    }
 
     // Obtener el empleado actualizado con sus relaciones
     const empleadoActualizado = await Empleado.findByPk(id, {

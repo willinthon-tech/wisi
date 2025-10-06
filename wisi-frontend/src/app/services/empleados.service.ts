@@ -37,4 +37,8 @@ export class EmpleadosService {
   getUserHorarios(): Observable<any[]> {
     return this.http.get<any[]>('http://localhost:3000/api/horarios');
   }
+
+  getUserDispositivos(): Observable<any[]> {
+    return this.http.get<any[]>('http://localhost:3000/api/dispositivos');
+  }
 }
