@@ -20,43 +20,37 @@ import { HttpClient } from '@angular/common/http';
           <thead class="table-dark">
             <tr>
               <th>N°</th>
-              <th>Foto</th>
-              <th>Nombre</th>
               <th>Cédula</th>
-              <th>Cargo</th>
+              <th>Nombre</th>
+              <th>Género</th>
               <th>Sala</th>
-              <th>Área</th>
-              <th>Departamento</th>
-              <th>IP Dispositivo</th>
-              <th>Acción</th>
-              <th>Marcaje Inicio</th>
-              <th>Marcaje Fin</th>
-              <th>Fecha Creación</th>
+              <th>Método</th>
+              <th>Revisión</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let tarea of tareas; let i = index">
               <td>{{ i + 1 }}</td>
-              <td>
-                <img 
-                  *ngIf="tarea.foto_empleado" 
-                  [src]="'data:image/jpeg;base64,' + tarea.foto_empleado" 
-                  alt="Foto del empleado"
-                  class="employee-photo"
-                />
-                <span *ngIf="!tarea.foto_empleado" class="no-photo">Sin foto</span>
-              </td>
-              <td>{{ tarea.nombre_empleado }}</td>
               <td>{{ tarea.numero_cedula_empleado }}</td>
-              <td>{{ tarea.nombre_cargo }}</td>
+              <td>{{ tarea.nombre_empleado }}</td>
+              <td>{{ tarea.nombre_genero }}</td>
               <td>{{ tarea.nombre_sala }}</td>
-              <td>{{ tarea.nombre_area }}</td>
-              <td>{{ tarea.nombre_departamento }}</td>
-              <td>{{ tarea.ip_publica_dispositivo }}</td>
-              <td>{{ tarea.accion_realizar }}</td>
-              <td>{{ tarea.marcaje_empleado_inicio_dispositivo }}</td>
-              <td>{{ tarea.marcaje_empleado_fin_dispositivo }}</td>
-              <td>{{ formatDate(tarea.created_at) }}</td>
+              <td>
+                <span class="method-badge" [ngClass]="getMethodClass(tarea.accion_realizar)">
+                  {{ tarea.accion_realizar }}
+                </span>
+              </td>
+              <td>
+                <button class="btn btn-info btn-sm" (click)="verDetalles(tarea)">
+                  Ver
+                </button>
+              </td>
+              <td>
+                <button class="btn btn-danger btn-sm" (click)="ejecutarTarea(tarea)">
+                  Ejecutar
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -115,12 +109,92 @@ import { HttpClient } from '@angular/common/http';
       transform: translateY(-1px);
     }
 
+    .btn-info {
+      background-color: #17a2b8;
+      color: white;
+      border: 1px solid #17a2b8;
+    }
+
+    .btn-info:hover {
+      background-color: #138496;
+      border-color: #117a8b;
+      transform: translateY(-1px);
+    }
+
+    .btn-danger {
+      background-color: #dc3545;
+      color: white;
+      border: 1px solid #dc3545;
+    }
+
+    .btn-danger:hover {
+      background-color: #c82333;
+      border-color: #bd2130;
+      transform: translateY(-1px);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      margin: 2px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-sm:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Estilos para tarjetas de método */
+    .method-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      color: white;
+      border: none;
+      cursor: default;
+      transition: all 0.2s ease;
+    }
+
+    .method-delete {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .method-add {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .method-edit {
+      background-color: #17a2b8;
+      color: white;
+    }
+
+    .method-default {
+      background-color: #6c757d;
+      color: white;
+    }
+
     .table-wrapper {
       background: white;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      border: 1px solid #dee2e6;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
       overflow: hidden;
+      max-height: calc(100vh - 200px);
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .table-wrapper::-webkit-scrollbar {
+      display: none;
     }
 
     .table {
@@ -256,5 +330,28 @@ export class TareasListComponent implements OnInit {
     console.log('🚀 Ejecutando todas las tareas...');
     // Aquí implementarías la lógica para ejecutar todas las tareas
     alert('Funcionalidad de "Ejecutar Todo" en desarrollo');
+  }
+
+  verDetalles(tarea: any): void {
+    console.log('🔍 Ver detalles de tarea:', tarea);
+    // Aquí implementarías la lógica para mostrar los detalles de la tarea
+    alert(`Detalles de la tarea:\n\nEmpleado: ${tarea.nombre_empleado}\nCédula: ${tarea.numero_cedula_empleado}\nAcción: ${tarea.accion_realizar}\nSala: ${tarea.nombre_sala}`);
+  }
+
+  ejecutarTarea(tarea: any): void {
+    console.log('🚀 Ejecutando tarea:', tarea);
+    // Aquí implementarías la lógica para ejecutar la tarea específica
+    alert(`Ejecutando tarea:\n\nEmpleado: ${tarea.nombre_empleado}\nMétodo: ${tarea.accion_realizar}\nSala: ${tarea.nombre_sala}`);
+  }
+
+  getMethodClass(accion: string): string {
+    if (accion.includes('Borrar') || accion.includes('Eliminar')) {
+      return 'method-delete';
+    } else if (accion.includes('Agregar') || accion.includes('Crear')) {
+      return 'method-add';
+    } else if (accion.includes('Editar') || accion.includes('Actualizar')) {
+      return 'method-edit';
+    }
+    return 'method-default';
   }
 }

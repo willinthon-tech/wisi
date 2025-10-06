@@ -2560,109 +2560,168 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         return;
       }
 
+      // Calcular dispositivos que se quitan, agregan y permanecen
+      const dispositivosQueSeQuitan = dispositivosAnteriores.filter(id => !dispositivosNuevos.includes(id));
+      const dispositivosQueSeAgregan = dispositivosNuevos.filter(id => !dispositivosAnteriores.includes(id));
+      const dispositivosQuePermanecen = dispositivosAnteriores.filter(id => dispositivosNuevos.includes(id));
+
+      console.log('🔍 Dispositivos que se quitan:', dispositivosQueSeQuitan);
+      console.log('🔍 Dispositivos que se agregan:', dispositivosQueSeAgregan);
+      console.log('🔍 Dispositivos que permanecen:', dispositivosQuePermanecen);
+
       const tareas = [];
 
-      // 1. Crear tareas de eliminación para dispositivos anteriores
-      if (dispositivosAnteriores.length > 0) {
-        const dispositivosAnterioresData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosAnteriores).toPromise();
+      // 1. Crear tareas de ELIMINACIÓN para dispositivos que se quitan
+      if (dispositivosQueSeQuitan.length > 0) {
+        const dispositivosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosQueSeQuitan).toPromise();
         
-        if (dispositivosAnterioresData && dispositivosAnterioresData.length > 0) {
-          for (const dispositivo of dispositivosAnterioresData) {
-          // Tarea: Borrar Usuario
-          tareas.push({
-            user_id: user.id,
-            numero_cedula_empleado: empleado.cedula,
-            nombre_empleado: empleado.nombre,
-            nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
-            nombre_cargo: empleado.Cargo?.nombre || '',
-            nombre_sala: dispositivo.Sala?.nombre || '',
-            nombre_area: empleado.Cargo?.Area?.nombre || '',
-            nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
-            foto_empleado: empleado.foto || '',
-            ip_publica_dispositivo: dispositivo.ip_remota || '',
-            ip_local_dispositivo: dispositivo.ip_local || '',
-            usuario_login_dispositivo: dispositivo.usuario || '',
-            clave_login_dispositivo: dispositivo.clave || '',
-            accion_realizar: 'Borrar Usuario',
-            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
-            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
-          });
+        if (dispositivosData && dispositivosData.length > 0) {
+          for (const dispositivo of dispositivosData) {
+            // Tarea: Borrar Usuario
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleado.cedula,
+              nombre_empleado: empleado.nombre,
+              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_cargo: empleado.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_area: empleado.Cargo?.Area?.nombre || '',
+              nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+              foto_empleado: empleado.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_remota || '',
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Borrar Usuario',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
 
-          // Tarea: Borrar Foto
-          tareas.push({
-            user_id: user.id,
-            numero_cedula_empleado: empleado.cedula,
-            nombre_empleado: empleado.nombre,
-            nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
-            nombre_cargo: empleado.Cargo?.nombre || '',
-            nombre_sala: dispositivo.Sala?.nombre || '',
-            nombre_area: empleado.Cargo?.Area?.nombre || '',
-            nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
-            foto_empleado: empleado.foto || '',
-            ip_publica_dispositivo: dispositivo.ip_remota || '',
-            ip_local_dispositivo: dispositivo.ip_local || '',
-            usuario_login_dispositivo: dispositivo.usuario || '',
-            clave_login_dispositivo: dispositivo.clave || '',
-            accion_realizar: 'Borrar Foto',
-            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
-            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
-          });
+            // Tarea: Borrar Foto
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleado.cedula,
+              nombre_empleado: empleado.nombre,
+              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_cargo: empleado.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_area: empleado.Cargo?.Area?.nombre || '',
+              nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+              foto_empleado: empleado.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_remota || '',
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Borrar Foto',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
           }
         }
       }
 
-      // 2. Crear tareas de creación para dispositivos nuevos
-      if (dispositivosNuevos.length > 0) {
-        const dispositivosNuevosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosNuevos).toPromise();
+      // 2. Crear tareas de AGREGAR para dispositivos nuevos
+      if (dispositivosQueSeAgregan.length > 0) {
+        const dispositivosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosQueSeAgregan).toPromise();
         
-        if (dispositivosNuevosData && dispositivosNuevosData.length > 0) {
-          for (const dispositivo of dispositivosNuevosData) {
-          // Tarea: Agregar Usuario
-          tareas.push({
-            user_id: user.id,
-            numero_cedula_empleado: empleado.cedula,
-            nombre_empleado: empleado.nombre,
-            nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
-            nombre_cargo: empleado.Cargo?.nombre || '',
-            nombre_sala: dispositivo.Sala?.nombre || '',
-            nombre_area: empleado.Cargo?.Area?.nombre || '',
-            nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
-            foto_empleado: empleado.foto || '',
-            ip_publica_dispositivo: dispositivo.ip_remota || '',
-            ip_local_dispositivo: dispositivo.ip_local || '',
-            usuario_login_dispositivo: dispositivo.usuario || '',
-            clave_login_dispositivo: dispositivo.clave || '',
-            accion_realizar: 'Agregar Usuario',
-            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
-            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
-          });
+        if (dispositivosData && dispositivosData.length > 0) {
+          for (const dispositivo of dispositivosData) {
+            // Tarea: Agregar Usuario
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleado.cedula,
+              nombre_empleado: empleado.nombre,
+              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_cargo: empleado.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_area: empleado.Cargo?.Area?.nombre || '',
+              nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+              foto_empleado: empleado.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_remota || '',
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Agregar Usuario',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
 
-          // Tarea: Agregar Foto
-          tareas.push({
-            user_id: user.id,
-            numero_cedula_empleado: empleado.cedula,
-            nombre_empleado: empleado.nombre,
-            nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
-            nombre_cargo: empleado.Cargo?.nombre || '',
-            nombre_sala: dispositivo.Sala?.nombre || '',
-            nombre_area: empleado.Cargo?.Area?.nombre || '',
-            nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
-            foto_empleado: empleado.foto || '',
-            ip_publica_dispositivo: dispositivo.ip_remota || '',
-            ip_local_dispositivo: dispositivo.ip_local || '',
-            usuario_login_dispositivo: dispositivo.usuario || '',
-            clave_login_dispositivo: dispositivo.clave || '',
-            accion_realizar: 'Agregar Foto',
-            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
-            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
-          });
+            // Tarea: Agregar Foto
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleado.cedula,
+              nombre_empleado: empleado.nombre,
+              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_cargo: empleado.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_area: empleado.Cargo?.Area?.nombre || '',
+              nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+              foto_empleado: empleado.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_remota || '',
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Agregar Foto',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
+          }
+        }
+      }
+
+      // 3. Crear tareas de EDITAR para dispositivos que permanecen
+      if (dispositivosQuePermanecen.length > 0) {
+        const dispositivosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosQuePermanecen).toPromise();
+        
+        if (dispositivosData && dispositivosData.length > 0) {
+          for (const dispositivo of dispositivosData) {
+            // Tarea: Editar Usuario
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleado.cedula,
+              nombre_empleado: empleado.nombre,
+              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_cargo: empleado.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_area: empleado.Cargo?.Area?.nombre || '',
+              nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+              foto_empleado: empleado.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_remota || '',
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Editar Usuario',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
+
+            // Tarea: Editar Foto
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleado.cedula,
+              nombre_empleado: empleado.nombre,
+              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_cargo: empleado.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_area: empleado.Cargo?.Area?.nombre || '',
+              nombre_departamento: empleado.Cargo?.Departamento?.nombre || '',
+              foto_empleado: empleado.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_remota || '',
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Editar Foto',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
           }
         }
       }
 
       console.log(`✏️ Creando ${tareas.length} tareas totales`);
-      console.log(`✏️ - ${dispositivosAnteriores.length * 2} tareas de eliminación`);
-      console.log(`✏️ - ${dispositivosNuevos.length * 2} tareas de creación`);
+      console.log(`✏️ - ${dispositivosQueSeQuitan.length * 2} tareas de eliminación (dispositivos que se quitan)`);
+      console.log(`✏️ - ${dispositivosQueSeAgregan.length * 2} tareas de agregación (dispositivos nuevos)`);
+      console.log(`✏️ - ${dispositivosQuePermanecen.length * 2} tareas de edición (dispositivos que permanecen)`);
       console.log('✏️ Tareas de edición a crear:', tareas);
       
       if (tareas.length > 0) {

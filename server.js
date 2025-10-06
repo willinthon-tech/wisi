@@ -4166,7 +4166,14 @@ app.get('/api/tareas-dispositivo-usuarios/user/:userId', authenticateToken, asyn
     const { userId } = req.params;
     
     const tareas = await sequelize.query(
-      `SELECT * FROM tareas_dispositivo_usuarios WHERE user_id = ? ORDER BY created_at DESC`,
+      `SELECT * FROM tareas_dispositivo_usuarios WHERE user_id = ? 
+       ORDER BY 
+         CASE 
+           WHEN accion_realizar LIKE '%Usuario%' THEN 1
+           WHEN accion_realizar LIKE '%Foto%' THEN 2
+           ELSE 3
+         END,
+         created_at ASC`,
       {
         replacements: [userId],
         type: sequelize.QueryTypes.SELECT
@@ -4184,7 +4191,14 @@ app.get('/api/tareas-dispositivo-usuarios/user/:userId', authenticateToken, asyn
 app.get('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res) => {
   try {
     const tareas = await sequelize.query(
-      `SELECT * FROM tareas_dispositivo_usuarios ORDER BY created_at DESC`,
+      `SELECT * FROM tareas_dispositivo_usuarios 
+       ORDER BY 
+         CASE 
+           WHEN accion_realizar LIKE '%Usuario%' THEN 1
+           WHEN accion_realizar LIKE '%Foto%' THEN 2
+           ELSE 3
+         END,
+         created_at ASC`,
       {
         type: sequelize.QueryTypes.SELECT
       }
