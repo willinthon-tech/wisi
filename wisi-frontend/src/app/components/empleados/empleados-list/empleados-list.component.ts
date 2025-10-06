@@ -21,6 +21,15 @@ import { Subscription } from 'rxjs';
           (click)="canAdd() ? showCargoSelector() : null">
           Agregar
         </button>
+        <button 
+          class="btn btn-info position-relative" 
+          [disabled]="!tareasCount || tareasCount === 0"
+          (click)="goToTareas()">
+          Ver Tareas
+          <span *ngIf="tareasCount > 0" class="badge bg-danger position-absolute top-0 start-100 translate-middle">
+            {{ tareasCount }}
+          </span>
+        </button>
       </div>
       
       <div class="table-wrapper">
@@ -341,6 +350,9 @@ import { Subscription } from 'rxjs';
 
     .header {
       margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .header .btn {
@@ -361,6 +373,42 @@ import { Subscription } from 'rxjs';
       background: #218838;
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+
+    .header .btn-info {
+      background: #17a2b8;
+      color: white;
+    }
+
+    .header .btn-info:hover {
+      background: #138496;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3);
+    }
+
+    .header .btn-info:disabled {
+      background: #6c757d;
+      color: #adb5bd;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .header .btn-info:disabled:hover {
+      background: #6c757d;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .badge {
+      font-size: 0.75em;
+      padding: 0.25em 0.5em;
+      border-radius: 50%;
+      min-width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .table-wrapper {
@@ -1124,6 +1172,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   userCargos: any[] = [];
   userHorarios: any[] = [];
   userDispositivos: any[] = [];
+  tareasCount: number = 0;
   showCargoModal = false;
   selectedEmpleado: any = null;
   nuevoEmpleado = {
@@ -1186,6 +1235,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadEmpleados();
+    this.loadTareasCount();
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {
       // Los permisos se actualizan automáticamente
     });
@@ -2202,6 +2252,39 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           alert('Error eliminando empleado');
         }
       });
+    }
+  }
+
+  loadTareasCount(): void {
+    // Obtener el ID del usuario logueado desde el localStorage
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      const user = JSON.parse(userData);
+      this.empleadosService.getTareasByUser(user.id).subscribe({
+        next: (tareas: any) => {
+          this.tareasCount = Array.isArray(tareas) ? tareas.length : 0;
+          console.log('Tareas cargadas:', this.tareasCount);
+        },
+        error: (error) => {
+          console.error('Error cargando tareas:', error);
+          this.tareasCount = 0;
+        }
+      });
+    } else {
+      console.error('No se encontró información del usuario logueado');
+      this.tareasCount = 0;
+    }
+  }
+
+  goToTareas(): void {
+    // Obtener el ID del usuario logueado desde el localStorage
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      const user = JSON.parse(userData);
+      this.router.navigate(['/super-config/tareas', user.id]);
+    } else {
+      console.error('No se encontró información del usuario logueado');
+      alert('Error: No se encontró información del usuario');
     }
   }
 }

@@ -4158,6 +4158,161 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// ==================== RUTAS DE TAREAS DISPOSITIVO USUARIOS ====================
+
+// GET /api/tareas-dispositivo-usuarios/user/:userId - Obtener tareas por usuario
+app.get('/api/tareas-dispositivo-usuarios/user/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const tareas = await sequelize.query(
+      `SELECT * FROM tareas_dispositivo_usuarios WHERE user_id = ? ORDER BY created_at DESC`,
+      {
+        replacements: [userId],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    res.json(tareas);
+  } catch (error) {
+    console.error('❌ Error obteniendo tareas por usuario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/tareas-dispositivo-usuarios - Obtener todas las tareas
+app.get('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res) => {
+  try {
+    const tareas = await sequelize.query(
+      `SELECT * FROM tareas_dispositivo_usuarios ORDER BY created_at DESC`,
+      {
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    res.json(tareas);
+  } catch (error) {
+    console.error('❌ Error obteniendo tareas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/tareas-dispositivo-usuarios - Crear nueva tarea
+app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res) => {
+  try {
+    const {
+      user_id,
+      numero_cedula_empleado,
+      nombre_empleado,
+      nombre_genero,
+      nombre_cargo,
+      nombre_sala,
+      nombre_area,
+      nombre_departamento,
+      foto_empleado,
+      ip_publica_dispositivo,
+      ip_local_dispositivo,
+      usuario_login_dispositivo,
+      clave_login_dispositivo,
+      accion_realizar,
+      marcaje_empleado_inicio_dispositivo,
+      marcaje_empleado_fin_dispositivo
+    } = req.body;
+
+    const result = await sequelize.query(
+      `INSERT INTO tareas_dispositivo_usuarios (
+        user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
+        nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
+        ip_local_dispositivo, usuario_login_dispositivo, clave_login_dispositivo,
+        accion_realizar, marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      {
+        replacements: [
+          user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
+          nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
+          ip_local_dispositivo, usuario_login_dispositivo, clave_login_dispositivo,
+          accion_realizar, marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo
+        ]
+      }
+    );
+
+    res.status(201).json({ 
+      message: 'Tarea creada correctamente',
+      id: result[0]
+    });
+  } catch (error) {
+    console.error('❌ Error creando tarea:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/tareas-dispositivo-usuarios/:id - Actualizar tarea
+app.put('/api/tareas-dispositivo-usuarios/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      numero_cedula_empleado,
+      nombre_empleado,
+      nombre_genero,
+      nombre_cargo,
+      nombre_sala,
+      nombre_area,
+      nombre_departamento,
+      foto_empleado,
+      ip_publica_dispositivo,
+      ip_local_dispositivo,
+      usuario_login_dispositivo,
+      clave_login_dispositivo,
+      accion_realizar,
+      marcaje_empleado_inicio_dispositivo,
+      marcaje_empleado_fin_dispositivo
+    } = req.body;
+
+    await sequelize.query(
+      `UPDATE tareas_dispositivo_usuarios SET 
+        numero_cedula_empleado = ?, nombre_empleado = ?, nombre_genero = ?, nombre_cargo = ?,
+        nombre_sala = ?, nombre_area = ?, nombre_departamento = ?, foto_empleado = ?,
+        ip_publica_dispositivo = ?, ip_local_dispositivo = ?, usuario_login_dispositivo = ?,
+        clave_login_dispositivo = ?, accion_realizar = ?, marcaje_empleado_inicio_dispositivo = ?,
+        marcaje_empleado_fin_dispositivo = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?`,
+      {
+        replacements: [
+          numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
+          nombre_sala, nombre_area, nombre_departamento, foto_empleado,
+          ip_publica_dispositivo, ip_local_dispositivo, usuario_login_dispositivo,
+          clave_login_dispositivo, accion_realizar, marcaje_empleado_inicio_dispositivo,
+          marcaje_empleado_fin_dispositivo, id
+        ]
+      }
+    );
+
+    res.json({ message: 'Tarea actualizada correctamente' });
+  } catch (error) {
+    console.error('❌ Error actualizando tarea:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /api/tareas-dispositivo-usuarios/:id - Eliminar tarea
+app.delete('/api/tareas-dispositivo-usuarios/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    await sequelize.query(
+      `DELETE FROM tareas_dispositivo_usuarios WHERE id = ?`,
+      {
+        replacements: [id]
+      }
+    );
+
+    res.json({ message: 'Tarea eliminada correctamente' });
+  } catch (error) {
+    console.error('❌ Error eliminando tarea:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // ==================== RUTAS DE HIKVISION ISAPI ====================
 
 const HikvisionISAPI = require('./hikvision-isapi');

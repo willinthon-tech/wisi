@@ -41,4 +41,8 @@ export class EmpleadosService {
   getUserDispositivos(): Observable<any[]> {
     return this.http.get<any[]>('http://localhost:3000/api/dispositivos');
   }
+
+  getTareasByUser(userId: number): Observable<any[]> {
+    return this.http.get<any[]>(`http://localhost:3000/api/tareas-dispositivo-usuarios/user/${userId}`);
+  }
 }

@@ -201,6 +201,10 @@ export const routes: Routes = [
       {
         path: 'dispositivos/editar/:id',
         loadComponent: () => import('./components/dispositivos/dispositivos-form/dispositivos-form.component').then(m => m.DispositivosFormComponent)
+      },
+      {
+        path: 'tareas/:id',
+        loadComponent: () => import('./components/tareas/tareas-list/tareas-list.component').then(m => m.TareasListComponent)
       }
     ]
   },
