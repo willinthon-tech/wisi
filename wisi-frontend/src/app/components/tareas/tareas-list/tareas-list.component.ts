@@ -10,21 +10,11 @@ import { HttpClient } from '@angular/common/http';
   template: `
     <div class="tareas-container">
       <div class="header">
-        <button 
-          class="btn btn-success" 
-          [disabled]="ejecutandoTodas || rechazandoTodas"
-          (click)="ejecutarTodas()">
-          <span *ngIf="ejecutandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <span *ngIf="!ejecutandoTodas">Ejecutar Todo</span>
-          <span *ngIf="ejecutandoTodas">Ejecutando Todas...</span>
+        <button class="btn btn-success" (click)="ejecutarTodas()">
+          Ejecutar Todo
         </button>
-        <button 
-          class="btn btn-danger" 
-          [disabled]="ejecutandoTodas || rechazandoTodas"
-          (click)="rechazarTodas()">
-          <span *ngIf="rechazandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <span *ngIf="!rechazandoTodas">Rechazar Todo</span>
-          <span *ngIf="rechazandoTodas">Rechazando Todas...</span>
+        <button class="btn btn-danger" (click)="rechazarTodas()">
+          Rechazar Todo
         </button>
       </div>
       
@@ -62,7 +52,7 @@ import { HttpClient } from '@angular/common/http';
               <td>
                 <button 
                   class="btn btn-success btn-sm me-2" 
-                  [disabled]="!isTareaActiva(tarea) || (ejecutandoTodas && ejecutandoTarea !== tarea.id) || (rechazandoTodas && rechazandoTarea !== tarea.id)"
+                  [disabled]="!isTareaActiva(tarea) || procesandoTarea"
                   (click)="ejecutarTarea(tarea)">
                   <span *ngIf="ejecutandoTarea === tarea.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                   <span *ngIf="ejecutandoTarea !== tarea.id">Ejecutar</span>
@@ -70,7 +60,7 @@ import { HttpClient } from '@angular/common/http';
                 </button>
                 <button 
                   class="btn btn-danger btn-sm" 
-                  [disabled]="!isTareaActiva(tarea) || (ejecutandoTodas && ejecutandoTarea !== tarea.id) || (rechazandoTodas && rechazandoTarea !== tarea.id)"
+                  [disabled]="!isTareaActiva(tarea) || procesandoTarea"
                   (click)="rechazarTarea(tarea)">
                   <span *ngIf="rechazandoTarea === tarea.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                   <span *ngIf="rechazandoTarea !== tarea.id">Rechazar</span>
@@ -643,8 +633,7 @@ export class TareasListComponent implements OnInit {
   tareaActiva: any = null; // La tarea que puede ser ejecutada
   ejecutandoTarea: number | null = null; // ID de la tarea que se está ejecutando
   rechazandoTarea: number | null = null; // ID de la tarea que se está rechazando
-  ejecutandoTodas: boolean = false; // Estado de ejecutar todas las tareas
-  rechazandoTodas: boolean = false; // Estado de rechazar todas las tareas
+  procesandoTarea: boolean = false; // Estado general de procesamiento
 
   constructor(
     private route: ActivatedRoute,
@@ -675,66 +664,16 @@ export class TareasListComponent implements OnInit {
     });
   }
 
-  async ejecutarTodas(): Promise<void> {
-    if (this.ejecutandoTodas || this.rechazandoTodas) return;
-    
-    this.ejecutandoTodas = true;
+  ejecutarTodas(): void {
     console.log('🚀 Ejecutando todas las tareas...');
-    
-    try {
-      // Procesar tareas una por una hasta que no queden más
-      while (this.tareas.length > 0) {
-        const tarea = this.tareas[0]; // Siempre tomar la primera tarea
-        console.log(`Haciendo clic en botón Ejecutar de tarea restante:`, tarea);
-        console.log(`Tareas restantes: ${this.tareas.length}`);
-        
-        // Simular hacer clic en el botón individual
-        await this.simularClicEjecutar(tarea);
-        
-        // Verificar que la tarea se eliminó correctamente
-        console.log(`Tareas después de eliminar: ${this.tareas.length}`);
-        
-        // Pequeña pausa para que se vea el cambio
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
-      console.log('✅ Todas las tareas ejecutadas correctamente');
-    } catch (error) {
-      console.error('❌ Error ejecutando todas las tareas:', error);
-    } finally {
-      this.ejecutandoTodas = false;
-    }
+    // Aquí implementarías la lógica para ejecutar todas las tareas
+    alert('Funcionalidad de "Ejecutar Todo" en desarrollo');
   }
 
-  async rechazarTodas(): Promise<void> {
-    if (this.ejecutandoTodas || this.rechazandoTodas) return;
-    
-    this.rechazandoTodas = true;
+  rechazarTodas(): void {
     console.log('❌ Rechazando todas las tareas...');
-    
-    try {
-      // Procesar tareas una por una hasta que no queden más
-      while (this.tareas.length > 0) {
-        const tarea = this.tareas[0]; // Siempre tomar la primera tarea
-        console.log(`Haciendo clic en botón Rechazar de tarea restante:`, tarea);
-        console.log(`Tareas restantes: ${this.tareas.length}`);
-        
-        // Simular hacer clic en el botón individual
-        await this.simularClicRechazar(tarea);
-        
-        // Verificar que la tarea se eliminó correctamente
-        console.log(`Tareas después de eliminar: ${this.tareas.length}`);
-        
-        // Pequeña pausa para que se vea el cambio
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
-      console.log('✅ Todas las tareas rechazadas correctamente');
-    } catch (error) {
-      console.error('❌ Error rechazando todas las tareas:', error);
-    } finally {
-      this.rechazandoTodas = false;
-    }
+    // Aquí implementarías la lógica para rechazar todas las tareas
+    alert('Funcionalidad de "Rechazar Todo" en desarrollo');
   }
 
   verDetalles(tarea: any): void {
@@ -799,47 +738,6 @@ export class TareasListComponent implements OnInit {
     });
   }
 
-  async simularClicEjecutar(tarea: any): Promise<void> {
-    // Simular exactamente lo que hace el botón individual
-    if (!this.isTareaActiva(tarea)) {
-      console.log('Tarea no activa, saltando...');
-      return;
-    }
-
-    this.ejecutandoTarea = tarea.id;
-    console.log('🚀 Ejecutando tarea:', tarea);
-    
-    // Simular proceso de ejecución
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Eliminar la tarea después de ejecutarla
-    await this.eliminarTareaAsync(tarea.id);
-    
-    // Actualizar la lista de tareas
-    this.tareas = this.tareas.filter(t => t.id !== tarea.id);
-    this.ejecutandoTarea = null;
-  }
-
-  async simularClicRechazar(tarea: any): Promise<void> {
-    // Simular exactamente lo que hace el botón individual
-    if (!this.isTareaActiva(tarea)) {
-      console.log('Tarea no activa, saltando...');
-      return;
-    }
-
-    this.rechazandoTarea = tarea.id;
-    console.log('❌ Rechazando tarea:', tarea);
-    
-    // Simular proceso de rechazo
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Eliminar la tarea después de rechazarla
-    await this.eliminarTareaAsync(tarea.id);
-    
-    // Actualizar la lista de tareas
-    this.tareas = this.tareas.filter(t => t.id !== tarea.id);
-    this.rechazandoTarea = null;
-  }
 
   ejecutarTarea(tarea: any): void {
     if (!this.isTareaActiva(tarea)) {
@@ -847,6 +745,7 @@ export class TareasListComponent implements OnInit {
       return;
     }
 
+    this.procesandoTarea = true;
     this.ejecutandoTarea = tarea.id;
     console.log('🚀 Ejecutando tarea:', tarea);
     
@@ -857,6 +756,7 @@ export class TareasListComponent implements OnInit {
       // Eliminar la tarea después de ejecutarla
       this.eliminarTarea(tarea.id);
       this.ejecutandoTarea = null;
+      this.procesandoTarea = false;
     }, 2000); // 2 segundos de simulación
   }
 
@@ -866,6 +766,7 @@ export class TareasListComponent implements OnInit {
       return;
     }
 
+    this.procesandoTarea = true;
     this.rechazandoTarea = tarea.id;
     console.log('❌ Rechazando tarea:', tarea);
     
@@ -876,6 +777,7 @@ export class TareasListComponent implements OnInit {
       // Eliminar la tarea después de rechazarla
       this.eliminarTarea(tarea.id);
       this.rechazandoTarea = null;
+      this.procesandoTarea = false;
     }, 1500); // 1.5 segundos de simulación
   }
 

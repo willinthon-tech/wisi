@@ -108,6 +108,7 @@ import { Subscription } from 'rxjs';
                   (change)="onFileSelected($event)"
                   class="hidden-file-input"
                   accept="image/*"
+                  required
                 />
                 
                 <!-- Estado inicial: solo área de selección -->
@@ -180,10 +181,19 @@ import { Subscription } from 'rxjs';
                   id="cedulaEmpleado" 
                   name="cedulaEmpleado"
                   [(ngModel)]="nuevoEmpleado.cedula"
+                  (keyup)="validarCedula()"
                   class="form-control"
+                  [class.is-invalid]="cedulaError"
                   placeholder="Ingrese la cédula"
                   required
                 />
+                <div *ngIf="cedulaError" class="invalid-feedback">
+                  {{ cedulaError }}
+                </div>
+                <div *ngIf="validandoCedula" class="text-muted small">
+                  <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                  Verificando cédula...
+                </div>
               </div>
 
 
@@ -300,6 +310,7 @@ import { Subscription } from 'rxjs';
                   name="horarioSelect"
                   [(ngModel)]="nuevoEmpleado.horario_id"
                   class="form-control"
+                  required
                 >
                   <option value="">Seleccione un horario</option>
                   <option *ngFor="let horario of userHorarios" [value]="horario.id">
@@ -317,6 +328,7 @@ import { Subscription } from 'rxjs';
                   name="primerDiaHorario"
                   [(ngModel)]="nuevoEmpleado.primer_dia_horario"
                   class="form-control"
+                  required
                 />
               </div>
               
@@ -326,7 +338,7 @@ import { Subscription } from 'rxjs';
                 <button type="button" class="btn btn-secondary" (click)="closeCargoSelector()">
                   Cancelar
                 </button>
-                <button type="submit" class="btn btn-success" [disabled]="!empleadoForm.form.valid">
+                <button type="submit" class="btn btn-success" [disabled]="!empleadoForm.form.valid || !isFotoValid() || cedulaError || validandoCedula">
                   {{ selectedEmpleado ? 'Actualizar Empleado' : 'Guardar Empleado' }}
                 </button>
               </div>
@@ -1193,6 +1205,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     dispositivos: [] as number[]
   };
 
+  // Variables para validación de cédula
+  cedulaError: string = '';
+  validandoCedula: boolean = false;
+
   // Variables para el recorte manual
   showCropModal = false;
   originalImage: string = '';
@@ -1396,46 +1412,32 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   resetForm(): void {
-    // Solo resetear si no hay imagen cargada
-    if (!this.originalImage && !this.nuevoEmpleado.foto) {
-      const today = new Date();
-      const todayString = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
-      
-      this.nuevoEmpleado = {
-        id: null,
-        foto: '',
-        nombre: '',
-        cedula: '',
-        fecha_ingreso: todayString,
-        fecha_cumpleanos: todayString,
-        sexo: '',
-        cargo_id: null,
-        primer_dia_horario: todayString,
-        horario_id: null,
-        dispositivos: []
-      };
-      
-      // Limpiar variables de procesamiento de imagen solo si no hay imagen
-      this.originalImage = '';
-      this.processingMessage = '';
-      this.initialValidation = null;
-      this.isInitialValidating = false;
-    } else {
-      // Si hay imagen, solo resetear campos básicos pero mantener la imagen
-      const today = new Date();
-      const todayString = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
-      
-      this.nuevoEmpleado.id = null;
-      this.nuevoEmpleado.nombre = '';
-      this.nuevoEmpleado.cedula = '';
-      this.nuevoEmpleado.fecha_ingreso = todayString;
-      this.nuevoEmpleado.fecha_cumpleanos = todayString;
-      this.nuevoEmpleado.sexo = '';
-      this.nuevoEmpleado.cargo_id = null;
-      this.nuevoEmpleado.primer_dia_horario = todayString;
-      this.nuevoEmpleado.horario_id = null;
-      this.nuevoEmpleado.dispositivos = [];
-    }
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    
+    this.nuevoEmpleado = {
+      id: null,
+      foto: '', // Siempre vacío al crear nuevo empleado
+      nombre: '',
+      cedula: '',
+      fecha_ingreso: todayString,
+      fecha_cumpleanos: todayString,
+      sexo: '',
+      cargo_id: null,
+      primer_dia_horario: todayString,
+      horario_id: null,
+      dispositivos: []
+    };
+    
+    // Limpiar variables de procesamiento de imagen
+    this.originalImage = '';
+    this.processingMessage = '';
+    this.initialValidation = null;
+    this.isInitialValidating = false;
+    
+    // Limpiar errores de validación
+    this.cedulaError = '';
+    this.validandoCedula = false;
     this.cropData = {
       x: 50,
       y: 50,
@@ -2191,11 +2193,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           setTimeout(() => {
             this.loadEmpleados();
           }, 500);
-          alert('Empleado actualizado exitosamente');
+          console.log('✅ Empleado actualizado exitosamente');
         },
         error: (error) => {
           console.error('Error actualizando empleado:', error);
-          alert('Error actualizando empleado');
         }
       });
     } else {
@@ -2212,11 +2213,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           await this.crearTareasNuevoEmpleado(empleado, this.nuevoEmpleado.dispositivos || []);
           
           this.closeCargoSelector();
-          alert('Empleado creado exitosamente');
+          console.log('✅ Empleado creado exitosamente');
         },
         error: (error) => {
           console.error('Error creando empleado:', error);
-          alert('Error creando empleado');
         }
       });
     }
@@ -2272,30 +2272,27 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   deleteEmpleado(id: number): void {
-    if (confirm('¿Estás seguro de que quieres eliminar este empleado?')) {
-      // Obtener el empleado antes de eliminarlo para crear las tareas
-      const empleado = this.empleados.find(e => e.id === id);
-      const dispositivosIds = empleado?.dispositivos?.map((d: any) => d.id) || [];
-      
-      console.log('🗑️ Eliminando empleado:', empleado?.nombre);
-      console.log('🗑️ Dispositivos asociados:', dispositivosIds);
-      
-      this.empleadosService.deleteEmpleado(id).subscribe({
-        next: async () => {
-          // Crear tareas automáticas para la eliminación ANTES de eliminar del frontend
-          if (empleado && dispositivosIds.length > 0) {
-            await this.crearTareasEliminarEmpleado(empleado, dispositivosIds);
-          }
-          
-          this.empleados = this.empleados.filter(empleado => empleado.id !== id);
-          alert('Empleado eliminado exitosamente');
-        },
-        error: (error) => {
-          console.error('Error eliminando empleado:', error);
-          alert('Error eliminando empleado');
+    // Obtener el empleado antes de eliminarlo para crear las tareas
+    const empleado = this.empleados.find(e => e.id === id);
+    const dispositivosIds = empleado?.dispositivos?.map((d: any) => d.id) || [];
+    
+    console.log('🗑️ Eliminando empleado:', empleado?.nombre);
+    console.log('🗑️ Dispositivos asociados:', dispositivosIds);
+    
+    this.empleadosService.deleteEmpleado(id).subscribe({
+      next: async () => {
+        // Crear tareas automáticas para la eliminación ANTES de eliminar del frontend
+        if (empleado && dispositivosIds.length > 0) {
+          await this.crearTareasEliminarEmpleado(empleado, dispositivosIds);
         }
-      });
-    }
+        
+        this.empleados = this.empleados.filter(empleado => empleado.id !== id);
+        console.log('✅ Empleado eliminado correctamente');
+      },
+      error: (error) => {
+        console.error('Error eliminando empleado:', error);
+      }
+    });
   }
 
   loadTareasCount(): void {
@@ -2739,5 +2736,56 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('❌ Error creando tareas para editar empleado:', error);
     }
+  }
+
+  isFotoValid(): boolean {
+    // Para editar empleado, la foto no es requerida si ya tiene una
+    if (this.selectedEmpleado) {
+      return true;
+    }
+    
+    // Para crear empleado, la foto es requerida
+    return !!(this.nuevoEmpleado.foto && this.nuevoEmpleado.foto.trim() !== '');
+  }
+
+  validarCedula(): void {
+    // Limpiar error anterior
+    this.cedulaError = '';
+    
+    // Si está vacía, no validar
+    if (!this.nuevoEmpleado.cedula || this.nuevoEmpleado.cedula.trim() === '') {
+      return;
+    }
+    
+    // Si es edición y la cédula no cambió, no validar
+    if (this.selectedEmpleado && this.selectedEmpleado.cedula === this.nuevoEmpleado.cedula) {
+      return;
+    }
+    
+    // Mostrar spinner de validación
+    this.validandoCedula = true;
+    
+    // Debounce: esperar 500ms después del último keystroke
+    setTimeout(() => {
+      if (this.nuevoEmpleado.cedula.trim() === '') {
+        this.validandoCedula = false;
+        return;
+      }
+      
+      // Verificar si la cédula ya existe
+      this.empleadosService.verificarCedula(this.nuevoEmpleado.cedula.trim()).subscribe({
+        next: (response: any) => {
+          this.validandoCedula = false;
+          if (response.existe) {
+            this.cedulaError = 'Esta cédula se encuentra registrada';
+          }
+        },
+        error: (error) => {
+          this.validandoCedula = false;
+          console.error('Error verificando cédula:', error);
+          // En caso de error, permitir continuar
+        }
+      });
+    }, 500);
   }
 }

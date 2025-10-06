@@ -4158,6 +4158,26 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/empleados/verificar-cedula/:cedula - Verificar si una cédula ya existe
+app.get('/api/empleados/verificar-cedula/:cedula', authenticateToken, async (req, res) => {
+  try {
+    const { cedula } = req.params;
+    
+    const empleadoExistente = await Empleado.findOne({ 
+      where: { cedula },
+      attributes: ['id', 'cedula', 'nombre']
+    });
+    
+    res.json({ 
+      existe: !!empleadoExistente,
+      empleado: empleadoExistente
+    });
+  } catch (error) {
+    console.error('❌ Error verificando cédula:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // ==================== RUTAS DE TAREAS DISPOSITIVO USUARIOS ====================
 
 // GET /api/tareas-dispositivo-usuarios/user/:userId - Obtener tareas por usuario

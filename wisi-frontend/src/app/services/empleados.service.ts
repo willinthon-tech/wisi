@@ -49,4 +49,8 @@ export class EmpleadosService {
   getCurrentUser(): Observable<any> {
     return this.http.get<any>('http://localhost:3000/api/verify');
   }
+
+  verificarCedula(cedula: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/verificar-cedula/${cedula}`);
+  }
 }
