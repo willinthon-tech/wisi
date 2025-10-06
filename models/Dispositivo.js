@@ -45,6 +45,16 @@ module.exports = (sequelize) => {
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true
+    },
+    marcaje_inicio: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Fecha y hora de inicio del marcaje en formato YYYY-MM-DDTHH:mm:ss'
+    },
+    marcaje_fin: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Fecha y hora de fin del marcaje en formato YYYY-MM-DDTHH:mm:ss'
     }
   }, {
     tableName: 'dispositivos',

@@ -263,7 +263,9 @@ export class DispositivosFormComponent implements OnInit {
     ip_local: '',
     ip_remota: '',
     usuario: '',
-    clave: ''
+    clave: '',
+    marcaje_inicio: '',
+    marcaje_fin: ''
   };
   
   salas: any[] = [];
@@ -327,6 +329,21 @@ export class DispositivosFormComponent implements OnInit {
     }
 
     this.loading = true;
+
+    // Establecer valores automáticos de marcaje solo al crear (no al editar)
+    if (!this.isEdit) {
+      const today = new Date();
+      const futureDate = new Date();
+      futureDate.setFullYear(today.getFullYear() + 5);
+      
+      // Formatear fechas en el formato requerido
+      this.dispositivo.marcaje_inicio = today.toISOString().split('T')[0] + 'T00:00:00';
+      this.dispositivo.marcaje_fin = futureDate.toISOString().split('T')[0] + 'T23:59:59';
+      
+      console.log('📅 Valores automáticos de marcaje establecidos:');
+      console.log('📅 Marcaje inicio:', this.dispositivo.marcaje_inicio);
+      console.log('📅 Marcaje fin:', this.dispositivo.marcaje_fin);
+    }
 
     if (this.isEdit && this.dispositivoId) {
       this.dispositivosService.updateDispositivo(this.dispositivoId, this.dispositivo).subscribe({

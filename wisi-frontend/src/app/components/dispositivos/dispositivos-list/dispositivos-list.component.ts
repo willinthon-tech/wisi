@@ -20,7 +20,9 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   loading = true;
   isCreator = false;
   showBiometricModal = false;
+  showEditModal = false;
   selectedDispositivo: any = null;
+  editingDispositivo: any = null;
   connectionStatus = 'disconnected';
   testing = false;
   biometricResult: string = '';
@@ -530,52 +532,6 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     });
   }
 
-  openDatePicker(field: 'beginTime' | 'endTime'): void {
-    console.log('Abriendo selector de fecha para:', field);
-    
-    const dateInput = document.createElement('input');
-    dateInput.type = 'date';
-    dateInput.style.position = 'absolute';
-    dateInput.style.left = '-9999px';
-    dateInput.style.opacity = '0';
-    
-    const currentForm = this.currentView === 'crear' ? this.createUserForm : this.editUserForm;
-    const formName = this.currentView === 'crear' ? 'createUserForm' : 'editUserForm';
-    
-    // Mapear los nombres de campo correctamente
-    const fieldName = field === 'beginTime' ? 'ValidBeginTime' : 'ValidEndTime';
-    const currentValue = currentForm.get(fieldName)?.value;
-    let currentDate = '';
-    
-    if (currentValue) {
-      currentDate = this.extractDateFromDateTime(currentValue);
-    }
-    
-    if (currentDate) {
-      dateInput.value = currentDate;
-    }
-    
-    document.body.appendChild(dateInput);
-    dateInput.showPicker();
-    
-    dateInput.addEventListener('change', (event: any) => {
-      const selectedDate = event.target.value;
-      if (selectedDate) {
-        if (field === 'beginTime') {
-          const formattedDate = selectedDate + 'T00:00:00';
-          currentForm.patchValue({ ValidBeginTime: formattedDate });
-        } else {
-          const formattedDate = selectedDate + 'T23:59:59';
-          currentForm.patchValue({ ValidEndTime: formattedDate });
-        }
-      }
-      document.body.removeChild(dateInput);
-    });
-    
-    dateInput.addEventListener('cancel', () => {
-      document.body.removeChild(dateInput);
-    });
-  }
 
   extractDateFromDateTime(dateTime: string): string {
     if (!dateTime) return '';
@@ -749,23 +705,23 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
         // Registrar solo el rostro en el dispositivo
         this.hikvisionService.registerUserFaceWithPayload(
-          this.selectedDispositivo.ip_remota,
-          this.selectedDispositivo.usuario,
+      this.selectedDispositivo.ip_remota,
+      this.selectedDispositivo.usuario,
           this.selectedDispositivo.clave,
           facePayload
-        ).subscribe({
-          next: (response) => {
+    ).subscribe({
+      next: (response) => {
             console.log('✅ Rostro registrado exitosamente:', response);
             this.photoLoading = false;
             // NO cerrar la modal, solo recargar la foto del usuario
             this.verFoto(this.editingUser);
-          },
-          error: (error) => {
+      },
+      error: (error) => {
             console.error('❌ Error registrando rostro:', error);
             this.photoLoading = false;
           }
         });
-      } else {
+        } else {
         console.error('❌ No se pudo obtener URL de la foto');
         this.photoLoading = false;
       }
@@ -796,11 +752,11 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
         if (result.success && result.url) {
           console.log('✅ Foto subida exitosamente:', result.url);
           return result.url;
-        } else {
+          } else {
           console.error('❌ Error del servidor PHP:', result.error);
           return null;
-        }
-      } else {
+          }
+        } else {
         console.error('❌ Error HTTP:', response.status, response.statusText);
         return null;
       }
@@ -841,7 +797,106 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   navigateToEdit(dispositivo: any): void {
-    this.router.navigate(['/super-config/dispositivos/editar', dispositivo.id]);
+    this.editingDispositivo = { ...dispositivo };
+    
+    // Establecer valores inteligentes para marcaje
+    const today = new Date();
+    const futureDate = new Date();
+    futureDate.setFullYear(today.getFullYear() + 5);
+    
+    // Formatear fechas en el formato requerido
+    const todayFormatted = today.toISOString().split('T')[0] + 'T00:00:00';
+    const futureFormatted = futureDate.toISOString().split('T')[0] + 'T23:59:59';
+    
+    // Solo establecer valores si no existen o están vacíos
+    if (!this.editingDispositivo.marcaje_inicio || this.editingDispositivo.marcaje_inicio === 'AAAA-MM-DDT00:00:00') {
+      this.editingDispositivo.marcaje_inicio = todayFormatted;
+    }
+    if (!this.editingDispositivo.marcaje_fin || this.editingDispositivo.marcaje_fin === 'AAAA-MM-DDT23:59:59') {
+      this.editingDispositivo.marcaje_fin = futureFormatted;
+    }
+    
+    this.showEditModal = true;
+  }
+
+  closeEditModal(): void {
+    this.showEditModal = false;
+    this.editingDispositivo = null;
+  }
+
+  updateDispositivo(): void {
+    if (this.editingDispositivo) {
+      this.dispositivosService.updateDispositivo(this.editingDispositivo.id, this.editingDispositivo).subscribe({
+        next: (response) => {
+          console.log('Dispositivo actualizado:', response);
+          // Actualizar el dispositivo en el array local
+          const index = this.dispositivos.findIndex(d => d.id === this.editingDispositivo.id);
+          if (index !== -1) {
+            this.dispositivos[index] = { ...this.editingDispositivo };
+          }
+          this.closeEditModal();
+      },
+      error: (error) => {
+          console.error('Error actualizando dispositivo:', error);
+        }
+      });
+    }
+  }
+
+  openDatePicker(field: string): void {
+    // Obtener la fecha actual para marcaje_inicio
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    
+    // Crear un input temporal de tipo date
+    const dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    
+    // Establecer fecha inicial inteligente
+    if (field === 'marcaje_inicio') {
+      dateInput.value = `${year}-${month}-${day}`;
+    } else if (field === 'marcaje_fin') {
+      // Para marcaje_fin, usar fecha actual + 5 años
+      const futureDate = new Date();
+      futureDate.setFullYear(today.getFullYear() + 5);
+      const futureYear = futureDate.getFullYear();
+      const futureMonth = String(futureDate.getMonth() + 1).padStart(2, '0');
+      const futureDay = String(futureDate.getDate()).padStart(2, '0');
+      dateInput.value = `${futureYear}-${futureMonth}-${futureDay}`;
+    }
+    
+    // Agregar al DOM temporalmente
+    dateInput.style.position = 'absolute';
+    dateInput.style.left = '-9999px';
+    document.body.appendChild(dateInput);
+    
+    // Abrir el date picker
+    dateInput.showPicker();
+    
+    // Manejar la selección
+    dateInput.addEventListener('change', () => {
+      const selectedDate = dateInput.value;
+      if (selectedDate) {
+        if (field === 'marcaje_inicio') {
+          this.editingDispositivo.marcaje_inicio = `${selectedDate}T00:00:00`;
+        } else if (field === 'marcaje_fin') {
+          this.editingDispositivo.marcaje_fin = `${selectedDate}T23:59:59`;
+        }
+      }
+      // Limpiar el input temporal
+      document.body.removeChild(dateInput);
+    });
+    
+    // Limpiar si se cancela
+    dateInput.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (document.body.contains(dateInput)) {
+          document.body.removeChild(dateInput);
+        }
+      }, 100);
+    });
   }
 
   deleteDispositivo(dispositivo: any): void {
@@ -852,8 +907,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
           console.log('Dispositivo eliminado:', response);
           // Remover el dispositivo del array local
           this.dispositivos = this.dispositivos.filter(d => d.id !== dispositivo.id);
-        },
-        error: (error) => {
+      },
+      error: (error) => {
           console.error('Error eliminando dispositivo:', error);
         }
       });

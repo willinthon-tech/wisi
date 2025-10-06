@@ -18,7 +18,9 @@
               <strong>IP Local:</strong> {{ dispositivo.ip_local }}<br>
               <strong *ngIf="dispositivo.ip_remota">IP Remota:</strong> {{ dispositivo.ip_remota }}<br>
               <strong *ngIf="dispositivo.usuario">Usuario:</strong> {{ dispositivo.usuario }}<br>
-              <strong *ngIf="dispositivo.clave">Clave:</strong> {{ dispositivo.clave }}
+              <strong *ngIf="dispositivo.clave">Clave:</strong> {{ dispositivo.clave }}<br>
+              <strong>Marcaje Inicio:</strong> {{ dispositivo.marcaje_inicio || 'No configurado' }}<br>
+              <strong>Marcaje Fin:</strong> {{ dispositivo.marcaje_fin || 'No configurado' }}
             </p>
           </div>
         </div>
@@ -49,6 +51,113 @@
   
   <div *ngIf="loading" class="loading">
     <p>Cargando dispositivos...</p>
+  </div>
+</div>
+
+<!-- Modal de Edición de Dispositivo -->
+<div class="modal" [class.show]="showEditModal" *ngIf="showEditModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Editar Dispositivo</h2>
+      <button type="button" class="btn-close btn-close-red" (click)="closeEditModal()"></button>
+    </div>
+    <div class="modal-body">
+      <form (ngSubmit)="updateDispositivo()" #editForm="ngForm">
+        <div class="form-group">
+          <label for="editNombre">Nombre:</label>
+          <input 
+            type="text" 
+            id="editNombre" 
+            name="editNombre"
+            [(ngModel)]="editingDispositivo.nombre"
+            class="form-control"
+            required
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="editIpLocal">IP Local:</label>
+          <input 
+            type="text" 
+            id="editIpLocal" 
+            name="editIpLocal"
+            [(ngModel)]="editingDispositivo.ip_local"
+            class="form-control"
+            required
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="editIpRemota">IP Remota:</label>
+          <input 
+            type="text" 
+            id="editIpRemota" 
+            name="editIpRemota"
+            [(ngModel)]="editingDispositivo.ip_remota"
+            class="form-control"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="editUsuario">Usuario:</label>
+          <input 
+            type="text" 
+            id="editUsuario" 
+            name="editUsuario"
+            [(ngModel)]="editingDispositivo.usuario"
+            class="form-control"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="editClave">Clave:</label>
+          <input 
+            type="password" 
+            id="editClave" 
+            name="editClave"
+            [(ngModel)]="editingDispositivo.clave"
+            class="form-control"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="editMarcajeInicio">Marcaje Inicio:</label>
+          <input 
+            type="text" 
+            id="editMarcajeInicio" 
+            name="editMarcajeInicio"
+            [(ngModel)]="editingDispositivo.marcaje_inicio"
+            class="form-control"
+            readonly
+            (click)="openDatePicker('marcaje_inicio')"
+            placeholder="Haga clic para seleccionar fecha de inicio"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label for="editMarcajeFin">Marcaje Fin:</label>
+          <input 
+            type="text" 
+            id="editMarcajeFin" 
+            name="editMarcajeFin"
+            [(ngModel)]="editingDispositivo.marcaje_fin"
+            class="form-control"
+            readonly
+            (click)="openDatePicker('marcaje_fin')"
+            placeholder="Haga clic para seleccionar fecha de fin"
+          />
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" (click)="closeEditModal()">
+            Cancelar
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="!editForm.form.valid">
+            Actualizar
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 

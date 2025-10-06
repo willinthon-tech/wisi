@@ -4553,7 +4553,7 @@ app.get('/api/dispositivos/:id', authenticateToken, async (req, res) => {
 // POST /api/dispositivos - Crear nuevo dispositivo
 app.post('/api/dispositivos', authenticateToken, async (req, res) => {
   try {
-    const { nombre, sala_id, ip_local, ip_remota, usuario, clave } = req.body;
+    const { nombre, sala_id, ip_local, ip_remota, usuario, clave, marcaje_inicio, marcaje_fin } = req.body;
     
     if (!nombre || !sala_id || !ip_local) {
       return res.status(400).json({ message: 'Nombre, sala e IP local son requeridos' });
@@ -4572,6 +4572,8 @@ app.post('/api/dispositivos', authenticateToken, async (req, res) => {
       ip_remota: ip_remota || null,
       usuario: usuario || null,
       clave: clave || null,
+      marcaje_inicio: marcaje_inicio || null,
+      marcaje_fin: marcaje_fin || null,
       activo: true
     });
 
@@ -4596,7 +4598,7 @@ app.post('/api/dispositivos', authenticateToken, async (req, res) => {
 app.put('/api/dispositivos/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, sala_id, ip_local, ip_remota, usuario, clave } = req.body;
+    const { nombre, sala_id, ip_local, ip_remota, usuario, clave, marcaje_inicio, marcaje_fin } = req.body;
     
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
@@ -4617,7 +4619,9 @@ app.put('/api/dispositivos/:id', authenticateToken, async (req, res) => {
       ip_local: ip_local || dispositivo.ip_local,
       ip_remota: ip_remota !== undefined ? ip_remota : dispositivo.ip_remota,
       usuario: usuario !== undefined ? usuario : dispositivo.usuario,
-      clave: clave !== undefined ? clave : dispositivo.clave
+      clave: clave !== undefined ? clave : dispositivo.clave,
+      marcaje_inicio: marcaje_inicio !== undefined ? marcaje_inicio : dispositivo.marcaje_inicio,
+      marcaje_fin: marcaje_fin !== undefined ? marcaje_fin : dispositivo.marcaje_fin
     });
 
     // Obtener el dispositivo actualizado con sus relaciones
