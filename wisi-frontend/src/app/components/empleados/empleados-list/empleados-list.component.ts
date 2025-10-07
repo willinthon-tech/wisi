@@ -287,7 +287,7 @@ import { Subscription } from 'rxjs';
                       type="checkbox" 
                       [id]="'dispositivo_' + dispositivo.id"
                       [value]="dispositivo.id"
-                      [checked]="nuevoEmpleado.dispositivos.includes(dispositivo.id)"
+                      [checked]="isDispositivoSelected(dispositivo.id)"
                       [disabled]="!nuevoEmpleado.cargo_id"
                       (change)="onDispositivoChange(dispositivo.id, $event)"
                       class="dispositivo-checkbox"
@@ -1378,6 +1378,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               
               console.log('🔍 Dispositivos filtrados:', this.userDispositivos);
               console.log('🔍 Dispositivos ya seleccionados del empleado:', this.nuevoEmpleado.dispositivos);
+              
+              // Forzar detección de cambios para actualizar los checkboxes
+              setTimeout(() => {
+                console.log('🔍 Verificando checkboxes después de cargar dispositivos');
+                console.log('🔍 Dispositivos disponibles:', this.userDispositivos.map(d => ({ id: d.id, nombre: d.nombre })));
+                console.log('🔍 Dispositivos seleccionados:', this.nuevoEmpleado.dispositivos);
+              }, 50);
             } else {
               console.log('❌ No se encontró sala en el cargo');
               this.userDispositivos = [];
@@ -1402,6 +1409,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     this.nuevoEmpleado.dispositivos = [];
     // Cargar dispositivos de la nueva sala
     this.loadUserDispositivos();
+  }
+
+  // Función helper para verificar si un dispositivo está seleccionado
+  isDispositivoSelected(dispositivoId: number): boolean {
+    if (!this.nuevoEmpleado.dispositivos || !Array.isArray(this.nuevoEmpleado.dispositivos)) {
+      return false;
+    }
+    return this.nuevoEmpleado.dispositivos.includes(dispositivoId);
   }
 
   onDispositivoChange(dispositivoId: number, event: any): void {
@@ -2227,7 +2242,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       this.empleadosService.createEmpleado(this.nuevoEmpleado).subscribe({
         next: async (empleado) => {
           console.log('✅ Empleado creado:', empleado);
-          this.empleados.unshift(empleado);
+          
+          // Recargar la lista completa de empleados para obtener las relaciones de dispositivos
+          console.log('🔄 Recargando lista de empleados para obtener relaciones...');
+          this.loadEmpleados();
           
           // Crear tareas automáticas para el nuevo empleado
           console.log('🔄 Llamando a crearTareasNuevoEmpleado...');
@@ -2247,6 +2265,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   editEmpleado(empleado: any): void {
     console.log('🔍 Editando empleado:', empleado);
     console.log('🔍 Dispositivos del empleado:', empleado.dispositivos);
+    console.log('🔍 Tipo de dispositivos:', typeof empleado.dispositivos);
+    console.log('🔍 Es array?:', Array.isArray(empleado.dispositivos));
+    console.log('🔍 Longitud:', empleado.dispositivos?.length);
     
     // Log detallado de dispositivos asociados al empleado
     if (empleado.dispositivos && empleado.dispositivos.length > 0) {
@@ -2262,6 +2283,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       });
     } else {
       console.log('📱 El empleado NO tiene dispositivos asociados');
+      console.log('📱 Valor de dispositivos:', empleado.dispositivos);
     }
     
     this.selectedEmpleado = empleado;
@@ -2280,6 +2302,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     };
     
     console.log('🔍 Dispositivos mapeados (IDs):', this.nuevoEmpleado.dispositivos);
+    console.log('🔍 Verificando mapeo - empleado.dispositivos:', empleado.dispositivos);
+    console.log('🔍 Verificando mapeo - empleado.dispositivos?.map:', empleado.dispositivos?.map((d: any) => d.id));
     
     // Cargar cargos primero, luego los demás datos
     this.loadUserCargos();
@@ -2288,9 +2312,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     // Esperar a que se carguen los cargos antes de cargar dispositivos
     setTimeout(() => {
       this.loadUserDispositivos();
-    }, 100);
-    
-    this.showCargoModal = true;
+      // Mostrar el modal después de cargar los dispositivos
+      this.showCargoModal = true;
+    }, 200); // Aumentar el timeout para asegurar que todo se carga
   }
 
   deleteEmpleado(id: number): void {
