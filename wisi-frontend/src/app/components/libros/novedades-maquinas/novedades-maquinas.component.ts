@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { NovedadesMaquinasRegistrosService } from '../../../services/novedades-maquinas-registros.service';
-import { NovedadesMaquinasService } from '../../../services/novedades-maquinas.service';
 import { MaquinasService } from '../../../services/maquinas.service';
 import { EmpleadosService, Empleado } from '../../../services/empleados.service';
 import { UserService } from '../../../services/user.service';
@@ -16,18 +15,10 @@ interface NovedadMaquinaRegistro {
   id?: number;
   libro_id: number;
   maquina_id: number;
-  novedad_maquina_id: number;
+  descripcion: string;
   empleado_id: number;
   hora: string;
   Maquina?: {
-    id: number;
-    nombre: string;
-    Sala?: {
-      id: number;
-      nombre: string;
-    };
-  };
-  NovedadMaquina?: {
     id: number;
     nombre: string;
     Sala?: {
@@ -55,19 +46,16 @@ interface Maquina {
   };
 }
 
-interface NovedadMaquina {
-  id: number;
-  nombre: string;
-  Sala?: {
-    id: number;
-    nombre: string;
-  };
-}
 
 
 interface Sala {
   id: number;
   nombre: string;
+}
+
+interface NovedadData {
+  hora: string;
+  descripcion: string;
 }
 
 @Component({
@@ -116,19 +104,16 @@ interface Sala {
           <h3>Novedades de Máquinas</h3>
           <form (ngSubmit)="saveNovedad()" #novedadForm="ngForm">
             <div class="form-group">
-              <label for="novedadSelect">Novedad:</label>
-              <select 
-                id="novedadSelect" 
-                name="novedadSelect"
-                [(ngModel)]="selectedNovedadId"
+              <label for="descripcionInput">Descripción de la novedad:</label>
+              <textarea 
+                id="descripcionInput" 
+                name="descripcionInput"
+                [(ngModel)]="novedadData.descripcion"
                 class="form-control"
+                rows="3"
+                placeholder="Ingrese la descripción de la novedad..."
                 required
-              >
-                <option value="">Seleccione una novedad</option>
-                <option *ngFor="let novedad of novedadesMaquinas" [value]="novedad.id">
-                  {{ novedad.nombre }} ({{ novedad.Sala?.nombre }})
-                </option>
-              </select>
+              ></textarea>
             </div>
 
             <div class="form-group">
@@ -159,7 +144,7 @@ interface Sala {
               />
             </div>
 
-            <button type="submit" class="btn btn-success" [disabled]="selectedMaquinaIds.length === 0 || !selectedNovedadId || !selectedEmpleadoId || !novedadData.hora">
+            <button type="submit" class="btn btn-success" [disabled]="selectedMaquinaIds.length === 0 || !novedadData.descripcion || !selectedEmpleadoId || !novedadData.hora">
               Guardar ({{ selectedMaquinaIds.length }} máquinas)
             </button>
           </form>
@@ -193,7 +178,7 @@ interface Sala {
                     </button>
                   </span>
                 </td>
-                <td class="text-center">{{ evento.novedad?.nombre }}</td>
+                <td class="text-center">{{ evento.descripcion }}</td>
                 <td class="text-center">{{ evento.empleado?.nombre }}</td>
                 <td class="text-center">{{ evento.hora }}</td>
                 <td class="text-center">
@@ -246,7 +231,7 @@ interface Sala {
         </div>
         <div class="modal-body">
           <div class="evento-info mb-3">
-            <strong>Evento:</strong> {{ eventoSeleccionado?.novedad?.nombre }}<br>
+            <strong>Descripción:</strong> {{ eventoSeleccionado?.descripcion }}<br>
             <strong>Empleado:</strong> {{ eventoSeleccionado?.empleado?.nombre }}<br>
             <strong>Hora:</strong> {{ eventoSeleccionado?.hora }}
           </div>
@@ -752,12 +737,10 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   novedades: NovedadMaquinaRegistro[] = [];
   novedadesAgrupadas: any[] = [];
   maquinas: Maquina[] = [];
-  novedadesMaquinas: NovedadMaquina[] = [];
   empleados: Empleado[] = [];
   userSalas: Sala[] = [];
   
   selectedMaquinaIds: number[] = [];
-  selectedNovedadId: number | null = null;
   selectedEmpleadoId: number | null = null;
   
   // Modal para mostrar máquinas afectadas
@@ -770,8 +753,9 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   hasAccess: boolean = false;
   libro: any = null;
   
-  novedadData = {
-    hora: ''
+  novedadData: NovedadData = {
+    hora: '',
+    descripcion: ''
   };
 
   private readonly NOVEDADES_MAQUINAS_MODULE_ID = 16; // ID del módulo Gestion de Novedades de Maquinas
@@ -779,7 +763,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
 
   constructor(
     private novedadesRegistrosService: NovedadesMaquinasRegistrosService,
-    private novedadesService: NovedadesMaquinasService,
     private maquinasService: MaquinasService,
     private empleadosService: EmpleadosService,
     private userService: UserService,
@@ -827,7 +810,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         // Una vez cargadas las salas, cargar los demás datos
         this.loadNovedades();
         this.loadMaquinas();
-        this.loadNovedadesMaquinas();
         this.loadEmpleados();
       },
       error: (error: any) => {
@@ -888,20 +870,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadNovedadesMaquinas() {
-    this.novedadesService.getNovedadesMaquinas().subscribe({
-      next: (novedades: NovedadMaquina[]) => {
-        // Filtrar novedades por la sala específica de la ruta
-        this.novedadesMaquinas = novedades.filter(novedad => 
-          novedad.Sala && novedad.Sala.id === this.salaId
-        );
-      },
-      error: (error: any) => {
-        console.error('Error cargando novedades de máquinas:', error);
-        alert('Error cargando novedades de máquinas');
-      }
-    });
-  }
 
   loadEmpleados() {
     // Obtener empleados de la sala del libro actual
@@ -953,8 +921,8 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.selectedNovedadId) {
-      alert('Por favor seleccione una novedad');
+    if (!this.novedadData.descripcion) {
+      alert('Por favor ingrese una descripción');
       return;
     }
 
@@ -981,7 +949,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
       const novedadData = {
         libro_id: this.libroId!,
         maquina_id: maquinaId,
-        novedad_maquina_id: this.selectedNovedadId!,
+        descripcion: this.novedadData.descripcion,
         empleado_id: this.selectedEmpleadoId!,
         hora: this.novedadData.hora
       };
@@ -1046,9 +1014,9 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
 
   resetForm() {
     this.selectedMaquinaIds = [];
-    this.selectedNovedadId = null;
     this.selectedEmpleadoId = null;
     this.novedadData.hora = '';
+    this.novedadData.descripcion = '';
   }
 
   getSalaName(): string {
@@ -1095,7 +1063,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     const grupos = new Map<string, any>();
     
     novedades.forEach(novedad => {
-      const clave = `${novedad.empleado_id}-${novedad.novedad_maquina_id}-${novedad.hora}`;
+      const clave = `${novedad.empleado_id}-${novedad.descripcion}-${novedad.hora}`;
       
       if (grupos.has(clave)) {
         const grupo = grupos.get(clave);
@@ -1104,7 +1072,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
       } else {
         grupos.set(clave, {
           empleado: novedad.Empleado,
-          novedad: novedad.NovedadMaquina,
+          descripcion: novedad.descripcion,
           hora: novedad.hora,
           maquinas: [novedad.Maquina],
           ids: [novedad.id],

@@ -25,14 +25,9 @@ module.exports = (sequelize) => {
       },
       onDelete: 'RESTRICT'
     },
-    novedad_maquina_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: 'novedades_maquinas',
-        key: 'id'
-      },
-      onDelete: 'RESTRICT'
+    descripcion: {
+      type: DataTypes.TEXT,
+      allowNull: false
     },
     empleado_id: {
       type: DataTypes.INTEGER,

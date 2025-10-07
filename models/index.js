@@ -25,7 +25,6 @@ const Rango = require('./Rango')(sequelize);
 const Mesa = require('./Mesa')(sequelize);
 const Juego = require('./Juego')(sequelize);
 const Maquina = require('./Maquina')(sequelize);
-const NovedadMaquina = require('./NovedadMaquina')(sequelize);
 const Drop = require('./Drop')(sequelize);
 
 // Definir asociaciones
@@ -97,9 +96,6 @@ Maquina.belongsTo(Rango, { foreignKey: 'rango_id', onDelete: 'RESTRICT' });
 Rango.hasMany(Maquina, { foreignKey: 'rango_id', onDelete: 'RESTRICT' });
 
 
-// Asociaciones para NovedadMaquina
-NovedadMaquina.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
-Sala.hasMany(NovedadMaquina, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
 // Importar NovedadMaquinaRegistro
 const NovedadMaquinaRegistro = require('./NovedadMaquinaRegistro')(sequelize);
@@ -119,8 +115,6 @@ Libro.hasMany(NovedadMaquinaRegistro, { foreignKey: 'libro_id', onDelete: 'RESTR
 NovedadMaquinaRegistro.belongsTo(Maquina, { foreignKey: 'maquina_id', onDelete: 'RESTRICT' });
 Maquina.hasMany(NovedadMaquinaRegistro, { foreignKey: 'maquina_id', onDelete: 'RESTRICT' });
 
-NovedadMaquinaRegistro.belongsTo(NovedadMaquina, { foreignKey: 'novedad_maquina_id', onDelete: 'RESTRICT' });
-NovedadMaquina.hasMany(NovedadMaquinaRegistro, { foreignKey: 'novedad_maquina_id', onDelete: 'RESTRICT' });
 
 NovedadMaquinaRegistro.belongsTo(Empleado, { foreignKey: 'empleado_id', onDelete: 'RESTRICT' });
 Empleado.hasMany(NovedadMaquinaRegistro, { foreignKey: 'empleado_id', onDelete: 'RESTRICT' });
@@ -312,7 +306,6 @@ module.exports = {
   Mesa,
   Juego,
   Maquina,
-  NovedadMaquina,
   NovedadMaquinaRegistro,
   IncidenciaGeneral,
   Drop,

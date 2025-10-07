@@ -6,18 +6,10 @@ export interface NovedadMaquinaRegistro {
   id: number;
   libro_id: number;
   maquina_id: number;
-  novedad_maquina_id: number;
+  descripcion: string;
   empleado_id: number;
   hora: string;
   Maquina?: {
-    id: number;
-    nombre: string;
-    Sala?: {
-      id: number;
-      nombre: string;
-    };
-  };
-  NovedadMaquina?: {
     id: number;
     nombre: string;
     Sala?: {

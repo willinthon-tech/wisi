@@ -84,7 +84,7 @@ import { Meta, Title } from '@angular/platform-browser';
                     </button>
                   </span>
                 </td>
-                <td>{{ evento.novedad?.nombre || 'Sin novedad' }}</td>
+                <td>{{ evento.descripcion || 'Sin descripción' }}</td>
                 <td>{{ evento.empleado?.nombre || 'Sin empleado' }}</td>
                 <td>{{ evento.hora }}</td>
               </tr>
@@ -132,7 +132,7 @@ import { Meta, Title } from '@angular/platform-browser';
         </div>
         <div class="modal-body">
           <div class="evento-info mb-3">
-            <strong>Evento:</strong> {{ eventoSeleccionado?.novedad?.nombre }}<br>
+            <strong>Descripción:</strong> {{ eventoSeleccionado?.descripcion }}<br>
             <strong>Empleado:</strong> {{ eventoSeleccionado?.empleado?.nombre }}<br>
             <strong>Hora:</strong> {{ eventoSeleccionado?.hora }}
           </div>
@@ -669,7 +669,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     const grupos = new Map<string, any>();
     
     novedades.forEach(novedad => {
-      const clave = `${novedad.empleado_id}-${novedad.novedad_maquina_id}-${novedad.hora}`;
+      const clave = `${novedad.empleado_id}-${novedad.descripcion}-${novedad.hora}`;
       
       if (grupos.has(clave)) {
         const grupo = grupos.get(clave);
@@ -678,7 +678,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
       } else {
         grupos.set(clave, {
           empleado: novedad.Empleado,
-          novedad: novedad.NovedadMaquina,
+          descripcion: novedad.descripcion,
           hora: novedad.hora,
           maquinas: [novedad.Maquina],
           ids: [novedad.id],

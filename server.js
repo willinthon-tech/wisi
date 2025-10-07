@@ -26,7 +26,6 @@ const {
   Mesa,
   Juego,
   Maquina,
-  NovedadMaquina,
   NovedadMaquinaRegistro,
   IncidenciaGeneral,
   Drop,
@@ -3808,126 +3807,7 @@ app.delete('/api/drops/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// ===== RUTAS PARA NOVEDADES DE MÁQUINAS =====
 
-// Obtener novedades de máquinas del usuario
-app.get('/api/novedades-maquinas', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    let novedades;
-    
-    if (userLevel === 'TODO') {
-      novedades = await NovedadMaquina.findAll({
-        where: {},
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
-      });
-    } else {
-      const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          attributes: ['id']
-        }]
-      });
-
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
-      }
-
-      const userSalaIds = user.Salas.map(sala => sala.id);
-      novedades = await NovedadMaquina.findAll({
-        where: {sala_id: userSalaIds
-        },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
-      });
-    }
-    
-    res.json(novedades);
-  } catch (error) {
-    console.error('❌ Error obteniendo novedades de máquinas:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Crear novedad de máquina
-app.post('/api/novedades-maquinas', authenticateToken, async (req, res) => {
-  try {
-    const { nombre, sala_id } = req.body;
-    
-    if (!nombre || !sala_id) {
-      return res.status(400).json({ message: 'El nombre y la sala son requeridos' });
-    }
-
-    const sala = await Sala.findByPk(sala_id);
-    if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
-    }
-
-    const novedad = await NovedadMaquina.create({
-      nombre: nombre,
-      sala_id: sala_id
-    });
-
-    const novedadConSala = await NovedadMaquina.findByPk(novedad.id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
-    });
-
-    res.status(201).json(novedadConSala);
-  } catch (error) {
-    console.error('❌ Error creando novedad de máquina:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Actualizar novedad de máquina
-app.put('/api/novedades-maquinas/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { nombre } = req.body;
-    
-    const novedad = await NovedadMaquina.findByPk(id);
-    if (!novedad) {
-      return res.status(404).json({ message: 'Novedad de máquina no encontrada' });
-    }
-
-    await novedad.update({ nombre });
-    res.json(novedad);
-  } catch (error) {
-    console.error('❌ Error actualizando novedad de máquina:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Eliminar novedad de máquina
-app.delete('/api/novedades-maquinas/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const novedad = await NovedadMaquina.findByPk(id);
-    if (!novedad) {
-      return res.status(404).json({ message: 'Novedad de máquina no encontrada' });
-    }
-
-    await novedad.destroy();
-    res.json({ message: 'Novedad de máquina eliminada correctamente' });
-  } catch (error) {
-    console.error('❌ Error eliminando novedad de máquina:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
 
 // ===== RUTAS PARA REGISTROS DE NOVEDADES DE MÁQUINAS =====
 
@@ -3966,13 +3846,6 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
               model: Sala,
               attributes: ['id', 'nombre']
             }]
-          }]
-        }, {
-          model: NovedadMaquina,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
           }]
         }, {
           model: Empleado,
@@ -4071,11 +3944,11 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
 // Crear o actualizar registro de novedad de máquina
 app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res) => {
   try {
-    const { libro_id, maquina_id, novedad_maquina_id, empleado_id, hora } = req.body;
+    const { libro_id, maquina_id, descripcion, empleado_id, hora } = req.body;
     const userId = req.user.id;
     const userLevel = req.user.nivel;
 
-    if (!libro_id || !maquina_id || !novedad_maquina_id || !empleado_id || !hora) {
+    if (!libro_id || !maquina_id || !descripcion || !empleado_id || !hora) {
       return res.status(400).json({ message: 'Todos los campos son requeridos' });
     }
 
@@ -4091,11 +3964,6 @@ app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res
       return res.status(404).json({ message: 'Máquina no encontrada' });
     }
 
-    // Verificar que la novedad de máquina existe
-    const novedadMaquina = await NovedadMaquina.findByPk(novedad_maquina_id);
-    if (!novedadMaquina) {
-      return res.status(404).json({ message: 'Novedad de máquina no encontrada' });
-    }
 
     // Verificar que el empleado existe
     const empleado = await Empleado.findByPk(empleado_id);
@@ -4107,7 +3975,7 @@ app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res
     const registro = await NovedadMaquinaRegistro.create({
       libro_id: libro_id,
       maquina_id: maquina_id,
-      novedad_maquina_id: novedad_maquina_id,
+      descripcion: descripcion,
       empleado_id: empleado_id,
       hora: hora});
 
@@ -4128,18 +3996,23 @@ app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res
           }]
         }]
       }, {
-        model: NovedadMaquina,
-        attributes: ['id', 'nombre'],
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }]
-      }, {
         model: Empleado,
         attributes: ['id', 'nombre'],
         include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
+          model: Cargo,
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Departamento,
+            attributes: ['id', 'nombre'],
+            include: [{
+              model: Area,
+              attributes: ['id', 'nombre'],
+              include: [{
+                model: Sala,
+                attributes: ['id', 'nombre']
+              }]
+            }]
+          }]
         }]
       }]
     });
@@ -4262,22 +4135,11 @@ app.delete('/api/incidencias-generales/:id', authenticateToken, async (req, res)
       id: id,
       libro_id: incidencia.libro_id
     });
-    const relations = await sequelize.query(`
-      SELECT table_name, count FROM (
-        SELECT 'Reportes' as table_name, COUNT(*) as count FROM reportes WHERE incidencia_id = ?
-      ) as relations WHERE count > 0
-    `, {
-      replacements: [id],
-      type: sequelize.QueryTypes.SELECT
-    });
-    console.log('🔍 Resultado de verificación de relaciones para incidencia general:', relations);
     
-    if (relations.length > 0) {
-      return res.status(400).json({
-        message: 'No se puede eliminar la incidencia porque tiene relaciones',
-        relations: relations
-      });
-    }
+    // Por ahora no hay tablas relacionadas con incidencias_generales
+    // Si en el futuro se agregan relaciones, se puede verificar aquí
+    const relations = [];
+    console.log('🔍 Resultado de verificación de relaciones para incidencia general:', relations);
 
     await incidencia.destroy();
     res.json({ message: 'Incidencia eliminada correctamente' });
@@ -4616,9 +4478,11 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
         SELECT 'Tareas Dispositivo Usuarios' as table_name, COUNT(*) as count FROM tareas_dispositivo_usuarios WHERE numero_cedula_empleado = ?
         UNION ALL
         SELECT 'Empleado Dispositivos' as table_name, COUNT(*) as count FROM empleado_dispositivos WHERE empleado_id = ?
+        UNION ALL
+        SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE empleado_id = ?
       ) as relations WHERE count > 0
     `, {
-      replacements: [empleado.cedula, id],
+      replacements: [empleado.cedula, id, id],
       type: sequelize.QueryTypes.SELECT
     });
     
@@ -4645,6 +4509,23 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
       stack: error.stack,
       name: error.name
     });
+    
+    // Si es un error de foreign key constraint, devolver información específica
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return res.status(400).json({
+        message: 'No se puede eliminar el empleado porque tiene relaciones que impiden su eliminación',
+        relations: [
+          { table_name: 'Novedades de Máquinas', count: 'Tiene registros asociados' }
+        ],
+        empleado: {
+          id: id,
+          nombre: 'Empleado',
+          tipo: 'empleado'
+        },
+        helpText: 'Para eliminar este empleado, primero debe eliminar o reasignar los elementos relacionados.'
+      });
+    }
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
