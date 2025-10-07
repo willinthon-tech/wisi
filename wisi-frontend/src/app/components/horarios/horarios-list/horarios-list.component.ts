@@ -794,7 +794,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.loadHorarios();
           this.closeSalaSelector();
-          alert('Horario actualizado exitosamente');
+          console.log('Horario actualizado exitosamente');
         },
         error: (error) => {
           console.error('Error actualizando horario:', error);
@@ -806,7 +806,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.loadHorarios();
           this.closeSalaSelector();
-          alert('Horario creado exitosamente');
+          console.log('Horario creado exitosamente');
         },
         error: (error) => {
           console.error('Error creando horario:', error);
@@ -834,18 +834,16 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   deleteHorario(id: number | null): void {
     if (!id) return;
     
-    if (confirm('¿Estás seguro de que quieres eliminar este horario?')) {
-      this.horariosService.deleteHorario(id).subscribe({
-        next: (response) => {
-          this.horarios = this.horarios.filter(horario => horario.id !== id);
-          alert('Horario eliminado exitosamente');
-        },
-        error: (error) => {
-          console.error('Error eliminando horario:', error);
-          alert('Error eliminando horario');
-        }
-      });
-    }
+    this.horariosService.deleteHorario(id).subscribe({
+      next: (response) => {
+        this.horarios = this.horarios.filter(horario => horario.id !== id);
+        console.log('Horario eliminado:', response);
+      },
+      error: (error) => {
+        console.error('Error eliminando horario:', error);
+        alert('Error eliminando horario');
+      }
+    });
   }
 
   getBloqueText(turno: string): string {

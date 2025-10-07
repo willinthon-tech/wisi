@@ -513,7 +513,7 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
             this.departamentos[index] = departamento;
           }
           this.closeAreaSelector();
-          alert('Departamento actualizado exitosamente');
+          console.log('Departamento actualizado exitosamente');
         },
         error: (error) => {
           console.error('Error actualizando departamento:', error);
@@ -526,7 +526,7 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
         next: (departamento) => {
           this.departamentos.unshift(departamento);
           this.closeAreaSelector();
-          alert('Departamento creado exitosamente');
+          console.log('Departamento creado exitosamente');
         },
         error: (error) => {
           console.error('Error creando departamento:', error);
@@ -546,18 +546,16 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
   }
 
   deleteDepartamento(id: number): void {
-    if (confirm('¿Estás seguro de que quieres eliminar este departamento?')) {
-      this.departamentosService.deleteDepartamento(id).subscribe({
-        next: () => {
-          this.departamentos = this.departamentos.filter(departamento => departamento.id !== id);
-          alert('Departamento eliminado exitosamente');
-        },
-        error: (error) => {
-          console.error('Error eliminando departamento:', error);
-          alert('Error eliminando departamento');
-        }
-      });
-    }
+    this.departamentosService.deleteDepartamento(id).subscribe({
+      next: () => {
+        this.departamentos = this.departamentos.filter(departamento => departamento.id !== id);
+        console.log('Departamento eliminado exitosamente');
+      },
+      error: (error) => {
+        console.error('Error eliminando departamento:', error);
+        alert('Error eliminando departamento');
+      }
+    });
   }
 }
 

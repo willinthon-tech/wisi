@@ -751,29 +751,36 @@ export class TareasListComponent implements OnInit {
     // Activar botón "Detener Procesos"
     this.detenerProcesos = true;
     
-    // Simular el proceso de ejecución
+    // Activar estados para mostrar spinner en botón individual
     this.ejecutandoTarea = tarea.id;
+    this.procesandoTarea = true;
     
-    // Simular delay de procesamiento
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Eliminar la tarea del backend
-    await this.eliminarTareaAsync(tarea.id);
-    
-    // Eliminar de la lista local
-    this.tareas = this.tareas.filter(t => t.id !== tarea.id);
-    
-    // Actualizar tarea activa
-    this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
-    
-    this.ejecutandoTarea = null;
-    
-    // Desactivar botón "Detener Procesos" si no hay más tareas
-    if (this.tareas.length === 0) {
-      this.detenerProcesos = false;
+    try {
+      // Aquí se haría el proceso real al dispositivo externo
+      console.log('🔗 Procesando en dispositivo externo...');
+      
+      // Eliminar la tarea del backend (el spinner se quita cuando responde)
+      await this.eliminarTareaAsync(tarea.id);
+      
+      // Eliminar de la lista local
+      this.tareas = this.tareas.filter(t => t.id !== tarea.id);
+      
+      // Actualizar tarea activa
+      this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
+      
+      console.log(`✅ Tarea ${tarea.id} ejecutada y eliminada. Tareas restantes: ${this.tareas.length}`);
+    } catch (error) {
+      console.error('❌ Error ejecutando tarea:', error);
+    } finally {
+      // Resetear estados cuando termine
+      this.ejecutandoTarea = null;
+      this.procesandoTarea = false;
+      
+      // Desactivar botón "Detener Procesos" si no hay más tareas
+      if (this.tareas.length === 0) {
+        this.detenerProcesos = false;
+      }
     }
-    
-    console.log(`✅ Tarea ${tarea.id} ejecutada y eliminada. Tareas restantes: ${this.tareas.length}`);
   }
 
   async simularRechazarTarea(tarea: any): Promise<void> {
@@ -782,29 +789,35 @@ export class TareasListComponent implements OnInit {
     // Activar botón "Detener Procesos"
     this.detenerProcesos = true;
     
-    // Simular el proceso de rechazo
+    // Activar estados para mostrar spinner en botón individual
     this.rechazandoTarea = tarea.id;
+    this.procesandoTarea = true;
     
-    // Simular delay de procesamiento
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Eliminar la tarea del backend
-    await this.eliminarTareaAsync(tarea.id);
-    
-    // Eliminar de la lista local
-    this.tareas = this.tareas.filter(t => t.id !== tarea.id);
-    
-    // Actualizar tarea activa
-    this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
-    
-    this.rechazandoTarea = null;
-    
-    // Desactivar botón "Detener Procesos" si no hay más tareas
-    if (this.tareas.length === 0) {
-      this.detenerProcesos = false;
+    try {
+      console.log('🗑️ Eliminando tarea del backend...');
+      
+      // Eliminar la tarea del backend (el spinner se quita cuando responde)
+      await this.eliminarTareaAsync(tarea.id);
+      
+      // Eliminar de la lista local
+      this.tareas = this.tareas.filter(t => t.id !== tarea.id);
+      
+      // Actualizar tarea activa
+      this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
+      
+      console.log(`✅ Tarea ${tarea.id} rechazada y eliminada. Tareas restantes: ${this.tareas.length}`);
+    } catch (error) {
+      console.error('❌ Error rechazando tarea:', error);
+    } finally {
+      // Resetear estados cuando termine
+      this.rechazandoTarea = null;
+      this.procesandoTarea = false;
+      
+      // Desactivar botón "Detener Procesos" si no hay más tareas
+      if (this.tareas.length === 0) {
+        this.detenerProcesos = false;
+      }
     }
-    
-    console.log(`✅ Tarea ${tarea.id} rechazada y eliminada. Tareas restantes: ${this.tareas.length}`);
   }
 
 
@@ -851,11 +864,28 @@ export class TareasListComponent implements OnInit {
     this.http.delete(`http://localhost:3000/api/tareas-dispositivo-usuarios/${tareaId}`).subscribe({
       next: (response) => {
         console.log('Tarea eliminada:', response);
+        
+        // Resetear estados cuando el backend responde
+        this.ejecutandoTarea = null;
+        this.rechazandoTarea = null;
+        this.procesandoTarea = false;
+        
+        // Desactivar botón "Detener Procesos" si no hay más tareas
+        if (this.tareas.length === 0) {
+          this.detenerProcesos = false;
+        }
+        
         // Recargar la lista de tareas para actualizar la tarea activa
         this.loadTareas();
       },
       error: (error) => {
         console.error('Error eliminando tarea:', error);
+        
+        // Resetear estados también en caso de error
+        this.ejecutandoTarea = null;
+        this.rechazandoTarea = null;
+        this.procesandoTarea = false;
+        
         alert('Error al eliminar la tarea');
       }
     });
@@ -888,20 +918,11 @@ export class TareasListComponent implements OnInit {
     this.detenerProcesos = true; // Activar botón "Detener Procesos"
     console.log('🚀 Ejecutando tarea:', tarea);
     
-    // Simular proceso de ejecución con delay
-    setTimeout(() => {
-      // Aquí implementarías la lógica real para ejecutar la tarea
-      console.log('Tarea ejecutada correctamente');
-      // Eliminar la tarea después de ejecutarla
-      this.eliminarTarea(tarea.id);
-      this.ejecutandoTarea = null;
-      this.procesandoTarea = false;
-      
-      // Desactivar botón "Detener Procesos" si no hay más tareas
-      if (this.tareas.length === 0) {
-        this.detenerProcesos = false;
-      }
-    }, 2000); // 2 segundos de simulación
+    // Aquí se haría el proceso real al dispositivo externo
+    console.log('🔗 Procesando en dispositivo externo...');
+    
+    // Eliminar la tarea (el spinner se quita cuando el backend responde)
+    this.eliminarTarea(tarea.id);
   }
 
   rechazarTarea(tarea: any): void {
@@ -915,20 +936,10 @@ export class TareasListComponent implements OnInit {
     this.detenerProcesos = true; // Activar botón "Detener Procesos"
     console.log('❌ Rechazando tarea:', tarea);
     
-    // Simular proceso de rechazo con delay
-    setTimeout(() => {
-      // Aquí implementarías la lógica para rechazar la tarea
-      console.log('Tarea rechazada');
-      // Eliminar la tarea después de rechazarla
-      this.eliminarTarea(tarea.id);
-      this.rechazandoTarea = null;
-      this.procesandoTarea = false;
-      
-      // Desactivar botón "Detener Procesos" si no hay más tareas
-      if (this.tareas.length === 0) {
-        this.detenerProcesos = false;
-      }
-    }, 1500); // 1.5 segundos de simulación
+    console.log('🗑️ Eliminando tarea del backend...');
+    
+    // Eliminar la tarea (el spinner se quita cuando el backend responde)
+    this.eliminarTarea(tarea.id);
   }
 
   getMethodClass(accion: string): string {

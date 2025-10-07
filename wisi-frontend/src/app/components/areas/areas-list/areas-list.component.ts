@@ -511,7 +511,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
             this.areas[index] = area;
           }
           this.closeSalaSelector();
-          alert('Área actualizada exitosamente');
+          console.log('Área actualizada exitosamente');
         },
         error: (error) => {
           console.error('Error actualizando área:', error);
@@ -524,7 +524,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
         next: (area) => {
           this.areas.unshift(area);
           this.closeSalaSelector();
-          alert('Área creada exitosamente');
+          console.log('Área creada exitosamente');
         },
         error: (error) => {
           console.error('Error creando área:', error);
@@ -544,17 +544,15 @@ export class AreasListComponent implements OnInit, OnDestroy {
   }
 
   deleteArea(id: number): void {
-    if (confirm('¿Estás seguro de que quieres eliminar esta área?')) {
-      this.areasService.deleteArea(id).subscribe({
-        next: () => {
-          this.areas = this.areas.filter(area => area.id !== id);
-          alert('Área eliminada exitosamente');
-        },
-        error: (error) => {
-          console.error('Error eliminando área:', error);
-          alert('Error eliminando área');
-        }
-      });
-    }
+    this.areasService.deleteArea(id).subscribe({
+      next: () => {
+        this.areas = this.areas.filter(area => area.id !== id);
+        console.log('Área eliminada exitosamente');
+      },
+      error: (error) => {
+        console.error('Error eliminando área:', error);
+        alert('Error eliminando área');
+      }
+    });
   }
 }

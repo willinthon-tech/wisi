@@ -515,7 +515,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
             this.cargos[index] = cargo;
           }
           this.closeDepartamentoSelector();
-          alert('Cargo actualizado exitosamente');
+          console.log('Cargo actualizado exitosamente');
         },
         error: (error) => {
           console.error('Error actualizando cargo:', error);
@@ -528,7 +528,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
         next: (cargo) => {
           this.cargos.unshift(cargo);
           this.closeDepartamentoSelector();
-          alert('Cargo creado exitosamente');
+          console.log('Cargo creado exitosamente');
         },
         error: (error) => {
           console.error('Error creando cargo:', error);
@@ -548,18 +548,16 @@ export class CargosListComponent implements OnInit, OnDestroy {
   }
 
   deleteCargo(id: number): void {
-    if (confirm('¿Estás seguro de que quieres eliminar este cargo?')) {
-      this.cargosService.deleteCargo(id).subscribe({
-        next: () => {
-          this.cargos = this.cargos.filter(cargo => cargo.id !== id);
-          alert('Cargo eliminado exitosamente');
-        },
-        error: (error) => {
-          console.error('Error eliminando cargo:', error);
-          alert('Error eliminando cargo');
-        }
-      });
-    }
+    this.cargosService.deleteCargo(id).subscribe({
+      next: () => {
+        this.cargos = this.cargos.filter(cargo => cargo.id !== id);
+        console.log('Cargo eliminado exitosamente');
+      },
+      error: (error) => {
+        console.error('Error eliminando cargo:', error);
+        alert('Error eliminando cargo');
+      }
+    });
   }
 }
 
