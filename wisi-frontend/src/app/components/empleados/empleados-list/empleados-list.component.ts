@@ -8,6 +8,7 @@ import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
 import { TareasAutomaticasService } from '../../../services/tareas-automaticas.service';
 import { AuthService } from '../../../services/auth.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -1257,7 +1258,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     private permissionsService: PermissionsService,
     private router: Router,
     private tareasAutomaticasService: TareasAutomaticasService,
-    private authService: AuthService
+    private authService: AuthService,
+    private errorModalService: ErrorModalService
   ) {}
 
   ngOnInit(): void {
@@ -2337,6 +2339,23 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error eliminando empleado:', error);
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el empleado',
+            message: error.error.message,
+            entity: {
+              id: error.error.empleado?.id || id,
+              nombre: error.error.empleado?.nombre || empleado?.nombre || 'Empleado',
+              tipo: 'Empleado'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este empleado, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
+          alert('Error eliminando empleado: ' + (error.error?.message || error.message || 'Error desconocido'));
+        }
       }
     });
   }
@@ -2844,4 +2863,5 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       });
     }, 500);
   }
+
 }

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CargosService } from '../../../services/cargos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -434,7 +435,8 @@ export class CargosListComponent implements OnInit, OnDestroy {
   constructor(
     private cargosService: CargosService,
     private permissionsService: PermissionsService,
-    private router: Router
+    private router: Router,
+    private errorModalService: ErrorModalService
   ) {}
 
   ngOnInit(): void {
@@ -555,7 +557,23 @@ export class CargosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error eliminando cargo:', error);
-        alert('Error eliminando cargo');
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el cargo',
+            message: error.error.message,
+            entity: {
+              id: error.error.cargo?.id || id,
+              nombre: error.error.cargo?.nombre || 'Cargo',
+              tipo: 'Cargo'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este cargo, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
+          alert('Error eliminando cargo: ' + (error.error?.message || error.message || 'Error desconocido'));
+        }
       }
     });
   }

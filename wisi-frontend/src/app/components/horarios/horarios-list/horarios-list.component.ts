@@ -6,6 +6,7 @@ import { AuthService } from '../../../services/auth.service';
 import { HorariosService } from '../../../services/horarios.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { AreasService } from '../../../services/areas.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -652,7 +653,8 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     private permissionsService: PermissionsService,
     private areasService: AreasService,
     private router: Router,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private errorModalService: ErrorModalService
   ) {}
 
   ngOnInit(): void {
@@ -841,7 +843,23 @@ export class HorariosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error eliminando horario:', error);
-        alert('Error eliminando horario');
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el horario',
+            message: error.error.message,
+            entity: {
+              id: error.error.horario?.id || id,
+              nombre: error.error.horario?.nombre || 'Horario',
+              tipo: 'Horario'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este horario, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
+          alert('Error eliminando horario: ' + (error.error?.message || error.message || 'Error desconocido'));
+        }
       }
     });
   }

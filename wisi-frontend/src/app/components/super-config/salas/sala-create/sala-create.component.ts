@@ -213,7 +213,7 @@ export class SalaCreateComponent {
     if (this.loading) return;
 
     if (!this.sala.nombre.trim()) {
-      alert('El nombre de la sala es requerido');
+      console.log('El nombre de la sala es requerido');
       return;
     }
 
@@ -225,7 +225,7 @@ export class SalaCreateComponent {
     
     this.userService.createSala(salaData).subscribe({
       next: (response) => {
-        alert('Sala creada exitosamente');
+        console.log('Sala creada exitosamente');
         this.router.navigate(['/super-config/salas']);
       },
       error: (error) => {

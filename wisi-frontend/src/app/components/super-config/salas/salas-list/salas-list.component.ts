@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { UserService } from '../../../../services/user.service';
+import { ErrorModalService } from '../../../../services/error-modal.service';
 
 @Component({
   selector: 'app-salas-list',
@@ -46,6 +47,7 @@ import { UserService } from '../../../../services/user.service';
         <p>Cargando salas...</p>
       </div>
     </div>
+
   `,
   styles: [`
     .salas-container {
@@ -211,7 +213,8 @@ export class SalasListComponent implements OnInit {
 
   constructor(
     private userService: UserService,
-    private router: Router
+    private router: Router,
+    private errorModalService: ErrorModalService
   ) {}
 
   ngOnInit() {
@@ -227,7 +230,6 @@ export class SalasListComponent implements OnInit {
       },
       error: (error) => {
         console.error('Error cargando salas:', error);
-        alert('Error cargando salas: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.loading = false;
       }
     });
@@ -242,17 +244,31 @@ export class SalasListComponent implements OnInit {
   }
 
   deleteSala(sala: any) {
-    if (confirm(`¿Estás seguro de que quieres eliminar la sala "${sala.nombre}"?`)) {
-      this.userService.deleteSala(sala.id).subscribe({
-        next: (response) => {
-          alert('Sala eliminada exitosamente');
-          this.loadSalas(); // Recargar la lista
-        },
-        error: (error) => {
-          console.error('Error eliminando sala:', error);
+    this.userService.deleteSala(sala.id).subscribe({
+      next: (response) => {
+        console.log('Sala eliminada exitosamente');
+        this.loadSalas(); // Recargar la lista
+      },
+      error: (error) => {
+        console.error('Error eliminando sala:', error);
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar la sala',
+            message: error.error.message,
+            entity: {
+              id: error.error.sala.id,
+              nombre: error.error.sala.nombre,
+              tipo: 'Sala'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar esta sala, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
           alert('Error eliminando sala: ' + (error.error?.message || error.message || 'Error desconocido'));
         }
-      });
-    }
+      }
+    });
   }
 }

@@ -36,19 +36,6 @@ import { UserService } from '../../../../services/user.service';
           </div>
 
 
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input 
-                type="checkbox" 
-                [(ngModel)]="sala.activa" 
-                name="activa">
-              <span class="checkmark"></span>
-              Sala activa
-            </label>
-            <small class="help-text">
-              Las salas inactivas no aparecerán disponibles para asignar a usuarios
-            </small>
-          </div>
 
           <div class="form-actions">
             <button type="button" class="btn-secondary" (click)="goBack()">
@@ -270,8 +257,7 @@ import { UserService } from '../../../../services/user.service';
 export class SalaEditComponent implements OnInit {
   sala = {
     id: 0,
-    nombre: '',
-    activa: true
+    nombre: ''
   };
   loading = true;
   saving = false;
@@ -302,13 +288,12 @@ export class SalaEditComponent implements OnInit {
           this.sala = { ...sala };
           this.loading = false;
         } else {
-          alert('Sala no encontrada');
+          console.log('Sala no encontrada');
           this.goBack();
         }
       },
       error: (error) => {
         console.error('Error cargando sala:', error);
-        alert('Error cargando sala: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.goBack();
       }
     });
@@ -318,7 +303,7 @@ export class SalaEditComponent implements OnInit {
     if (this.saving) return;
 
     if (!this.sala.nombre.trim()) {
-      alert('El nombre de la sala es requerido');
+      console.log('El nombre de la sala es requerido');
       return;
     }
 
@@ -326,10 +311,10 @@ export class SalaEditComponent implements OnInit {
 
     this.userService.updateSala(this.sala.id, {
       nombre: this.sala.nombre,
-      activa: this.sala.activa
+      activa: true
     }).subscribe({
       next: (response) => {
-        alert('Sala actualizada exitosamente');
+        console.log('Sala actualizada exitosamente');
         this.router.navigate(['/super-config/salas']);
       },
       error: (error) => {

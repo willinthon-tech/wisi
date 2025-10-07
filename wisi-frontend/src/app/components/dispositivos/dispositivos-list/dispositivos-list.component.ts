@@ -7,6 +7,7 @@ import { DispositivosService } from '../../../services/dispositivos.service';
 import { AuthService } from '../../../services/auth.service';
 import { HikvisionIsapiService } from '../../../services/hikvision-isapi.service';
 import { XmlParserService } from '../../../services/xml-parser.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 
 @Component({
   selector: 'app-dispositivos-list',
@@ -72,7 +73,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private sanitizer: DomSanitizer,
     private fb: FormBuilder,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private errorModalService: ErrorModalService
   ) {}
 
   ngOnInit(): void {
@@ -896,18 +898,34 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   deleteDispositivo(dispositivo: any): void {
     console.log('Eliminando dispositivo:', dispositivo);
-    if (confirm('¿Estás seguro de que deseas eliminar este dispositivo?')) {
-      this.dispositivosService.deleteDispositivo(dispositivo.id).subscribe({
-        next: (response) => {
-          console.log('Dispositivo eliminado:', response);
-          // Remover el dispositivo del array local
-          this.dispositivos = this.dispositivos.filter(d => d.id !== dispositivo.id);
+    
+    this.dispositivosService.deleteDispositivo(dispositivo.id).subscribe({
+      next: (response) => {
+        console.log('Dispositivo eliminado:', response);
+        // Remover el dispositivo del array local
+        this.dispositivos = this.dispositivos.filter(d => d.id !== dispositivo.id);
       },
       error: (error) => {
-          console.error('Error eliminando dispositivo:', error);
+        console.error('Error eliminando dispositivo:', error);
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el dispositivo',
+            message: error.error.message,
+            entity: {
+              id: error.error.dispositivo?.id || dispositivo.id,
+              nombre: error.error.dispositivo?.nombre || dispositivo.nombre || 'Dispositivo',
+              tipo: 'Dispositivo'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este dispositivo, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
+          alert('Error eliminando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
+        }
       }
     });
-  }
   }
 
   // Métodos de formularios

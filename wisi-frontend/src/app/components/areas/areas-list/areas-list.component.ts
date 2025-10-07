@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AreasService } from '../../../services/areas.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -430,7 +431,8 @@ export class AreasListComponent implements OnInit, OnDestroy {
   constructor(
     private areasService: AreasService,
     private permissionsService: PermissionsService,
-    private router: Router
+    private router: Router,
+    private errorModalService: ErrorModalService
   ) {}
 
   ngOnInit(): void {
@@ -551,7 +553,23 @@ export class AreasListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error eliminando área:', error);
-        alert('Error eliminando área');
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el área',
+            message: error.error.message,
+            entity: {
+              id: error.error.area?.id || id,
+              nombre: error.error.area?.nombre || 'Área',
+              tipo: 'Área'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este área, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
+          alert('Error eliminando área: ' + (error.error?.message || error.message || 'Error desconocido'));
+        }
       }
     });
   }

@@ -616,11 +616,64 @@ app.delete('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (r
       return res.status(404).json({ message: 'Sala no encontrada' });
     }
 
+    // Verificar si la sala tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para sala:', {
+      id: id,
+      nombre: sala.nombre
+    });
+    
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Usuarios' as table_name, COUNT(*) as count FROM user_salas WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Libros' as table_name, COUNT(*) as count FROM libros WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Rangos' as table_name, COUNT(*) as count FROM rangos WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Mesas' as table_name, COUNT(*) as count FROM mesas WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Juegos' as table_name, COUNT(*) as count FROM juegos WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Máquinas' as table_name, COUNT(*) as count FROM maquinas WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Técnicos' as table_name, COUNT(*) as count FROM tecnicos WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Áreas' as table_name, COUNT(*) as count FROM areas WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Horarios' as table_name, COUNT(*) as count FROM horarios WHERE sala_id = ?
+        UNION ALL
+        SELECT 'Dispositivos' as table_name, COUNT(*) as count FROM dispositivos WHERE sala_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id, id, id, id, id, id, id, id, id, id, id],
+      type: sequelize.QueryTypes.SELECT
+    });
+    
+    console.log('🔍 Resultado de verificación de relaciones para sala:', relations);
+
+    if (relations.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar la sala porque tiene elementos asociados.',
+        relations: relations,
+        sala: {
+          id: sala.id,
+          nombre: sala.nombre
+        }
+      });
+    }
+
     await sala.destroy();
 
     res.json({ message: 'Sala eliminada exitosamente' });
   } catch (error) {
-    console.error('Error eliminando sala:', error);
+    console.error('❌ Error eliminando sala:', error);
+    console.error('❌ Detalles del error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1721,6 +1774,27 @@ app.delete('/api/areas/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Área no encontrada' });
     }
     
+    // Verificar si el área tiene relaciones que impidan su eliminación
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Departamentos' as table_name, COUNT(*) as count FROM departamentos WHERE area_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (relations.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar el área porque tiene elementos asociados.',
+        relations: relations,
+        area: {
+          id: area.id,
+          nombre: area.nombre
+        }
+      });
+    }
+    
     // Eliminar el área (soft delete)
     await area.update({ activo: false });
     res.json({ message: 'Área eliminada exitosamente' });
@@ -1946,6 +2020,29 @@ app.delete('/api/departamentos/:id', authenticateToken, async (req, res) => {
     
     if (!departamento) {
       return res.status(404).json({ message: 'Departamento no encontrado' });
+    }
+    
+    // Verificar si el departamento tiene relaciones que impidan su eliminación
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Cargos' as table_name, COUNT(*) as count FROM cargos WHERE departamento_id = ?
+        UNION ALL
+        SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE cargo_id IN (SELECT id FROM cargos WHERE departamento_id = ?)
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id, id],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (relations.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar el departamento porque tiene elementos asociados.',
+        relations: relations,
+        departamento: {
+          id: departamento.id,
+          nombre: departamento.nombre
+        }
+      });
     }
     
     // Eliminar el departamento (soft delete)
@@ -2201,6 +2298,27 @@ app.delete('/api/cargos/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Cargo no encontrado' });
     }
     
+    // Verificar si el cargo tiene relaciones que impidan su eliminación
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE cargo_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (relations.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar el cargo porque tiene elementos asociados.',
+        relations: relations,
+        cargo: {
+          id: cargo.id,
+          nombre: cargo.nombre
+        }
+      });
+    }
+    
     // Eliminar el cargo (soft delete)
     await cargo.update({ activo: false });
     res.json({ message: 'Cargo eliminado exitosamente' });
@@ -2421,6 +2539,29 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
     const horario = await Horario.findByPk(id);
     if (!horario) {
       return res.status(404).json({ message: 'Horario no encontrado' });
+    }
+
+    // Verificar si el horario tiene relaciones que impidan su eliminación
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE horario_id = ?
+        UNION ALL
+        SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE horario_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id, id],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (relations.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar el horario porque tiene elementos asociados.',
+        relations: relations,
+        horario: {
+          id: horario.id,
+          nombre: horario.nombre
+        }
+      });
     }
 
     // Soft delete - marcar como inactivo
@@ -4150,10 +4291,47 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Empleado no encontrado' });
     }
 
+    // Verificar si el empleado tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para empleado:', {
+      id: id,
+      cedula: empleado.cedula,
+      nombre: empleado.nombre
+    });
+    
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Tareas Dispositivo Usuarios' as table_name, COUNT(*) as count FROM tareas_dispositivo_usuarios WHERE numero_cedula_empleado = ?
+        UNION ALL
+        SELECT 'Empleado Dispositivos' as table_name, COUNT(*) as count FROM empleado_dispositivos WHERE empleado_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [empleado.cedula, id],
+      type: sequelize.QueryTypes.SELECT
+    });
+    
+    console.log('🔍 Resultado de verificación de relaciones:', relations);
+
+    if (relations.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar el empleado porque tiene elementos asociados.',
+        relations: relations,
+        empleado: {
+          id: empleado.id,
+          nombre: empleado.nombre,
+          cedula: empleado.cedula
+        }
+      });
+    }
+
     await empleado.update({ activo: false });
     res.json({ message: 'Empleado eliminado correctamente' });
   } catch (error) {
     console.error('❌ Error eliminando empleado:', error);
+    console.error('❌ Detalles del error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4946,6 +5124,30 @@ app.delete('/api/dispositivos/:id', authenticateToken, async (req, res) => {
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
       return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+
+    // Verificar si el dispositivo tiene relaciones que impidan su eliminación
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Empleado Dispositivos' as table_name, COUNT(*) as count FROM empleado_dispositivos WHERE dispositivo_id = ?
+        UNION ALL
+        SELECT 'Tareas Dispositivo Usuarios' as table_name, COUNT(*) as count FROM tareas_dispositivo_usuarios WHERE ip_publica_dispositivo = ? OR ip_local_dispositivo = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id, dispositivo.ip_publica, dispositivo.ip_local],
+      type: sequelize.QueryTypes.SELECT
+    });
+
+    if (relations.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar el dispositivo porque tiene elementos asociados.',
+        relations: relations,
+        dispositivo: {
+          id: dispositivo.id,
+          nombre: dispositivo.nombre,
+          ip_publica: dispositivo.ip_publica
+        }
+      });
     }
 
     await dispositivo.update({ activo: false });

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DepartamentosService } from '../../../services/departamentos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -432,7 +433,8 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
   constructor(
     private departamentosService: DepartamentosService,
     private permissionsService: PermissionsService,
-    private router: Router
+    private router: Router,
+    private errorModalService: ErrorModalService
   ) {}
 
   ngOnInit(): void {
@@ -553,7 +555,23 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error eliminando departamento:', error);
-        alert('Error eliminando departamento');
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el departamento',
+            message: error.error.message,
+            entity: {
+              id: error.error.departamento?.id || id,
+              nombre: error.error.departamento?.nombre || 'Departamento',
+              tipo: 'Departamento'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este departamento, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
+          alert('Error eliminando departamento: ' + (error.error?.message || error.message || 'Error desconocido'));
+        }
       }
     });
   }
