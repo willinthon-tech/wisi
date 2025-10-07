@@ -4202,6 +4202,7 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
           type: sequelize.QueryTypes.SELECT
         }
       );
+      console.log(`🔍 Empleado ${empleado.nombre} (ID: ${empleado.id}) - Dispositivos encontrados:`, dispositivos);
       empleado.dataValues.dispositivos = dispositivos;
     }
 

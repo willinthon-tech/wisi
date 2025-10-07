@@ -197,6 +197,7 @@ import { Subscription } from 'rxjs';
                   id="cedulaEmpleado" 
                   name="cedulaEmpleado"
                   [(ngModel)]="nuevoEmpleado.cedula"
+                  (ngModelChange)="detectChanges()"
                   (keyup)="validarCedula()"
                   class="form-control"
                   [class.is-invalid]="cedulaError"
@@ -221,6 +222,7 @@ import { Subscription } from 'rxjs';
                   id="nombreEmpleado" 
                   name="nombreEmpleado"
                   [(ngModel)]="nuevoEmpleado.nombre"
+                  (ngModelChange)="detectChanges()"
                   class="form-control"
                   placeholder="Ingrese el nombre del empleado"
                   required
@@ -277,6 +279,7 @@ import { Subscription } from 'rxjs';
                   id="cargoSelect" 
                   name="cargoSelect"
                   [(ngModel)]="nuevoEmpleado.cargo_id"
+                  (ngModelChange)="onCargoChange()"
                   (change)="onCargoChange()"
                   class="form-control"
                   required
@@ -355,7 +358,7 @@ import { Subscription } from 'rxjs';
                 <button type="button" class="btn btn-secondary" (click)="closeCargoSelector()">
                   Cancelar
                 </button>
-                <button type="submit" class="btn btn-success" [disabled]="!empleadoForm.form.valid || !isFotoValid() || cedulaError || validandoCedula">
+                <button type="submit" class="btn btn-success" [disabled]="!empleadoForm.form.valid || !isFotoValid() || cedulaError || validandoCedula || (selectedEmpleado && !hasChanges)">
                   {{ selectedEmpleado ? 'Actualizar Empleado' : 'Guardar Empleado' }}
                 </button>
               </div>
@@ -1221,6 +1224,45 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     horario_id: null,
     dispositivos: [] as number[]
   };
+  
+  hasChanges: boolean = false;
+  
+  // Método para debuggear el estado completo
+  debugEstado(): void {
+    console.log('🔍 === ESTADO COMPLETO ===');
+    console.log('🔍 selectedEmpleado:', this.selectedEmpleado);
+    console.log('🔍 nuevoEmpleado:', this.nuevoEmpleado);
+    console.log('🔍 nuevoEmpleado.dispositivos:', this.nuevoEmpleado.dispositivos);
+    console.log('🔍 userDispositivos:', this.userDispositivos);
+    console.log('🔍 userCargos:', this.userCargos);
+    console.log('🔍 hasChanges:', this.hasChanges);
+    console.log('🔍 showCargoModal:', this.showCargoModal);
+    console.log('🔍 === FIN ESTADO ===');
+  }
+  
+  // Método para forzar el mapeo de dispositivos (para testing)
+  forzarMapeoDispositivos(): void {
+    if (this.selectedEmpleado && this.selectedEmpleado.dispositivos) {
+      console.log('🔧 Forzando mapeo de dispositivos...');
+      console.log('🔧 Dispositivos originales:', this.selectedEmpleado.dispositivos);
+      
+      const dispositivosIds = this.selectedEmpleado.dispositivos.map((d: any) => d.id);
+      console.log('🔧 IDs mapeados:', dispositivosIds);
+      
+      this.nuevoEmpleado.dispositivos = dispositivosIds;
+      console.log('🔧 Dispositivos asignados al formulario:', this.nuevoEmpleado.dispositivos);
+      
+      // Detectar cambios
+      this.detectChanges();
+    }
+  }
+  
+  // Método para resetear hasChanges manualmente (para testing)
+  resetearHasChanges(): void {
+    console.log('🔧 Reseteando hasChanges manualmente...');
+    this.hasChanges = false;
+    console.log('🔧 hasChanges reseteado a:', this.hasChanges);
+  }
 
   // Variables para validación de cédula
   cedulaError: string = '';
@@ -1277,7 +1319,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   ) {}
 
   // Helper para convertir EmpleadoForm a Partial<Empleado>
-  private toEmpleadoData(form: EmpleadoForm): Partial<Empleado> {
+  private toEmpleadoData(form: EmpleadoForm): any {
     return {
       id: form.id || undefined,
       foto: form.foto,
@@ -1288,7 +1330,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       sexo: form.sexo,
       cargo_id: form.cargo_id || undefined,
       primer_dia_horario: form.primer_dia_horario,
-      horario_id: form.horario_id || undefined
+      horario_id: form.horario_id || undefined,
+      dispositivos: form.dispositivos || []
     };
   }
 
@@ -1328,6 +1371,11 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   loadEmpleados(): void {
     this.empleadosService.getEmpleados().subscribe({
       next: (empleados) => {
+        console.log('🔍 Empleados cargados desde el backend:', empleados);
+        console.log('🔍 Primer empleado con dispositivos:', empleados[0]);
+        if (empleados[0] && empleados[0].dispositivos) {
+          console.log('🔍 Dispositivos del primer empleado:', empleados[0].dispositivos);
+        }
         this.empleados = empleados;
       },
       error: (error) => {
@@ -1437,30 +1485,83 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   onCargoChange(): void {
-    // Limpiar dispositivos seleccionados cuando cambie el cargo
-    this.nuevoEmpleado.dispositivos = [];
+    console.log('🔄 Cambio de cargo detectado');
+    console.log('🔄 Es empleado nuevo:', !this.selectedEmpleado);
+    console.log('🔄 Dispositivos antes del cambio:', this.nuevoEmpleado.dispositivos);
+    console.log('🔄 Cargo seleccionado:', this.nuevoEmpleado.cargo_id);
+    
+    // Guardar dispositivos actuales antes de cambiar
+    const dispositivosActuales = [...(this.nuevoEmpleado.dispositivos || [])];
+    console.log('🔄 Dispositivos guardados antes del cambio:', dispositivosActuales);
+    
+    // Solo limpiar dispositivos si es un empleado nuevo
+    if (!this.selectedEmpleado) {
+      // Solo para empleados nuevos, limpiar dispositivos si no hay cargo
+      if (!this.nuevoEmpleado.cargo_id) {
+        console.log('🔄 Limpiando dispositivos (empleado nuevo sin cargo)');
+        this.nuevoEmpleado.dispositivos = [];
+      }
+    } else {
+      // Si es edición, NUNCA limpiar dispositivos automáticamente
+      console.log('🔄 Editando empleado - manteniendo dispositivos seleccionados');
+      console.log('🔄 Dispositivos actuales:', this.nuevoEmpleado.dispositivos);
+      
+      const cargoAnterior = this.selectedEmpleado.Cargo?.id;
+      const cargoNuevo = this.nuevoEmpleado.cargo_id;
+      
+      console.log('🔄 Cargo anterior:', cargoAnterior);
+      console.log('🔄 Cargo nuevo:', cargoNuevo);
+      
+      // En edición, siempre mantener los dispositivos seleccionados
+      console.log('🔄 Manteniendo dispositivos seleccionados:', this.nuevoEmpleado.dispositivos);
+    }
+    
+    console.log('🔄 Dispositivos después del cambio:', this.nuevoEmpleado.dispositivos);
+    
     // Cargar dispositivos de la nueva sala
     this.loadUserDispositivos();
+    // Detectar cambios
+    this.detectChanges();
+    
+    // Debuggear estado después del cambio
+    setTimeout(() => {
+      this.debugEstado();
+    }, 100);
   }
 
   // Función helper para verificar si un dispositivo está seleccionado
   isDispositivoSelected(dispositivoId: number): boolean {
     if (!this.nuevoEmpleado.dispositivos || !Array.isArray(this.nuevoEmpleado.dispositivos)) {
+      console.log('🔍 isDispositivoSelected: No hay dispositivos o no es array');
       return false;
     }
-    return this.nuevoEmpleado.dispositivos.includes(dispositivoId);
+    const isSelected = this.nuevoEmpleado.dispositivos.includes(dispositivoId);
+    console.log(`🔍 isDispositivoSelected(${dispositivoId}): ${isSelected}, dispositivos:`, this.nuevoEmpleado.dispositivos);
+    return isSelected;
   }
 
   onDispositivoChange(dispositivoId: number, event: any): void {
+    console.log('🔄 onDispositivoChange:', dispositivoId, 'checked:', event.target.checked);
+    console.log('🔄 Dispositivos antes del cambio:', this.nuevoEmpleado.dispositivos);
+    
     if (event.target.checked) {
       // Agregar dispositivo si no está ya seleccionado
       if (!this.nuevoEmpleado.dispositivos.includes(dispositivoId)) {
         this.nuevoEmpleado.dispositivos.push(dispositivoId);
+        console.log('🔄 Dispositivo agregado:', dispositivoId);
+      } else {
+        console.log('🔄 Dispositivo ya estaba seleccionado:', dispositivoId);
       }
     } else {
       // Remover dispositivo
       this.nuevoEmpleado.dispositivos = this.nuevoEmpleado.dispositivos.filter(id => id !== dispositivoId);
+      console.log('🔄 Dispositivo removido:', dispositivoId);
     }
+    
+    console.log('🔄 Dispositivos después del cambio:', this.nuevoEmpleado.dispositivos);
+    
+    // Detectar cambios
+    this.detectChanges();
   }
 
   resetForm(): void {
@@ -2232,10 +2333,92 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     return date.toLocaleDateString('es-ES');
   }
 
+  detectChanges(): boolean {
+    if (!this.selectedEmpleado) {
+      this.hasChanges = true; // Si es nuevo empleado, siempre hay cambios
+      return true;
+    }
+    
+    const original = this.selectedEmpleado;
+    const current = this.nuevoEmpleado;
+    
+    // Comparar campos básicos con normalización de tipos
+    const normalizeValue = (value: any) => {
+      if (value === null || value === undefined || value === '') return null;
+      if (typeof value === 'string' && value.trim() === '') return null;
+      return value;
+    };
+    
+    // Normalizar cargo_id para comparación (convertir a string para comparar)
+    const normalizeCargoId = (value: any) => {
+      if (value === null || value === undefined || value === '') return null;
+      return String(value);
+    };
+    
+    const originalCargo = normalizeCargoId(original.cargo_id);
+    const currentCargo = normalizeCargoId(current.cargo_id);
+    const cargoChanged = originalCargo !== currentCargo && currentCargo !== null;
+    
+    const basicFieldsChanged = 
+      original.nombre !== current.nombre ||
+      original.cedula !== current.cedula ||
+      original.fecha_ingreso !== current.fecha_ingreso ||
+      original.fecha_cumpleanos !== current.fecha_cumpleanos ||
+      original.sexo !== current.sexo ||
+      cargoChanged ||
+      original.primer_dia_horario !== current.primer_dia_horario ||
+      original.horario_id !== current.horario_id;
+    
+    // Comparar foto (solo si se cambió)
+    const fotoChanged = current.foto && current.foto !== original.foto;
+    
+    // Comparar dispositivos
+    const dispositivosOriginales = original.dispositivos?.map((d: any) => d.id).sort() || [];
+    const dispositivosNuevos = (current.dispositivos || []).sort();
+    const dispositivosChanged = JSON.stringify(dispositivosOriginales) !== JSON.stringify(dispositivosNuevos);
+    
+    this.hasChanges = basicFieldsChanged || fotoChanged || dispositivosChanged;
+    
+    console.log('🔍 Detección de cambios:');
+    console.log('  - Campos básicos:', basicFieldsChanged);
+    console.log('  - Cargo cambió:', cargoChanged);
+    console.log('  - Cargo original:', original.cargo_id, 'tipo:', typeof original.cargo_id, 'normalizado:', originalCargo);
+    console.log('  - Cargo actual:', current.cargo_id, 'tipo:', typeof current.cargo_id, 'normalizado:', currentCargo);
+    console.log('  - Cargo iguales:', originalCargo === currentCargo);
+    console.log('  - Foto:', fotoChanged);
+    console.log('  - Dispositivos:', dispositivosChanged);
+    console.log('  - Dispositivos originales:', dispositivosOriginales);
+    console.log('  - Dispositivos nuevos:', dispositivosNuevos);
+    console.log('  - Hay cambios:', this.hasChanges);
+    
+    // Log detallado de cada campo
+    console.log('🔍 Comparación detallada:');
+    console.log('  - nombre:', original.nombre, 'vs', current.nombre, '=', original.nombre !== current.nombre);
+    console.log('  - cedula:', original.cedula, 'vs', current.cedula, '=', original.cedula !== current.cedula);
+    console.log('  - fecha_ingreso:', original.fecha_ingreso, 'vs', current.fecha_ingreso, '=', original.fecha_ingreso !== current.fecha_ingreso);
+    console.log('  - fecha_cumpleanos:', original.fecha_cumpleanos, 'vs', current.fecha_cumpleanos, '=', original.fecha_cumpleanos !== current.fecha_cumpleanos);
+    console.log('  - sexo:', original.sexo, 'vs', current.sexo, '=', original.sexo !== current.sexo);
+    console.log('  - cargo_id:', original.cargo_id, 'vs', current.cargo_id, '=', original.cargo_id !== current.cargo_id);
+    console.log('  - primer_dia_horario:', original.primer_dia_horario, 'vs', current.primer_dia_horario, '=', original.primer_dia_horario !== current.primer_dia_horario);
+    console.log('  - horario_id:', original.horario_id, 'vs', current.horario_id, '=', original.horario_id !== current.horario_id);
+    
+    return this.hasChanges;
+  }
+
   createEmpleado(): void {
     if (this.selectedEmpleado) {
+      // Verificar si hay cambios antes de actualizar
+      this.detectChanges();
+      
+      if (!this.hasChanges) {
+        console.log('ℹ️ No se detectaron cambios, no se guardará');
+        this.closeCargoSelector();
+        return;
+      }
+      
       // Actualizar empleado existente
       console.log('🔄 Actualizando empleado:', this.nuevoEmpleado);
+      console.log('🔄 Dispositivos en nuevoEmpleado:', this.nuevoEmpleado.dispositivos);
       
       // Obtener dispositivos anteriores y nuevos
       const dispositivosAnteriores = this.selectedEmpleado.dispositivos?.map((d: any) => d.id) || [];
@@ -2243,6 +2426,11 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       
       console.log('🔄 Dispositivos anteriores:', dispositivosAnteriores);
       console.log('🔄 Dispositivos nuevos:', dispositivosNuevos);
+      
+      // Verificar datos que se envían al backend
+      const empleadoData = this.toEmpleadoData(this.nuevoEmpleado);
+      console.log('🔄 Datos que se envían al backend:', empleadoData);
+      console.log('🔄 Dispositivos en empleadoData:', empleadoData.dispositivos);
       
       this.empleadosService.updateEmpleado(this.selectedEmpleado.id, this.toEmpleadoData(this.nuevoEmpleado)).subscribe({
         next: async (empleado) => {
@@ -2300,6 +2488,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     console.log('🔍 Tipo de dispositivos:', typeof empleado.dispositivos);
     console.log('🔍 Es array?:', Array.isArray(empleado.dispositivos));
     console.log('🔍 Longitud:', empleado.dispositivos?.length);
+    console.log('🔍 Estructura completa del empleado:', JSON.stringify(empleado, null, 2));
     
     // Log detallado de dispositivos asociados al empleado
     if (empleado.dispositivos && empleado.dispositivos.length > 0) {
@@ -2336,6 +2525,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     console.log('🔍 Dispositivos mapeados (IDs):', this.nuevoEmpleado.dispositivos);
     console.log('🔍 Verificando mapeo - empleado.dispositivos:', empleado.dispositivos);
     console.log('🔍 Verificando mapeo - empleado.dispositivos?.map:', empleado.dispositivos?.map((d: any) => d.id));
+    console.log('🔍 Verificando mapeo - empleado.dispositivos?.length:', empleado.dispositivos?.length);
+    console.log('🔍 Verificando mapeo - Array.isArray(empleado.dispositivos):', Array.isArray(empleado.dispositivos));
+    console.log('🔍 Verificando mapeo - empleado.dispositivos[0]:', empleado.dispositivos?.[0]);
+    console.log('🔍 Verificando mapeo - empleado.dispositivos[0]?.id:', empleado.dispositivos?.[0]?.id);
     
     // Cargar cargos primero, luego los demás datos
     this.loadUserCargos();
@@ -2344,6 +2537,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     // Esperar a que se carguen los cargos antes de cargar dispositivos
     setTimeout(() => {
       this.loadUserDispositivos();
+      // Detectar cambios iniciales
+      this.detectChanges();
       // Mostrar el modal después de cargar los dispositivos
       this.showCargoModal = true;
     }, 200); // Aumentar el timeout para asegurar que todo se carga

@@ -14,6 +14,7 @@ export interface Empleado {
   sexo?: string;
   primer_dia_horario?: string;
   horario_id?: number;
+  dispositivos?: number[];
   Cargo?: {
     id: number;
     nombre: string;
