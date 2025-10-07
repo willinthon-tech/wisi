@@ -5,7 +5,6 @@ import { Observable } from 'rxjs';
 export interface NovedadMaquina {
   id: number;
   nombre: string;
-  activo: boolean;
   sala_id: number;
   created_at: string;
   updated_at: string;

@@ -12,18 +12,9 @@ export interface Drop {
   denominacion_5: number;
   denominacion_1: number;
   total: number;
-  activo: boolean;
   Mesa?: {
     id: number;
     nombre: string;
-    Juego?: {
-      id: number;
-      nombre: string;
-      Sala?: {
-        id: number;
-        nombre: string;
-      };
-    };
   };
 }
 

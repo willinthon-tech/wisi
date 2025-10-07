@@ -93,8 +93,7 @@ const limiter = rateLimit({
   max: 1000, // limit each IP to 1000 requests per windowMs (aumentado para desarrollo)
   message: 'Demasiadas peticiones desde esta IP, intenta de nuevo más tarde.',
   standardHeaders: true,
-  legacyHeaders: false,
-});
+  legacyHeaders: false});
 app.use(limiter);
 
 // Inicializar base de datos SQLite
@@ -162,10 +161,10 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const user = await User.findOne({
-      where: { usuario, activo: true },
+      where: { usuario},
       include: [
-        { model: Sala, through: UserSala, where: { activo: true }, required: false },
-        { model: Module, through: UserModule, where: { activo: true }, required: false }
+        { model: Sala, through: UserSala, where: {}, required: false },
+        { model: Module, through: UserModule, where: {}, required: false }
       ]
     });
 
@@ -216,9 +215,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/users', authenticateToken, authorizeLevel('ADMINISTRADOR'), async (req, res) => {
   try {
     const users = await User.findAll({
-      where: { 
-        activo: true,
-        nivel: { [Op.ne]: 'TODO' } // Excluir al creador
+      where: {nivel: { [Op.ne]: 'TODO' } // Excluir al creador
       },
       include: [
         { model: Sala, through: UserSala },
@@ -268,7 +265,7 @@ app.post('/api/users', authenticateToken, authorizeLevel('ADMINISTRADOR'), async
 
     // Asignar salas
     if (salas && salas.length > 0) {
-      const salasToAssign = await Sala.findAll({ where: { id: salas, activo: true } });
+      const salasToAssign = await Sala.findAll({ where: { id: salas} });
       await user.addSalas(salasToAssign);
     }
 
@@ -277,8 +274,7 @@ app.post('/api/users', authenticateToken, authorizeLevel('ADMINISTRADOR'), async
       for (const modulePermission of modulePermissions) {
         const { moduleId, permissions } = modulePermission;
         
-        // Verificar que el módulo exista y esté activo
-        const module = await Module.findOne({ where: { id: moduleId, activo: true } });
+        // Verificar que el módulo exista y esté const module = await Module.findOne({ where: { id: moduleId} });
         if (!module) continue;
 
         // Asignar el módulo al usuario
@@ -382,7 +378,7 @@ app.put('/api/users/:id/assignments', authenticateToken, authorizeLevel('ADMINIS
 
     // Actualizar salas
     if (salas && salas.length > 0) {
-      const salasToAssign = await Sala.findAll({ where: { id: salas, activo: true } });
+      const salasToAssign = await Sala.findAll({ where: { id: salas} });
       await user.setSalas(salasToAssign);
     } else {
       await user.setSalas([]);
@@ -398,8 +394,7 @@ app.put('/api/users/:id/assignments', authenticateToken, authorizeLevel('ADMINIS
       for (const modulePermission of modulePermissions) {
         const { moduleId, permissions } = modulePermission;
         
-        // Verificar que el módulo exista y esté activo
-        const module = await Module.findOne({ where: { id: moduleId, activo: true } });
+        // Verificar que el módulo exista y esté const module = await Module.findOne({ where: { id: moduleId} });
         if (!module) {
           continue;
         }
@@ -486,7 +481,7 @@ app.get('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'), as
 app.put('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre_apellido, usuario, nivel, activo } = req.body;
+    const { nombre_apellido, usuario, nivel} = req.body;
 
     const user = await User.findOne({
       where: { 
@@ -502,9 +497,7 @@ app.put('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'), as
     await user.update({
       nombre_apellido,
       usuario,
-      nivel,
-      activo
-    });
+      nivel});
 
     res.json({ message: 'Usuario actualizado exitosamente' });
   } catch (error) {
@@ -550,7 +543,7 @@ app.delete('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'),
 
 app.get('/api/salas', authenticateToken, async (req, res) => {
   try {
-    const salas = await Sala.findAll({ where: { activo: true } });
+    const salas = await Sala.findAll({ where: {} });
     res.json(salas);
   } catch (error) {
     console.error('Error obteniendo salas:', error);
@@ -590,14 +583,14 @@ app.post('/api/salas', authenticateToken, authorizeLevel('TODO'), async (req, re
 app.put('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, activo } = req.body;
+    const { nombre} = req.body;
 
     const sala = await Sala.findByPk(id);
     if (!sala) {
       return res.status(404).json({ message: 'Sala no encontrada' });
     }
 
-    await sala.update({ nombre, activo });
+    await sala.update({ nombre});
 
     res.json({ message: 'Sala actualizada exitosamente' });
   } catch (error) {
@@ -685,7 +678,7 @@ app.delete('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (r
 app.get('/api/modules', authenticateToken, async (req, res) => {
   try {
     const modules = await Module.findAll({ 
-      where: { activo: true },
+      where: {},
       include: [{
         model: Page,
         required: false
@@ -698,7 +691,7 @@ app.get('/api/modules', authenticateToken, async (req, res) => {
   }
 });
 
-// Obtener todos los módulos (incluyendo inactivos) - solo para administradores
+// Obtener todos los módulos (incluyendo ins) - solo para administradores
 app.get('/api/modules/all', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
   try {
     const modules = await Module.findAll({
@@ -733,9 +726,7 @@ app.post('/api/modules', authenticateToken, authorizeLevel('TODO'), async (req, 
       nombre, 
       icono: icono || 'settings', 
       ruta: ruta || `/${nombre.toLowerCase().replace(/\s+/g, '-')}`, 
-      page_id: page_id || null, 
-      activo: true 
-    });
+      page_id: page_id || null});
     
 
     // Asignar automáticamente al usuario creador
@@ -751,14 +742,14 @@ app.post('/api/modules', authenticateToken, authorizeLevel('TODO'), async (req, 
 app.put('/api/modules/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, icono, ruta, activo, page_id } = req.body;
+    const { nombre, icono, ruta, page_id } = req.body;
 
     const module = await Module.findByPk(id);
     if (!module) {
       return res.status(404).json({ message: 'Módulo no encontrado' });
     }
 
-    await module.update({ nombre, icono, ruta, activo, page_id });
+    await module.update({ nombre, icono, ruta, page_id });
 
     res.json({ message: 'Módulo actualizado exitosamente' });
   } catch (error) {
@@ -793,10 +784,10 @@ app.delete('/api/modules/:id', authenticateToken, authorizeLevel('TODO'), async 
 app.get('/api/pages', authenticateToken, async (req, res) => {
   try {
     const pages = await Page.findAll({ 
-      where: { activo: true },
+      where: {},
       include: [{
         model: Module,
-        where: { activo: true },
+        where: {},
         required: false
       }],
       order: [['orden', 'ASC']]
@@ -843,9 +834,7 @@ app.post('/api/pages', authenticateToken, authorizeLevel('TODO'), async (req, re
     const page = await Page.create({ 
       nombre, 
       icono: icono || 'file', 
-      orden: orden || 0, 
-      activo: true 
-    });
+      orden: orden || 0});
     
 
     // Asignar automáticamente al usuario creador (las páginas no se asignan directamente, pero el creador tiene acceso)
@@ -861,14 +850,14 @@ app.post('/api/pages', authenticateToken, authorizeLevel('TODO'), async (req, re
 app.put('/api/pages/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, icono, orden, activo } = req.body;
+    const { nombre, icono, orden} = req.body;
 
     const page = await Page.findByPk(id);
     if (!page) {
       return res.status(404).json({ message: 'Página no encontrada' });
     }
 
-    await page.update({ nombre, icono, orden, activo });
+    await page.update({ nombre, icono, orden});
 
     res.json({ message: 'Página actualizada exitosamente' });
   } catch (error) {
@@ -905,8 +894,8 @@ app.get('/api/user/permissions', authenticateToken, async (req, res) => {
     // Si es el usuario creador (TODO), devolver todos los permisos de todos los módulos
     if (userLevel === 'TODO') {
       
-      const allModules = await Module.findAll({ where: { activo: true } });
-      const allPermissions = await Permission.findAll({ where: { activo: true } });
+      const allModules = await Module.findAll({ where: {} });
+      const allPermissions = await Permission.findAll({ where: {} });
       
       const creatorPermissions = [];
       for (const module of allModules) {
@@ -930,11 +919,11 @@ app.get('/api/user/permissions', authenticateToken, async (req, res) => {
       include: [
         {
           model: Module,
-          where: { activo: true }
+          where: {}
         },
         {
           model: Permission,
-          where: { activo: true }
+          where: {}
         }
       ]
     });
@@ -961,8 +950,8 @@ app.post('/api/admin/assign-permissions', authenticateToken, async (req, res) =>
     const userId = req.user.id;
     
     // Obtener todos los módulos y permisos
-    const modules = await Module.findAll({ where: { activo: true } });
-    const permissions = await Permission.findAll({ where: { activo: true } });
+    const modules = await Module.findAll({ where: {} });
+    const permissions = await Permission.findAll({ where: {} });
     
     
     // Asignar todos los permisos a todos los módulos para este usuario
@@ -1005,7 +994,7 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
     // Si es el creador, devolver todas las páginas
     if (user.nivel === 'TODO') {
       const allPages = await Page.findAll({
-        where: { activo: true },
+        where: {},
         order: [['orden', 'ASC']]
       });
       return res.json(allPages);
@@ -1016,7 +1005,7 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
       where: { user_id: userId },
       include: [{
         model: Module,
-        where: { activo: true }
+        where: {}
       }]
     });
 
@@ -1032,12 +1021,10 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
 
     // Obtener páginas que contienen estos módulos
     const pages = await Page.findAll({
-      where: { activo: true },
+      where: {},
       include: [{
         model: Module,
-        where: { 
-          activo: true,
-          id: moduleIds
+        where: {id: moduleIds
         },
         required: true
       }],
@@ -1065,7 +1052,7 @@ app.get('/api/user/modules', authenticateToken, async (req, res) => {
       where: { user_id: userId },
       include: [{
         model: Module,
-        where: { activo: true }
+        where: {}
       }]
     });
 
@@ -1090,7 +1077,7 @@ app.get('/api/user/salas', authenticateToken, async (req, res) => {
       where: { user_id: userId },
       include: [{
         model: Sala,
-        where: { activo: true }
+        where: {}
       }]
     });
 
@@ -1116,7 +1103,7 @@ app.get('/api/user/juegos', authenticateToken, async (req, res) => {
     if (userLevel === 'TODO') {
       // El creador tiene acceso a todos los juegos
       juegos = await Juego.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -1129,16 +1116,14 @@ app.get('/api/user/juegos', authenticateToken, async (req, res) => {
         where: { user_id: userId },
         include: [{
           model: Sala,
-          where: { activo: true }
+          where: {}
         }]
       });
 
       const userSalaIds = userSalas.map(us => us.Sala.id);
       
       juegos = await Juego.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -1166,7 +1151,7 @@ app.get('/api/user/rangos', authenticateToken, async (req, res) => {
     if (userLevel === 'TODO') {
       // El creador tiene acceso a todos los rangos
       rangos = await Rango.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -1179,16 +1164,14 @@ app.get('/api/user/rangos', authenticateToken, async (req, res) => {
         where: { user_id: userId },
         include: [{
           model: Sala,
-          where: { activo: true }
+          where: {}
         }]
       });
 
       const userSalaIds = userSalas.map(us => us.Sala.id);
       
       rangos = await Rango.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -1221,7 +1204,7 @@ app.get('/api/permissions', authenticateToken, async (req, res) => {
 
 app.post('/api/permissions', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
   try {
-    const { nombre, activo = true } = req.body;
+    const { nombre } = req.body;
     
 
     if (!nombre) {
@@ -1237,7 +1220,7 @@ app.post('/api/permissions', authenticateToken, authorizeLevel('TODO'), async (r
       return res.status(400).json({ message: 'Ya existe un permiso con ese nombre' });
     }
 
-    const permission = await Permission.create({ nombre, activo });
+    const permission = await Permission.create({ nombre});
     
 
     // Asignar automáticamente al usuario creador
@@ -1253,14 +1236,14 @@ app.post('/api/permissions', authenticateToken, authorizeLevel('TODO'), async (r
 app.put('/api/permissions/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, activo } = req.body;
+    const { nombre} = req.body;
 
     const permission = await Permission.findByPk(id);
     if (!permission) {
       return res.status(404).json({ message: 'Permiso no encontrado' });
     }
 
-    await permission.update({ nombre, activo });
+    await permission.update({ nombre});
 
     res.json({ message: 'Permiso actualizado exitosamente' });
   } catch (error) {
@@ -1302,7 +1285,7 @@ app.get('/api/user/salas', authenticateToken, async (req, res) => {
     if (userLevel === 'TODO') {
       // El creador tiene acceso a todas las salas
       salas = await Sala.findAll({
-        where: { activo: true }
+        where: {}
       });
     } else {
       // Otros usuarios solo ven sus salas asignadas
@@ -1310,7 +1293,7 @@ app.get('/api/user/salas', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -1339,7 +1322,7 @@ app.get('/api/libros', authenticateToken, async (req, res) => {
     if (userLevel === 'TODO') {
       // El creador ve todos los libros
       libros = await Libro.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -1352,7 +1335,7 @@ app.get('/api/libros', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -1363,9 +1346,7 @@ app.get('/api/libros', authenticateToken, async (req, res) => {
       const userSalaIds = user.Salas.map(sala => sala.id);
 
       libros = await Libro.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -1431,7 +1412,6 @@ app.post('/api/libros', authenticateToken, async (req, res) => {
     }
 
     const libro = await Libro.create({
-      activo: true,
       sala_id: sala_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
@@ -1456,7 +1436,7 @@ app.post('/api/libros', authenticateToken, async (req, res) => {
 app.put('/api/libros/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { activo } = req.body;
+    // No se requieren campos para actualizar libros
 
     const libro = await Libro.findByPk(id);
     if (!libro) {
@@ -1464,8 +1444,7 @@ app.put('/api/libros/:id', authenticateToken, async (req, res) => {
     }
 
     await libro.update({
-      activo
-    });
+      });
 
     res.json({ message: 'Libro actualizado exitosamente', libro });
   } catch (error) {
@@ -1513,7 +1492,7 @@ app.get('/api/rangos', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       rangos = await Rango.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -1525,7 +1504,7 @@ app.get('/api/rangos', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -1535,9 +1514,7 @@ app.get('/api/rangos', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       rangos = await Rango.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -1582,7 +1559,6 @@ app.post('/api/rangos', authenticateToken, async (req, res) => {
 
     const rango = await Rango.create({
       nombre: nombre,
-      activo: true,
       sala_id: sala_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
@@ -1638,7 +1614,7 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       areas = await Area.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -1650,7 +1626,7 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -1660,9 +1636,7 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       areas = await Area.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -1707,7 +1681,6 @@ app.post('/api/areas', authenticateToken, async (req, res) => {
 
     const area = await Area.create({
       nombre: nombre,
-      activo: true,
       sala_id: sala_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
@@ -1795,8 +1768,8 @@ app.delete('/api/areas/:id', authenticateToken, async (req, res) => {
       });
     }
     
-    // Eliminar el área (soft delete)
-    await area.update({ activo: false });
+    // Eliminar el área
+    await area.destroy();
     res.json({ message: 'Área eliminada exitosamente' });
   } catch (error) {
     console.error('Error eliminando área:', error);
@@ -1818,7 +1791,7 @@ app.get('/api/user/areas', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       areas = await Area.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -1830,7 +1803,7 @@ app.get('/api/user/areas', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -1840,9 +1813,7 @@ app.get('/api/user/areas', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       areas = await Area.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -1869,7 +1840,7 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       departamentos = await Departamento.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Area,
           attributes: ['id', 'nombre'],
@@ -1885,7 +1856,7 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -1895,12 +1866,10 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       departamentos = await Departamento.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Area,
-          where: { 
-            activo: true,
-            sala_id: userSalaIds
+          where: {sala_id: userSalaIds
           },
           attributes: ['id', 'nombre'],
           include: [{
@@ -1947,7 +1916,6 @@ app.post('/api/departamentos', authenticateToken, async (req, res) => {
 
     const departamento = await Departamento.create({
       nombre: nombre,
-      activo: true,
       area_id: area_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
@@ -2045,8 +2013,8 @@ app.delete('/api/departamentos/:id', authenticateToken, async (req, res) => {
       });
     }
     
-    // Eliminar el departamento (soft delete)
-    await departamento.update({ activo: false });
+    // Eliminar el departamento
+    await departamento.destroy();
     res.json({ message: 'Departamento eliminado exitosamente' });
   } catch (error) {
     console.error('Error eliminando departamento:', error);
@@ -2068,7 +2036,7 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       departamentos = await Departamento.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Area,
           attributes: ['id', 'nombre'],
@@ -2084,7 +2052,7 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -2094,12 +2062,10 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       departamentos = await Departamento.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Area,
-          where: { 
-            activo: true,
-            sala_id: userSalaIds
+          where: {sala_id: userSalaIds
           },
           attributes: ['id', 'nombre'],
           include: [{
@@ -2128,7 +2094,7 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       cargos = await Cargo.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Departamento,
           attributes: ['id', 'nombre'],
@@ -2148,7 +2114,7 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -2158,16 +2124,14 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       cargos = await Cargo.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Departamento,
-          where: { activo: true },
+          where: {},
           attributes: ['id', 'nombre'],
           include: [{
             model: Area,
-            where: { 
-              activo: true,
-              sala_id: userSalaIds
+            where: {sala_id: userSalaIds
             },
             attributes: ['id', 'nombre'],
             include: [{
@@ -2215,7 +2179,6 @@ app.post('/api/cargos', authenticateToken, async (req, res) => {
 
     const cargo = await Cargo.create({
       nombre: nombre,
-      activo: true,
       departamento_id: departamento_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
@@ -2319,8 +2282,8 @@ app.delete('/api/cargos/:id', authenticateToken, async (req, res) => {
       });
     }
     
-    // Eliminar el cargo (soft delete)
-    await cargo.update({ activo: false });
+    // Eliminar el cargo
+    await cargo.destroy();
     res.json({ message: 'Cargo eliminado exitosamente' });
   } catch (error) {
     console.error('Error eliminando cargo:', error);
@@ -2346,7 +2309,6 @@ app.get('/api/horarios', authenticateToken, async (req, res) => {
         SELECT h.*, s.nombre as sala_nombre 
         FROM horarios h 
         LEFT JOIN salas s ON h.sala_id = s.id 
-        WHERE h.activo = 1 
         ORDER BY h.created_at DESC
       `, {
         type: sequelize.QueryTypes.SELECT
@@ -2356,7 +2318,6 @@ app.get('/api/horarios', authenticateToken, async (req, res) => {
         id: row.id,
         nombre: row.nombre,
         sala_id: row.sala_id,
-        activo: row.activo,
         created_at: row.created_at,
         updated_at: row.updated_at,
         Sala: {
@@ -2370,7 +2331,7 @@ app.get('/api/horarios', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -2380,9 +2341,7 @@ app.get('/api/horarios', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       horarios = await Horario.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         order: [['created_at', 'DESC']],
         raw: true
@@ -2564,8 +2523,8 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Soft delete - marcar como inactivo
-    await horario.update({ activo: false });
+    // Eliminar el horario
+    await horario.destroy();
 
     res.json({ message: 'Horario eliminado correctamente' });
   } catch (error) {
@@ -2612,7 +2571,7 @@ app.get('/api/mesas', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       mesas = await Mesa.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -2627,7 +2586,7 @@ app.get('/api/mesas', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -2637,9 +2596,7 @@ app.get('/api/mesas', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       mesas = await Mesa.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -2693,7 +2650,6 @@ app.post('/api/mesas', authenticateToken, async (req, res) => {
 
     const mesa = await Mesa.create({
       nombre: nombre,
-      activo: true,
       sala_id: juego.sala_id,
       juego_id: juego_id,
       created_at: fechaCreacion,
@@ -2753,7 +2709,7 @@ app.get('/api/juegos', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       juegos = await Juego.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -2765,7 +2721,7 @@ app.get('/api/juegos', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -2775,9 +2731,7 @@ app.get('/api/juegos', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       juegos = await Juego.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -2822,7 +2776,6 @@ app.post('/api/juegos', authenticateToken, async (req, res) => {
 
     const juego = await Juego.create({
       nombre: nombre,
-      activo: true,
       sala_id: sala_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
@@ -2878,7 +2831,7 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       maquinas = await Maquina.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Rango,
           attributes: ['id', 'nombre']
@@ -2893,7 +2846,7 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -2903,9 +2856,7 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       maquinas = await Maquina.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Rango,
@@ -2959,7 +2910,6 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
 
     const maquina = await Maquina.create({
       nombre: nombre,
-      activo: true,
       sala_id: rango.sala_id,
       rango_id: rango_id,
       created_at: fechaCreacion,
@@ -3019,7 +2969,7 @@ app.get('/api/tecnicos', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       tecnicos = await Tecnico.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -3031,7 +2981,7 @@ app.get('/api/tecnicos', authenticateToken, async (req, res) => {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: { activo: true }
+          where: {}
         }]
       });
 
@@ -3041,9 +2991,7 @@ app.get('/api/tecnicos', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       tecnicos = await Tecnico.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -3088,7 +3036,6 @@ app.post('/api/tecnicos', authenticateToken, async (req, res) => {
 
     const tecnico = await Tecnico.create({
       nombre: nombre,
-      activo: true,
       sala_id: sala_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
@@ -3296,9 +3243,7 @@ app.get('/api/drops/:libroId', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       drops = await Drop.findAll({
-        where: { 
-          activo: true,
-          libro_id: libroId
+        where: {libro_id: libroId
         },
         include: [{
           model: Libro,
@@ -3332,9 +3277,7 @@ app.get('/api/drops/:libroId', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       drops = await Drop.findAll({
-        where: { 
-          activo: true,
-          libro_id: libroId,
+        where: {libro_id: libroId,
           '$Mesa.Juego.Sala.id$': userSalaIds
         },
         include: [{
@@ -3373,7 +3316,7 @@ app.get('/api/user/mesas', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       mesas = await Mesa.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Juego,
           attributes: ['id', 'nombre'],
@@ -3399,9 +3342,7 @@ app.get('/api/user/mesas', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       mesas = await Mesa.findAll({
-        where: { 
-          activo: true,
-          '$Juego.Sala.id$': userSalaIds
+        where: {'$Juego.Sala.id$': userSalaIds
         },
         include: [{
           model: Juego,
@@ -3457,9 +3398,7 @@ app.post('/api/drops', authenticateToken, async (req, res) => {
     let drop = await Drop.findOne({
       where: { 
         libro_id: libro_id,
-        mesa_id: mesa_id,
-        activo: true
-      }
+        mesa_id: mesa_id}
     });
 
     if (drop) {
@@ -3484,9 +3423,7 @@ app.post('/api/drops', authenticateToken, async (req, res) => {
         denominacion_10: denominacion_10 || 0,
         denominacion_5: denominacion_5 || 0,
         denominacion_1: denominacion_1 || 0,
-        total: total,
-        activo: true
-      });
+        total: total});
     }
 
     // Obtener el drop con sus relaciones
@@ -3522,7 +3459,7 @@ app.delete('/api/drops/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Drop no encontrado' });
     }
 
-    await drop.update({ activo: false });
+    await drop.destroy();
     res.json({ message: 'Drop eliminado correctamente' });
   } catch (error) {
     console.error('❌ Error eliminando drop:', error);
@@ -3542,7 +3479,7 @@ app.get('/api/novedades-maquinas', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       novedades = await NovedadMaquina.findAll({
-        where: { activo: true },
+        where: {},
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -3564,9 +3501,7 @@ app.get('/api/novedades-maquinas', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       novedades = await NovedadMaquina.findAll({
-        where: { 
-          activo: true,
-          sala_id: userSalaIds
+        where: {sala_id: userSalaIds
         },
         include: [{
           model: Sala,
@@ -3599,7 +3534,6 @@ app.post('/api/novedades-maquinas', authenticateToken, async (req, res) => {
 
     const novedad = await NovedadMaquina.create({
       nombre: nombre,
-      activo: true,
       sala_id: sala_id
     });
 
@@ -3646,7 +3580,7 @@ app.delete('/api/novedades-maquinas/:id', authenticateToken, async (req, res) =>
       return res.status(404).json({ message: 'Novedad de máquina no encontrada' });
     }
 
-    await novedad.update({ activo: false });
+    await novedad.destroy();
     res.json({ message: 'Novedad de máquina eliminada correctamente' });
   } catch (error) {
     console.error('❌ Error eliminando novedad de máquina:', error);
@@ -3667,9 +3601,7 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
     
     if (userLevel === 'TODO') {
       registros = await NovedadMaquinaRegistro.findAll({
-        where: { 
-          activo: true,
-          libro_id: libroId
+        where: {libro_id: libroId
         },
         include: [{
           model: Libro,
@@ -3718,9 +3650,7 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
       const userSalaIds = user.Salas.map(sala => sala.id);
       
       registros = await NovedadMaquinaRegistro.findAll({
-        where: { 
-          activo: true,
-          libro_id: libroId
+        where: {libro_id: libroId
         },
         include: [{
           model: Libro,
@@ -3806,9 +3736,7 @@ app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res
       maquina_id: maquina_id,
       novedad_maquina_id: novedad_maquina_id,
       tecnico_id: tecnico_id,
-      hora: hora,
-      activo: true
-    });
+      hora: hora});
 
     // Obtener el registro completo con todas las relaciones
     const registroCompleto = await NovedadMaquinaRegistro.findByPk(registro.id, {
@@ -3860,7 +3788,7 @@ app.delete('/api/novedades-maquinas-registros/:id', authenticateToken, async (re
       return res.status(404).json({ message: 'Registro de novedad de máquina no encontrado' });
     }
 
-    await registro.update({ activo: false });
+    await registro.destroy();
     res.json({ message: 'Registro de novedad de máquina eliminado correctamente' });
   } catch (error) {
     console.error('❌ Error eliminando registro de novedad de máquina:', error);
@@ -3881,9 +3809,7 @@ app.get('/api/incidencias-generales/:libroId', authenticateToken, async (req, re
     
     if (userLevel === 'TODO') {
       incidencias = await IncidenciaGeneral.findAll({
-        where: { 
-          activo: true,
-          libro_id: libroId
+        where: {libro_id: libroId
         },
         include: [{
           model: Libro,
@@ -3907,9 +3833,7 @@ app.get('/api/incidencias-generales/:libroId', authenticateToken, async (req, re
       const userSalaIds = user.Salas.map(sala => sala.id);
       
       incidencias = await IncidenciaGeneral.findAll({
-        where: { 
-          activo: true,
-          libro_id: libroId
+        where: {libro_id: libroId
         },
         include: [{
           model: Libro,
@@ -3943,9 +3867,7 @@ app.post('/api/incidencias-generales', authenticateToken, async (req, res) => {
     const incidencia = await IncidenciaGeneral.create({
       libro_id,
       descripcion,
-      hora,
-      activo: true
-    });
+      hora});
 
     res.status(201).json(incidencia);
   } catch (error) {
@@ -3964,7 +3886,7 @@ app.delete('/api/incidencias-generales/:id', authenticateToken, async (req, res)
       return res.status(404).json({ message: 'Incidencia no encontrada' });
     }
 
-    await incidencia.update({ activo: false });
+    await incidencia.destroy();
     res.json({ message: 'Incidencia eliminada correctamente' });
   } catch (error) {
     console.error('❌ Error eliminando incidencia general:', error);
@@ -3978,7 +3900,7 @@ app.delete('/api/incidencias-generales/:id', authenticateToken, async (req, res)
 app.get('/api/empleados', authenticateToken, async (req, res) => {
   try {
     const empleados = await Empleado.findAll({
-      where: { activo: true },
+      where: {},
       include: [
         {
           model: Cargo,
@@ -4118,9 +4040,7 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
       sexo,
       cargo_id,
       primer_dia_horario: primer_dia_horario || null,
-      horario_id: horario_id || null,
-      activo: true
-    });
+      horario_id: horario_id || null});
 
     // Manejar dispositivos si se proporcionan
     if (dispositivos && dispositivos.length > 0) {
@@ -4323,7 +4243,7 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    await empleado.update({ activo: false });
+    await empleado.destroy();
     res.json({ message: 'Empleado eliminado correctamente' });
   } catch (error) {
     console.error('❌ Error eliminando empleado:', error);
@@ -4954,7 +4874,7 @@ app.post('/api/hikvision/sync', authenticateToken, async (req, res) => {
 app.get('/api/dispositivos', authenticateToken, async (req, res) => {
   try {
     const dispositivos = await Dispositivo.findAll({
-      where: { activo: true },
+      where: {},
       include: [
         {
           model: Sala,
@@ -4982,9 +4902,7 @@ app.post('/api/dispositivos/by-ids', authenticateToken, async (req, res) => {
 
     const dispositivos = await Dispositivo.findAll({
       where: { 
-        id: { [Op.in]: ids },
-        activo: true 
-      },
+        id: { [Op.in]: ids }},
       include: [
         {
           model: Sala,
@@ -5048,9 +4966,7 @@ app.post('/api/dispositivos', authenticateToken, async (req, res) => {
       usuario: usuario || null,
       clave: clave || null,
       marcaje_inicio: marcaje_inicio || null,
-      marcaje_fin: marcaje_fin || null,
-      activo: true
-    });
+      marcaje_fin: marcaje_fin || null});
 
     // Obtener el dispositivo con sus relaciones
     const dispositivoCompleto = await Dispositivo.findByPk(dispositivo.id, {
@@ -5150,7 +5066,7 @@ app.delete('/api/dispositivos/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    await dispositivo.update({ activo: false });
+    await dispositivo.destroy();
     res.json({ message: 'Dispositivo eliminado correctamente' });
   } catch (error) {
     console.error('❌ Error eliminando dispositivo:', error);

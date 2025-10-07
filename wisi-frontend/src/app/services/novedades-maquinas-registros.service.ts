@@ -9,19 +9,12 @@ export interface NovedadMaquinaRegistro {
   novedad_maquina_id: number;
   tecnico_id: number;
   hora: string;
-  activo: boolean;
-  created_at: string;
-  updated_at: string;
   Maquina?: {
     id: number;
     nombre: string;
-    Rango?: {
+    Sala?: {
       id: number;
       nombre: string;
-      Sala?: {
-        id: number;
-        nombre: string;
-      };
     };
   };
   NovedadMaquina?: {

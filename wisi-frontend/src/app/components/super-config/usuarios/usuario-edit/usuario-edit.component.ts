@@ -920,8 +920,8 @@ export class UsuarioEditComponent implements OnInit {
     ]).then(([user, salas, pages, modules, permissions]) => {
       this.user = user || null;
       this.availableSalas = salas || [];
-      this.availablePages = pages?.filter(p => p.activo) || [];
-      this.availableModules = modules?.filter(m => m.activo) || [];
+      this.availablePages = pages || [];
+      this.availableModules = modules || [];
       this.availablePermissions = permissions || [];
       
       // Inicializar selecciones

@@ -206,8 +206,7 @@ export const routes: Routes = [
       {
         path: 'dispositivos/editar/:id',
         loadComponent: () => import('./components/dispositivos/dispositivos-form/dispositivos-form.component').then(m => m.DispositivosFormComponent)
-      },
-    ]
+      }]
   },
   {
     path: '**',

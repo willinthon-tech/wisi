@@ -23,10 +23,6 @@ module.exports = (sequelize) => {
         key: 'id'
       }
     },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
-    }
   }, {
     tableName: 'sala_modules',
     timestamps: true,

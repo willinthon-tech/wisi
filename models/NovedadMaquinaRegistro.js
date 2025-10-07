@@ -43,11 +43,6 @@ module.exports = (sequelize) => {
       type: DataTypes.TIME,
       allowNull: false
     },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true
-    }
   }, {
     tableName: 'novedades_maquinas_registros',
     timestamps: true,

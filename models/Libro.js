@@ -7,11 +7,6 @@ module.exports = (sequelize) => {
       primaryKey: true,
       autoIncrement: true
     },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true
-    },
     sala_id: {
       type: DataTypes.INTEGER,
       allowNull: false,

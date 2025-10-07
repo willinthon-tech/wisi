@@ -41,7 +41,7 @@ import { Subscription } from 'rxjs';
             <tr *ngFor="let horario of horarios; let i = index">
               <td>{{ i + 1 }}</td>
               <td>{{ horario.nombre }}</td>
-              <td>{{ horario.sala?.nombre || 'Sin asignar' }}</td>
+              <td>{{ horario.Sala?.nombre || 'Sin asignar' }}</td>
               <td>{{ horario.bloques?.length || 0 }} bloques</td>
               <td>
                 <div class="patron-preview">

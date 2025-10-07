@@ -19,11 +19,6 @@ module.exports = (sequelize) => {
         model: 'salas',
         key: 'id'
       }
-    },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true
     }
   }, {
     tableName: 'horarios',

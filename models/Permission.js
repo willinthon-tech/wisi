@@ -10,12 +10,7 @@ module.exports = (sequelize) => {
     nombre: {
       type: DataTypes.STRING(100),
       allowNull: false
-    },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true
-    },
+    }
   }, {
     tableName: 'permissions',
     timestamps: true,

@@ -9,7 +9,6 @@ export interface User {
   password?: string;
   password_plain?: string;
   nivel: string;
-  activo: boolean;
   Salas?: any[];
   Modules?: any[];
   Permissions?: any[];

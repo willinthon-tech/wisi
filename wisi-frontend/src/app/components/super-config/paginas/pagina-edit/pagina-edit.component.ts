@@ -39,10 +39,10 @@ import { UserService } from '../../../../services/user.service';
             <label class="checkbox-label">
               <input 
                 type="checkbox" 
-                [(ngModel)]="page.activo" 
-                name="activo">
+                 
+                >
               <span class="checkmark"></span>
-              Página activa
+              Página
             </label>
             <small class="help-text">
               Las páginas inactivas no aparecerán en el menú de usuarios
@@ -559,9 +559,7 @@ export class PaginaEditComponent implements OnInit {
     const pageData = {
       nombre: this.page.nombre.trim(),
       icono: 'file',
-      orden: 0,
-      activo: this.page.activo
-    };
+      orden: 0};
 
     this.userService.updatePage(this.page.id, pageData).subscribe({
       next: (response) => {

@@ -13,10 +13,7 @@ interface IncidenciaGeneral {
   libro_id: number;
   descripcion: string;
   hora: string;
-  activo: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
+  }
 
 interface Sala {
   id: number;

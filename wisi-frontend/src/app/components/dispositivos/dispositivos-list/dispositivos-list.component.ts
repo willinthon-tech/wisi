@@ -362,7 +362,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
           
           // Verificar que sea una URL base64 válida
           if (photoUrl.startsWith('data:image/') && photoUrl.includes('base64,')) {
-            // Verificar que la URL no esté corrupta (debe tener contenido después de base64,)
+            // Verificar que la URL no esté corrupta (debe tener contenido después de base64)
             const base64Index = photoUrl.indexOf('base64,');
             const base64Data = photoUrl.substring(base64Index + 7);
             

@@ -220,8 +220,7 @@ export class SalaCreateComponent {
     this.loading = true;
 
     const salaData = {
-      nombre: this.sala.nombre.trim(),
-    };
+      nombre: this.sala.nombre.trim()};
     
     this.userService.createSala(salaData).subscribe({
       next: (response) => {

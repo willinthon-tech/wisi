@@ -221,7 +221,7 @@ export class PageViewComponent implements OnInit {
     this.userService.getModules().subscribe({
       next: (modules) => {
         this.modules = modules.filter(module => 
-          module.page_id === this.pageId && module.activo
+          module.page_id === this.pageId
         );
       },
       error: (error) => {

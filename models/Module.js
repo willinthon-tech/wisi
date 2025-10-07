@@ -19,10 +19,6 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(255),
       allowNull: true
     },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
-    },
     page_id: {
       type: DataTypes.INTEGER,
       allowNull: true,

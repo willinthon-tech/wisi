@@ -28,10 +28,6 @@ module.exports = (sequelize) => {
       type: DataTypes.ENUM('TODO', 'ADMINISTRADOR', 'USUARIO_ACCESO'),
       allowNull: false
     },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
-    }
   }, {
     tableName: 'users',
     timestamps: true,

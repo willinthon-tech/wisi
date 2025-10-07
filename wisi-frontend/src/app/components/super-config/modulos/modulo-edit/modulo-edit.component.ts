@@ -60,13 +60,13 @@ import { UserService } from '../../../../services/user.service';
             <label class="checkbox-label">
               <input 
                 type="checkbox" 
-                [(ngModel)]="module.activo" 
-                name="activo">
+                 
+                >
               <span class="checkmark"></span>
-              Módulo activo
+              Módulo
             </label>
             <small class="help-text">
-              Los módulos inactivos no aparecerán disponibles para asignar a usuarios
+              
             </small>
           </div>
 
@@ -507,7 +507,6 @@ export class ModuloEditComponent implements OnInit {
       nombre: this.module.nombre.trim(),
       icono: 'settings',
       ruta: `/${this.module.nombre.toLowerCase().replace(/\s+/g, '-')}`,
-      activo: this.module.activo,
       page_id: this.module.page_id || null
     };
 

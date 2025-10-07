@@ -203,18 +203,15 @@ const insertInitialData = async () => {
       usuario: 'willinthon',
       password: hashedPassword,
       nivel: 'TODO',
-      activo: true
     });
 
     // Crear salas
     const sala1 = await Sala.create({
       nombre: 'Monagas Royal',
-      activa: true
     });
 
     const sala2 = await Sala.create({
-      nombre: 'Roraima',
-      activa: true
+      nombre: 'Roraima'
     });
 
     // Crear módulos
@@ -222,28 +219,24 @@ const insertInitialData = async () => {
       nombre: 'MODULO RRHH',
       icono: 'users',
       ruta: '/rrhh',
-      activo: true
     });
 
     const moduleMaquinas = await Module.create({
       nombre: 'MODULO MAQUINAS',
       icono: 'gamepad2',
       ruta: '/maquinas',
-      activo: true
     });
 
     const moduleCecom = await Module.create({
       nombre: 'MODULO CECOM',
       icono: 'building',
       ruta: '/cecom',
-      activo: true
     });
 
     const moduleSuperConfig = await Module.create({
       nombre: 'SUPER MODULO CONFIGURACION',
       icono: 'settings',
       ruta: '/super-config',
-      activo: true
     });
 
     // Crear permisos base (5 permisos)

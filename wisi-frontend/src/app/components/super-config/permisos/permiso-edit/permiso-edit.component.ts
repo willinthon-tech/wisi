@@ -42,13 +42,13 @@ import { UserService } from '../../../../services/user.service';
             <label class="checkbox-label">
               <input 
                 type="checkbox" 
-                [(ngModel)]="permission.activo" 
-                name="activo">
+                 
+                >
               <span class="checkmark"></span>
-              Permiso activo
+              Permiso
             </label>
             <small class="help-text">
-              Los permisos inactivos no aparecerán disponibles para asignar a usuarios
+              
             </small>
           </div>
 

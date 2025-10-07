@@ -58,11 +58,6 @@ module.exports = (sequelize) => {
       allowNull: false,
       defaultValue: 0
     },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true
-    }
   }, {
     tableName: 'drops',
     timestamps: true,

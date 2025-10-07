@@ -41,11 +41,6 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Clave de acceso al dispositivo (texto plano)'
     },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true
-    },
     marcaje_inicio: {
       type: DataTypes.STRING,
       allowNull: true,

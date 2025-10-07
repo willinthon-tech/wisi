@@ -23,10 +23,6 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING(5), // Formato HH:MM
       allowNull: false
     },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      defaultValue: true
-    }
   }, {
     tableName: 'incidencias_generales',
     timestamps: true,

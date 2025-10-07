@@ -227,11 +227,8 @@ export class DashboardComponent implements OnInit {
   private loadPages() {
     this.userService.getPages().subscribe({
       next: (pages) => {
-        // Convertir activo a boolean si viene como string
-        this.pages = pages.filter(page => {
-          const isActive = page.activo === true || page.activo === 'true' || page.activo === 1;
-          return isActive;
-        });
+        
+        this.pages = pages;
       },
       error: (error) => {
         console.error('❌ Error cargando páginas:', error);

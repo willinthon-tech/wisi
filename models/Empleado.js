@@ -61,11 +61,6 @@ module.exports = (sequelize) => {
       },
       comment: 'ID del horario asignado al empleado'
     },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true
-    }
   }, {
     tableName: 'empleados',
     timestamps: true,
