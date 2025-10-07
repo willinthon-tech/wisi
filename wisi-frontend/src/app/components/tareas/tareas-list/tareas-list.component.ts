@@ -10,22 +10,32 @@ import { HttpClient } from '@angular/common/http';
   template: `
     <div class="tareas-container">
       <div class="header">
-        <button 
-          class="btn btn-success" 
-          [disabled]="procesandoTodas || tareas.length === 0"
-          (click)="ejecutarTodas()">
-          <span *ngIf="ejecutandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <span *ngIf="!ejecutandoTodas">Ejecutar Todo</span>
-          <span *ngIf="ejecutandoTodas">Ejecutando...</span>
-        </button>
-        <button 
-          class="btn btn-danger" 
-          [disabled]="procesandoTodas || tareas.length === 0"
-          (click)="rechazarTodas()">
-          <span *ngIf="rechazandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-          <span *ngIf="!rechazandoTodas">Rechazar Todo</span>
-          <span *ngIf="rechazandoTodas">Rechazando...</span>
-        </button>
+        <div class="header-left">
+          <button 
+            class="btn btn-success" 
+            [disabled]="procesandoTodas || tareas.length === 0"
+            (click)="ejecutarTodas()">
+            <span *ngIf="ejecutandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            <span *ngIf="!ejecutandoTodas">Ejecutar Todo</span>
+            <span *ngIf="ejecutandoTodas">Ejecutando...</span>
+          </button>
+          <button 
+            class="btn btn-danger" 
+            [disabled]="procesandoTodas || tareas.length === 0"
+            (click)="rechazarTodas()">
+            <span *ngIf="rechazandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            <span *ngIf="!rechazandoTodas">Rechazar Todo</span>
+            <span *ngIf="rechazandoTodas">Rechazando...</span>
+          </button>
+        </div>
+        <div class="header-right">
+          <button 
+            class="btn btn-warning" 
+            [disabled]="!detenerProcesos"
+            (click)="detenerTodosLosProcesos()">
+            Detener Procesos
+          </button>
+        </div>
       </div>
       
       <div class="table-wrapper">
@@ -215,9 +225,18 @@ import { HttpClient } from '@angular/common/http';
     .header {
       margin-bottom: 20px;
       display: flex;
-      justify-content: flex-start;
-      gap: 20px;
+      justify-content: space-between;
       align-items: center;
+    }
+
+    .header-left {
+      display: flex;
+      gap: 10px;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 10px;
     }
 
     .btn {
@@ -647,6 +666,7 @@ export class TareasListComponent implements OnInit {
   ejecutandoTodas: boolean = false; // Estado para "Ejecutar Todo"
   rechazandoTodas: boolean = false; // Estado para "Rechazar Todo"
   procesandoTodas: boolean = false; // Controla si se están procesando todas las tareas
+  detenerProcesos: boolean = false; // Controla si se puede detener procesos
 
   constructor(
     private route: ActivatedRoute,
@@ -681,6 +701,7 @@ export class TareasListComponent implements OnInit {
     console.log('🚀 Ejecutando todas las tareas...');
     this.ejecutandoTodas = true;
     this.procesandoTodas = true;
+    this.detenerProcesos = true; // Activar botón "Detener Procesos"
     this.procesarTodasTareas('ejecutar');
   }
 
@@ -688,6 +709,7 @@ export class TareasListComponent implements OnInit {
     console.log('❌ Rechazando todas las tareas...');
     this.rechazandoTodas = true;
     this.procesandoTodas = true;
+    this.detenerProcesos = true; // Activar botón "Detener Procesos"
     this.procesarTodasTareas('rechazar');
   }
 
@@ -709,9 +731,6 @@ export class TareasListComponent implements OnInit {
         // Pausa para mostrar la siguiente tarea (si hay más)
         if (this.tareas.length > 0) {
           console.log(`⏳ Pausa para mostrar siguiente tarea. Tareas restantes: ${this.tareas.length}`);
-          
-          // Los botones individuales permanecen deshabilitados durante todo el procesamiento
-          // Los botones "Todo" también permanecen deshabilitados
           await new Promise(resolve => setTimeout(resolve, 1500)); // Pausa para ver la siguiente
         }
       }
@@ -722,11 +741,15 @@ export class TareasListComponent implements OnInit {
       this.ejecutandoTodas = false;
       this.rechazandoTodas = false;
       this.procesandoTodas = false;
+      this.detenerProcesos = false; // Desactivar botón "Detener Procesos"
     }
   }
 
   async simularEjecutarTarea(tarea: any): Promise<void> {
     console.log('🚀 Simulando ejecutar tarea:', tarea.id);
+    
+    // Activar botón "Detener Procesos"
+    this.detenerProcesos = true;
     
     // Simular el proceso de ejecución
     this.ejecutandoTarea = tarea.id;
@@ -744,11 +767,20 @@ export class TareasListComponent implements OnInit {
     this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
     
     this.ejecutandoTarea = null;
+    
+    // Desactivar botón "Detener Procesos" si no hay más tareas
+    if (this.tareas.length === 0) {
+      this.detenerProcesos = false;
+    }
+    
     console.log(`✅ Tarea ${tarea.id} ejecutada y eliminada. Tareas restantes: ${this.tareas.length}`);
   }
 
   async simularRechazarTarea(tarea: any): Promise<void> {
     console.log('❌ Simulando rechazar tarea:', tarea.id);
+    
+    // Activar botón "Detener Procesos"
+    this.detenerProcesos = true;
     
     // Simular el proceso de rechazo
     this.rechazandoTarea = tarea.id;
@@ -766,7 +798,20 @@ export class TareasListComponent implements OnInit {
     this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
     
     this.rechazandoTarea = null;
+    
+    // Desactivar botón "Detener Procesos" si no hay más tareas
+    if (this.tareas.length === 0) {
+      this.detenerProcesos = false;
+    }
+    
     console.log(`✅ Tarea ${tarea.id} rechazada y eliminada. Tareas restantes: ${this.tareas.length}`);
+  }
+
+
+  detenerTodosLosProcesos(): void {
+    console.log('🛑 Deteniendo todos los procesos...');
+    // Recargar la página para detener todo
+    window.location.reload();
   }
 
   verDetalles(tarea: any): void {
@@ -840,6 +885,7 @@ export class TareasListComponent implements OnInit {
 
     this.procesandoTarea = true;
     this.ejecutandoTarea = tarea.id;
+    this.detenerProcesos = true; // Activar botón "Detener Procesos"
     console.log('🚀 Ejecutando tarea:', tarea);
     
     // Simular proceso de ejecución con delay
@@ -850,6 +896,11 @@ export class TareasListComponent implements OnInit {
       this.eliminarTarea(tarea.id);
       this.ejecutandoTarea = null;
       this.procesandoTarea = false;
+      
+      // Desactivar botón "Detener Procesos" si no hay más tareas
+      if (this.tareas.length === 0) {
+        this.detenerProcesos = false;
+      }
     }, 2000); // 2 segundos de simulación
   }
 
@@ -861,6 +912,7 @@ export class TareasListComponent implements OnInit {
 
     this.procesandoTarea = true;
     this.rechazandoTarea = tarea.id;
+    this.detenerProcesos = true; // Activar botón "Detener Procesos"
     console.log('❌ Rechazando tarea:', tarea);
     
     // Simular proceso de rechazo con delay
@@ -871,6 +923,11 @@ export class TareasListComponent implements OnInit {
       this.eliminarTarea(tarea.id);
       this.rechazandoTarea = null;
       this.procesandoTarea = false;
+      
+      // Desactivar botón "Detener Procesos" si no hay más tareas
+      if (this.tareas.length === 0) {
+        this.detenerProcesos = false;
+      }
     }, 1500); // 1.5 segundos de simulación
   }
 
