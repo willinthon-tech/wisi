@@ -13,7 +13,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'libros',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
     mesa_id: {
       type: DataTypes.INTEGER,
@@ -21,7 +22,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'mesas',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
     denominacion_100: {
       type: DataTypes.INTEGER,

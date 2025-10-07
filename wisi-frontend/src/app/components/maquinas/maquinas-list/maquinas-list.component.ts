@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MaquinasService } from '../../../services/maquinas.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -438,7 +439,8 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
   constructor(
     private maquinasService: MaquinasService,
     private router: Router,
-    private permissionsService: PermissionsService
+    private permissionsService: PermissionsService,
+    private errorModalService: ErrorModalService
   ) { }
 
   ngOnInit(): void {
@@ -499,7 +501,6 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error cargando máquinas:', error);
-        alert('Error cargando máquinas');
       }
     });
   }
@@ -534,14 +535,12 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
       error: (error) => {
         console.error('Error cargando rangos del usuario:', error);
         console.error('Error completo:', error);
-        alert('Error cargando rangos: ' + (error.error?.message || error.message));
       }
     });
   }
 
   createMaquina(): void {
     if (!this.nuevaMaquina.nombre || !this.nuevaMaquina.rango_id) {
-      alert('Por favor complete todos los campos');
       return;
     }
 
@@ -549,26 +548,22 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
       // Modo edición
       this.maquinasService.updateMaquina(this.selectedMaquina.id, this.nuevaMaquina).subscribe({
         next: (maquina) => {
-          alert('Máquina actualizada exitosamente');
           this.loadMaquinas();
           this.closeSalaSelector();
         },
         error: (error) => {
           console.error('Error actualizando máquina:', error);
-          alert('Error actualizando máquina');
         }
       });
     } else {
       // Modo creación
       this.maquinasService.createMaquina(this.nuevaMaquina).subscribe({
         next: (maquina) => {
-          alert('Máquina creada exitosamente');
           this.loadMaquinas();
           this.closeSalaSelector();
         },
         error: (error) => {
           console.error('Error creando máquina:', error);
-          alert('Error creando máquina');
         }
       });
     }
@@ -584,17 +579,26 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
   }
 
   deleteMaquina(id: number): void {
-    if (confirm('¿Estás seguro de que quieres eliminar esta máquina?')) {
-      this.maquinasService.deleteMaquina(id).subscribe({
-        next: () => {
-          alert('Máquina eliminada exitosamente');
-          this.loadMaquinas();
-        },
-        error: (error) => {
-          console.error('Error eliminando máquina:', error);
-          alert('Error eliminando máquina');
+    this.maquinasService.deleteMaquina(id).subscribe({
+      next: () => {
+        this.loadMaquinas();
+      },
+      error: (error) => {
+        console.error('Error eliminando máquina:', error);
+        if (error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar la máquina',
+            message: 'Esta máquina tiene relaciones que impiden su eliminación.',
+            entity: {
+              id: id,
+              nombre: 'Máquina',
+              tipo: 'máquina'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar esta máquina, primero debe eliminar o reasignar los elementos relacionados.'
+          });
         }
-      });
-    }
+      }
+    });
   }
 }

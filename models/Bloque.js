@@ -13,7 +13,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'horarios',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
     hora_entrada: {
       type: DataTypes.STRING,

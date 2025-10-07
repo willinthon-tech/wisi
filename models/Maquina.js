@@ -17,7 +17,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'salas',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
     rango_id: {
       type: DataTypes.INTEGER,
@@ -25,7 +26,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'rangos',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     }
   }, {
     tableName: 'maquinas',

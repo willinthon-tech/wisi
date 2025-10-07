@@ -5,10 +5,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { NovedadesMaquinasRegistrosService } from '../../../services/novedades-maquinas-registros.service';
 import { NovedadesMaquinasService } from '../../../services/novedades-maquinas.service';
 import { MaquinasService } from '../../../services/maquinas.service';
-import { TecnicosService } from '../../../services/tecnicos.service';
+import { EmpleadosService, Empleado } from '../../../services/empleados.service';
 import { UserService } from '../../../services/user.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { LibroService } from '../../../services/libro.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 interface NovedadMaquinaRegistro {
@@ -16,7 +17,7 @@ interface NovedadMaquinaRegistro {
   libro_id: number;
   maquina_id: number;
   novedad_maquina_id: number;
-  tecnico_id: number;
+  empleado_id: number;
   hora: string;
   Maquina?: {
     id: number;
@@ -34,14 +35,7 @@ interface NovedadMaquinaRegistro {
       nombre: string;
     };
   };
-  Tecnico?: {
-    id: number;
-    nombre: string;
-    Sala?: {
-      id: number;
-      nombre: string;
-    };
-  };
+  Empleado?: Empleado;
 }
 
 interface Maquina {
@@ -70,14 +64,6 @@ interface NovedadMaquina {
   };
 }
 
-interface Tecnico {
-  id: number;
-  nombre: string;
-  Sala?: {
-    id: number;
-    nombre: string;
-  };
-}
 
 interface Sala {
   id: number;
@@ -146,17 +132,17 @@ interface Sala {
             </div>
 
             <div class="form-group">
-              <label for="tecnicoSelect">Técnico:</label>
+              <label for="empleadoSelect">Empleado:</label>
               <select 
-                id="tecnicoSelect" 
-                name="tecnicoSelect"
-                [(ngModel)]="selectedTecnicoId"
+                id="empleadoSelect" 
+                name="empleadoSelect"
+                [(ngModel)]="selectedEmpleadoId"
                 class="form-control"
                 required
               >
-                <option value="">Seleccione un técnico</option>
-                <option *ngFor="let tecnico of tecnicos" [value]="tecnico.id">
-                  {{ tecnico.nombre }} ({{ tecnico.Sala?.nombre }})
+                <option value="">Seleccione un empleado</option>
+                <option *ngFor="let empleado of empleados" [value]="empleado.id">
+                  {{ empleado.nombre }}
                 </option>
               </select>
             </div>
@@ -173,7 +159,7 @@ interface Sala {
               />
             </div>
 
-            <button type="submit" class="btn btn-success" [disabled]="selectedMaquinaIds.length === 0 || !selectedNovedadId || !selectedTecnicoId || !novedadData.hora">
+            <button type="submit" class="btn btn-success" [disabled]="selectedMaquinaIds.length === 0 || !selectedNovedadId || !selectedEmpleadoId || !novedadData.hora">
               Guardar ({{ selectedMaquinaIds.length }} máquinas)
             </button>
           </form>
@@ -208,7 +194,7 @@ interface Sala {
                   </span>
                 </td>
                 <td class="text-center">{{ evento.novedad?.nombre }}</td>
-                <td class="text-center">{{ evento.tecnico?.nombre }}</td>
+                <td class="text-center">{{ evento.empleado?.nombre }}</td>
                 <td class="text-center">{{ evento.hora }}</td>
                 <td class="text-center">
                   <button class="btn btn-danger btn-sm" (click)="deleteNovedad(evento.ids[0])">
@@ -261,7 +247,7 @@ interface Sala {
         <div class="modal-body">
           <div class="evento-info mb-3">
             <strong>Evento:</strong> {{ eventoSeleccionado?.novedad?.nombre }}<br>
-            <strong>Técnico:</strong> {{ eventoSeleccionado?.tecnico?.nombre }}<br>
+            <strong>Empleado:</strong> {{ eventoSeleccionado?.empleado?.nombre }}<br>
             <strong>Hora:</strong> {{ eventoSeleccionado?.hora }}
           </div>
           <div class="maquinas-list">
@@ -767,12 +753,12 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   novedadesAgrupadas: any[] = [];
   maquinas: Maquina[] = [];
   novedadesMaquinas: NovedadMaquina[] = [];
-  tecnicos: Tecnico[] = [];
+  empleados: Empleado[] = [];
   userSalas: Sala[] = [];
   
   selectedMaquinaIds: number[] = [];
   selectedNovedadId: number | null = null;
-  selectedTecnicoId: number | null = null;
+  selectedEmpleadoId: number | null = null;
   
   // Modal para mostrar máquinas afectadas
   showMaquinasModal = false;
@@ -795,12 +781,13 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     private novedadesRegistrosService: NovedadesMaquinasRegistrosService,
     private novedadesService: NovedadesMaquinasService,
     private maquinasService: MaquinasService,
-    private tecnicosService: TecnicosService,
+    private empleadosService: EmpleadosService,
     private userService: UserService,
     private route: ActivatedRoute,
     private permissionsService: PermissionsService,
     private router: Router,
-    private libroService: LibroService
+    private libroService: LibroService,
+    private errorModalService: ErrorModalService
   ) { }
 
   ngOnInit() {
@@ -841,7 +828,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         this.loadNovedades();
         this.loadMaquinas();
         this.loadNovedadesMaquinas();
-        this.loadTecnicos();
+        this.loadEmpleados();
       },
       error: (error: any) => {
         console.error('Error cargando salas del usuario:', error);
@@ -916,19 +903,29 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadTecnicos() {
-    this.tecnicosService.getTecnicos().subscribe({
-      next: (tecnicos: Tecnico[]) => {
-        // Filtrar técnicos por la sala específica de la ruta
-        this.tecnicos = tecnicos.filter(tecnico => 
-          tecnico.Sala && tecnico.Sala.id === this.salaId
-        );
-      },
-      error: (error: any) => {
-        console.error('Error cargando técnicos:', error);
-        alert('Error cargando técnicos');
-      }
-    });
+  loadEmpleados() {
+    // Obtener empleados de la sala del libro actual
+    const libroId = this.route.snapshot.params['libroId'];
+    if (libroId) {
+      this.libroService.getLibro(libroId).subscribe({
+        next: (libro) => {
+          if (libro.sala_id) {
+            this.empleadosService.getEmpleadosBySala(libro.sala_id).subscribe({
+              next: (empleados: Empleado[]) => {
+                this.empleados = empleados;
+              },
+              error: (error: any) => {
+                console.error('Error cargando empleados:', error);
+                alert('Error cargando empleados');
+              }
+            });
+          }
+        },
+        error: (error: any) => {
+          console.error('Error obteniendo libro:', error);
+        }
+      });
+    }
   }
 
   toggleMaquina(maquinaId: number, event: any) {
@@ -961,8 +958,8 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.selectedTecnicoId) {
-      alert('Por favor seleccione un técnico');
+    if (!this.selectedEmpleadoId) {
+      alert('Por favor seleccione un empleado');
       return;
     }
 
@@ -985,7 +982,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         libro_id: this.libroId!,
         maquina_id: maquinaId,
         novedad_maquina_id: this.selectedNovedadId!,
-        tecnico_id: this.selectedTecnicoId!,
+        empleado_id: this.selectedEmpleadoId!,
         hora: this.novedadData.hora
       };
 
@@ -1024,24 +1021,33 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   }
 
   deleteNovedad(id: number) {
-    if (confirm('¿Está seguro de que desea eliminar esta novedad?')) {
-      this.novedadesRegistrosService.deleteNovedadMaquinaRegistro(id).subscribe({
-        next: () => {
-          this.loadNovedades(); // Recargar la lista
-          alert('Novedad eliminada correctamente');
-        },
-        error: (error: any) => {
-          console.error('Error eliminando novedad:', error);
-          alert('Error eliminando novedad');
+    this.novedadesRegistrosService.deleteNovedadMaquinaRegistro(id).subscribe({
+      next: () => {
+        this.loadNovedades(); // Recargar la lista
+      },
+      error: (error: any) => {
+        console.error('Error eliminando novedad:', error);
+        if (error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar la novedad',
+            message: 'Esta novedad tiene relaciones que impiden su eliminación.',
+            entity: {
+              id: id,
+              nombre: 'Novedad',
+              tipo: 'novedad'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar esta novedad, primero debe eliminar o reasignar los elementos relacionados.'
+          });
         }
-      });
-    }
+      }
+    });
   }
 
   resetForm() {
     this.selectedMaquinaIds = [];
     this.selectedNovedadId = null;
-    this.selectedTecnicoId = null;
+    this.selectedEmpleadoId = null;
     this.novedadData.hora = '';
   }
 
@@ -1089,7 +1095,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     const grupos = new Map<string, any>();
     
     novedades.forEach(novedad => {
-      const clave = `${novedad.tecnico_id}-${novedad.novedad_maquina_id}-${novedad.hora}`;
+      const clave = `${novedad.empleado_id}-${novedad.novedad_maquina_id}-${novedad.hora}`;
       
       if (grupos.has(clave)) {
         const grupo = grupos.get(clave);
@@ -1097,7 +1103,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         grupo.ids.push(novedad.id);
       } else {
         grupos.set(clave, {
-          tecnico: novedad.Tecnico,
+          empleado: novedad.Empleado,
           novedad: novedad.NovedadMaquina,
           hora: novedad.hora,
           maquinas: [novedad.Maquina],

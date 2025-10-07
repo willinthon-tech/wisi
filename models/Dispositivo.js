@@ -19,6 +19,7 @@ module.exports = (sequelize) => {
         model: 'salas',
         key: 'id'
       },
+      onDelete: 'RESTRICT',
       comment: 'ID de la sala donde está ubicado el dispositivo'
     },
     ip_local: {

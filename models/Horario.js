@@ -18,7 +18,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'salas',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     }
   }, {
     tableName: 'horarios',

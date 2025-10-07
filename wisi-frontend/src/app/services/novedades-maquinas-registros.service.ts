@@ -7,7 +7,7 @@ export interface NovedadMaquinaRegistro {
   libro_id: number;
   maquina_id: number;
   novedad_maquina_id: number;
-  tecnico_id: number;
+  empleado_id: number;
   hora: string;
   Maquina?: {
     id: number;
@@ -25,12 +25,25 @@ export interface NovedadMaquinaRegistro {
       nombre: string;
     };
   };
-  Tecnico?: {
+  Empleado?: {
     id: number;
     nombre: string;
-    Sala?: {
+    cargo_id: number;
+    Cargo?: {
       id: number;
       nombre: string;
+      Departamento?: {
+        id: number;
+        nombre: string;
+        Area?: {
+          id: number;
+          nombre: string;
+          Sala?: {
+            id: number;
+            nombre: string;
+          };
+        };
+      };
     };
   };
 }

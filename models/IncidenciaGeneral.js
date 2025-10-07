@@ -13,7 +13,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'Libros',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
     descripcion: {
       type: DataTypes.TEXT,

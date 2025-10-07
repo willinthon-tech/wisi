@@ -26,7 +26,6 @@ const {
   Mesa,
   Juego,
   Maquina,
-  Tecnico,
   NovedadMaquina,
   NovedadMaquinaRegistro,
   IncidenciaGeneral,
@@ -1463,12 +1462,33 @@ app.delete('/api/libros/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Libro no encontrado' });
     }
 
-    // Eliminar primero todos los registros relacionados
-    await NovedadMaquinaRegistro.destroy({ where: { libro_id: id } });
-    await IncidenciaGeneral.destroy({ where: { libro_id: id } });
-    await Drop.destroy({ where: { libro_id: id } });
+    // Verificar si el libro tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para libro:', {
+      id: id,
+      sala_id: libro.sala_id
+    });
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE libro_id = ?
+        UNION ALL
+        SELECT 'Incidencias Generales' as table_name, COUNT(*) as count FROM incidencias_generales WHERE libro_id = ?
+        UNION ALL
+        SELECT 'Drops' as table_name, COUNT(*) as count FROM drops WHERE libro_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id, id, id],
+      type: sequelize.QueryTypes.SELECT
+    });
+    console.log('🔍 Resultado de verificación de relaciones para libro:', relations);
+    
+    if (relations.length > 0) {
+      return res.status(400).json({
+        message: 'No se puede eliminar el libro porque tiene relaciones',
+        relations: relations
+      });
+    }
 
-    // Ahora eliminar el libro
+    // Si no hay relaciones, eliminar el libro
     await libro.destroy();
 
     res.json({ message: 'Libro eliminado exitosamente' });
@@ -1578,6 +1598,46 @@ app.post('/api/rangos', authenticateToken, async (req, res) => {
   }
 });
 
+// Actualizar un rango
+app.put('/api/rangos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, sala_id } = req.body;
+    
+    const rango = await Rango.findByPk(id);
+    
+    if (!rango) {
+      return res.status(404).json({ message: 'Rango no encontrado' });
+    }
+    
+    // Verificar permisos del usuario
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'super_admin') {
+      // Verificar si el usuario tiene acceso a la sala del rango
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: rango.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes permisos para actualizar este rango' });
+      }
+    }
+    
+    // Actualizar el rango
+    await rango.update({
+      nombre,
+      sala_id
+    });
+    
+    res.json({ message: 'Rango actualizado correctamente', rango });
+  } catch (error) {
+    console.error('Error actualizando rango:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // Eliminar un rango
 app.delete('/api/rangos/:id', authenticateToken, async (req, res) => {
   try {
@@ -1588,10 +1648,29 @@ app.delete('/api/rangos/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Rango no encontrado' });
     }
     
-    // Eliminar primero todas las máquinas relacionadas
-    await Maquina.destroy({ where: { rango_id: id } });
+    // Verificar si el rango tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para rango:', {
+      id: id,
+      nombre: rango.nombre
+    });
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Máquinas' as table_name, COUNT(*) as count FROM maquinas WHERE rango_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id],
+      type: sequelize.QueryTypes.SELECT
+    });
+    console.log('🔍 Resultado de verificación de relaciones para rango:', relations);
     
-    // Ahora eliminar el rango
+    if (relations.length > 0) {
+      return res.status(400).json({
+        message: 'No se puede eliminar el rango porque tiene relaciones',
+        relations: relations
+      });
+    }
+    
+    // Si no hay relaciones, eliminar el rango
     await rango.destroy();
     res.json({ message: 'Rango eliminado exitosamente' });
   } catch (error) {
@@ -2673,6 +2752,54 @@ app.post('/api/mesas', authenticateToken, async (req, res) => {
   }
 });
 
+// Actualizar una mesa
+app.put('/api/mesas/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, juego_id } = req.body;
+    
+    const mesa = await Mesa.findByPk(id);
+    
+    if (!mesa) {
+      return res.status(404).json({ message: 'Mesa no encontrada' });
+    }
+    
+    // Verificar permisos del usuario
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'super_admin') {
+      // Verificar si el usuario tiene acceso a la sala de la mesa
+      const juego = await Juego.findByPk(mesa.juego_id, {
+        include: [{ model: Sala, as: 'Sala' }]
+      });
+      
+      if (!juego || !juego.Sala) {
+        return res.status(403).json({ message: 'No tienes permisos para actualizar esta mesa' });
+      }
+      
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: juego.Sala.id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes permisos para actualizar esta mesa' });
+      }
+    }
+    
+    // Actualizar la mesa
+    await mesa.update({
+      nombre,
+      juego_id
+    });
+    
+    res.json({ message: 'Mesa actualizada correctamente', mesa });
+  } catch (error) {
+    console.error('Error actualizando mesa:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // Eliminar una mesa
 app.delete('/api/mesas/:id', authenticateToken, async (req, res) => {
   try {
@@ -2683,10 +2810,29 @@ app.delete('/api/mesas/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Mesa no encontrada' });
     }
     
-    // Eliminar primero todos los registros relacionados
-    await Drop.destroy({ where: { mesa_id: id } });
+    // Verificar si la mesa tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para mesa:', {
+      id: id,
+      nombre: mesa.nombre
+    });
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Drops' as table_name, COUNT(*) as count FROM drops WHERE mesa_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id],
+      type: sequelize.QueryTypes.SELECT
+    });
+    console.log('🔍 Resultado de verificación de relaciones para mesa:', relations);
     
-    // Ahora eliminar la mesa
+    if (relations.length > 0) {
+      return res.status(400).json({
+        message: 'No se puede eliminar la mesa porque tiene relaciones',
+        relations: relations
+      });
+    }
+    
+    // Si no hay relaciones, eliminar la mesa
     await mesa.destroy();
     res.json({ message: 'Mesa eliminada exitosamente' });
   } catch (error) {
@@ -2795,6 +2941,46 @@ app.post('/api/juegos', authenticateToken, async (req, res) => {
   }
 });
 
+// Actualizar un juego
+app.put('/api/juegos/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, sala_id } = req.body;
+    
+    const juego = await Juego.findByPk(id);
+    
+    if (!juego) {
+      return res.status(404).json({ message: 'Juego no encontrado' });
+    }
+    
+    // Verificar permisos del usuario
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'super_admin') {
+      // Verificar si el usuario tiene acceso a la sala del juego
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: juego.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes permisos para actualizar este juego' });
+      }
+    }
+    
+    // Actualizar el juego
+    await juego.update({
+      nombre,
+      sala_id
+    });
+    
+    res.json({ message: 'Juego actualizado correctamente', juego });
+  } catch (error) {
+    console.error('Error actualizando juego:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // Eliminar un juego
 app.delete('/api/juegos/:id', authenticateToken, async (req, res) => {
   try {
@@ -2805,10 +2991,29 @@ app.delete('/api/juegos/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Juego no encontrado' });
     }
     
-    // Eliminar primero todas las mesas relacionadas
-    await Mesa.destroy({ where: { juego_id: id } });
+    // Verificar si el juego tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para juego:', {
+      id: id,
+      nombre: juego.nombre
+    });
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Mesas' as table_name, COUNT(*) as count FROM mesas WHERE juego_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id],
+      type: sequelize.QueryTypes.SELECT
+    });
+    console.log('🔍 Resultado de verificación de relaciones para juego:', relations);
     
-    // Ahora eliminar el juego
+    if (relations.length > 0) {
+      return res.status(400).json({
+        message: 'No se puede eliminar el juego porque tiene relaciones',
+        relations: relations
+      });
+    }
+    
+    // Si no hay relaciones, eliminar el juego
     await juego.destroy();
     res.json({ message: 'Juego eliminado exitosamente' });
   } catch (error) {
@@ -2933,6 +3138,54 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
   }
 });
 
+// Actualizar una máquina
+app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, rango_id } = req.body;
+    
+    const maquina = await Maquina.findByPk(id);
+    
+    if (!maquina) {
+      return res.status(404).json({ message: 'Máquina no encontrada' });
+    }
+    
+    // Verificar permisos del usuario
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'super_admin') {
+      // Verificar si el usuario tiene acceso a la sala de la máquina
+      const rango = await Rango.findByPk(maquina.rango_id, {
+        include: [{ model: Sala, as: 'Sala' }]
+      });
+      
+      if (!rango || !rango.Sala) {
+        return res.status(403).json({ message: 'No tienes permisos para actualizar esta máquina' });
+      }
+      
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: rango.Sala.id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes permisos para actualizar esta máquina' });
+      }
+    }
+    
+    // Actualizar la máquina
+    await maquina.update({
+      nombre,
+      rango_id
+    });
+    
+    res.json({ message: 'Máquina actualizada correctamente', maquina });
+  } catch (error) {
+    console.error('Error actualizando máquina:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // Eliminar una máquina
 app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
   try {
@@ -2943,10 +3196,29 @@ app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Máquina no encontrada' });
     }
     
-    // Eliminar primero todos los registros relacionados
-    await NovedadMaquinaRegistro.destroy({ where: { maquina_id: id } });
+    // Verificar si la máquina tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para máquina:', {
+      id: id,
+      nombre: maquina.nombre
+    });
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE maquina_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id],
+      type: sequelize.QueryTypes.SELECT
+    });
+    console.log('🔍 Resultado de verificación de relaciones para máquina:', relations);
     
-    // Ahora eliminar la máquina
+    if (relations.length > 0) {
+      return res.status(400).json({
+        message: 'No se puede eliminar la máquina porque tiene relaciones',
+        relations: relations
+      });
+    }
+    
+    // Si no hay relaciones, eliminar la máquina
     await maquina.destroy();
     res.json({ message: 'Máquina eliminada exitosamente' });
   } catch (error) {
@@ -2955,143 +3227,191 @@ app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
   }
 });
 
+
 // =============================================
-// RUTAS PARA TÉCNICOS
+// RUTAS PARA EMPLEADOS POR SALA
 // =============================================
 
-// Obtener todos los técnicos
-app.get('/api/tecnicos', authenticateToken, async (req, res) => {
+// Obtener cargos
+app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
   try {
+    const cargos = await Cargo.findAll({
+      include: [{
+        model: Departamento,
+        attributes: ['id', 'nombre'],
+        include: [{
+          model: Area,
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre']
+          }]
+        }]
+      }],
+      order: [['nombre', 'ASC']]
+    });
+    
+    res.json(cargos);
+  } catch (error) {
+    console.error('Error obteniendo cargos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener tareas por usuario
+app.get('/api/empleados/tareas/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userLevel = req.user.nivel;
+    
+    // Verificar permisos
+    if (userLevel !== 'TODO' && req.user.id !== parseInt(userId)) {
+      return res.status(403).json({ message: 'No tienes permisos para ver estas tareas' });
+    }
+    
+    // Consultar tareas_dispositivo_usuarios
+    const tareas = await sequelize.query(`
+      SELECT 
+        tdu.*,
+        e.nombre as empleado_nombre,
+        e.cedula as empleado_cedula
+      FROM tareas_dispositivo_usuarios tdu
+      LEFT JOIN empleados e ON tdu.numero_cedula_empleado = e.cedula
+      WHERE tdu.user_id = ?
+      ORDER BY tdu.created_at DESC
+    `, {
+      replacements: [userId],
+      type: sequelize.QueryTypes.SELECT
+    });
+    
+    res.json(tareas);
+  } catch (error) {
+    console.error('Error obteniendo tareas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener horarios
+app.get('/api/empleados/horarios', authenticateToken, async (req, res) => {
+  try {
+    const horarios = await Horario.findAll({
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }],
+      order: [['nombre', 'ASC']]
+    });
+    
+    res.json(horarios);
+  } catch (error) {
+    console.error('Error obteniendo horarios:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener dispositivos
+app.get('/api/empleados/dispositivos', authenticateToken, async (req, res) => {
+  try {
+    const dispositivos = await Dispositivo.findAll({
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }],
+      order: [['nombre', 'ASC']]
+    });
+    
+    res.json(dispositivos);
+  } catch (error) {
+    console.error('Error obteniendo dispositivos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener usuario actual
+app.get('/api/empleados/current-user', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'username', 'email', 'nivel'],
+      include: [{
+        model: Sala,
+        through: { attributes: [] },
+        attributes: ['id', 'nombre']
+      }]
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Error obteniendo usuario actual:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Verificar cédula
+app.get('/api/empleados/verificar-cedula/:cedula', authenticateToken, async (req, res) => {
+  try {
+    const { cedula } = req.params;
+    
+    const empleado = await Empleado.findOne({
+      where: { cedula: cedula }
+    });
+    
+    res.json({ existe: !!empleado });
+  } catch (error) {
+    console.error('Error verificando cédula:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener empleados por sala
+app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
+  try {
+    const { salaId } = req.params;
     const userId = req.user.id;
     const userLevel = req.user.nivel;
     
-    let tecnicos;
-    
-    if (userLevel === 'TODO') {
-      tecnicos = await Tecnico.findAll({
-        where: {},
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
-      });
-    } else {
+    // Verificar que el usuario tiene acceso a la sala
+    if (userLevel !== 'TODO') {
       const user = await User.findByPk(userId, {
         include: [{
           model: Sala,
           through: { attributes: [] },
-          where: {}
+          where: { id: salaId }
         }]
       });
-
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+      
+      if (!user || !user.Salas || user.Salas.length === 0) {
+        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
       }
-
-      const userSalaIds = user.Salas.map(sala => sala.id);
-      tecnicos = await Tecnico.findAll({
-        where: {sala_id: userSalaIds
-        },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
-      });
     }
     
-    res.json(tecnicos);
-  } catch (error) {
-    console.error('❌ Error obteniendo técnicos:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Crear un nuevo técnico
-app.post('/api/tecnicos', authenticateToken, async (req, res) => {
-  try {
-    const { nombre, sala_id } = req.body;
-    
-    if (!nombre || !sala_id) {
-      return res.status(400).json({ message: 'El nombre y la sala son requeridos' });
-    }
-
-    const sala = await Sala.findByPk(sala_id);
-    if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
-    }
-
-    const ultimoTecnicoSala = await Tecnico.findOne({
-      where: { sala_id: sala_id },
-      order: [['created_at', 'DESC']]
-    });
-
-    let fechaCreacion = new Date();
-    if (ultimoTecnicoSala) {
-      const ultimaFecha = new Date(ultimoTecnicoSala.created_at);
-      fechaCreacion = new Date(ultimaFecha);
-      fechaCreacion.setDate(fechaCreacion.getDate() + 1);
-    }
-
-    const tecnico = await Tecnico.create({
-      nombre: nombre,
-      sala_id: sala_id,
-      created_at: fechaCreacion,
-      updated_at: fechaCreacion
-    });
-
-    const tecnicoConSala = await Tecnico.findByPk(tecnico.id, {
+    const empleados = await Empleado.findAll({
       include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+        model: Cargo,
+        attributes: ['id', 'nombre'],
+        include: [{
+          model: Departamento,
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Area,
+            attributes: ['id', 'nombre'],
+            include: [{
+              model: Sala,
+              attributes: ['id', 'nombre'],
+              where: { id: salaId }
+            }]
+          }]
+        }]
+      }],
+      order: [['nombre', 'ASC']]
     });
-
-    res.status(201).json(tecnicoConSala);
+    
+    res.json(empleados);
   } catch (error) {
-    console.error('Error creando técnico:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Actualizar un técnico
-app.put('/api/tecnicos/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { nombre } = req.body;
-    
-    const tecnico = await Tecnico.findByPk(id);
-    if (!tecnico) {
-      return res.status(404).json({ message: 'Técnico no encontrado' });
-    }
-
-    await tecnico.update({ nombre });
-    res.json(tecnico);
-  } catch (error) {
-    console.error('Error actualizando técnico:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Eliminar un técnico
-app.delete('/api/tecnicos/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const tecnico = await Tecnico.findByPk(id);
-    
-    if (!tecnico) {
-      return res.status(404).json({ message: 'Técnico no encontrado' });
-    }
-    
-    // Eliminar primero todos los registros relacionados
-    await NovedadMaquinaRegistro.destroy({ where: { tecnico_id: id } });
-    
-    // Ahora eliminar el técnico
-    await tecnico.destroy();
-    res.json({ message: 'Técnico eliminado exitosamente' });
-  } catch (error) {
-    console.error('Error eliminando técnico:', error);
+    console.error('Error obteniendo empleados por sala:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3159,7 +3479,7 @@ app.get('/api/public/novedades/:libroId', async (req, res) => {
         model: NovedadMaquina,
         attributes: ['id', 'nombre']
       }, {
-        model: Tecnico,
+        model: Empleado,
         attributes: ['id', 'nombre']
       }],
       order: [['hora', 'ASC']]
@@ -3243,8 +3563,7 @@ app.get('/api/drops/:libroId', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       drops = await Drop.findAll({
-        where: {libro_id: libroId
-        },
+        where: {libro_id: libroId},
         include: [{
           model: Libro,
           attributes: ['id', 'created_at']
@@ -3459,6 +3778,28 @@ app.delete('/api/drops/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Drop no encontrado' });
     }
 
+    // Verificar si el drop tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para drop:', {
+      id: id,
+      mesa_id: drop.mesa_id
+    });
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE drop_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id],
+      type: sequelize.QueryTypes.SELECT
+    });
+    console.log('🔍 Resultado de verificación de relaciones para drop:', relations);
+    
+    if (relations.length > 0) {
+      return res.status(400).json({
+        message: 'No se puede eliminar el drop porque tiene relaciones',
+        relations: relations
+      });
+    }
+
     await drop.destroy();
     res.json({ message: 'Drop eliminado correctamente' });
   } catch (error) {
@@ -3597,12 +3938,21 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
     const userId = req.user.id;
     const userLevel = req.user.nivel;
     
+    console.log('🔍 Obteniendo registros para libro:', libroId);
+    
     let registros;
     
     if (userLevel === 'TODO') {
+      console.log('🔍 Ejecutando consulta para usuario TODO');
+      
+      // Verificar la estructura de la tabla primero
+      const tableInfo = await sequelize.query("PRAGMA table_info(novedades_maquinas_registros)", {
+        type: sequelize.QueryTypes.SELECT
+      });
+      console.log('🔍 Estructura de la tabla:', tableInfo);
+      
       registros = await NovedadMaquinaRegistro.findAll({
-        where: {libro_id: libroId
-        },
+        where: {libro_id: libroId},
         include: [{
           model: Libro,
           attributes: ['id', 'created_at']
@@ -3625,11 +3975,23 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
             attributes: ['id', 'nombre']
           }]
         }, {
-          model: Tecnico,
+          model: Empleado,
           attributes: ['id', 'nombre'],
           include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
+            model: Cargo,
+            attributes: ['id', 'nombre'],
+            include: [{
+              model: Departamento,
+              attributes: ['id', 'nombre'],
+              include: [{
+                model: Area,
+                attributes: ['id', 'nombre'],
+                include: [{
+                  model: Sala,
+                  attributes: ['id', 'nombre']
+                }]
+              }]
+            }]
           }]
         }],
         order: [['created_at', 'DESC']]
@@ -3650,8 +4012,7 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
       const userSalaIds = user.Salas.map(sala => sala.id);
       
       registros = await NovedadMaquinaRegistro.findAll({
-        where: {libro_id: libroId
-        },
+        where: {libro_id: libroId},
         include: [{
           model: Libro,
           attributes: ['id', 'created_at']
@@ -3676,12 +4037,24 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
             where: { id: userSalaIds }
           }]
         }, {
-          model: Tecnico,
+          model: Empleado,
           attributes: ['id', 'nombre'],
           include: [{
-            model: Sala,
+            model: Cargo,
             attributes: ['id', 'nombre'],
-            where: { id: userSalaIds }
+            include: [{
+              model: Departamento,
+              attributes: ['id', 'nombre'],
+              include: [{
+                model: Area,
+                attributes: ['id', 'nombre'],
+                include: [{
+                  model: Sala,
+                  attributes: ['id', 'nombre'],
+                  where: { id: userSalaIds }
+                }]
+              }]
+            }]
           }]
         }],
         order: [['created_at', 'DESC']]
@@ -3698,11 +4071,11 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
 // Crear o actualizar registro de novedad de máquina
 app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res) => {
   try {
-    const { libro_id, maquina_id, novedad_maquina_id, tecnico_id, hora } = req.body;
+    const { libro_id, maquina_id, novedad_maquina_id, empleado_id, hora } = req.body;
     const userId = req.user.id;
     const userLevel = req.user.nivel;
 
-    if (!libro_id || !maquina_id || !novedad_maquina_id || !tecnico_id || !hora) {
+    if (!libro_id || !maquina_id || !novedad_maquina_id || !empleado_id || !hora) {
       return res.status(400).json({ message: 'Todos los campos son requeridos' });
     }
 
@@ -3724,10 +4097,10 @@ app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res
       return res.status(404).json({ message: 'Novedad de máquina no encontrada' });
     }
 
-    // Verificar que el técnico existe
-    const tecnico = await Tecnico.findByPk(tecnico_id);
-    if (!tecnico) {
-      return res.status(404).json({ message: 'Técnico no encontrado' });
+    // Verificar que el empleado existe
+    const empleado = await Empleado.findByPk(empleado_id);
+    if (!empleado) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
     }
 
     // Siempre crear un nuevo registro (no actualizar existentes)
@@ -3735,7 +4108,7 @@ app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res
       libro_id: libro_id,
       maquina_id: maquina_id,
       novedad_maquina_id: novedad_maquina_id,
-      tecnico_id: tecnico_id,
+      empleado_id: empleado_id,
       hora: hora});
 
     // Obtener el registro completo con todas las relaciones
@@ -3762,7 +4135,7 @@ app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res
           attributes: ['id', 'nombre']
         }]
       }, {
-        model: Tecnico,
+        model: Empleado,
         attributes: ['id', 'nombre'],
         include: [{
           model: Sala,
@@ -3809,8 +4182,7 @@ app.get('/api/incidencias-generales/:libroId', authenticateToken, async (req, re
     
     if (userLevel === 'TODO') {
       incidencias = await IncidenciaGeneral.findAll({
-        where: {libro_id: libroId
-        },
+        where: {libro_id: libroId},
         include: [{
           model: Libro,
           attributes: ['id', 'created_at']
@@ -3833,8 +4205,7 @@ app.get('/api/incidencias-generales/:libroId', authenticateToken, async (req, re
       const userSalaIds = user.Salas.map(sala => sala.id);
       
       incidencias = await IncidenciaGeneral.findAll({
-        where: {libro_id: libroId
-        },
+        where: {libro_id: libroId},
         include: [{
           model: Libro,
           attributes: ['id', 'created_at'],
@@ -3884,6 +4255,28 @@ app.delete('/api/incidencias-generales/:id', authenticateToken, async (req, res)
     const incidencia = await IncidenciaGeneral.findByPk(id);
     if (!incidencia) {
       return res.status(404).json({ message: 'Incidencia no encontrada' });
+    }
+
+    // Verificar si la incidencia tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para incidencia general:', {
+      id: id,
+      libro_id: incidencia.libro_id
+    });
+    const relations = await sequelize.query(`
+      SELECT table_name, count FROM (
+        SELECT 'Reportes' as table_name, COUNT(*) as count FROM reportes WHERE incidencia_id = ?
+      ) as relations WHERE count > 0
+    `, {
+      replacements: [id],
+      type: sequelize.QueryTypes.SELECT
+    });
+    console.log('🔍 Resultado de verificación de relaciones para incidencia general:', relations);
+    
+    if (relations.length > 0) {
+      return res.status(400).json({
+        message: 'No se puede eliminar la incidencia porque tiene relaciones',
+        relations: relations
+      });
     }
 
     await incidencia.destroy();

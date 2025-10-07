@@ -1,7 +1,21 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { EmpleadosService } from '../../../services/empleados.service';
+import { EmpleadosService, Empleado } from '../../../services/empleados.service';
+
+interface EmpleadoForm {
+  id: number | null;
+  foto: string;
+  nombre: string;
+  cedula: string;
+  fecha_ingreso: string;
+  fecha_cumpleanos: string;
+  sexo: string;
+  cargo_id: number | null;
+  primer_dia_horario: string;
+  horario_id: number | null;
+  dispositivos: number[];
+}
 import { BiometricImageService } from '../../../services/biometric-image.service';
 import { ImageValidationService } from '../../../services/image-validation.service';
 import { Router } from '@angular/router';
@@ -1194,7 +1208,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   dispositivosNuevos: number[] = [];
   showCargoModal = false;
   selectedEmpleado: any = null;
-  nuevoEmpleado = {
+  nuevoEmpleado: EmpleadoForm = {
     id: null,
     foto: '',
     nombre: '',
@@ -1261,6 +1275,22 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private errorModalService: ErrorModalService
   ) {}
+
+  // Helper para convertir EmpleadoForm a Partial<Empleado>
+  private toEmpleadoData(form: EmpleadoForm): Partial<Empleado> {
+    return {
+      id: form.id || undefined,
+      foto: form.foto,
+      nombre: form.nombre,
+      cedula: form.cedula,
+      fecha_ingreso: form.fecha_ingreso,
+      fecha_cumpleanos: form.fecha_cumpleanos,
+      sexo: form.sexo,
+      cargo_id: form.cargo_id || undefined,
+      primer_dia_horario: form.primer_dia_horario,
+      horario_id: form.horario_id || undefined
+    };
+  }
 
   ngOnInit(): void {
     this.loadEmpleados();
@@ -2214,7 +2244,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       console.log('🔄 Dispositivos anteriores:', dispositivosAnteriores);
       console.log('🔄 Dispositivos nuevos:', dispositivosNuevos);
       
-      this.empleadosService.updateEmpleado(this.selectedEmpleado.id, this.nuevoEmpleado).subscribe({
+      this.empleadosService.updateEmpleado(this.selectedEmpleado.id, this.toEmpleadoData(this.nuevoEmpleado)).subscribe({
         next: async (empleado) => {
           console.log('✅ Empleado actualizado:', empleado);
           const index = this.empleados.findIndex(e => e.id === empleado.id);
@@ -2241,7 +2271,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     } else {
       // Crear nuevo empleado
       console.log('🔄 Creando empleado:', this.nuevoEmpleado);
-      this.empleadosService.createEmpleado(this.nuevoEmpleado).subscribe({
+      this.empleadosService.createEmpleado(this.toEmpleadoData(this.nuevoEmpleado)).subscribe({
         next: async (empleado) => {
           console.log('✅ Empleado creado:', empleado);
           

@@ -85,7 +85,7 @@ import { Meta, Title } from '@angular/platform-browser';
                   </span>
                 </td>
                 <td>{{ evento.novedad?.nombre || 'Sin novedad' }}</td>
-                <td>{{ evento.tecnico?.nombre || 'Sin técnico' }}</td>
+                <td>{{ evento.empleado?.nombre || 'Sin empleado' }}</td>
                 <td>{{ evento.hora }}</td>
               </tr>
             </tbody>
@@ -133,7 +133,7 @@ import { Meta, Title } from '@angular/platform-browser';
         <div class="modal-body">
           <div class="evento-info mb-3">
             <strong>Evento:</strong> {{ eventoSeleccionado?.novedad?.nombre }}<br>
-            <strong>Técnico:</strong> {{ eventoSeleccionado?.tecnico?.nombre }}<br>
+            <strong>Empleado:</strong> {{ eventoSeleccionado?.empleado?.nombre }}<br>
             <strong>Hora:</strong> {{ eventoSeleccionado?.hora }}
           </div>
           <div class="maquinas-list">
@@ -669,7 +669,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     const grupos = new Map<string, any>();
     
     novedades.forEach(novedad => {
-      const clave = `${novedad.tecnico_id}-${novedad.novedad_maquina_id}-${novedad.hora}`;
+      const clave = `${novedad.empleado_id}-${novedad.novedad_maquina_id}-${novedad.hora}`;
       
       if (grupos.has(clave)) {
         const grupo = grupos.get(clave);
@@ -677,7 +677,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
         grupo.ids.push(novedad.id);
       } else {
         grupos.set(clave, {
-          tecnico: novedad.Tecnico,
+          empleado: novedad.Empleado,
           novedad: novedad.NovedadMaquina,
           hora: novedad.hora,
           maquinas: [novedad.Maquina],

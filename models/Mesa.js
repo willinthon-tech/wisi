@@ -17,7 +17,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'salas',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
     juego_id: {
       type: DataTypes.INTEGER,
@@ -25,7 +26,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'juegos',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     }
   }, {
     tableName: 'mesas',

@@ -25,7 +25,6 @@ const Rango = require('./Rango')(sequelize);
 const Mesa = require('./Mesa')(sequelize);
 const Juego = require('./Juego')(sequelize);
 const Maquina = require('./Maquina')(sequelize);
-const Tecnico = require('./Tecnico')(sequelize);
 const NovedadMaquina = require('./NovedadMaquina')(sequelize);
 const Drop = require('./Drop')(sequelize);
 
@@ -74,36 +73,33 @@ Sala.belongsToMany(Module, { through: SalaModule, foreignKey: 'sala_id' });
 Module.belongsToMany(Sala, { through: SalaModule, foreignKey: 'module_id' });
 
 // Asociaciones para Libro
-Libro.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(Libro, { foreignKey: 'sala_id' });
+Libro.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(Libro, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Rango
-Rango.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(Rango, { foreignKey: 'sala_id' });
+Rango.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(Rango, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Mesa
-Mesa.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(Mesa, { foreignKey: 'sala_id' });
-Mesa.belongsTo(Juego, { foreignKey: 'juego_id' });
-Juego.hasMany(Mesa, { foreignKey: 'juego_id' });
+Mesa.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(Mesa, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Mesa.belongsTo(Juego, { foreignKey: 'juego_id', onDelete: 'RESTRICT' });
+Juego.hasMany(Mesa, { foreignKey: 'juego_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Juego
-Juego.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(Juego, { foreignKey: 'sala_id' });
+Juego.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(Juego, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Maquina
-Maquina.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(Maquina, { foreignKey: 'sala_id' });
-Maquina.belongsTo(Rango, { foreignKey: 'rango_id' });
-Rango.hasMany(Maquina, { foreignKey: 'rango_id' });
+Maquina.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(Maquina, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Maquina.belongsTo(Rango, { foreignKey: 'rango_id', onDelete: 'RESTRICT' });
+Rango.hasMany(Maquina, { foreignKey: 'rango_id', onDelete: 'RESTRICT' });
 
-// Asociaciones para Tecnico
-Tecnico.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(Tecnico, { foreignKey: 'sala_id' });
 
 // Asociaciones para NovedadMaquina
-NovedadMaquina.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(NovedadMaquina, { foreignKey: 'sala_id' });
+NovedadMaquina.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(NovedadMaquina, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
 // Importar NovedadMaquinaRegistro
 const NovedadMaquinaRegistro = require('./NovedadMaquinaRegistro')(sequelize);
@@ -117,58 +113,60 @@ const Bloque = require('./Bloque')(sequelize);
 const Dispositivo = require('./Dispositivo')(sequelize);
 
 // Asociaciones para NovedadMaquinaRegistro
-NovedadMaquinaRegistro.belongsTo(Libro, { foreignKey: 'libro_id' });
-Libro.hasMany(NovedadMaquinaRegistro, { foreignKey: 'libro_id' });
+NovedadMaquinaRegistro.belongsTo(Libro, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
+Libro.hasMany(NovedadMaquinaRegistro, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
 
-NovedadMaquinaRegistro.belongsTo(Maquina, { foreignKey: 'maquina_id' });
-Maquina.hasMany(NovedadMaquinaRegistro, { foreignKey: 'maquina_id' });
+NovedadMaquinaRegistro.belongsTo(Maquina, { foreignKey: 'maquina_id', onDelete: 'RESTRICT' });
+Maquina.hasMany(NovedadMaquinaRegistro, { foreignKey: 'maquina_id', onDelete: 'RESTRICT' });
 
-NovedadMaquinaRegistro.belongsTo(NovedadMaquina, { foreignKey: 'novedad_maquina_id' });
-NovedadMaquina.hasMany(NovedadMaquinaRegistro, { foreignKey: 'novedad_maquina_id' });
+NovedadMaquinaRegistro.belongsTo(NovedadMaquina, { foreignKey: 'novedad_maquina_id', onDelete: 'RESTRICT' });
+NovedadMaquina.hasMany(NovedadMaquinaRegistro, { foreignKey: 'novedad_maquina_id', onDelete: 'RESTRICT' });
 
-NovedadMaquinaRegistro.belongsTo(Tecnico, { foreignKey: 'tecnico_id' });
-Tecnico.hasMany(NovedadMaquinaRegistro, { foreignKey: 'tecnico_id' });
+NovedadMaquinaRegistro.belongsTo(Empleado, { foreignKey: 'empleado_id', onDelete: 'RESTRICT' });
+Empleado.hasMany(NovedadMaquinaRegistro, { foreignKey: 'empleado_id', onDelete: 'RESTRICT' });
+
+
 
 // Asociaciones para IncidenciaGeneral
-IncidenciaGeneral.belongsTo(Libro, { foreignKey: 'libro_id' });
-Libro.hasMany(IncidenciaGeneral, { foreignKey: 'libro_id' });
+IncidenciaGeneral.belongsTo(Libro, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
+Libro.hasMany(IncidenciaGeneral, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Drop
-Drop.belongsTo(Libro, { foreignKey: 'libro_id' });
-Libro.hasMany(Drop, { foreignKey: 'libro_id' });
-Drop.belongsTo(Mesa, { foreignKey: 'mesa_id' });
-Mesa.hasMany(Drop, { foreignKey: 'mesa_id' });
+Drop.belongsTo(Libro, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
+Libro.hasMany(Drop, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
+Drop.belongsTo(Mesa, { foreignKey: 'mesa_id', onDelete: 'RESTRICT' });
+Mesa.hasMany(Drop, { foreignKey: 'mesa_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Area
-Area.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(Area, { foreignKey: 'sala_id' });
+Area.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(Area, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Departamento
-Departamento.belongsTo(Area, { foreignKey: 'area_id' });
-Area.hasMany(Departamento, { foreignKey: 'area_id' });
+Departamento.belongsTo(Area, { foreignKey: 'area_id', onDelete: 'RESTRICT' });
+Area.hasMany(Departamento, { foreignKey: 'area_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Cargo
-Cargo.belongsTo(Departamento, { foreignKey: 'departamento_id' });
-Departamento.hasMany(Cargo, { foreignKey: 'departamento_id' });
+Cargo.belongsTo(Departamento, { foreignKey: 'departamento_id', onDelete: 'RESTRICT' });
+Departamento.hasMany(Cargo, { foreignKey: 'departamento_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Empleado
-Empleado.belongsTo(Cargo, { foreignKey: 'cargo_id' });
-Cargo.hasMany(Empleado, { foreignKey: 'cargo_id' });
+Empleado.belongsTo(Cargo, { foreignKey: 'cargo_id', onDelete: 'RESTRICT' });
+Cargo.hasMany(Empleado, { foreignKey: 'cargo_id', onDelete: 'RESTRICT' });
 
-Empleado.belongsTo(Horario, { foreignKey: 'horario_id' });
-Horario.hasMany(Empleado, { foreignKey: 'horario_id' });
+Empleado.belongsTo(Horario, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
+Horario.hasMany(Empleado, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Horario
-Horario.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(Horario, { foreignKey: 'sala_id' });
+Horario.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(Horario, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Dispositivo
-Dispositivo.belongsTo(Sala, { foreignKey: 'sala_id' });
-Sala.hasMany(Dispositivo, { foreignKey: 'sala_id' });
+Dispositivo.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(Dispositivo, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Bloque
-Bloque.belongsTo(Horario, { foreignKey: 'horario_id' });
-Horario.hasMany(Bloque, { foreignKey: 'horario_id', as: 'bloques' });
+Bloque.belongsTo(Horario, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
+Horario.hasMany(Bloque, { foreignKey: 'horario_id', as: 'bloques', onDelete: 'RESTRICT' });
 
 
 // Sincronizar base de datos
@@ -314,7 +312,6 @@ module.exports = {
   Mesa,
   Juego,
   Maquina,
-  Tecnico,
   NovedadMaquina,
   NovedadMaquinaRegistro,
   IncidenciaGeneral,

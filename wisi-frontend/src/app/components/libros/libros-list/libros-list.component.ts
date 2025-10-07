@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { LibroService } from '../../../services/libro.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -444,7 +445,8 @@ export class LibrosListComponent implements OnInit, OnDestroy {
   constructor(
     private libroService: LibroService,
     private router: Router,
-    private permissionsService: PermissionsService
+    private permissionsService: PermissionsService,
+    private errorModalService: ErrorModalService
   ) { }
 
   ngOnInit(): void {
@@ -512,7 +514,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error cargando libros:', error);
-        alert('Error cargando libros');
       }
     });
   }
@@ -541,26 +542,22 @@ export class LibrosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error cargando salas del usuario:', error);
-        alert('Error cargando salas');
       }
     });
   }
 
   createLibro(): void {
     if (!this.nuevoLibro.sala_id) {
-      alert('Por favor seleccione una sala');
       return;
     }
 
     this.libroService.createLibro(this.nuevoLibro).subscribe({
       next: (libro) => {
-        alert('Libro creado exitosamente');
         this.loadLibros();
         this.closeSalaSelector();
       },
       error: (error) => {
         console.error('Error creando libro:', error);
-        alert('Error creando libro');
       }
     });
   }
@@ -572,7 +569,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
       this.router.navigate(['/drop-mesas', libroId, libro.Sala.id]);
     } else {
       console.error('No se pudo obtener la sala del libro');
-      alert('Error: No se pudo obtener la sala del libro');
     }
   }
 
@@ -583,7 +579,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
       this.router.navigate(['/novedades-maquinas', libroId, libro.Sala.id]);
     } else {
       console.error('No se pudo obtener la sala del libro');
-      alert('Error: No se pudo obtener la sala del libro');
     }
   }
 
@@ -594,7 +589,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
       this.router.navigate(['/incidencias-generales', libroId, libro.Sala.id]);
     } else {
       console.error('No se pudo obtener la sala del libro');
-      alert('Error: No se pudo obtener la sala del libro');
     }
   }
 
@@ -606,17 +600,26 @@ export class LibrosListComponent implements OnInit, OnDestroy {
   }
 
   deleteLibro(id: number): void {
-    if (confirm('¿Estás seguro de que quieres eliminar este libro?')) {
-      this.libroService.deleteLibro(id).subscribe({
-        next: () => {
-          alert('Libro eliminado exitosamente');
-          this.loadLibros();
-        },
-        error: (error) => {
-          console.error('Error eliminando libro:', error);
-          alert('Error eliminando libro');
+    this.libroService.deleteLibro(id).subscribe({
+      next: () => {
+        this.loadLibros();
+      },
+      error: (error) => {
+        console.error('Error eliminando libro:', error);
+        if (error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el libro',
+            message: 'Este libro tiene relaciones que impiden su eliminación.',
+            entity: {
+              id: id,
+              nombre: 'Libro',
+              tipo: 'libro'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este libro, primero debe eliminar o reasignar los elementos relacionados.'
+          });
         }
-      });
-    }
+      }
+    });
   }
 }

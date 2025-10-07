@@ -17,7 +17,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'areas',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     }
   }, {
     tableName: 'departamentos',

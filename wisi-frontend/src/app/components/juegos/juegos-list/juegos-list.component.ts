@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { JuegosService } from '../../../services/juegos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -436,7 +437,8 @@ export class JuegosListComponent implements OnInit, OnDestroy {
   constructor(
     private juegosService: JuegosService,
     private router: Router,
-    private permissionsService: PermissionsService
+    private permissionsService: PermissionsService,
+    private errorModalService: ErrorModalService
   ) { }
 
   ngOnInit(): void {
@@ -497,7 +499,6 @@ export class JuegosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error cargando juegos:', error);
-        alert('Error cargando juegos');
       }
     });
   }
@@ -528,14 +529,12 @@ export class JuegosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error cargando salas del usuario:', error);
-        alert('Error cargando salas');
       }
     });
   }
 
   createJuego(): void {
     if (!this.nuevoJuego.nombre || !this.nuevoJuego.sala_id) {
-      alert('Por favor complete todos los campos');
       return;
     }
 
@@ -543,26 +542,22 @@ export class JuegosListComponent implements OnInit, OnDestroy {
       // Modo edición
       this.juegosService.updateJuego(this.selectedJuego.id, this.nuevoJuego).subscribe({
         next: (juego) => {
-          alert('Juego actualizado exitosamente');
           this.loadJuegos();
           this.closeSalaSelector();
         },
         error: (error) => {
           console.error('Error actualizando juego:', error);
-          alert('Error actualizando juego');
         }
       });
     } else {
       // Modo creación
       this.juegosService.createJuego(this.nuevoJuego).subscribe({
         next: (juego) => {
-          alert('Juego creado exitosamente');
           this.loadJuegos();
           this.closeSalaSelector();
         },
         error: (error) => {
           console.error('Error creando juego:', error);
-          alert('Error creando juego');
         }
       });
     }
@@ -578,17 +573,26 @@ export class JuegosListComponent implements OnInit, OnDestroy {
   }
 
   deleteJuego(id: number): void {
-    if (confirm('¿Estás seguro de que quieres eliminar este juego?')) {
-      this.juegosService.deleteJuego(id).subscribe({
-        next: () => {
-          alert('Juego eliminado exitosamente');
-          this.loadJuegos();
-        },
-        error: (error) => {
-          console.error('Error eliminando juego:', error);
-          alert('Error eliminando juego');
+    this.juegosService.deleteJuego(id).subscribe({
+      next: () => {
+        this.loadJuegos();
+      },
+      error: (error) => {
+        console.error('Error eliminando juego:', error);
+        if (error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el juego',
+            message: 'Este juego tiene relaciones que impiden su eliminación.',
+            entity: {
+              id: id,
+              nombre: 'Juego',
+              tipo: 'juego'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este juego, primero debe eliminar o reasignar los elementos relacionados.'
+          });
         }
-      });
-    }
+      }
+    });
   }
 }

@@ -6,6 +6,7 @@ import { DropsService, Drop, Mesa } from '../../../services/drops.service';
 import { UserService } from '../../../services/user.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { LibroService } from '../../../services/libro.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 interface Sala {
@@ -464,7 +465,8 @@ export class DropMesasComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private permissionsService: PermissionsService,
     private router: Router,
-    private libroService: LibroService
+    private libroService: LibroService,
+    private errorModalService: ErrorModalService
   ) { }
 
   ngOnInit() {
@@ -618,18 +620,27 @@ export class DropMesasComponent implements OnInit, OnDestroy {
   }
 
   deleteDrop(id: number) {
-    if (confirm('¿Está seguro de que desea eliminar este drop?')) {
-      this.dropsService.deleteDrop(id).subscribe({
-        next: () => {
-          this.loadDrops(); // Recargar la lista
-          alert('Drop eliminado correctamente');
-        },
-        error: (error: any) => {
-          console.error('Error eliminando drop:', error);
-          alert('Error eliminando drop');
+    this.dropsService.deleteDrop(id).subscribe({
+      next: () => {
+        this.loadDrops(); // Recargar la lista
+      },
+      error: (error: any) => {
+        console.error('Error eliminando drop:', error);
+        if (error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el drop',
+            message: 'Este drop tiene relaciones que impiden su eliminación.',
+            entity: {
+              id: id,
+              nombre: 'Drop',
+              tipo: 'drop'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este drop, primero debe eliminar o reasignar los elementos relacionados.'
+          });
         }
-      });
-    }
+      }
+    });
   }
 
   resetForm() {

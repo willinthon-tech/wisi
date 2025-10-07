@@ -13,7 +13,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'libros',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
     maquina_id: {
       type: DataTypes.INTEGER,
@@ -21,7 +22,8 @@ module.exports = (sequelize) => {
       references: {
         model: 'maquinas',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
     novedad_maquina_id: {
       type: DataTypes.INTEGER,
@@ -29,15 +31,17 @@ module.exports = (sequelize) => {
       references: {
         model: 'novedades_maquinas',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
-    tecnico_id: {
+    empleado_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'tecnicos',
+        model: 'empleados',
         key: 'id'
-      }
+      },
+      onDelete: 'RESTRICT'
     },
     hora: {
       type: DataTypes.TIME,

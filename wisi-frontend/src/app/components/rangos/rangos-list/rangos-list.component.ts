@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RangosService } from '../../../services/rangos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -430,7 +431,8 @@ export class RangosListComponent implements OnInit, OnDestroy {
   constructor(
     private rangosService: RangosService,
     private router: Router,
-    private permissionsService: PermissionsService
+    private permissionsService: PermissionsService,
+    private errorModalService: ErrorModalService
   ) { }
 
   ngOnInit(): void {
@@ -492,7 +494,6 @@ export class RangosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error cargando rangos:', error);
-        alert('Error cargando rangos');
       }
     });
   }
@@ -526,14 +527,12 @@ export class RangosListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('❌ Error cargando salas del usuario:', error);
-        alert('Error cargando salas');
       }
     });
   }
 
   createRango(): void {
     if (!this.nuevoRango.nombre || !this.nuevoRango.sala_id) {
-      alert('Por favor complete todos los campos');
       return;
     }
 
@@ -541,26 +540,22 @@ export class RangosListComponent implements OnInit, OnDestroy {
       // Modo edición
       this.rangosService.updateRango(this.selectedRango.id, this.nuevoRango).subscribe({
         next: (rango) => {
-          alert('Rango actualizado exitosamente');
           this.loadRangos();
           this.closeSalaSelector();
         },
         error: (error) => {
           console.error('Error actualizando rango:', error);
-          alert('Error actualizando rango');
         }
       });
     } else {
       // Modo creación
       this.rangosService.createRango(this.nuevoRango).subscribe({
         next: (rango) => {
-          alert('Rango creado exitosamente');
           this.loadRangos();
           this.closeSalaSelector();
         },
         error: (error) => {
           console.error('Error creando rango:', error);
-          alert('Error creando rango');
         }
       });
     }
@@ -575,17 +570,26 @@ export class RangosListComponent implements OnInit, OnDestroy {
   }
 
   deleteRango(id: number): void {
-    if (confirm('¿Estás seguro de que quieres eliminar este rango?')) {
-      this.rangosService.deleteRango(id).subscribe({
-        next: () => {
-          alert('Rango eliminado exitosamente');
-          this.loadRangos();
-        },
-        error: (error) => {
-          console.error('Error eliminando rango:', error);
-          alert('Error eliminando rango');
+    this.rangosService.deleteRango(id).subscribe({
+      next: () => {
+        this.loadRangos();
+      },
+      error: (error) => {
+        console.error('Error eliminando rango:', error);
+        if (error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el rango',
+            message: 'Este rango tiene relaciones que impiden su eliminación.',
+            entity: {
+              id: id,
+              nombre: 'Rango',
+              tipo: 'rango'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este rango, primero debe eliminar o reasignar los elementos relacionados.'
+          });
         }
-      });
-    }
+      }
+    });
   }
 }

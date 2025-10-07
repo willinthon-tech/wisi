@@ -13,7 +13,6 @@ import { RangosService } from './services/rangos.service';
 import { MesasService } from './services/mesas.service';
 import { JuegosService } from './services/juegos.service';
 import { MaquinasService } from './services/maquinas.service';
-import { TecnicosService } from './services/tecnicos.service';
 import { NovedadesMaquinasService } from './services/novedades-maquinas.service';
 import { NovedadesMaquinasRegistrosService } from './services/novedades-maquinas-registros.service';
 import { IncidenciasGeneralesService } from './services/incidencias-generales.service';
@@ -34,7 +33,6 @@ export const appConfig: ApplicationConfig = {
     MesasService,
     JuegosService,
     MaquinasService,
-    TecnicosService,
     NovedadesMaquinasService,
     NovedadesMaquinasRegistrosService,
     IncidenciasGeneralesService,

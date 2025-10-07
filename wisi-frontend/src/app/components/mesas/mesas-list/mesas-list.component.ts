@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MesasService } from '../../../services/mesas.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -438,7 +439,8 @@ export class MesasListComponent implements OnInit, OnDestroy {
   constructor(
     private mesasService: MesasService,
     private router: Router,
-    private permissionsService: PermissionsService
+    private permissionsService: PermissionsService,
+    private errorModalService: ErrorModalService
   ) { }
 
   ngOnInit(): void {
@@ -505,7 +507,6 @@ export class MesasListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error cargando mesas:', error);
-        alert('Error cargando mesas');
       }
     });
   }
@@ -536,14 +537,12 @@ export class MesasListComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error cargando juegos del usuario:', error);
-        alert('Error cargando juegos');
       }
     });
   }
 
   createMesa(): void {
     if (!this.nuevaMesa.nombre || !this.nuevaMesa.juego_id) {
-      alert('Por favor complete todos los campos');
       return;
     }
 
@@ -551,26 +550,22 @@ export class MesasListComponent implements OnInit, OnDestroy {
       // Modo edición
       this.mesasService.updateMesa(this.selectedMesa.id, this.nuevaMesa).subscribe({
         next: (mesa) => {
-          alert('Mesa actualizada exitosamente');
           this.loadMesas();
           this.closeSalaSelector();
         },
         error: (error) => {
           console.error('Error actualizando mesa:', error);
-          alert('Error actualizando mesa');
         }
       });
     } else {
       // Modo creación
       this.mesasService.createMesa(this.nuevaMesa).subscribe({
         next: (mesa) => {
-          alert('Mesa creada exitosamente');
           this.loadMesas();
           this.closeSalaSelector();
         },
         error: (error) => {
           console.error('Error creando mesa:', error);
-          alert('Error creando mesa');
         }
       });
     }
@@ -586,17 +581,26 @@ export class MesasListComponent implements OnInit, OnDestroy {
   }
 
   deleteMesa(id: number): void {
-    if (confirm('¿Estás seguro de que quieres eliminar esta mesa?')) {
-      this.mesasService.deleteMesa(id).subscribe({
-        next: () => {
-          alert('Mesa eliminada exitosamente');
-          this.loadMesas();
-        },
-        error: (error) => {
-          console.error('Error eliminando mesa:', error);
-          alert('Error eliminando mesa');
+    this.mesasService.deleteMesa(id).subscribe({
+      next: () => {
+        this.loadMesas();
+      },
+      error: (error) => {
+        console.error('Error eliminando mesa:', error);
+        if (error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar la mesa',
+            message: 'Esta mesa tiene relaciones que impiden su eliminación.',
+            entity: {
+              id: id,
+              nombre: 'Mesa',
+              tipo: 'mesa'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar esta mesa, primero debe eliminar o reasignar los elementos relacionados.'
+          });
         }
-      });
-    }
+      }
+    });
   }
 }

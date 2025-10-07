@@ -45,6 +45,7 @@ module.exports = (sequelize) => {
         model: 'cargos',
         key: 'id'
       },
+      onDelete: 'RESTRICT',
       comment: 'ID del cargo al que pertenece el empleado'
     },
     primer_dia_horario: {
@@ -59,6 +60,7 @@ module.exports = (sequelize) => {
         model: 'horarios',
         key: 'id'
       },
+      onDelete: 'RESTRICT',
       comment: 'ID del horario asignado al empleado'
     },
   }, {

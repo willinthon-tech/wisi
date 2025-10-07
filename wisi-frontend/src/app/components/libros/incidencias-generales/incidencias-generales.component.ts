@@ -6,6 +6,7 @@ import { IncidenciasGeneralesService } from '../../../services/incidencias-gener
 import { UserService } from '../../../services/user.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { LibroService } from '../../../services/libro.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 interface IncidenciaGeneral {
@@ -292,7 +293,8 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private permissionsService: PermissionsService,
     private router: Router,
-    private libroService: LibroService
+    private libroService: LibroService,
+    private errorModalService: ErrorModalService
   ) { }
 
   ngOnInit() {
@@ -399,18 +401,27 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
   }
 
   deleteIncidencia(id: number) {
-    if (confirm('¿Está seguro de que desea eliminar esta incidencia?')) {
-      this.incidenciasGeneralesService.deleteIncidenciaGeneral(id).subscribe({
-        next: () => {
-          this.loadIncidencias(); // Recargar la lista
-          alert('Incidencia eliminada correctamente');
-        },
-        error: (error: any) => {
-          console.error('Error eliminando incidencia:', error);
-          alert('Error eliminando incidencia');
+    this.incidenciasGeneralesService.deleteIncidenciaGeneral(id).subscribe({
+      next: () => {
+        this.loadIncidencias(); // Recargar la lista
+      },
+      error: (error: any) => {
+        console.error('Error eliminando incidencia:', error);
+        if (error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar la incidencia',
+            message: 'Esta incidencia tiene relaciones que impiden su eliminación.',
+            entity: {
+              id: id,
+              nombre: 'Incidencia',
+              tipo: 'incidencia'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar esta incidencia, primero debe eliminar o reasignar los elementos relacionados.'
+          });
         }
-      });
-    }
+      }
+    });
   }
 
   resetForm() {

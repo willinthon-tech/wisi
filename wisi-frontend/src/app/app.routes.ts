@@ -111,11 +111,6 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
-    path: 'gestion-de-tecnicos',
-    loadComponent: () => import('./components/tecnicos/tecnicos-list/tecnicos-list.component').then(m => m.TecnicosListComponent),
-    canActivate: [AuthGuard]
-  },
-  {
     path: 'gestion-de-novedades-de-maquinas',
     loadComponent: () => import('./components/novedades-maquinas/novedades-maquinas-list/novedades-maquinas-list.component').then(m => m.NovedadesMaquinasListComponent),
     canActivate: [AuthGuard]
