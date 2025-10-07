@@ -91,8 +91,8 @@ import { Subscription } from 'rxjs';
       </div>
 
       <!-- Modal para crear empleado -->
-      <div *ngIf="showCargoModal" class="modal-overlay" (click)="closeCargoSelector()">
-        <div class="modal-content" (click)="$event.stopPropagation()">
+      <div *ngIf="showCargoModal" class="modal-overlay">
+        <div class="modal-content">
           <div class="modal-header">
             <h3>{{ selectedEmpleado ? 'Editar Empleado' : 'Crear Nuevo Empleado' }}</h3>
             <button class="close-btn" (click)="closeCargoSelector()">&times;</button>
