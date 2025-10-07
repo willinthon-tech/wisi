@@ -343,7 +343,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Error cargando salas del usuario:', error);
-        alert('Error cargando salas del usuario');
       }
     });
   }
@@ -365,19 +364,16 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Error cargando incidencias:', error);
-        alert('Error cargando incidencias');
       }
     });
   }
 
   saveIncidencia() {
     if (!this.incidenciaData.descripcion || !this.incidenciaData.hora) {
-      alert('Por favor complete todos los campos');
       return;
     }
 
     if (!this.libroId) {
-      alert('Error: No se ha identificado el libro');
       return;
     }
 
@@ -391,11 +387,9 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
       next: (incidencia: IncidenciaGeneral) => {
         this.loadIncidencias(); // Recargar la lista
         this.resetForm();
-        alert('Incidencia guardada correctamente');
       },
       error: (error: any) => {
         console.error('Error guardando incidencia:', error);
-        alert('Error guardando incidencia');
       }
     });
   }

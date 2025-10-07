@@ -514,7 +514,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Error cargando salas del usuario:', error);
-        alert('Error cargando salas del usuario');
       }
     });
   }
@@ -531,7 +530,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Error cargando drops:', error);
-        alert('Error cargando drops');
       }
     });
   }
@@ -546,7 +544,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Error cargando mesas del usuario:', error);
-        alert('Error cargando mesas del usuario');
       }
     });
   }
@@ -586,12 +583,10 @@ export class DropMesasComponent implements OnInit, OnDestroy {
 
   saveDrop() {
     if (!this.selectedMesaId) {
-      alert('Por favor seleccione una mesa');
       return;
     }
 
     if (!this.libroId) {
-      alert('Error: No se ha identificado el libro');
       return;
     }
 
@@ -610,11 +605,9 @@ export class DropMesasComponent implements OnInit, OnDestroy {
       next: (drop: Drop) => {
         this.loadDrops(); // Recargar la lista
         this.resetForm();
-        alert('Drop guardado correctamente');
       },
       error: (error: any) => {
         console.error('Error guardando drop:', error);
-        alert('Error guardando drop');
       }
     });
   }

@@ -814,7 +814,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Error cargando salas del usuario:', error);
-        alert('Error cargando salas del usuario');
       }
     });
   }
@@ -839,7 +838,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Error cargando novedades:', error);
-        alert('Error cargando novedades');
       }
     });
   }
@@ -865,7 +863,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Error cargando máquinas:', error);
-        alert('Error cargando máquinas');
       }
     });
   }
@@ -884,7 +881,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
               },
               error: (error: any) => {
                 console.error('Error cargando empleados:', error);
-                alert('Error cargando empleados');
               }
             });
           }
@@ -917,27 +913,22 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   saveNovedad() {
 
     if (this.selectedMaquinaIds.length === 0) {
-      alert('Por favor seleccione al menos una máquina');
       return;
     }
 
     if (!this.novedadData.descripcion) {
-      alert('Por favor ingrese una descripción');
       return;
     }
 
     if (!this.selectedEmpleadoId) {
-      alert('Por favor seleccione un empleado');
       return;
     }
 
     if (!this.novedadData.hora) {
-      alert('Por favor ingrese la hora');
       return;
     }
 
     if (!this.libroId) {
-      alert('Error: No se ha identificado el libro');
       return;
     }
 
@@ -962,11 +953,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
           if (completed + errors === this.selectedMaquinaIds.length) {
             this.loadNovedades();
             this.resetForm();
-            if (errors === 0) {
-              alert(`Se guardaron ${completed} novedades exitosamente`);
-            } else {
-              alert(`Se guardaron ${completed} novedades, ${errors} fallaron`);
-            }
           }
         },
         error: (error: any) => {
@@ -977,11 +963,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
           if (completed + errors === this.selectedMaquinaIds.length) {
             this.loadNovedades();
             this.resetForm();
-            if (completed > 0) {
-              alert(`Se guardaron ${completed} novedades, ${errors} fallaron`);
-            } else {
-              alert('Error guardando todas las novedades');
-            }
           }
         }
       });

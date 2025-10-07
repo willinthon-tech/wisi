@@ -3782,22 +3782,10 @@ app.delete('/api/drops/:id', authenticateToken, async (req, res) => {
       id: id,
       mesa_id: drop.mesa_id
     });
-    const relations = await sequelize.query(`
-      SELECT table_name, count FROM (
-        SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE drop_id = ?
-      ) as relations WHERE count > 0
-    `, {
-      replacements: [id],
-      type: sequelize.QueryTypes.SELECT
-    });
-    console.log('🔍 Resultado de verificación de relaciones para drop:', relations);
     
-    if (relations.length > 0) {
-      return res.status(400).json({
-        message: 'No se puede eliminar el drop porque tiene relaciones',
-        relations: relations
-      });
-    }
+    // No hay relaciones que verificar para drops ya que novedades_maquinas_registros no tiene drop_id
+    const relations = [];
+    console.log('🔍 Resultado de verificación de relaciones para drop:', relations);
 
     await drop.destroy();
     res.json({ message: 'Drop eliminado correctamente' });
