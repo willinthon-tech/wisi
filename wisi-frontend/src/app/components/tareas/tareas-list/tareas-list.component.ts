@@ -10,11 +10,21 @@ import { HttpClient } from '@angular/common/http';
   template: `
     <div class="tareas-container">
       <div class="header">
-        <button class="btn btn-success" (click)="ejecutarTodas()">
-          Ejecutar Todo
+        <button 
+          class="btn btn-success" 
+          [disabled]="procesandoTodas || tareas.length === 0"
+          (click)="ejecutarTodas()">
+          <span *ngIf="ejecutandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <span *ngIf="!ejecutandoTodas">Ejecutar Todo</span>
+          <span *ngIf="ejecutandoTodas">Ejecutando...</span>
         </button>
-        <button class="btn btn-danger" (click)="rechazarTodas()">
-          Rechazar Todo
+        <button 
+          class="btn btn-danger" 
+          [disabled]="procesandoTodas || tareas.length === 0"
+          (click)="rechazarTodas()">
+          <span *ngIf="rechazandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+          <span *ngIf="!rechazandoTodas">Rechazar Todo</span>
+          <span *ngIf="rechazandoTodas">Rechazando...</span>
         </button>
       </div>
       
@@ -34,7 +44,7 @@ import { HttpClient } from '@angular/common/http';
           </thead>
           <tbody>
             <tr *ngFor="let tarea of tareas; let i = index">
-              <td>{{ i + 1 }}</td>
+              <td>{{ tarea.id }}</td>
               <td>{{ tarea.numero_cedula_empleado }}</td>
               <td>{{ tarea.nombre_empleado }}</td>
               <td>{{ tarea.nombre_genero }}</td>
@@ -52,7 +62,7 @@ import { HttpClient } from '@angular/common/http';
               <td>
                 <button 
                   class="btn btn-success btn-sm me-2" 
-                  [disabled]="!isTareaActiva(tarea) || procesandoTarea"
+                  [disabled]="!isTareaActiva(tarea) || procesandoTarea || ejecutandoTodas || rechazandoTodas"
                   (click)="ejecutarTarea(tarea)">
                   <span *ngIf="ejecutandoTarea === tarea.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                   <span *ngIf="ejecutandoTarea !== tarea.id">Ejecutar</span>
@@ -60,7 +70,7 @@ import { HttpClient } from '@angular/common/http';
                 </button>
                 <button 
                   class="btn btn-danger btn-sm" 
-                  [disabled]="!isTareaActiva(tarea) || procesandoTarea"
+                  [disabled]="!isTareaActiva(tarea) || procesandoTarea || ejecutandoTodas || rechazandoTodas"
                   (click)="rechazarTarea(tarea)">
                   <span *ngIf="rechazandoTarea === tarea.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                   <span *ngIf="rechazandoTarea !== tarea.id">Rechazar</span>
@@ -77,8 +87,8 @@ import { HttpClient } from '@angular/common/http';
       </div>
 
       <!-- Modal para ver detalles de tarea -->
-      <div *ngIf="showDetailsModal" class="modal-overlay" (click)="closeDetailsModal()">
-        <div class="modal-content" (click)="$event.stopPropagation()">
+      <div *ngIf="showDetailsModal" class="modal-overlay">
+        <div class="modal-content">
           <div class="modal-header">
             <h3>Detalles de la Tarea</h3>
             <button class="close-btn" (click)="closeDetailsModal()">&times;</button>
@@ -634,6 +644,9 @@ export class TareasListComponent implements OnInit {
   ejecutandoTarea: number | null = null; // ID de la tarea que se está ejecutando
   rechazandoTarea: number | null = null; // ID de la tarea que se está rechazando
   procesandoTarea: boolean = false; // Estado general de procesamiento
+  ejecutandoTodas: boolean = false; // Estado para "Ejecutar Todo"
+  rechazandoTodas: boolean = false; // Estado para "Rechazar Todo"
+  procesandoTodas: boolean = false; // Controla si se están procesando todas las tareas
 
   constructor(
     private route: ActivatedRoute,
@@ -666,14 +679,94 @@ export class TareasListComponent implements OnInit {
 
   ejecutarTodas(): void {
     console.log('🚀 Ejecutando todas las tareas...');
-    // Aquí implementarías la lógica para ejecutar todas las tareas
-    alert('Funcionalidad de "Ejecutar Todo" en desarrollo');
+    this.ejecutandoTodas = true;
+    this.procesandoTodas = true;
+    this.procesarTodasTareas('ejecutar');
   }
 
   rechazarTodas(): void {
     console.log('❌ Rechazando todas las tareas...');
-    // Aquí implementarías la lógica para rechazar todas las tareas
-    alert('Funcionalidad de "Rechazar Todo" en desarrollo');
+    this.rechazandoTodas = true;
+    this.procesandoTodas = true;
+    this.procesarTodasTareas('rechazar');
+  }
+
+  async procesarTodasTareas(accion: 'ejecutar' | 'rechazar'): Promise<void> {
+    console.log(`🔄 Procesando todas las tareas con acción: ${accion}`);
+    
+    try {
+      while (this.tareas.length > 0) {
+        const tareaActual = this.tareas[0];
+        console.log(`🔄 Procesando tarea ${tareaActual.id} (${accion})`);
+        
+        // Simular clic en el botón individual
+        if (accion === 'ejecutar') {
+          await this.simularEjecutarTarea(tareaActual);
+        } else {
+          await this.simularRechazarTarea(tareaActual);
+        }
+        
+        // Pausa para mostrar la siguiente tarea (si hay más)
+        if (this.tareas.length > 0) {
+          console.log(`⏳ Pausa para mostrar siguiente tarea. Tareas restantes: ${this.tareas.length}`);
+          
+          // Los botones individuales permanecen deshabilitados durante todo el procesamiento
+          // Los botones "Todo" también permanecen deshabilitados
+          await new Promise(resolve => setTimeout(resolve, 1500)); // Pausa para ver la siguiente
+        }
+      }
+      
+      console.log(`✅ Todas las tareas han sido ${accion === 'ejecutar' ? 'ejecutadas' : 'rechazadas'}`);
+    } finally {
+      // Resetear estados al finalizar
+      this.ejecutandoTodas = false;
+      this.rechazandoTodas = false;
+      this.procesandoTodas = false;
+    }
+  }
+
+  async simularEjecutarTarea(tarea: any): Promise<void> {
+    console.log('🚀 Simulando ejecutar tarea:', tarea.id);
+    
+    // Simular el proceso de ejecución
+    this.ejecutandoTarea = tarea.id;
+    
+    // Simular delay de procesamiento
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Eliminar la tarea del backend
+    await this.eliminarTareaAsync(tarea.id);
+    
+    // Eliminar de la lista local
+    this.tareas = this.tareas.filter(t => t.id !== tarea.id);
+    
+    // Actualizar tarea activa
+    this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
+    
+    this.ejecutandoTarea = null;
+    console.log(`✅ Tarea ${tarea.id} ejecutada y eliminada. Tareas restantes: ${this.tareas.length}`);
+  }
+
+  async simularRechazarTarea(tarea: any): Promise<void> {
+    console.log('❌ Simulando rechazar tarea:', tarea.id);
+    
+    // Simular el proceso de rechazo
+    this.rechazandoTarea = tarea.id;
+    
+    // Simular delay de procesamiento
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Eliminar la tarea del backend
+    await this.eliminarTareaAsync(tarea.id);
+    
+    // Eliminar de la lista local
+    this.tareas = this.tareas.filter(t => t.id !== tarea.id);
+    
+    // Actualizar tarea activa
+    this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
+    
+    this.rechazandoTarea = null;
+    console.log(`✅ Tarea ${tarea.id} rechazada y eliminada. Tareas restantes: ${this.tareas.length}`);
   }
 
   verDetalles(tarea: any): void {
