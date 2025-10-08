@@ -97,7 +97,6 @@ ModuleRegistry.registerModules([AllCommunityModule]);
               [paginationAutoPageSize]="false"
               [paginationPageSizeSelector]="[25, 50, 100]"
               [suppressPaginationPanel]="false"
-              [rowSelection]="'none'"
               [suppressColumnVirtualisation]="false"
               [suppressRowHoverHighlight]="true"
               [suppressCellFocus]="true"
@@ -153,6 +152,33 @@ ModuleRegistry.registerModules([AllCommunityModule]);
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" (click)="cerrarModal()">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de imagen -->
+      <div class="modal" [class.show]="showImageModal" *ngIf="showImageModal">
+        <div class="modal-content image-modal">
+          <div class="modal-header">
+            <h3>Imagen del Marcaje</h3>
+            <button type="button" class="btn-close" (click)="closeImageModal()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="image-container" *ngIf="imageUrl">
+              <img [src]="imageUrl" [alt]="'Imagen del marcaje ' + selectedMarcaje?.id" 
+                   class="marcaje-image" (error)="onImageError()">
+            </div>
+            <div class="no-image" *ngIf="!imageUrl">
+              <p>No se pudo cargar la imagen</p>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" (click)="downloadImage()" *ngIf="imageUrl">
+              <i class="fas fa-download"></i> Descargar
+            </button>
+            <button type="button" class="btn btn-secondary" (click)="closeImageModal()">
               Cerrar
             </button>
           </div>
@@ -573,6 +599,38 @@ ModuleRegistry.registerModules([AllCommunityModule]);
         grid-template-columns: 1fr;
       }
     }
+
+    /* Estilos para modal de imagen */
+    .image-modal {
+      max-width: 800px;
+    }
+
+    .image-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    .marcaje-image {
+      max-width: 100%;
+      max-height: 600px;
+      border-radius: 4px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .no-image {
+      text-align: center;
+      padding: 40px;
+      color: #6c757d;
+    }
+
+    .no-image p {
+      font-size: 1.1rem;
+      margin: 0;
+    }
   `]
 })
 export class MarcajesListComponent implements OnInit {
@@ -793,11 +851,40 @@ export class MarcajesListComponent implements OnInit {
     return true; // Por ahora asumimos que todos tienen imagen
   }
 
+  // Variables para modal de imagen
+  showImageModal = false;
+  selectedMarcaje: any = null;
+  imageUrl = '';
+
   descargarImagen(marcaje: Marcaje) {
     if (marcaje.id) {
-      const url = `${environment.apiUrl}/dispositivos/${marcaje.dispositivo_id}/download-image/${marcaje.id}`;
-      window.open(url, '_blank');
+      // Configurar datos para la modal
+      this.selectedMarcaje = marcaje;
+      this.imageUrl = `${environment.apiUrl}/attlogs/${marcaje.id}/image`;
+      this.showImageModal = true;
+      console.log(`📸 Abriendo modal de imagen para marcaje ${marcaje.id}`);
     }
+  }
+
+  closeImageModal() {
+    this.showImageModal = false;
+    this.selectedMarcaje = null;
+    this.imageUrl = '';
+  }
+
+  downloadImage() {
+    if (this.imageUrl) {
+      // Crear enlace de descarga
+      const link = document.createElement('a');
+      link.href = this.imageUrl;
+      link.download = `marcaje_${this.selectedMarcaje?.id}.jpg`;
+      link.click();
+    }
+  }
+
+  onImageError() {
+    console.log('Error cargando imagen');
+    this.imageUrl = '';
   }
 
   // Métodos para ag-Grid

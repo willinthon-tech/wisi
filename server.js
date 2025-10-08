@@ -301,6 +301,7 @@ async function syncAttendanceFromDevice(dispositivo) {
     let errorCount = 0;
     let imagesDownloaded = 0;
     let imagesErrors = 0;
+    let eventsWithoutImage = 0;
 
     for (const event of allEvents) {
       try {
@@ -335,58 +336,81 @@ async function syncAttendanceFromDevice(dispositivo) {
         });
         console.log(`✅ Evento guardado con ID: ${attlog.id}`);
 
-        // Procesar imagen si existe
-        console.log(`🔍 Evento ${attlog.id} - pictureURL: ${event.pictureURL || 'NO TIENE'}`);
-        if (event.pictureURL) {
-          console.log(`📸 Evento ${attlog.id} tiene imagen: ${event.pictureURL}`);
+        // Verificar si el evento tiene campo de imagen antes de procesar
+        console.log(`🔍 Evento ${attlog.id} - Verificando campo pictureURL...`);
+        
+        if (!event.pictureURL || event.pictureURL === '' || event.pictureURL === null || event.pictureURL === undefined) {
+          console.log(`⚠️ Evento ${attlog.id} NO tiene campo pictureURL - Omitiendo descarga de imagen`);
+          eventsWithoutImage++;
+          // Continuar con el siguiente evento sin procesar imagen
+        } else {
+          console.log(`📸 Evento ${attlog.id} SÍ tiene imagen: ${event.pictureURL}`);
+          
+          // Procesar imagen de forma síncrona para mejor control
           try {
-            // Extraer el imageId de la URL (última parte después del último @)
-            const imageId = event.pictureURL.split('@').pop();
-            console.log(`🔍 ImageId extraído: ${imageId}`);
-            
-            // Usar el endpoint correcto para descargar la imagen
-            const imageUrl = `/ISAPI/Intelligent/FDLib/FDSearch/DownloadPicture?format=json&FDID=1&faceLibType=blackFD&faceID=${imageId}`;
-            console.log(`🔍 Endpoint de imagen: ${imageUrl}`);
-            
-            // Descargar imagen del dispositivo usando Digest auth
-            const imageResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imageUrl, 'GET', null, authObject);
-            
-            console.log(`🔍 Respuesta de imagen - Status: ${imageResponse.status}`);
-            console.log(`🔍 Respuesta de imagen - Data type: ${typeof imageResponse.data}`);
-            console.log(`🔍 Respuesta de imagen - Data length: ${imageResponse.data ? imageResponse.data.length : 'undefined'}`);
-            
-            if (imageResponse.status === 200 && imageResponse.data) {
-              let imageBuffer;
+              // Usar la URL completa de la imagen para autenticación
+              const fullImageUrl = event.pictureURL.split('@')[0];
+              console.log(`🔍 URL completa de imagen: ${fullImageUrl}`);
               
-              // Manejar diferentes formatos de respuesta
-              if (typeof imageResponse.data === 'string') {
-                // Si es string, asumir que es base64
-                imageBuffer = Buffer.from(imageResponse.data, 'base64');
-              } else if (imageResponse.data.pictureInfo && imageResponse.data.pictureInfo.picData) {
-                // Si es objeto con pictureInfo.picData
-                imageBuffer = Buffer.from(imageResponse.data.pictureInfo.picData, 'base64');
-              } else if (Buffer.isBuffer(imageResponse.data)) {
-                // Si ya es un buffer
-                imageBuffer = imageResponse.data;
+              // Extraer solo la ruta para makeDigestRequest
+              const imagePath = event.pictureURL.split('@')[0].replace(`http://${dispositivo.ip_remota}`, '');
+              console.log(`🔍 Ruta de imagen: ${imagePath}`);
+              
+              // Descargar imagen usando Digest Authentication con headers específicos para imagen
+              const imageResponse = await makeDigestRequestForImage(`http://${dispositivo.ip_remota}`, imagePath, authObject);
+              
+              console.log(`🔍 Respuesta de imagen - Status: ${imageResponse.status}`);
+              console.log(`🔍 Respuesta de imagen - Data type: ${typeof imageResponse.data}`);
+              console.log(`🔍 Respuesta de imagen - Data length: ${imageResponse.data ? imageResponse.data.length : 'undefined'}`);
+              
+              if (imageResponse.status === 200 && imageResponse.data) {
+                let imageBuffer;
+                
+                // Manejar diferentes formatos de respuesta
+                if (Buffer.isBuffer(imageResponse.data)) {
+                  // Si ya es un buffer (imagen binaria)
+                  imageBuffer = imageResponse.data;
+                  console.log(`🔍 Imagen recibida como buffer de ${imageBuffer.length} bytes`);
+                } else if (typeof imageResponse.data === 'string') {
+                  // Si es string, limpiar el prefijo data:image/jpeg;base64, si existe
+                  let base64Data = imageResponse.data;
+                  if (base64Data.startsWith('data:image/')) {
+                    base64Data = base64Data.split(',')[1]; // Remover prefijo data:image/jpeg;base64,
+                    console.log(`🔍 Removido prefijo data:image/ del string base64`);
+                  }
+                  imageBuffer = Buffer.from(base64Data, 'base64');
+                  console.log(`🔍 Imagen recibida como string base64, convertida a buffer de ${imageBuffer.length} bytes`);
+                } else if (imageResponse.data.pictureInfo && imageResponse.data.pictureInfo.picData) {
+                  // Si es objeto con pictureInfo.picData
+                  imageBuffer = Buffer.from(imageResponse.data.pictureInfo.picData, 'base64');
+                  console.log(`🔍 Imagen recibida en pictureInfo.picData, convertida a buffer de ${imageBuffer.length} bytes`);
+                } else {
+                  console.log(`❌ Formato de imagen no reconocido para evento ${attlog.id}`);
+                  console.log(`🔍 Tipo de data: ${typeof imageResponse.data}`);
+                  console.log(`🔍 Estructura:`, JSON.stringify(imageResponse.data, null, 2));
+                  return; // Salir sin error para no detener el CRON
+                }
+                
+                // Verificar que el buffer no esté vacío
+                if (imageBuffer && imageBuffer.length > 0) {
+                  const filePath = path.join(attlogsDir, `${attlog.id}.jpg`);
+                  fs.writeFileSync(filePath, imageBuffer);
+                  console.log(`✅ Imagen guardada: ${filePath} (${imageBuffer.length} bytes)`);
+                  imagesDownloaded++;
+                } else {
+                  console.log(`❌ Buffer de imagen vacío para evento ${attlog.id}`);
+                  imagesErrors++;
+                }
               } else {
-                console.log(`❌ Formato de imagen no reconocido para evento ${attlog.id}`);
+                console.log(`❌ Error descargando imagen para evento ${attlog.id}: ${imageResponse.status}`);
+                console.log(`🔍 Respuesta de error:`, imageResponse.data);
                 imagesErrors++;
-                continue;
               }
-              
-              const filePath = path.join(attlogsDir, `${attlog.id}.jpg`);
-              fs.writeFileSync(filePath, imageBuffer);
-              console.log(`✅ Imagen guardada: ${filePath}`);
-              imagesDownloaded++;
-            } else {
-              console.log(`❌ Error descargando imagen para evento ${attlog.id}: ${imageResponse.status}`);
-              console.log(`🔍 Respuesta de error:`, imageResponse.data);
+            } catch (imageError) {
+              console.log(`❌ Error procesando imagen para evento ${attlog.id}:`, imageError.message);
+              console.log(`⚠️ Continuando con el CRON a pesar del error de imagen`);
               imagesErrors++;
             }
-          } catch (imageError) {
-            console.log(`❌ Error procesando imagen para evento ${attlog.id}:`, imageError.message);
-            imagesErrors++;
-          }
         }
 
         savedCount++;
@@ -399,7 +423,7 @@ async function syncAttendanceFromDevice(dispositivo) {
     }
 
     // Descargar imágenes para eventos que tienen pictureInfo
-    console.log(`📸 Procesamiento de imágenes completado: ${imagesDownloaded} descargadas, ${imagesErrors} errores`);
+    console.log(`📸 Procesamiento de imágenes completado: ${imagesDownloaded} descargadas, ${imagesErrors} errores, ${eventsWithoutImage} sin imagen`);
 
     return {
       totalEvents: allEvents.length,
@@ -408,6 +432,7 @@ async function syncAttendanceFromDevice(dispositivo) {
       errorCount,
       imagesDownloaded,
       imagesErrors,
+      eventsWithoutImage,
       dispositivo: dispositivo.nombre
     };
 
@@ -5659,6 +5684,100 @@ async function subirImagenAlServidor(base64Image) {
 }
 
 // Función para hacer peticiones con autenticación Digest (igual que en gestión biométrica)
+// Función específica para descargar imágenes con Digest Authentication
+async function makeDigestRequestForImage(deviceUrl, endpoint, credentials) {
+  const axios = require('axios');
+  const crypto = require('crypto');
+  
+  const username = credentials.usuario_login_dispositivo;
+  const password = credentials.clave_login_dispositivo;
+  const fullUrl = `${deviceUrl}${endpoint}`;
+  
+  console.log(`🔍 makeDigestRequestForImage - URL: ${fullUrl}`);
+  console.log(`🔍 makeDigestRequestForImage - Username: ${username}`);
+  console.log(`🔍 makeDigestRequestForImage - Password: ${password ? '***' + password.slice(-3) : 'undefined'}`);
+  
+  try {
+    // Primera petición para obtener challenge digest
+    console.log(`🔄 Realizando primera petición para obtener challenge digest...`);
+    
+    const firstResponse = await axios({
+      method: 'GET',
+      url: fullUrl,
+      headers: {
+        'Accept': 'image/jpeg, image/png, */*'
+      },
+      timeout: 30000,
+      validateStatus: (status) => status === 401
+    });
+    
+    console.log(`⚠️ No se recibió challenge 401, intentando sin autenticación...`);
+    const directResponse = await axios({
+      method: 'GET',
+      url: fullUrl,
+      headers: {
+        'Accept': 'image/jpeg, image/png, */*'
+      },
+      timeout: 30000,
+      responseType: 'arraybuffer' // Importante para imágenes binarias
+    });
+    
+    console.log(`🔍 makeDigestRequestForImage - Respuesta sin auth:`, directResponse.status);
+    return directResponse;
+    
+  } catch (error) {
+    if (error.response && error.response.status === 401) {
+      console.log('✅ Challenge digest recibido (401)');
+      console.log(`🔍 Status: ${error.response.status}`);
+      console.log(`🔍 Headers: ${JSON.stringify(error.response.headers, null, 2)}`);
+      
+      // Extraer información del challenge digest
+      const wwwAuthenticate = error.response.headers['www-authenticate'];
+      
+      if (wwwAuthenticate && wwwAuthenticate.includes('Digest')) {
+        // Parsear el challenge digest
+        const challenge = parseDigestChallenge(wwwAuthenticate);
+        
+        // Generar respuesta digest
+        console.log(`🔐 Challenge parseado:`, challenge);
+        const digestResponse = generateDigestResponse(challenge, username, password, fullUrl, 'GET');
+        console.log(`🔑 Respuesta digest generada: ${digestResponse}`);
+        
+        // Segunda petición con la respuesta digest
+        try {
+          const secondResponse = await axios({
+            method: 'GET',
+            url: fullUrl,
+            headers: {
+              'Accept': 'image/jpeg, image/png, */*',
+              'Authorization': `Digest ${digestResponse}`
+            },
+            timeout: 30000,
+            responseType: 'arraybuffer' // Importante para imágenes binarias
+          });
+          
+          console.log(`🔍 makeDigestRequestForImage - Respuesta final: ${secondResponse.status}`);
+          console.log(`🔍 makeDigestRequestForImage - Data: ${secondResponse.data ? 'Presente' : 'Ausente'}`);
+          return secondResponse;
+          
+        } catch (secondError) {
+          console.log(`❌ Error en segunda petición: ${secondError.response?.status}`);
+          if (secondError.response?.data) {
+            console.log(`📦 Respuesta del dispositivo:`, secondError.response.data);
+          }
+          throw secondError;
+        }
+      } else {
+        console.log(`❌ No se encontró challenge digest válido`);
+        throw error;
+      }
+    } else {
+      console.log(`❌ Error en primera petición:`, error.message);
+      throw error;
+    }
+  }
+}
+
 async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials) {
   const axios = require('axios');
   const crypto = require('crypto');
@@ -6427,10 +6546,12 @@ app.post('/api/dispositivos/:id/sync-attendance', authenticateToken, async (req,
   }
 });
 
-// GET /api/dispositivos/:id/download-image/:imageId - Descargar imagen de marcaje
-app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, async (req, res) => {
+// POST /api/test-sync/:id - Endpoint de prueba para sincronización (sin autenticación)
+app.post('/api/test-sync/:id', async (req, res) => {
   try {
-    const { id, imageId } = req.params;
+    const { id } = req.params;
+    
+    console.log(`🧪 TEST: Sincronización manual iniciada para dispositivo ${id}`);
     
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
@@ -6439,6 +6560,245 @@ app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, asyn
 
     if (!dispositivo.ip_remota || !dispositivo.usuario || !dispositivo.clave) {
       return res.status(400).json({ message: 'Dispositivo no tiene credenciales completas' });
+    }
+
+    // Sincronizar marcajes
+    const result = await syncAttendanceFromDevice(dispositivo);
+    
+    res.json({
+      success: true,
+      message: 'Test de sincronización completado',
+      data: result
+    });
+  } catch (error) {
+    console.error('❌ Error en test de sincronización:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error en test de sincronización',
+      error: error.message 
+    });
+  }
+});
+
+// GET /api/verify-img-device/:id - Verificar descarga de imagen del dispositivo
+app.get('/api/verify-img-device/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log(`🔍 VERIFY: Verificando descarga de imagen del dispositivo ${id}`);
+    
+    const dispositivo = await Dispositivo.findByPk(id);
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+
+    if (!dispositivo.ip_remota || !dispositivo.usuario || !dispositivo.clave) {
+      return res.status(400).json({ message: 'Dispositivo no tiene credenciales completas' });
+    }
+
+    // Crear objeto de autenticación
+    const authObject = {
+      usuario_login_dispositivo: dispositivo.usuario,
+      clave_login_dispositivo: dispositivo.clave
+    };
+
+    // URL completa de imagen de prueba (como llega del evento)
+    const fullImageUrl = `http://${dispositivo.ip_remota}/LOCALS/pic/acsLinkCap/202509_00/21_003420_30075_0.jpeg@WEB000000001502`;
+    console.log(`🔍 URL completa de imagen: ${fullImageUrl}`);
+    
+    // Extraer solo la ruta para makeDigestRequest
+    const imagePath = fullImageUrl.replace(`http://${dispositivo.ip_remota}`, '').split('@')[0];
+    console.log(`🔍 Ruta de imagen: ${imagePath}`);
+    
+    // Descargar imagen usando Digest Authentication
+    const imageResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imagePath, 'GET', null, authObject);
+    
+    console.log(`🔍 Respuesta - Status: ${imageResponse.status}`);
+    console.log(`🔍 Respuesta - Data type: ${typeof imageResponse.data}`);
+    console.log(`🔍 Respuesta - Data length: ${imageResponse.data ? imageResponse.data.length : 'undefined'}`);
+    
+    if (imageResponse.status === 200 && imageResponse.data) {
+      let imageBuffer;
+      
+      if (Buffer.isBuffer(imageResponse.data)) {
+        imageBuffer = imageResponse.data;
+        console.log(`🔍 Imagen recibida como buffer de ${imageBuffer.length} bytes`);
+      } else if (typeof imageResponse.data === 'string') {
+        // Limpiar el prefijo data:image/jpeg;base64, si existe
+        let base64Data = imageResponse.data;
+        if (base64Data.startsWith('data:image/')) {
+          base64Data = base64Data.split(',')[1]; // Remover prefijo data:image/jpeg;base64,
+          console.log(`🔍 Removido prefijo data:image/ del string base64`);
+        }
+        imageBuffer = Buffer.from(base64Data, 'base64');
+        console.log(`🔍 Imagen recibida como string base64, convertida a buffer de ${imageBuffer.length} bytes`);
+      } else {
+        console.log(`❌ Formato no reconocido:`, JSON.stringify(imageResponse.data, null, 2));
+        return res.json({
+          success: false,
+          message: 'Formato de respuesta no reconocido',
+          data: imageResponse.data
+        });
+      }
+      
+      // Guardar imagen en carpeta attlogs con ID de attlogs
+      const fs = require('fs');
+      const path = require('path');
+      const attlogsDir = path.join(__dirname, 'attlogs');
+      
+      // Crear directorio si no existe
+      if (!fs.existsSync(attlogsDir)) {
+        fs.mkdirSync(attlogsDir, { recursive: true });
+      }
+      
+      // Usar un ID de prueba (por ejemplo, 99999)
+      const testImagePath = path.join(attlogsDir, '99999.jpg');
+      fs.writeFileSync(testImagePath, imageBuffer);
+      
+      res.json({
+        success: true,
+        message: 'Imagen verificada y descargada correctamente',
+        bufferLength: imageBuffer.length,
+        savedTo: testImagePath,
+        imagePath: imagePath,
+        fullUrl: fullImageUrl
+      });
+    } else {
+      res.json({
+        success: false,
+        message: 'Error descargando imagen',
+        status: imageResponse.status,
+        data: imageResponse.data
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error verificando imagen:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error verificando imagen',
+      error: error.message 
+    });
+  }
+});
+
+// GET /api/attlogs/:id - Obtener datos de un marcaje específico
+app.get('/api/attlogs/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const attlog = await Attlog.findByPk(id, {
+      include: [
+        {
+          model: Dispositivo,
+          as: 'Dispositivo',
+          attributes: ['id', 'nombre', 'ip_remota']
+        }
+      ]
+    });
+    
+    if (!attlog) {
+      return res.status(404).json({ message: 'Marcaje no encontrado' });
+    }
+    
+    res.json({
+      success: true,
+      data: attlog
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo marcaje:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/attlogs/:id/image - Obtener imagen de un marcaje específico
+app.get('/api/attlogs/:id/image', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Buscar el marcaje
+    const attlog = await Attlog.findByPk(id, {
+      include: [
+        {
+          model: Dispositivo,
+          as: 'Dispositivo',
+          attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave']
+        }
+      ]
+    });
+    
+    if (!attlog) {
+      return res.status(404).json({ message: 'Marcaje no encontrado' });
+    }
+    
+    // Verificar si la imagen existe localmente
+    const fs = require('fs');
+    const path = require('path');
+    const attlogsDir = path.join(__dirname, 'attlogs');
+    const imagePath = path.join(attlogsDir, `${id}.jpg`);
+    
+    if (fs.existsSync(imagePath)) {
+      // Si existe, enviar la imagen
+      const imageBuffer = fs.readFileSync(imagePath);
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Length', imageBuffer.length);
+      res.setHeader('Content-Disposition', `inline; filename="${id}.jpg"`);
+      res.send(imageBuffer);
+    } else {
+      // Si no existe, intentar descargarla del dispositivo
+      if (!attlog.Dispositivo.usuario || !attlog.Dispositivo.clave) {
+        return res.status(400).json({ message: 'Dispositivo no tiene credenciales para descargar imagen' });
+      }
+      
+      // Crear objeto de autenticación
+      const authObject = {
+        usuario_login_dispositivo: attlog.Dispositivo.usuario,
+        clave_login_dispositivo: attlog.Dispositivo.clave
+      };
+      
+      // Construir URL de imagen (necesitarías tener la pictureURL original)
+      // Por ahora, retornar que no está disponible
+      res.status(404).json({ 
+        message: 'Imagen no disponible localmente',
+        suggestion: 'La imagen no se ha descargado aún'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error obteniendo imagen del marcaje:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/dispositivos/:id/download-image/:imageId - Descargar imagen de marcaje
+app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, async (req, res) => {
+  try {
+    const { id, imageId } = req.params;
+    
+    console.log(`📸 Solicitando descarga de imagen ${imageId} del dispositivo ${id}`);
+    
+    const dispositivo = await Dispositivo.findByPk(id);
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+
+    if (!dispositivo.ip_remota || !dispositivo.usuario || !dispositivo.clave) {
+      return res.status(400).json({ message: 'Dispositivo no tiene credenciales completas' });
+    }
+
+    // Verificar si la imagen ya existe localmente
+    const fs = require('fs');
+    const path = require('path');
+    const attlogsDir = path.join(__dirname, 'attlogs');
+    const localImagePath = path.join(attlogsDir, `${imageId}.jpg`);
+    
+    if (fs.existsSync(localImagePath)) {
+      console.log(`✅ Imagen ya existe localmente: ${imageId}.jpg`);
+      return res.json({
+        success: true,
+        message: 'Imagen ya existe localmente',
+        imagePath: localImagePath,
+        imageId: imageId,
+        local: true
+      });
     }
 
     // Construir URL para descargar imagen del dispositivo
@@ -6455,38 +6815,53 @@ app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, asyn
     
     const response = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imageUrl, 'GET', null, authObject);
     
+    console.log(`🔍 Respuesta del dispositivo - Status: ${response.status}`);
+    console.log(`🔍 Respuesta del dispositivo - Data type: ${typeof response.data}`);
+    
     if (response.status === 200 && response.data) {
       // La respuesta debería contener la imagen en base64
-      const imageData = response.data.pictureInfo?.picData;
+      let imageData = null;
+      
+      // Intentar diferentes formatos de respuesta
+      if (response.data.pictureInfo?.picData) {
+        imageData = response.data.pictureInfo.picData;
+        console.log(`🔍 Imagen encontrada en pictureInfo.picData`);
+      } else if (typeof response.data === 'string') {
+        imageData = response.data;
+        console.log(`🔍 Imagen encontrada como string directo`);
+      } else if (response.data.picData) {
+        imageData = response.data.picData;
+        console.log(`🔍 Imagen encontrada en picData`);
+      }
       
       if (imageData) {
         // Convertir base64 a buffer
         const imageBuffer = Buffer.from(imageData, 'base64');
         
-        // Guardar imagen en carpeta attlogs
-        const fs = require('fs');
-        const path = require('path');
-        const attlogsDir = path.join(__dirname, 'attlogs');
-        
+        // Crear directorio si no existe
         if (!fs.existsSync(attlogsDir)) {
           fs.mkdirSync(attlogsDir, { recursive: true });
         }
         
-        const imagePath = path.join(attlogsDir, `${imageId}.jpg`);
-        fs.writeFileSync(imagePath, imageBuffer);
+        // Guardar imagen
+        fs.writeFileSync(localImagePath, imageBuffer);
         
         console.log(`✅ Imagen guardada: ${imageId}.jpg`);
         
         res.json({
           success: true,
           message: 'Imagen descargada y guardada correctamente',
-          imagePath: imagePath,
-          imageId: imageId
+          imagePath: localImagePath,
+          imageId: imageId,
+          local: false
         });
       } else {
+        console.log(`❌ No se encontró imagen en la respuesta del dispositivo`);
+        console.log(`🔍 Estructura de respuesta:`, JSON.stringify(response.data, null, 2));
         res.status(404).json({ message: 'No se encontró imagen en la respuesta del dispositivo' });
       }
     } else {
+      console.log(`❌ Error en respuesta del dispositivo: ${response.status}`);
       res.status(response.status || 500).json({ 
         message: 'Error descargando imagen del dispositivo',
         status: response.status
