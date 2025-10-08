@@ -4784,6 +4784,609 @@ app.delete('/api/tareas-dispositivo-usuarios/:id', authenticateToken, async (req
   }
 });
 
+// ==================== ENDPOINTS DE COMUNICACIÓN CON DISPOSITIVOS ====================
+
+// POST /api/tareas/dispositivo/borrar-usuario
+app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req, res) => {
+  console.log('🚀 ENDPOINT BORRAR USUARIO LLAMADO!');
+  try {
+    const { tarea } = req.body;
+    
+    console.log('🗑️ ========== BORRAR USUARIO ==========');
+    console.log('👤 Empleado:', tarea.numero_cedula_empleado);
+    console.log('📱 Dispositivo:', tarea.ip_publica_dispositivo);
+    console.log('🔐 Usuario login:', tarea.usuario_login_dispositivo);
+    console.log('🗑️ ======================================');
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/AccessControl/UserInfo/Delete?format=json';
+    const method = 'PUT';
+    const body = {
+      UserInfoDelCond: {
+        EmployeeNoList: [
+          {
+            employeeNo: tarea.numero_cedula_empleado
+          }
+        ]
+      }
+    };
+
+    // Usar la lógica de autenticación Digest del backend
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      console.log('✅ Dispositivo respondió exitosamente');
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.json({
+        success: true,
+        message: 'Usuario eliminado correctamente del dispositivo',
+        deviceResponse: response.data
+      });
+    } else {
+      console.log('❌ Dispositivo respondió con error:', response.status);
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
+    }
+    
+  } catch (error) {
+    console.log('❌ Error borrando usuario:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// POST /api/tareas/dispositivo/agregar-usuario
+app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (req, res) => {
+  console.log('🚀 ENDPOINT AGREGAR USUARIO LLAMADO!');
+  try {
+    const { tarea } = req.body;
+    
+    console.log('➕ ========== AGREGAR USUARIO ==========');
+    console.log('👤 Empleado:', tarea.numero_cedula_empleado);
+    console.log('📝 Nombre:', tarea.nombre_empleado);
+    console.log('⚧ Género:', tarea.nombre_genero);
+    console.log('📱 Dispositivo:', tarea.ip_publica_dispositivo);
+    console.log('🔐 Usuario login:', tarea.usuario_login_dispositivo);
+    console.log('➕ ======================================');
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
+    const method = 'PUT';
+    const body = {
+      UserInfo: {
+        employeeNo: tarea.numero_cedula_empleado,
+        name: tarea.nombre_empleado,
+        gender: tarea.nombre_genero,
+        userType: 'normal',
+        localUIRight: false,
+        maxOpenDoorTime: 0,
+        Valid: {
+          enable: true,
+          beginTime: '2024-01-01T00:00:00',
+          endTime: '2030-12-31T23:59:59',
+          timeType: 'local'
+        },
+        doorRight: "1",
+        RightPlan: [
+          {
+            doorNo: "1",
+            planTemplateNo: "1"
+          }
+        ]
+      }
+    };
+
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      console.log('✅ Dispositivo respondió exitosamente');
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.json({
+        success: true,
+        message: 'Usuario agregado correctamente al dispositivo',
+        deviceResponse: response.data
+      });
+    } else {
+      console.log('❌ Dispositivo respondió con error:', response.status);
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
+    }
+    
+  } catch (error) {
+    console.log('❌ Error agregando usuario:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// POST /api/tareas/dispositivo/editar-usuario
+app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req, res) => {
+  try {
+    const { tarea } = req.body;
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
+    const method = 'PUT';
+    const body = {
+      UserInfo: {
+        employeeNo: tarea.numero_cedula_empleado,
+        name: tarea.nombre_empleado,
+        gender: tarea.nombre_genero,
+        userType: 'normal',
+        Valid: {
+          enable: true,
+          beginTime: tarea.fecha_ingreso || '2024-01-01T00:00:00',
+          endTime: '2025-12-31T23:59:59',
+          timeType: 'local'
+        },
+        doorRight: "1",
+        RightPlan: [
+          {
+            doorNo: "1",
+            planTemplateNo: "1"
+          }
+        ]
+      }
+    };
+
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      console.log('✅ Dispositivo respondió exitosamente');
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.json({
+        success: true,
+        message: 'Usuario editado correctamente en el dispositivo',
+        deviceResponse: response.data
+      });
+    } else {
+      console.log('❌ Dispositivo respondió con error:', response.status);
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
+    }
+    
+  } catch (error) {
+    console.log('❌ Error editando usuario:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// POST /api/tareas/dispositivo/borrar-foto
+app.post('/api/tareas/dispositivo/borrar-foto', authenticateToken, async (req, res) => {
+  try {
+    const { tarea } = req.body;
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
+    const method = 'PUT';
+    const body = {
+      FPID: [
+        {
+          value: tarea.numero_cedula_empleado
+        }
+      ]
+    };
+
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      console.log('✅ Dispositivo respondió exitosamente');
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.json({
+        success: true,
+        message: 'Foto eliminada correctamente del dispositivo',
+        deviceResponse: response.data
+      });
+    } else {
+      console.log('❌ Dispositivo respondió con error:', response.status);
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
+    }
+    
+  } catch (error) {
+    console.log('❌ Error borrando foto:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// POST /api/tareas/dispositivo/agregar-foto
+app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, res) => {
+  console.log('🚀 ENDPOINT AGREGAR FOTO LLAMADO!');
+  try {
+    const { tarea } = req.body;
+    console.log('📸 ========== AGREGAR FOTO ==========');
+    console.log('👤 Empleado:', tarea.numero_cedula_empleado);
+    console.log('📝 Nombre:', tarea.nombre_empleado);
+    console.log('📱 Dispositivo:', tarea.ip_publica_dispositivo);
+    console.log('🔐 Usuario login:', tarea.usuario_login_dispositivo);
+    console.log('📸 ======================================');
+    
+    // Primero subir la imagen al servidor PHP
+    console.log('📤 Subiendo imagen al servidor PHP...');
+    const imageUrl = await subirImagenAlServidor(tarea.foto_empleado);
+    if (!imageUrl) {
+      console.log('❌ Error: No se pudo subir la imagen al servidor PHP');
+      return res.status(500).json({
+        success: false,
+        message: 'Error al subir la imagen al servidor'
+      });
+    }
+    console.log('✅ Imagen subida exitosamente. URL:', imageUrl);
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
+    const method = 'POST';
+    const body = {
+      faceURL: imageUrl,
+      faceLibType: 'blackFD',
+      FDID: '1',
+      FPID: tarea.numero_cedula_empleado,
+      name: tarea.nombre_empleado,
+      gender: tarea.nombre_genero === 'Masculino' ? 'male' : 'female',
+      featurePointType: 'face'
+    };
+
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      console.log('✅ Dispositivo respondió exitosamente');
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.json({
+        success: true,
+        message: 'Foto agregada correctamente al dispositivo',
+        deviceResponse: response.data
+      });
+    } else {
+      console.log('❌ Dispositivo respondió con error:', response.status);
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
+    }
+    
+  } catch (error) {
+    console.log('❌ Error agregando foto:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// POST /api/tareas/dispositivo/editar-foto
+app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, res) => {
+  try {
+    const { tarea } = req.body;
+    
+    // Primero borrar la foto existente
+    try {
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
+      const deleteBody = {
+        FPID: [
+          {
+            value: tarea.numero_cedula_empleado
+          }
+        ]
+      };
+      
+      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
+    } catch (deleteError) {
+      console.log('⚠️ Error borrando foto existente (continuando):', deleteError.message);
+    }
+    
+    // Luego agregar la nueva foto
+    const imageUrl = await subirImagenAlServidor(tarea.foto_empleado);
+    if (!imageUrl) {
+      return res.status(500).json({
+        success: false,
+        message: 'Error al subir la nueva imagen al servidor'
+      });
+    }
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
+    const method = 'POST';
+    const body = {
+      faceURL: imageUrl,
+      faceLibType: 'blackFD',
+      FDID: '1',
+      FPID: tarea.numero_cedula_empleado,
+      name: tarea.nombre_empleado,
+      gender: tarea.nombre_genero === 'Masculino' ? 'male' : 'female',
+      featurePointType: 'face'
+    };
+
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      console.log('✅ Dispositivo respondió exitosamente');
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.json({
+        success: true,
+        message: 'Foto editada correctamente en el dispositivo',
+        deviceResponse: response.data
+      });
+    } else {
+      console.log('❌ Dispositivo respondió con error:', response.status);
+      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
+    }
+    
+  } catch (error) {
+    console.log('❌ Error editando foto:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Función para subir imagen al servidor PHP
+async function subirImagenAlServidor(base64Image) {
+  try {
+    console.log('📤 ========== SUBIENDO IMAGEN AL SERVIDOR PHP ==========');
+    console.log('🌐 URL del servidor PHP:', 'http://hotelroraimainn.com/upload.php');
+    console.log('📏 Tamaño de la imagen base64:', base64Image ? base64Image.length : 'No definida');
+    
+    // Convertir base64 a blob
+    const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
+    const byteCharacters = Buffer.from(base64Data, 'base64');
+    console.log('📦 Tamaño del buffer:', byteCharacters.length, 'bytes');
+    
+    // Crear FormData
+    const FormData = require('form-data');
+    const form = new FormData();
+    form.append('image', byteCharacters, {
+      filename: 'foto_empleado.jpg',
+      contentType: 'image/jpeg'
+    });
+    console.log('📋 FormData creado correctamente');
+    
+    // Enviar al servidor PHP
+    const axios = require('axios');
+    console.log('🚀 Enviando petición al servidor PHP...');
+    const response = await axios.post('http://hotelroraimainn.com/upload.php', form, {
+      headers: form.getHeaders()
+    });
+    
+    console.log('📥 Respuesta del servidor PHP:');
+    console.log('📊 Status:', response.status);
+    console.log('📦 Data:', JSON.stringify(response.data, null, 2));
+    
+    if (response.data && response.data.success && response.data.url) {
+      console.log('✅ Imagen subida exitosamente. URL obtenida:', response.data.url);
+      console.log('📤 ================================================');
+      return response.data.url;
+    } else {
+      console.log('❌ Error: Respuesta del servidor PHP no contiene URL válida');
+      console.log('📤 ================================================');
+      return null;
+    }
+  } catch (error) {
+    console.log('❌ Error subiendo imagen:', error.message);
+    console.log('📤 ================================================');
+    return null;
+  }
+}
+
+// Función para hacer peticiones con autenticación Digest (igual que en gestión biométrica)
+async function makeDigestRequest(deviceUrl, endpoint, method, body, tarea) {
+  const axios = require('axios');
+  const crypto = require('crypto');
+  
+  const username = tarea.usuario_login_dispositivo;
+  const password = tarea.clave_login_dispositivo;
+  const fullUrl = `${deviceUrl}${endpoint}`;
+  
+  console.log('🔍 ========== COMUNICACIÓN CON DISPOSITIVO ==========');
+  console.log('🌐 URL Completa:', fullUrl);
+  console.log('📡 Método HTTP:', method);
+  console.log('👤 Usuario:', username);
+  console.log('🔑 Clave:', password ? '***' + password.slice(-3) : 'No definida');
+  console.log('📦 Body enviado:', JSON.stringify(body, null, 2));
+  console.log('🔍 ================================================');
+  
+  try {
+    // Primera petición para obtener challenge digest
+    console.log('🔄 Realizando primera petición para obtener challenge digest...');
+    const firstResponse = await axios({
+      method: method,
+      url: fullUrl,
+      data: JSON.stringify(body),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      validateStatus: (status) => status === 401
+    });
+    
+    // Si llegamos aquí, no hubo error 401, intentar sin autenticación
+    console.log('⚠️ No se recibió challenge 401, intentando sin autenticación...');
+    const directResponse = await axios({
+      method: method,
+      url: fullUrl,
+      data: JSON.stringify(body),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log('✅ Respuesta directa del dispositivo:');
+    console.log('📊 Status:', directResponse.status);
+    console.log('📋 Headers:', directResponse.headers);
+    console.log('📦 Data:', JSON.stringify(directResponse.data, null, 2));
+    console.log('🔍 ================================================');
+    
+    return directResponse;
+    
+  } catch (error) {
+    if (error.response && error.response.status === 401) {
+      console.log('✅ Challenge digest recibido (401)');
+      
+      // Extraer información del challenge digest
+      const wwwAuthenticate = error.response.headers['www-authenticate'];
+      console.log('🔐 WWW-Authenticate header:', wwwAuthenticate);
+      
+      if (wwwAuthenticate && wwwAuthenticate.includes('Digest')) {
+        // Parsear el challenge digest
+        const challenge = parseDigestChallenge(wwwAuthenticate);
+        console.log('📋 Challenge parseado:', challenge);
+        
+        // Generar respuesta digest
+        const digestResponse = generateDigestResponse(challenge, username, password, fullUrl, method);
+        console.log('🔑 Respuesta digest generada:', digestResponse);
+        
+        // Segunda petición con la respuesta digest
+        console.log('🔄 Realizando segunda petición con autenticación digest...');
+        
+        try {
+          const secondResponse = await axios({
+            method: method,
+            url: fullUrl,
+            data: JSON.stringify(body),
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Authorization': `Digest ${digestResponse}`
+            }
+          });
+          
+          console.log('✅ Respuesta del dispositivo:');
+          console.log('📊 Status:', secondResponse.status);
+          console.log('📋 Headers:', secondResponse.headers);
+          console.log('📦 Data:', JSON.stringify(secondResponse.data, null, 2));
+          console.log('🔍 ================================================');
+          
+          return secondResponse;
+        } catch (secondError) {
+          console.log('❌ Error en segunda petición:', secondError.response?.status);
+          console.log('📦 Respuesta del dispositivo:', JSON.stringify(secondError.response?.data, null, 2));
+          console.log('🔍 ================================================');
+          
+          // Devolver la respuesta del error para que el frontend pueda manejarla
+          return secondError.response;
+        }
+      } else {
+        console.log('❌ No se encontró challenge digest válido');
+        console.log('🔍 ================================================');
+        throw new Error('No se encontró challenge digest válido');
+      }
+    } else {
+      console.log('❌ Error en comunicación:', error.message);
+      console.log('🔍 ================================================');
+      throw error;
+    }
+  }
+}
+
+function parseDigestChallenge(wwwAuthenticate) {
+  const challenge = {};
+  const regex = /(\w+)="([^"]+)"/g;
+  let match;
+  
+  while ((match = regex.exec(wwwAuthenticate)) !== null) {
+    challenge[match[1]] = match[2];
+  }
+  
+  return challenge;
+}
+
+function generateDigestResponse(challenge, username, password, uri, method) {
+  const crypto = require('crypto');
+  const realm = challenge.realm || '';
+  const nonce = challenge.nonce || '';
+  const qop = challenge.qop || '';
+  
+  console.log('🔐 ========== CÁLCULO DIGEST ==========');
+  console.log('👤 Username:', username);
+  console.log('🌍 Realm:', realm);
+  console.log('🔑 Password:', password ? '***' + password.slice(-3) : 'No definida');
+  console.log('🎲 Nonce:', nonce);
+  console.log('🔒 QOP:', qop);
+  console.log('🌐 URI:', uri);
+  console.log('📡 Method:', method);
+  
+  const cnonce = crypto.randomBytes(16).toString('hex');
+  console.log('🎲 CNonce generado:', cnonce);
+  
+  const ha1String = `${username}:${realm}:${password}`;
+  const ha1 = crypto.createHash('md5').update(ha1String).digest('hex');
+  console.log('🔐 HA1 string:', ha1String);
+  console.log('🔐 HA1 hash:', ha1);
+  
+  const ha2String = `${method}:${uri}`;
+  const ha2 = crypto.createHash('md5').update(ha2String).digest('hex');
+  console.log('🔐 HA2 string:', ha2String);
+  console.log('🔐 HA2 hash:', ha2);
+  
+  let response;
+  if (qop === 'auth') {
+    const responseString = `${ha1}:${nonce}:00000001:${cnonce}:${qop}:${ha2}`;
+    response = crypto.createHash('md5').update(responseString).digest('hex');
+    console.log('🔐 Response string (QOP=auth):', responseString);
+  } else {
+    const responseString = `${ha1}:${nonce}:${ha2}`;
+    response = crypto.createHash('md5').update(responseString).digest('hex');
+    console.log('🔐 Response string (sin QOP):', responseString);
+  }
+  console.log('🔐 Response hash:', response);
+  
+  let digestResponse = `username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}"`;
+  
+  if (qop) {
+    digestResponse += `, qop=${qop}, nc=00000001, cnonce="${cnonce}"`;
+  }
+  
+  if (challenge.opaque) {
+    digestResponse += `, opaque="${challenge.opaque}"`;
+  }
+  
+  console.log('🔑 Header Authorization final:', digestResponse);
+  console.log('🔐 ======================================');
+  
+  return digestResponse;
+}
+
 // ==================== RUTAS DE HIKVISION ISAPI ====================
 
 const HikvisionISAPI = require('./hikvision-isapi');
@@ -6227,5 +6830,12 @@ app.listen(PORT, () => {
   console.log(`Servidor ejecutándose en puerto ${PORT}`);
   console.log(`🌐 Hik-Connect API: http://localhost:${PORT}/api/hik-connect`);
   console.log(`🔧 WISI-Hikvision Hybrid API: http://localhost:${PORT}/api/wisi-hikvision`);
+  console.log('📡 Endpoints de dispositivos disponibles:');
+  console.log('   POST /api/tareas/dispositivo/borrar-usuario');
+  console.log('   POST /api/tareas/dispositivo/agregar-usuario');
+  console.log('   POST /api/tareas/dispositivo/editar-usuario');
+  console.log('   POST /api/tareas/dispositivo/borrar-foto');
+  console.log('   POST /api/tareas/dispositivo/agregar-foto');
+  console.log('   POST /api/tareas/dispositivo/editar-foto');
   console.log(`🚀 TPP Hikvision API: http://localhost:${PORT}/api/tpp`);
 });

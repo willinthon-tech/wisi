@@ -2806,9 +2806,16 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // Calcular dispositivos que se quitan, agregan y permanecen
+      console.log('🔍 Dispositivos anteriores:', dispositivosAnteriores);
+      console.log('🔍 Dispositivos nuevos:', dispositivosNuevos);
+      
       const dispositivosQueSeQuitan = dispositivosAnteriores.filter(id => !dispositivosNuevos.includes(id));
       const dispositivosQueSeAgregan = dispositivosNuevos.filter(id => !dispositivosAnteriores.includes(id));
       const dispositivosQuePermanecen = dispositivosAnteriores.filter(id => dispositivosNuevos.includes(id));
+      
+      console.log('🔍 Dispositivos que se quitan:', dispositivosQueSeQuitan);
+      console.log('🔍 Dispositivos que se agregan:', dispositivosQueSeAgregan);
+      console.log('🔍 Dispositivos que permanecen:', dispositivosQuePermanecen);
 
       
       
@@ -2915,11 +2922,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // 3. Crear tareas de EDITAR para dispositivos que permanecen
+      console.log('🔍 Dispositivos que permanecen:', dispositivosQuePermanecen);
       if (dispositivosQuePermanecen.length > 0) {
         const dispositivosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosQuePermanecen).toPromise();
         
+        console.log('🔍 Datos de dispositivos que permanecen:', dispositivosData);
         if (dispositivosData && dispositivosData.length > 0) {
           for (const dispositivo of dispositivosData) {
+            console.log('🔍 Creando tarea de Editar Usuario para dispositivo:', dispositivo.id);
             // Tarea: Editar Usuario
             tareas.push({
               user_id: user.id,

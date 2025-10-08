@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-tareas-list',
@@ -210,6 +211,30 @@ import { HttpClient } from '@angular/common/http';
           </div>
           <div class="modal-footer">
             <button class="btn btn-secondary" (click)="closeDetailsModal()">Cerrar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de error de ejecución -->
+      <div *ngIf="showErrorModal" class="modal-overlay">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>❌ Error en la Ejecución</h3>
+            <button class="close-btn" (click)="closeErrorModal()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="error-content">
+              <div class="error-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+              </div>
+              <div class="error-message">
+                <h4>{{ errorMessage }}</h4>
+                <p *ngIf="errorDetails">{{ errorDetails }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="closeErrorModal()">Cerrar</button>
           </div>
         </div>
       </div>
@@ -652,6 +677,35 @@ import { HttpClient } from '@angular/common/http';
   .form-group span {
     display: inline-block;
   }
+
+  /* Estilos para el modal de error */
+  .error-content {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #dc3545;
+  }
+
+  .error-icon {
+    font-size: 48px;
+    color: #dc3545;
+  }
+
+  .error-message h4 {
+    margin: 0 0 10px 0;
+    color: #dc3545;
+    font-size: 18px;
+  }
+
+  .error-message p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 14px;
+    line-height: 1.5;
+  }
   `]
 })
 export class TareasListComponent implements OnInit {
@@ -667,6 +721,11 @@ export class TareasListComponent implements OnInit {
   rechazandoTodas: boolean = false; // Estado para "Rechazar Todo"
   procesandoTodas: boolean = false; // Controla si se están procesando todas las tareas
   detenerProcesos: boolean = false; // Controla si se puede detener procesos
+  
+  // Modal de error de ejecución
+  showErrorModal = false;
+  errorMessage = '';
+  errorDetails = '';
 
   constructor(
     private route: ActivatedRoute,
@@ -838,6 +897,146 @@ export class TareasListComponent implements OnInit {
     this.selectedTarea = null;
   }
 
+  closeErrorModal(): void {
+    this.showErrorModal = false;
+    this.errorMessage = '';
+    this.errorDetails = '';
+  }
+
+  showError(message: string, details: string = ''): void {
+    this.errorMessage = message;
+    this.errorDetails = details;
+    this.showErrorModal = true;
+  }
+
+
+  async ejecutarFuncionDispositivo(tarea: any): Promise<void> {
+    console.log('🎯 FRONTEND: ejecutarFuncionDispositivo llamado para tarea:', tarea.id);
+    console.log('📋 FRONTEND: Acción a realizar:', tarea.accion_realizar);
+    
+    try {
+      // Simular la comunicación con el dispositivo
+      const resultado = await this.comunicarConDispositivo(tarea);
+      
+      if (resultado.success) {
+        // ✅ Todo OK - Eliminar la tarea
+        this.eliminarTarea(tarea.id);
+      } else {
+        // ❌ Error - Mostrar modal con la respuesta del dispositivo
+        let errorDetails = resultado.message || 'Error desconocido';
+        
+        // Si hay respuesta del dispositivo, incluirla en los detalles
+        if (resultado.deviceResponse) {
+          errorDetails += `\n\nRespuesta del dispositivo:\n${JSON.stringify(resultado.deviceResponse, null, 2)}`;
+        }
+        
+        this.showError(
+          'Error en la ejecución de la tarea',
+          errorDetails
+        );
+        
+        // Resetear estados
+        this.ejecutandoTarea = null;
+        this.procesandoTarea = false;
+        this.detenerProcesos = false;
+      }
+    } catch (error) {
+      // ❌ Error de comunicación
+      this.showError(
+        'Error de comunicación con el dispositivo',
+        `No se pudo conectar con el dispositivo: ${error}`
+      );
+      
+      // Resetear estados
+      this.ejecutandoTarea = null;
+      this.procesandoTarea = false;
+      this.detenerProcesos = false;
+    }
+  }
+
+  async comunicarConDispositivo(tarea: any): Promise<{success: boolean, message?: string, deviceResponse?: any}> {
+    try {
+      console.log('🚀 FRONTEND: Iniciando comunicación con dispositivo');
+      console.log('📋 Tarea recibida:', tarea);
+      
+      // Determinar el endpoint del backend según la acción
+      console.log('🔍 FRONTEND: Acción detectada:', tarea.accion_realizar);
+      let backendEndpoint = '';
+      
+      if (tarea.accion_realizar === 'Borrar Foto') {
+        console.log('🔍 FRONTEND: Detectada acción de BORRAR FOTO');
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/borrar-foto`;
+      } else if (tarea.accion_realizar === 'Agregar Foto') {
+        console.log('🔍 FRONTEND: Detectada acción de AGREGAR FOTO');
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/agregar-foto`;
+      } else if (tarea.accion_realizar === 'Editar Foto') {
+        console.log('🔍 FRONTEND: Detectada acción de EDITAR FOTO');
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/editar-foto`;
+      } else if (tarea.accion_realizar === 'Borrar Usuario') {
+        console.log('🔍 FRONTEND: Detectada acción de BORRAR USUARIO');
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/borrar-usuario`;
+      } else if (tarea.accion_realizar === 'Agregar Usuario') {
+        console.log('🔍 FRONTEND: Detectada acción de AGREGAR USUARIO');
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/agregar-usuario`;
+      } else if (tarea.accion_realizar === 'Editar Usuario') {
+        console.log('🔍 FRONTEND: Detectada acción de EDITAR USUARIO');
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/editar-usuario`;
+      } else {
+        console.log('❌ FRONTEND: Acción no reconocida:', tarea.accion_realizar);
+        throw new Error('Acción no reconocida: ' + tarea.accion_realizar);
+      }
+      
+      console.log('🌐 FRONTEND: Endpoint seleccionado:', backendEndpoint);
+      console.log('📤 FRONTEND: Enviando datos al backend...');
+      
+      // Mostrar información detallada que se enviará al dispositivo
+      console.log('🔍 ========== INFORMACIÓN QUE SE ENVIARÁ AL DISPOSITIVO ==========');
+      console.log('🌐 URL del dispositivo:', `http://${tarea.ip_publica_dispositivo}`);
+      console.log('📡 Endpoint específico:', 'Se determinará en el backend según la acción');
+      console.log('📡 Método HTTP:', 'Se determinará en el backend según la acción');
+      console.log('📦 Payload completo:', JSON.stringify({
+        tarea: tarea
+      }, null, 2));
+      console.log('🔍 ================================================================');
+      
+      // Realizar la llamada al backend
+      const response = await this.http.post(backendEndpoint, {
+        tarea: tarea
+      }).toPromise() as any;
+      
+      console.log('📥 FRONTEND: Respuesta del backend:', response);
+      
+      return {
+        success: response.success || true,
+        message: response.message || `Tarea "${tarea.accion_realizar}" ejecutada correctamente en el dispositivo`
+      };
+      
+    } catch (error: any) {
+      console.log('❌ FRONTEND: Error en comunicación:', error);
+      
+      // Manejar diferentes tipos de errores
+      let errorMessage = 'Error desconocido';
+      
+      if (error.status === 401) {
+        errorMessage = 'Error de autenticación: Credenciales inválidas';
+      } else if (error.status === 404) {
+        errorMessage = 'Usuario no encontrado en el dispositivo';
+      } else if (error.status === 0) {
+        errorMessage = 'Error de conexión: No se pudo conectar con el dispositivo';
+      } else if (error.status >= 500) {
+        errorMessage = 'Error interno del dispositivo';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      return {
+        success: false,
+        message: errorMessage,
+        deviceResponse: error.deviceResponse || null
+      };
+    }
+  }
+
   formatDate(dateString: string): string {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -908,21 +1107,23 @@ export class TareasListComponent implements OnInit {
 
 
   ejecutarTarea(tarea: any): void {
+    console.log('🔥 FRONTEND: ejecutarTarea llamado para tarea:', tarea.id);
+    console.log('📋 FRONTEND: Datos de la tarea:', tarea);
+    
     if (!this.isTareaActiva(tarea)) {
+      console.log('⏸️ FRONTEND: Tarea no está activa, cancelando...');
       alert('Esta tarea no está disponible. Debe completar las tareas anteriores primero.');
       return;
     }
+    
+    console.log('🚀 FRONTEND: Tarea activa, iniciando ejecución...');
 
     this.procesandoTarea = true;
     this.ejecutandoTarea = tarea.id;
     this.detenerProcesos = true; // Activar botón "Detener Procesos"
     
-    
-    // Aquí se haría el proceso real al dispositivo externo
-    
-    
-    // Eliminar la tarea (el spinner se quita cuando el backend responde)
-    this.eliminarTarea(tarea.id);
+    // Ejecutar la función real en el dispositivo
+    this.ejecutarFuncionDispositivo(tarea);
   }
 
   rechazarTarea(tarea: any): void {
