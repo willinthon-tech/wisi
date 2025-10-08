@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -726,7 +726,11 @@ export class MarcajesListComponent implements OnInit {
   
   gridApi!: GridApi;
 
-  constructor(private http: HttpClient, private marcajesService: MarcajesService) {}
+  constructor(
+    private http: HttpClient, 
+    private marcajesService: MarcajesService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
     this.cargarDispositivos();
@@ -839,11 +843,17 @@ export class MarcajesListComponent implements OnInit {
   verDetalles(marcaje: Marcaje) {
     this.marcajeSeleccionado = marcaje;
     this.mostrarModal = true;
+    
+    // Forzar detección de cambios
+    this.cdr.detectChanges();
   }
 
   cerrarModal() {
     this.mostrarModal = false;
     this.marcajeSeleccionado = null;
+    
+    // Forzar detección de cambios
+    this.cdr.detectChanges();
   }
 
   tieneImagen(marcaje: Marcaje): boolean {
@@ -860,16 +870,53 @@ export class MarcajesListComponent implements OnInit {
     if (marcaje.id) {
       // Configurar datos para la modal
       this.selectedMarcaje = marcaje;
-      this.imageUrl = `${environment.apiUrl}/attlogs/${marcaje.id}/image`;
-      this.showImageModal = true;
       console.log(`📸 Abriendo modal de imagen para marcaje ${marcaje.id}`);
+      
+      // Obtener imagen usando el servicio con autenticación
+      this.marcajesService.getMarcajeImage(marcaje.id).subscribe({
+        next: (blob: Blob) => {
+          // Crear URL del blob
+          this.imageUrl = URL.createObjectURL(blob);
+          console.log(`📸 Imagen cargada correctamente para marcaje ${marcaje.id}`);
+          
+          // Forzar detección de cambios
+          this.cdr.detectChanges();
+          
+          // Abrir modal
+          this.showImageModal = true;
+          
+          // Forzar detección de cambios nuevamente
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error(`❌ Error cargando imagen para marcaje ${marcaje.id}:`, error);
+          this.imageUrl = '';
+          
+          // Forzar detección de cambios
+          this.cdr.detectChanges();
+          
+          // Abrir modal aunque haya error
+          this.showImageModal = true;
+          
+          // Forzar detección de cambios nuevamente
+          this.cdr.detectChanges();
+        }
+      });
     }
   }
 
   closeImageModal() {
+    // Limpiar URL del blob si existe
+    if (this.imageUrl && this.imageUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(this.imageUrl);
+    }
+    
     this.showImageModal = false;
     this.selectedMarcaje = null;
     this.imageUrl = '';
+    
+    // Forzar detección de cambios
+    this.cdr.detectChanges();
   }
 
   downloadImage() {

@@ -6737,11 +6737,14 @@ app.get('/api/attlogs/:id/image', authenticateToken, async (req, res) => {
     const imagePath = path.join(attlogsDir, `${id}.jpg`);
     
     if (fs.existsSync(imagePath)) {
-      // Si existe, enviar la imagen
+      // Si existe, enviar la imagen con headers CORS
       const imageBuffer = fs.readFileSync(imagePath);
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Content-Length', imageBuffer.length);
       res.setHeader('Content-Disposition', `inline; filename="${id}.jpg"`);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       res.send(imageBuffer);
     } else {
       // Si no existe, intentar descargarla del dispositivo

@@ -58,4 +58,13 @@ export class MarcajesService {
   getMarcaje(id: number): Observable<Marcaje> {
     return this.http.get<Marcaje>(`${this.apiUrl}/${id}`);
   }
+
+  getMarcajeImage(id: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${id}/image`, { 
+      responseType: 'blob',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+  }
 }
