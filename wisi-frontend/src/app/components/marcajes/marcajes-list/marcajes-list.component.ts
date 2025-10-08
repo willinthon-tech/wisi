@@ -790,6 +790,13 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
             dispositivo_nombre: marcaje.Dispositivo?.nombre || 'Dispositivo ' + marcaje.dispositivo_id,
             dispositivo_ip: marcaje.Dispositivo?.ip_remota || 'N/A'
           }));
+          
+          // Ordenar por fecha más reciente primero
+          this.marcajes.sort((a, b) => {
+            const fechaA = new Date(a.event_time);
+            const fechaB = new Date(b.event_time);
+            return fechaB.getTime() - fechaA.getTime(); // Más reciente primero
+          });
         } else {
           this.marcajes = [];
         }
@@ -835,6 +842,13 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
         return fechaMarcaje === this.filtroFecha;
       });
     }
+    
+    // Ordenar por fecha más reciente primero
+    filtrados.sort((a, b) => {
+      const fechaA = new Date(a.event_time);
+      const fechaB = new Date(b.event_time);
+      return fechaB.getTime() - fechaA.getTime(); // Más reciente primero
+    });
     
     this.marcajesFiltrados = filtrados;
     this.calcularEstadisticas();
@@ -1040,6 +1054,13 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
     this.marcajesService.getMarcajes(this.obtenerFiltrosActuales()).subscribe({
       next: (response) => {
         this.marcajes = response.attlogs || [];
+        
+        // Ordenar por fecha más reciente primero
+        this.marcajes.sort((a, b) => {
+          const fechaA = new Date(a.event_time);
+          const fechaB = new Date(b.event_time);
+          return fechaB.getTime() - fechaA.getTime(); // Más reciente primero
+        });
         
         // Aplicar filtros actuales para mantener la vista filtrada
         this.aplicarFiltros();
