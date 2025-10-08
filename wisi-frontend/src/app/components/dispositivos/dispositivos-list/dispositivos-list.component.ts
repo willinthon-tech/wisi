@@ -48,6 +48,11 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   // Variables para agregar usuario
   addUserForm: any;
   selectedPhoto: string | null = null;
+
+  // Variables para modal CRON
+  showCronModal = false;
+  cronActivo = false;
+  cronTiempo = '24h';
   isAddingUser = false;
   
   // Variables para datos del usuario en modal de editar
@@ -281,6 +286,48 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     this.editingUser = null;
     this.showUserTable = false; // Resetear tabla
     this.deletingUsers = {}; // Limpiar estados individuales de eliminación
+  }
+
+  openCronModal(dispositivo: any): void {
+    this.selectedDispositivo = dispositivo;
+    this.cronActivo = dispositivo.cron_activo === 1;
+    this.cronTiempo = dispositivo.cron_tiempo || '24h';
+    this.showCronModal = true;
+  }
+
+  closeCronModal(): void {
+    this.showCronModal = false;
+    this.selectedDispositivo = null;
+    this.cronActivo = false;
+    this.cronTiempo = '24h';
+  }
+
+  saveCronConfig(): void {
+    if (!this.selectedDispositivo) {
+      return;
+    }
+
+    const cronConfig = {
+      cron_activo: this.cronActivo ? 1 : 0,
+      cron_tiempo: this.cronTiempo
+    };
+
+    this.dispositivosService.updateCronConfig(this.selectedDispositivo.id, cronConfig).subscribe({
+      next: (response) => {
+        // Actualizar el dispositivo en la lista local
+        const dispositivoIndex = this.dispositivos.findIndex(d => d.id === this.selectedDispositivo.id);
+        if (dispositivoIndex !== -1) {
+          this.dispositivos[dispositivoIndex].cron_activo = cronConfig.cron_activo;
+          this.dispositivos[dispositivoIndex].cron_tiempo = cronConfig.cron_tiempo;
+        }
+        
+        this.closeCronModal();
+      },
+      error: (error) => {
+        console.error('Error actualizando configuración CRON:', error);
+        // Aquí podrías mostrar un mensaje de error al usuario
+      }
+    });
   }
 
   testConnection(): void {

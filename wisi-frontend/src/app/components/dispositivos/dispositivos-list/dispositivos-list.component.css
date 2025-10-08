@@ -141,6 +141,24 @@
   background: #138496;
 }
 
+.btn-cron {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+  font-size: 12px;
+  background: #6f42c1;
+  color: white;
+  margin-top: 5px;
+}
+
+.btn-cron:hover {
+  background: #5a32a3;
+}
+
 .no-devices, .loading {
   text-align: center;
   padding: 40px;
@@ -446,4 +464,44 @@ button:disabled {
 .spinner-border-sm {
   width: 1rem;
   height: 1rem;
+}
+
+/* Estilos para modal CRON */
+.cron-config {
+  padding: 20px;
+}
+
+.cron-config .form-group {
+  margin-bottom: 20px;
+}
+
+.cron-config .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #333;
+}
+
+.cron-config .form-control {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: normal;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin-right: 10px;
+  transform: scale(1.2);
+}
+
+.checkmark {
+  margin-left: 5px;
 }

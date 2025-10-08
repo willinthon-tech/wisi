@@ -31,6 +31,11 @@
             Gestión Biométrica
           </button>
           <button 
+            class="btn-cron" 
+            (click)="openCronModal(dispositivo)">
+            CRON
+          </button>
+          <button 
             class="btn-edit" 
             (click)="navigateToEdit(dispositivo)">
             Editar
@@ -756,6 +761,56 @@
           {{ isAddingUser ? 'Agregando...' : 'Agregar Usuario' }}
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal CRON -->
+<div class="modal" [class.show]="showCronModal" *ngIf="showCronModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Configuración CRON - {{ selectedDispositivo?.nombre }}</h2>
+      <button type="button" class="btn-close btn-close-red" (click)="closeCronModal()"></button>
+    </div>
+    <div class="modal-body">
+      <div class="cron-config">
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="cronActivo"
+              [checked]="cronActivo">
+            <span class="checkmark"></span>
+            Activar CRON
+          </label>
+        </div>
+        
+        <div class="form-group">
+          <label for="cronTiempo">Intervalo de tiempo:</label>
+          <select 
+            id="cronTiempo" 
+            [(ngModel)]="cronTiempo"
+            class="form-control">
+            <option value="10s">10 segundos</option>
+            <option value="1m">1 minuto</option>
+            <option value="5m">5 minutos</option>
+            <option value="10m">10 minutos</option>
+            <option value="30m">30 minutos</option>
+            <option value="1h">1 hora</option>
+            <option value="6h">6 horas</option>
+            <option value="12h">12 horas</option>
+            <option value="24h">24 horas</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="closeCronModal()">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn-primary" (click)="saveCronConfig()">
+        Guardar Configuración
+      </button>
     </div>
   </div>
 </div>

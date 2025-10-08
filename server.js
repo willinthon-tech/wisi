@@ -5829,6 +5829,49 @@ app.put('/api/dispositivos/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT /api/dispositivos/:id/cron - Actualizar configuración CRON del dispositivo
+app.put('/api/dispositivos/:id/cron', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cron_activo, cron_tiempo } = req.body;
+    
+    const dispositivo = await Dispositivo.findByPk(id);
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+
+    // Validar valores
+    if (cron_activo !== undefined && ![0, 1].includes(cron_activo)) {
+      return res.status(400).json({ message: 'cron_activo debe ser 0 o 1' });
+    }
+
+    const tiempoValidos = ['10s', '1m', '5m', '10m', '30m', '1h', '6h', '12h', '24h'];
+    if (cron_tiempo && !tiempoValidos.includes(cron_tiempo)) {
+      return res.status(400).json({ message: 'cron_tiempo debe ser uno de: ' + tiempoValidos.join(', ') });
+    }
+
+    // Actualizar solo los campos CRON
+    await dispositivo.update({
+      cron_activo: cron_activo !== undefined ? cron_activo : dispositivo.cron_activo,
+      cron_tiempo: cron_tiempo || dispositivo.cron_tiempo
+    });
+
+    // Obtener el dispositivo actualizado
+    const dispositivoActualizado = await Dispositivo.findByPk(id, {
+      attributes: ['id', 'nombre', 'cron_activo', 'cron_tiempo']
+    });
+
+    res.json({
+      success: true,
+      message: 'Configuración CRON actualizada correctamente',
+      dispositivo: dispositivoActualizado
+    });
+  } catch (error) {
+    console.error('❌ Error actualizando configuración CRON:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // DELETE /api/dispositivos/:id - Eliminar dispositivo (soft delete)
 app.delete('/api/dispositivos/:id', authenticateToken, async (req, res) => {
   try {
@@ -5847,7 +5890,7 @@ app.delete('/api/dispositivos/:id', authenticateToken, async (req, res) => {
         SELECT 'Tareas Dispositivo Usuarios' as table_name, COUNT(*) as count FROM tareas_dispositivo_usuarios WHERE ip_publica_dispositivo = ? OR ip_local_dispositivo = ?
       ) as relations WHERE count > 0
     `, {
-      replacements: [id, dispositivo.ip_publica, dispositivo.ip_local],
+      replacements: [id, dispositivo.ip_remota || '', dispositivo.ip_local || ''],
       type: sequelize.QueryTypes.SELECT
     });
 

@@ -33,6 +33,10 @@ export class DispositivosService {
   getSalas(): Observable<any[]> {
     return this.http.get<any[]>('http://localhost:3000/api/salas');
   }
+
+  updateCronConfig(id: number, cronConfig: { cron_activo: number, cron_tiempo: string }): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/${id}/cron`, cronConfig);
+  }
 }
 
 
