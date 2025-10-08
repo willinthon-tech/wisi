@@ -19,6 +19,20 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     <div class="marcajes-container">
       <div class="header">
         <h2>📊 Marcajes de Asistencia</h2>
+        <div class="header-stats">
+          <div class="header-stat-card">
+            <span class="stat-number">{{ marcajesFiltrados.length }}</span>
+            <span class="stat-label">Total Marcajes</span>
+          </div>
+          <div class="header-stat-card">
+            <span class="stat-number">{{ dispositivosUnicos.size }}</span>
+            <span class="stat-label">Dispositivos</span>
+          </div>
+          <div class="header-stat-card">
+            <span class="stat-number">{{ empleadosUnicos.size }}</span>
+            <span class="stat-label">Empleados</span>
+          </div>
+        </div>
         <div class="header-actions">
           <button class="btn btn-primary" (click)="recargarTabla()">
             <i class="fas fa-sync-alt"></i> Actualizar
@@ -26,70 +40,69 @@ ModuleRegistry.registerModules([AllCommunityModule]);
         </div>
       </div>
 
-      <div class="filters">
-        <div class="filter-group">
-          <label for="filtroDispositivo">Dispositivo:</label>
-          <select id="filtroDispositivo" [(ngModel)]="filtroDispositivo" (change)="aplicarFiltros()">
-            <option value="">Todos los dispositivos</option>
-            <option *ngFor="let dispositivo of dispositivos" [value]="dispositivo.id">
-              {{ dispositivo.nombre }}
-            </option>
-          </select>
-        </div>
-        
-        <div class="filter-group">
-          <label for="filtroEmpleado">Empleado:</label>
-          <input 
-            type="text" 
-            id="filtroEmpleado" 
-            [(ngModel)]="filtroEmpleado" 
-            placeholder="Cédula o nombre..."
-            (input)="aplicarFiltros()">
+      <div class="main-content">
+        <!-- Panel izquierdo - Filtros y estadísticas -->
+        <div class="left-panel">
+          <div class="filters-section">
+            <h3>🔍 Filtros</h3>
+            <div class="filter-group">
+              <label for="filtroDispositivo">Dispositivo:</label>
+              <select id="filtroDispositivo" [(ngModel)]="filtroDispositivo" (change)="aplicarFiltros()">
+                <option value="">Todos los dispositivos</option>
+                <option *ngFor="let dispositivo of dispositivos" [value]="dispositivo.id">
+                  {{ dispositivo.nombre }}
+                </option>
+              </select>
+            </div>
+            
+            <div class="filter-group">
+              <label for="filtroEmpleado">Empleado:</label>
+              <input 
+                type="text" 
+                id="filtroEmpleado" 
+                [(ngModel)]="filtroEmpleado" 
+                placeholder="Cédula o nombre..."
+                (input)="aplicarFiltros()">
+            </div>
+
+            <div class="filter-group">
+              <label for="filtroFecha">Fecha:</label>
+              <input 
+                type="date" 
+                id="filtroFecha" 
+                [(ngModel)]="filtroFecha" 
+                (change)="aplicarFiltros()">
+            </div>
+          </div>
+
         </div>
 
-        <div class="filter-group">
-          <label for="filtroFecha">Fecha:</label>
-          <input 
-            type="date" 
-            id="filtroFecha" 
-            [(ngModel)]="filtroFecha" 
-            (change)="aplicarFiltros()">
+        <!-- Panel derecho - Tabla -->
+        <div class="right-panel">
+          <div class="table-wrapper">
+            <ag-grid-angular
+              style="width: 100%; height: 100%;"
+              class="ag-theme-alpine"
+              [rowData]="marcajesFiltrados"
+              [columnDefs]="columnDefs"
+              [defaultColDef]="{
+                resizable: true,
+                sortable: true,
+                filter: true,
+                flex: 1,
+                minWidth: 100
+              }"
+              [pagination]="true"
+              [paginationPageSize]="50"
+              [paginationAutoPageSize]="false"
+              [paginationPageSizeSelector]="[25, 50, 100]"
+              [suppressPaginationPanel]="false"
+              [rowSelection]="{ mode: 'singleRow' }"
+              (gridReady)="onGridReady($event)"
+              [loading]="cargando">
+            </ag-grid-angular>
+          </div>
         </div>
-      </div>
-
-      <div class="stats">
-        <div class="stat-card">
-          <span class="stat-number">{{ marcajesFiltrados.length }}</span>
-          <span class="stat-label">Total Marcajes</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-number">{{ dispositivosUnicos.size }}</span>
-          <span class="stat-label">Dispositivos</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-number">{{ empleadosUnicos.size }}</span>
-          <span class="stat-label">Empleados</span>
-        </div>
-      </div>
-
-      <div class="table-wrapper">
-        <ag-grid-angular
-          style="width: 100%; height: 500px;"
-          class="ag-theme-alpine"
-          [rowData]="marcajesFiltrados"
-          [columnDefs]="columnDefs"
-          [defaultColDef]="{
-            resizable: true,
-            sortable: true,
-            filter: true
-          }"
-          [pagination]="true"
-          [paginationPageSize]="50"
-          [paginationAutoPageSize]="false"
-          [rowSelection]="{ mode: 'singleRow' }"
-          (gridReady)="onGridReady($event)"
-          [loading]="cargando">
-        </ag-grid-angular>
       </div>
 
       <!-- Modal de detalles -->
@@ -143,8 +156,9 @@ ModuleRegistry.registerModules([AllCommunityModule]);
   styles: [`
     .marcajes-container {
       padding: 20px;
-      max-width: 1400px;
-      margin: 0 auto;
+      max-width: 100%;
+      margin: 0;
+      height: calc(100vh - 100px);
     }
 
     .header {
@@ -162,45 +176,112 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       font-weight: 600;
     }
 
+    .header-stats {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .header-stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-width: 140px;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .header-stat-card .stat-number {
+      font-size: 1.4rem;
+      font-weight: bold;
+      margin: 0;
+      margin-right: 20px;
+    }
+
+    .header-stat-card .stat-label {
+      font-size: 0.8rem;
+      opacity: 0.9;
+      margin: 0;
+      text-align: right;
+    }
+
     .header-actions {
       display: flex;
       gap: 10px;
     }
 
-    .filters {
+    .main-content {
       display: flex;
       gap: 20px;
-      margin-bottom: 20px;
-      padding: 15px;
+      align-items: flex-start;
+    }
+
+    .left-panel {
+      width: 350px;
       background: #f8f9fa;
       border-radius: 8px;
-      flex-wrap: wrap;
+      padding: 20px;
+      height: fit-content;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .right-panel {
+      flex: 1;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+      height: calc(100vh - 200px);
+    }
+
+    .filters-section {
+      margin-bottom: 30px;
+    }
+
+    .filters-section h3 {
+      margin: 0 0 15px 0;
+      color: #495057;
+      font-size: 1.1rem;
+      font-weight: 600;
     }
 
     .filter-group {
       display: flex;
       flex-direction: column;
-      min-width: 200px;
+      margin-bottom: 15px;
     }
 
     .filter-group label {
       font-weight: 600;
       margin-bottom: 5px;
       color: #495057;
+      font-size: 0.9rem;
     }
 
     .filter-group input,
     .filter-group select {
-      padding: 8px 12px;
+      padding: 10px 12px;
       border: 1px solid #ced4da;
-      border-radius: 4px;
+      border-radius: 6px;
       font-size: 14px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .stats-section h3 {
+      margin: 0 0 15px 0;
+      color: #495057;
+      font-size: 1.1rem;
+      font-weight: 600;
     }
 
     .stats {
       display: flex;
-      gap: 20px;
-      margin-bottom: 20px;
+      flex-direction: column;
+      gap: 15px;
     }
 
     .stat-card {
@@ -209,7 +290,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       padding: 20px;
       border-radius: 10px;
       text-align: center;
-      min-width: 150px;
+      width: 100%;
     }
 
     .stat-number {
@@ -225,18 +306,10 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     }
 
     .table-wrapper {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      height: 100%;
       overflow: hidden;
-      max-height: calc(100vh - 200px);
-      overflow-y: auto;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-
-    .table-wrapper::-webkit-scrollbar {
-      display: none;
+      display: flex;
+      flex-direction: column;
     }
 
     /* Estilos para ag-Grid */
@@ -271,6 +344,20 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     .ag-theme-alpine .ag-paging-panel {
       background: #f8f9fa;
       border-top: 1px solid #dee2e6;
+      padding: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .ag-theme-alpine .ag-paging-panel .ag-paging-button {
+      margin: 0 5px;
+    }
+
+    .ag-theme-alpine .ag-paging-panel .ag-paging-description {
+      margin: 0 10px;
+      font-weight: 600;
+      color: #495057;
     }
 
 
@@ -413,13 +500,60 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       text-align: right;
     }
 
-    @media (max-width: 768px) {
-      .filters {
+    @media (max-width: 1200px) {
+      .main-content {
         flex-direction: column;
+        align-items: stretch;
       }
       
-      .stats {
+      .left-panel {
+        width: 100%;
+        margin-bottom: 20px;
+        height: fit-content;
+      }
+      
+      .right-panel {
+        height: 500px;
+      }
+      
+      .header {
         flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+      }
+      
+      .header-stats {
+        order: 2;
+        width: 100%;
+        justify-content: center;
+      }
+      
+      .header-actions {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .marcajes-container {
+        padding: 10px;
+      }
+      
+      .left-panel {
+        padding: 15px;
+      }
+      
+      .header-stats {
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+      }
+      
+      .header-stat-card {
+        width: 100%;
+        min-width: auto;
+        justify-content: space-between;
       }
       
       .detail-grid {
@@ -455,9 +589,28 @@ export class MarcajesListComponent implements OnInit {
   
   // Configuración de ag-Grid
   columnDefs: ColDef[] = [
-    { field: 'id', headerName: 'ID', width: 80, sortable: true, filter: true },
-    { field: 'employee_no', headerName: 'Empleado', width: 120, sortable: true, filter: true },
-    { field: 'nombre', headerName: 'Nombre', width: 150, sortable: true, filter: true },
+    { 
+      field: 'id', 
+      headerName: 'ID', 
+      width: 80, 
+      sortable: true, 
+      filter: true,
+      pinned: 'left'
+    },
+    { 
+      field: 'employee_no', 
+      headerName: 'Empleado', 
+      width: 120, 
+      sortable: true, 
+      filter: true 
+    },
+    { 
+      field: 'nombre', 
+      headerName: 'Nombre', 
+      width: 200, 
+      sortable: true, 
+      filter: true 
+    },
     { 
       field: 'event_time', 
       headerName: 'Fecha/Hora', 
@@ -466,14 +619,27 @@ export class MarcajesListComponent implements OnInit {
       filter: true,
       valueFormatter: (params) => this.formatearFecha(params.value)
     },
-    { field: 'Dispositivo.nombre', headerName: 'Dispositivo', width: 150, sortable: true, filter: true },
-    { field: 'Dispositivo.ip_remota', headerName: 'IP', width: 120, sortable: true, filter: true },
+    { 
+      field: 'Dispositivo.nombre', 
+      headerName: 'Dispositivo', 
+      width: 180, 
+      sortable: true, 
+      filter: true 
+    },
+    { 
+      field: 'Dispositivo.ip_remota', 
+      headerName: 'IP', 
+      width: 140, 
+      sortable: true, 
+      filter: true 
+    },
     { 
       field: 'id', 
       headerName: 'Acciones', 
-      width: 150, 
+      width: 180, 
       sortable: false, 
       filter: false,
+      pinned: 'right',
       cellRenderer: (params: any) => {
         return `
           <button class="btn btn-info btn-sm" onclick="window.marcajesComponent.verDetalles(${JSON.stringify(params.data).replace(/"/g, '&quot;')})">
