@@ -88,7 +88,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
               [defaultColDef]="{
                 resizable: true,
                 sortable: true,
-                filter: true,
+                filter: false,
                 flex: 1,
                 minWidth: 100
               }"
@@ -97,7 +97,14 @@ ModuleRegistry.registerModules([AllCommunityModule]);
               [paginationAutoPageSize]="false"
               [paginationPageSizeSelector]="[25, 50, 100]"
               [suppressPaginationPanel]="false"
-              [rowSelection]="{ mode: 'singleRow' }"
+              [rowSelection]="'none'"
+              [suppressColumnVirtualisation]="false"
+              [suppressRowHoverHighlight]="true"
+              [suppressCellFocus]="true"
+              [suppressMenuHide]="true"
+              [suppressColumnMoveAnimation]="true"
+              [suppressRowTransform]="true"
+              [suppressAnimationFrame]="true"
               (gridReady)="onGridReady($event)"
               [loading]="cargando">
             </ag-grid-angular>
@@ -360,6 +367,12 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       color: #495057;
     }
 
+    /* Ocultar checkboxes si aún aparecen */
+    .ag-theme-alpine .ag-checkbox,
+    .ag-theme-alpine .ag-selection-checkbox {
+      display: none !important;
+    }
+
 
     .table {
       margin: 0;
@@ -594,7 +607,7 @@ export class MarcajesListComponent implements OnInit {
       headerName: 'ID', 
       width: 80, 
       sortable: true, 
-      filter: true,
+      filter: false,
       pinned: 'left'
     },
     { 
@@ -602,21 +615,21 @@ export class MarcajesListComponent implements OnInit {
       headerName: 'Empleado', 
       width: 120, 
       sortable: true, 
-      filter: true 
+      filter: false
     },
     { 
       field: 'nombre', 
       headerName: 'Nombre', 
       width: 200, 
       sortable: true, 
-      filter: true 
+      filter: false
     },
     { 
       field: 'event_time', 
       headerName: 'Fecha/Hora', 
       width: 180, 
       sortable: true, 
-      filter: true,
+      filter: false,
       valueFormatter: (params) => this.formatearFecha(params.value)
     },
     { 
@@ -624,14 +637,14 @@ export class MarcajesListComponent implements OnInit {
       headerName: 'Dispositivo', 
       width: 180, 
       sortable: true, 
-      filter: true 
+      filter: false
     },
     { 
       field: 'Dispositivo.ip_remota', 
       headerName: 'IP', 
       width: 140, 
       sortable: true, 
-      filter: true 
+      filter: false
     },
     { 
       field: 'id', 
@@ -793,5 +806,12 @@ export class MarcajesListComponent implements OnInit {
     
     // Exponer el componente globalmente para los botones
     (window as any).marcajesComponent = this;
+    
+    // Evitar conflictos de renderizado
+    setTimeout(() => {
+      if (this.gridApi) {
+        this.gridApi.sizeColumnsToFit();
+      }
+    }, 100);
   }
 }
