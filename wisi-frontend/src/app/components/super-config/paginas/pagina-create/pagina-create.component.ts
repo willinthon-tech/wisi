@@ -419,7 +419,6 @@ export class PaginaCreateComponent implements OnInit {
         this.router.navigate(['/super-config/paginas']);
       },
       error: (error) => {
-        console.error('Error creando página:', error);
         alert('Error creando página: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.loading = false;
       }

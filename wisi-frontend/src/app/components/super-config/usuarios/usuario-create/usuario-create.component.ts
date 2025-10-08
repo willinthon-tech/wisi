@@ -826,7 +826,6 @@ export class UsuarioCreateComponent implements OnInit {
       this.availablePermissions = permissions || [];
       this.loadingData = false;
     }).catch(error => {
-      console.error('Error cargando datos:', error);
       alert('Error cargando datos: ' + (error.error?.message || error.message || 'Error desconocido'));
       this.loadingData = false;
     });
@@ -980,7 +979,6 @@ export class UsuarioCreateComponent implements OnInit {
         this.router.navigate(['/super-config/usuarios']);
       },
       error: (error) => {
-        console.error('Error creando usuario:', error);
         alert('Error creando usuario: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.loading = false;
       }

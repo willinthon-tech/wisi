@@ -407,7 +407,6 @@ export class PermisoEditComponent implements OnInit {
         }
       },
       error: (error) => {
-        console.error('Error cargando permiso:', error);
         alert('Error cargando permiso: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.goBack();
       }
@@ -434,7 +433,6 @@ export class PermisoEditComponent implements OnInit {
         this.router.navigate(['/super-config/permisos']);
       },
       error: (error) => {
-        console.error('Error actualizando permiso:', error);
         alert('Error actualizando permiso: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.saving = false;
       }

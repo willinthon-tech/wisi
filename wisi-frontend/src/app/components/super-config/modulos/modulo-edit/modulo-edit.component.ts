@@ -465,7 +465,6 @@ export class ModuloEditComponent implements OnInit {
         this.availablePages = pages || [];
       },
       error: (error) => {
-        console.error('Error cargando páginas:', error);
         alert('Error cargando páginas: ' + (error.error?.message || error.message || 'Error desconocido'));
       }
     });
@@ -486,7 +485,6 @@ export class ModuloEditComponent implements OnInit {
         }
       },
       error: (error) => {
-        console.error('Error cargando módulo:', error);
         alert('Error cargando módulo: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.goBack();
       }
@@ -516,7 +514,6 @@ export class ModuloEditComponent implements OnInit {
         this.router.navigate(['/super-config/modulos']);
       },
       error: (error) => {
-        console.error('Error actualizando módulo:', error);
         alert('Error actualizando módulo: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.saving = false;
       }

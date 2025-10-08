@@ -19,7 +19,6 @@ export class HikvisionIsapiService {
       clave: clave
     }).pipe(
       catchError(error => {
-        console.error('Error testing connection:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -33,7 +32,6 @@ export class HikvisionIsapiService {
       clave: clave
     }).pipe(
       catchError(error => {
-        console.error('Error getting device info:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -47,7 +45,6 @@ export class HikvisionIsapiService {
       clave: clave
     }).pipe(
       catchError(error => {
-        console.error('Error getting users:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -63,7 +60,6 @@ export class HikvisionIsapiService {
       endTime: endTime
     }).pipe(
       catchError(error => {
-        console.error('Error getting events:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -77,7 +73,6 @@ export class HikvisionIsapiService {
       clave: clave
     }).pipe(
       catchError(error => {
-        console.error('Error getting photos:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -91,7 +86,6 @@ export class HikvisionIsapiService {
       clave: clave
     }).pipe(
       catchError(error => {
-        console.error('Error syncing data:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -106,7 +100,6 @@ export class HikvisionIsapiService {
       fpid: fpid
     }).pipe(
       catchError(error => {
-        console.error('Error getting user photo:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -120,7 +113,6 @@ export class HikvisionIsapiService {
       clave: clave
     }).pipe(
       catchError(error => {
-        console.error('Error discovering endpoints:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -134,7 +126,6 @@ export class HikvisionIsapiService {
       clave: clave
     }).pipe(
       catchError(error => {
-        console.error('Error getting user capabilities:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -148,7 +139,6 @@ export class HikvisionIsapiService {
       clave: clave
     }).pipe(
       catchError(error => {
-        console.error('Error getting device capabilities:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -163,7 +153,6 @@ export class HikvisionIsapiService {
       streamType: streamType
     }).pipe(
       catchError(error => {
-        console.error('Error getting camera stream:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -177,7 +166,6 @@ export class HikvisionIsapiService {
       clave: clave
     }).pipe(
       catchError(error => {
-        console.error('Error discovering streaming channels:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -192,7 +180,6 @@ export class HikvisionIsapiService {
       employeeNo: employeeNo
     }).pipe(
       catchError(error => {
-        console.error('Error getting user info:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -207,7 +194,6 @@ export class HikvisionIsapiService {
       employeeNo: employeeNo
     }).pipe(
       catchError(error => {
-        console.error('Error deleting user face:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -223,7 +209,6 @@ export class HikvisionIsapiService {
       employeeNo: employeeNo
     }).pipe(
       catchError(error => {
-        console.error('Error deleting user:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -241,7 +226,6 @@ export class HikvisionIsapiService {
       faceDataBase64: faceDataBase64
     }).pipe(
       catchError(error => {
-        console.error('Error registering user face:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -256,7 +240,6 @@ export class HikvisionIsapiService {
       facePayload: facePayload
     }).pipe(
       catchError(error => {
-        console.error('Error registering user face with payload:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -275,7 +258,6 @@ export class HikvisionIsapiService {
       compressedBase64: compressedBase64
     }).pipe(
       catchError(error => {
-        console.error('Error registering user face with compressed base64:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -293,7 +275,6 @@ export class HikvisionIsapiService {
       imageBase64: imageBase64
     }).pipe(
       catchError(error => {
-        console.error('Error registering user face with URL:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -311,7 +292,6 @@ export class HikvisionIsapiService {
       imageBase64: imageBase64
     }).pipe(
       catchError(error => {
-        console.error('Error registering user face with ImgBB:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -326,7 +306,6 @@ export class HikvisionIsapiService {
       userData: userData
     }).pipe(
       catchError(error => {
-        console.error('Error updating user:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -341,7 +320,6 @@ export class HikvisionIsapiService {
       deletePhotoPayload: deletePhotoPayload
     }).pipe(
       catchError(error => {
-        console.error('Error deleting user photo only:', error);
         return of({ success: false, error: error.message });
       })
     );

@@ -229,7 +229,6 @@ export class SalasListComponent implements OnInit {
         this.loading = false;
       },
       error: (error) => {
-        console.error('Error cargando salas:', error);
         this.loading = false;
       }
     });
@@ -246,11 +245,9 @@ export class SalasListComponent implements OnInit {
   deleteSala(sala: any) {
     this.userService.deleteSala(sala.id).subscribe({
       next: (response) => {
-        console.log('Sala eliminada exitosamente');
         this.loadSalas(); // Recargar la lista
       },
       error: (error) => {
-        console.error('Error eliminando sala:', error);
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {

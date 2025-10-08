@@ -450,7 +450,6 @@ export class UsuariosListComponent implements OnInit {
         this.checkLoadingComplete();
       },
       error: (error) => {
-        console.error('Error cargando usuarios:', error);
         alert('Error cargando usuarios: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.loading = false;
       }
@@ -462,7 +461,6 @@ export class UsuariosListComponent implements OnInit {
         this.checkLoadingComplete();
       },
       error: (error) => {
-        console.error('Error cargando páginas:', error);
         this.pages = [];
         this.checkLoadingComplete();
       }
@@ -474,7 +472,6 @@ export class UsuariosListComponent implements OnInit {
         this.checkLoadingComplete();
       },
       error: (error) => {
-        console.error('Error cargando módulos:', error);
         this.modules = [];
         this.checkLoadingComplete();
       }
@@ -486,7 +483,6 @@ export class UsuariosListComponent implements OnInit {
         this.checkLoadingComplete();
       },
       error: (error) => {
-        console.error('Error cargando permisos:', error);
         this.permissions = [];
         this.checkLoadingComplete();
       }
@@ -522,7 +518,6 @@ export class UsuariosListComponent implements OnInit {
           this.loadData(); // Recargar la lista
         },
         error: (error) => {
-          console.error('Error eliminando usuario:', error);
           alert('Error eliminando usuario: ' + (error.error?.message || error.message || 'Error desconocido'));
         }
       });

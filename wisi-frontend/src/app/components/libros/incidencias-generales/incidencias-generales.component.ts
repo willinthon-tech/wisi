@@ -342,14 +342,12 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
         this.loadIncidencias();
       },
       error: (error: any) => {
-        console.error('Error cargando salas del usuario:', error);
       }
     });
   }
 
   loadIncidencias() {
     if (!this.libroId) {
-      console.error('No hay libroId para cargar incidencias');
       return;
     }
     
@@ -363,7 +361,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
         });
       },
       error: (error: any) => {
-        console.error('Error cargando incidencias:', error);
       }
     });
   }
@@ -389,7 +386,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
         this.resetForm();
       },
       error: (error: any) => {
-        console.error('Error guardando incidencia:', error);
       }
     });
   }
@@ -400,7 +396,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
         this.loadIncidencias(); // Recargar la lista
       },
       error: (error: any) => {
-        console.error('Error eliminando incidencia:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la incidencia',
@@ -431,7 +426,6 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
         this.libro = libro;
       },
       error: (error) => {
-        console.error('Error cargando libro:', error);
       }
     });
   }

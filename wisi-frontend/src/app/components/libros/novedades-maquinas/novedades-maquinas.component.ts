@@ -813,14 +813,12 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         this.loadEmpleados();
       },
       error: (error: any) => {
-        console.error('Error cargando salas del usuario:', error);
       }
     });
   }
 
   loadNovedades() {
     if (!this.libroId) {
-      console.error('No hay libroId para cargar novedades');
       return;
     }
     
@@ -837,7 +835,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         this.novedadesAgrupadas = this.agruparNovedades(this.novedades);
       },
       error: (error: any) => {
-        console.error('Error cargando novedades:', error);
       }
     });
   }
@@ -862,7 +859,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         
       },
       error: (error: any) => {
-        console.error('Error cargando máquinas:', error);
       }
     });
   }
@@ -880,13 +876,11 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
                 this.empleados = empleados;
               },
               error: (error: any) => {
-                console.error('Error cargando empleados:', error);
               }
             });
           }
         },
         error: (error: any) => {
-          console.error('Error obteniendo libro:', error);
         }
       });
     }
@@ -956,7 +950,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
           }
         },
         error: (error: any) => {
-          console.error(`Error guardando novedad para máquina ${maquinaId}:`, error);
           errors++;
           
           // Si es la última máquina, recargar y resetear
@@ -975,7 +968,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         this.loadNovedades(); // Recargar la lista
       },
       error: (error: any) => {
-        console.error('Error eliminando novedad:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la novedad',
@@ -1014,7 +1006,6 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
         this.libro = libro;
       },
       error: (error) => {
-        console.error('Error cargando libro:', error);
       }
     });
   }

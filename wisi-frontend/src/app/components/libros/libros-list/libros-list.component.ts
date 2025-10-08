@@ -513,7 +513,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
         this.libros = libros;
       },
       error: (error) => {
-        console.error('Error cargando libros:', error);
       }
     });
   }
@@ -541,7 +540,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
         this.userSalas = salas;
       },
       error: (error) => {
-        console.error('Error cargando salas del usuario:', error);
       }
     });
   }
@@ -557,7 +555,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
         this.closeSalaSelector();
       },
       error: (error) => {
-        console.error('Error creando libro:', error);
       }
     });
   }
@@ -568,7 +565,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     if (libro && libro.Sala) {
       this.router.navigate(['/drop-mesas', libroId, libro.Sala.id]);
     } else {
-      console.error('No se pudo obtener la sala del libro');
     }
   }
 
@@ -578,7 +574,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     if (libro && libro.Sala) {
       this.router.navigate(['/novedades-maquinas', libroId, libro.Sala.id]);
     } else {
-      console.error('No se pudo obtener la sala del libro');
     }
   }
 
@@ -588,7 +583,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     if (libro && libro.Sala) {
       this.router.navigate(['/incidencias-generales', libroId, libro.Sala.id]);
     } else {
-      console.error('No se pudo obtener la sala del libro');
     }
   }
 
@@ -605,7 +599,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
         this.loadLibros();
       },
       error: (error) => {
-        console.error('Error eliminando libro:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el libro',

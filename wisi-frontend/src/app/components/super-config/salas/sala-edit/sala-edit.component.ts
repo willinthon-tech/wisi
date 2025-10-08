@@ -288,12 +288,10 @@ export class SalaEditComponent implements OnInit {
           this.sala = { ...sala };
           this.loading = false;
         } else {
-          console.log('Sala no encontrada');
           this.goBack();
         }
       },
       error: (error) => {
-        console.error('Error cargando sala:', error);
         this.goBack();
       }
     });
@@ -303,7 +301,6 @@ export class SalaEditComponent implements OnInit {
     if (this.saving) return;
 
     if (!this.sala.nombre.trim()) {
-      console.log('El nombre de la sala es requerido');
       return;
     }
 
@@ -314,11 +311,9 @@ export class SalaEditComponent implements OnInit {
       activa: true
     }).subscribe({
       next: (response) => {
-        console.log('Sala actualizada exitosamente');
         this.router.navigate(['/super-config/salas']);
       },
       error: (error) => {
-        console.error('Error actualizando sala:', error);
         alert('Error actualizando sala: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.saving = false;
       }

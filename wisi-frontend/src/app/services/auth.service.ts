@@ -85,7 +85,6 @@ export class AuthService {
         next: (response) => {
         },
         error: (error) => {
-          console.error('❌ Error en endpoint:', error);
         }
       });
     } else {
@@ -111,9 +110,6 @@ export class AuthService {
         }
       },
       error: (error) => {
-        console.error('❌ Error verificando token:', error);
-        console.error('❌ Error status:', error.status);
-        console.error('❌ Error message:', error.message);
         this.logout();
       }
     });

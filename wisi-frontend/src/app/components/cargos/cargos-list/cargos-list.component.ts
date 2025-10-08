@@ -470,7 +470,6 @@ export class CargosListComponent implements OnInit, OnDestroy {
         this.cargos = cargos;
       },
       error: (error) => {
-        console.error('Error cargando cargos:', error);
         alert('Error cargando cargos');
       }
     });
@@ -494,7 +493,6 @@ export class CargosListComponent implements OnInit, OnDestroy {
         this.userDepartamentos = departamentos;
       },
       error: (error) => {
-        console.error('Error cargando departamentos:', error);
         alert('Error cargando departamentos');
       }
     });
@@ -517,10 +515,8 @@ export class CargosListComponent implements OnInit, OnDestroy {
             this.cargos[index] = cargo;
           }
           this.closeDepartamentoSelector();
-          console.log('Cargo actualizado exitosamente');
         },
         error: (error) => {
-          console.error('Error actualizando cargo:', error);
           alert('Error actualizando cargo');
         }
       });
@@ -530,10 +526,8 @@ export class CargosListComponent implements OnInit, OnDestroy {
         next: (cargo) => {
           this.cargos.unshift(cargo);
           this.closeDepartamentoSelector();
-          console.log('Cargo creado exitosamente');
         },
         error: (error) => {
-          console.error('Error creando cargo:', error);
           alert('Error creando cargo');
         }
       });
@@ -553,10 +547,8 @@ export class CargosListComponent implements OnInit, OnDestroy {
     this.cargosService.deleteCargo(id).subscribe({
       next: () => {
         this.cargos = this.cargos.filter(cargo => cargo.id !== id);
-        console.log('Cargo eliminado exitosamente');
       },
       error: (error) => {
-        console.error('Error eliminando cargo:', error);
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {

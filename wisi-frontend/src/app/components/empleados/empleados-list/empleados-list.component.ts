@@ -1229,28 +1229,17 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   
   // Método para debuggear el estado completo
   debugEstado(): void {
-    console.log('🔍 === ESTADO COMPLETO ===');
-    console.log('🔍 selectedEmpleado:', this.selectedEmpleado);
-    console.log('🔍 nuevoEmpleado:', this.nuevoEmpleado);
-    console.log('🔍 nuevoEmpleado.dispositivos:', this.nuevoEmpleado.dispositivos);
-    console.log('🔍 userDispositivos:', this.userDispositivos);
-    console.log('🔍 userCargos:', this.userCargos);
-    console.log('🔍 hasChanges:', this.hasChanges);
-    console.log('🔍 showCargoModal:', this.showCargoModal);
-    console.log('🔍 === FIN ESTADO ===');
+    // Debug estado completo
   }
   
   // Método para forzar el mapeo de dispositivos (para testing)
   forzarMapeoDispositivos(): void {
     if (this.selectedEmpleado && this.selectedEmpleado.dispositivos) {
-      console.log('🔧 Forzando mapeo de dispositivos...');
-      console.log('🔧 Dispositivos originales:', this.selectedEmpleado.dispositivos);
+      // Forzando mapeo de dispositivos
       
       const dispositivosIds = this.selectedEmpleado.dispositivos.map((d: any) => d.id);
-      console.log('🔧 IDs mapeados:', dispositivosIds);
       
       this.nuevoEmpleado.dispositivos = dispositivosIds;
-      console.log('🔧 Dispositivos asignados al formulario:', this.nuevoEmpleado.dispositivos);
       
       // Detectar cambios
       this.detectChanges();
@@ -1259,9 +1248,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   
   // Método para resetear hasChanges manualmente (para testing)
   resetearHasChanges(): void {
-    console.log('🔧 Reseteando hasChanges manualmente...');
     this.hasChanges = false;
-    console.log('🔧 hasChanges reseteado a:', this.hasChanges);
   }
 
   // Variables para validación de cédula
@@ -1371,15 +1358,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   loadEmpleados(): void {
     this.empleadosService.getEmpleados().subscribe({
       next: (empleados) => {
-        console.log('🔍 Empleados cargados desde el backend:', empleados);
-        console.log('🔍 Primer empleado con dispositivos:', empleados[0]);
-        if (empleados[0] && empleados[0].dispositivos) {
-          console.log('🔍 Dispositivos del primer empleado:', empleados[0].dispositivos);
-        }
         this.empleados = empleados;
       },
       error: (error) => {
-        console.error('Error cargando empleados:', error);
         alert('Error cargando empleados');
       }
     });
@@ -1401,14 +1382,11 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   loadUserCargos(): void {
-    console.log('🔍 Cargando cargos...');
     this.empleadosService.getUserCargos().subscribe({
       next: (cargos) => {
-        console.log('✅ Cargos cargados:', cargos);
         this.userCargos = cargos;
       },
       error: (error) => {
-        console.error('❌ Error cargando cargos:', error);
         alert('Error cargando cargos');
       }
     });
@@ -1420,7 +1398,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.userHorarios = horarios;
       },
       error: (error: any) => {
-        console.error('Error cargando horarios:', error);
         alert('Error cargando horarios');
       }
     });
@@ -1429,54 +1406,48 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   loadUserDispositivos(): void {
     // Solo cargar dispositivos si hay un cargo seleccionado
     if (this.nuevoEmpleado.cargo_id) {
-      console.log('🔍 Cargando dispositivos para cargo ID:', this.nuevoEmpleado.cargo_id, 'tipo:', typeof this.nuevoEmpleado.cargo_id);
-      console.log('🔍 Cargos disponibles:', this.userCargos);
-      console.log('🔍 Primeros 3 cargos con sus IDs:', this.userCargos.slice(0, 3).map(c => ({ id: c.id, tipo: typeof c.id, nombre: c.nombre })));
-      
       // Buscar el cargo seleccionado (manejar tanto string como number)
       const cargoSeleccionado = this.userCargos.find(cargo => 
         cargo.id == this.nuevoEmpleado.cargo_id || 
         cargo.id === Number(this.nuevoEmpleado.cargo_id) ||
         Number(cargo.id) === this.nuevoEmpleado.cargo_id
       );
-      console.log('🔍 Cargo seleccionado:', cargoSeleccionado);
       
       if (cargoSeleccionado) {
         this.empleadosService.getUserDispositivos().subscribe({
           next: (dispositivos: any[]) => {
-            console.log('🔍 Todos los dispositivos:', dispositivos);
             
             // Filtrar dispositivos por la sala del cargo seleccionado
             if (cargoSeleccionado.Departamento?.Area?.Sala?.id) {
               const salaId = cargoSeleccionado.Departamento.Area.Sala.id;
-              console.log('🔍 Filtrando por sala ID:', salaId);
+              
               
               this.userDispositivos = dispositivos.filter(dispositivo => {
-                console.log('🔍 Dispositivo:', dispositivo.nombre, 'Sala ID:', dispositivo.Sala?.id, 'Coincide:', dispositivo.Sala?.id === salaId);
+                
                 return dispositivo.Sala?.id === salaId;
               });
               
-              console.log('🔍 Dispositivos filtrados:', this.userDispositivos);
-              console.log('🔍 Dispositivos ya seleccionados del empleado:', this.nuevoEmpleado.dispositivos);
+              
+              
               
               // Forzar detección de cambios para actualizar los checkboxes
               setTimeout(() => {
-                console.log('🔍 Verificando checkboxes después de cargar dispositivos');
-                console.log('🔍 Dispositivos disponibles:', this.userDispositivos.map(d => ({ id: d.id, nombre: d.nombre })));
-                console.log('🔍 Dispositivos seleccionados:', this.nuevoEmpleado.dispositivos);
+                
+                
+                
               }, 50);
             } else {
-              console.log('❌ No se encontró sala en el cargo');
+              
               this.userDispositivos = [];
             }
           },
           error: (error: any) => {
-            console.error('Error cargando dispositivos:', error);
+            
             alert('Error cargando dispositivos');
           }
         });
       } else {
-        console.log('❌ No se encontró el cargo seleccionado');
+        
         this.userDispositivos = [];
       }
     } else {
@@ -1485,38 +1456,38 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   onCargoChange(): void {
-    console.log('🔄 Cambio de cargo detectado');
-    console.log('🔄 Es empleado nuevo:', !this.selectedEmpleado);
-    console.log('🔄 Dispositivos antes del cambio:', this.nuevoEmpleado.dispositivos);
-    console.log('🔄 Cargo seleccionado:', this.nuevoEmpleado.cargo_id);
+    
+    
+    
+    
     
     // Guardar dispositivos actuales antes de cambiar
     const dispositivosActuales = [...(this.nuevoEmpleado.dispositivos || [])];
-    console.log('🔄 Dispositivos guardados antes del cambio:', dispositivosActuales);
+    
     
     // Solo limpiar dispositivos si es un empleado nuevo
     if (!this.selectedEmpleado) {
       // Solo para empleados nuevos, limpiar dispositivos si no hay cargo
       if (!this.nuevoEmpleado.cargo_id) {
-        console.log('🔄 Limpiando dispositivos (empleado nuevo sin cargo)');
+        
         this.nuevoEmpleado.dispositivos = [];
       }
     } else {
       // Si es edición, NUNCA limpiar dispositivos automáticamente
-      console.log('🔄 Editando empleado - manteniendo dispositivos seleccionados');
-      console.log('🔄 Dispositivos actuales:', this.nuevoEmpleado.dispositivos);
+      
+      
       
       const cargoAnterior = this.selectedEmpleado.Cargo?.id;
       const cargoNuevo = this.nuevoEmpleado.cargo_id;
       
-      console.log('🔄 Cargo anterior:', cargoAnterior);
-      console.log('🔄 Cargo nuevo:', cargoNuevo);
+      
+      
       
       // En edición, siempre mantener los dispositivos seleccionados
-      console.log('🔄 Manteniendo dispositivos seleccionados:', this.nuevoEmpleado.dispositivos);
+      
     }
     
-    console.log('🔄 Dispositivos después del cambio:', this.nuevoEmpleado.dispositivos);
+    
     
     // Cargar dispositivos de la nueva sala
     this.loadUserDispositivos();
@@ -1532,33 +1503,33 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   // Función helper para verificar si un dispositivo está seleccionado
   isDispositivoSelected(dispositivoId: number): boolean {
     if (!this.nuevoEmpleado.dispositivos || !Array.isArray(this.nuevoEmpleado.dispositivos)) {
-      console.log('🔍 isDispositivoSelected: No hay dispositivos o no es array');
+      
       return false;
     }
     const isSelected = this.nuevoEmpleado.dispositivos.includes(dispositivoId);
-    console.log(`🔍 isDispositivoSelected(${dispositivoId}): ${isSelected}, dispositivos:`, this.nuevoEmpleado.dispositivos);
+    
     return isSelected;
   }
 
   onDispositivoChange(dispositivoId: number, event: any): void {
-    console.log('🔄 onDispositivoChange:', dispositivoId, 'checked:', event.target.checked);
-    console.log('🔄 Dispositivos antes del cambio:', this.nuevoEmpleado.dispositivos);
+    
+    
     
     if (event.target.checked) {
       // Agregar dispositivo si no está ya seleccionado
       if (!this.nuevoEmpleado.dispositivos.includes(dispositivoId)) {
         this.nuevoEmpleado.dispositivos.push(dispositivoId);
-        console.log('🔄 Dispositivo agregado:', dispositivoId);
+        
       } else {
-        console.log('🔄 Dispositivo ya estaba seleccionado:', dispositivoId);
+        
       }
     } else {
       // Remover dispositivo
       this.nuevoEmpleado.dispositivos = this.nuevoEmpleado.dispositivos.filter(id => id !== dispositivoId);
-      console.log('🔄 Dispositivo removido:', dispositivoId);
+      
     }
     
-    console.log('🔄 Dispositivos después del cambio:', this.nuevoEmpleado.dispositivos);
+    
     
     // Detectar cambios
     this.detectChanges();
@@ -1646,7 +1617,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         reader.readAsDataURL(file);
         
       } catch (error) {
-        console.error('Error cargando imagen:', error);
+        
         alert('Error cargando la imagen. Intente con otra foto');
       }
     }
@@ -1848,7 +1819,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       message += '\n\nRecomendaciones:\n• ' + quality.recommendations.join('\n• ');
     }
 
-    console.log('Información de calidad de imagen:', quality);
+    
     // No mostrar alert para calidad buena/excelente, solo log
     if (quality.imageQuality === 'poor' || quality.imageQuality === 'fair') {
       alert(message);
@@ -2215,25 +2186,16 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         const finalWidth = Math.min(img.width - finalX_clamped, this.cropData.width / this.cropData.scale);
         const finalHeight = Math.min(img.height - finalY_clamped, this.cropData.height / this.cropData.scale);
         
-        console.log('Datos de recorte FINALES:', {
-          cropData: this.cropData,
-          canvasWidth, canvasHeight,
-          scaledWidth, scaledHeight, offsetX, offsetY,
-          imageOffsetX: this.cropData.imageOffsetX,
-          imageOffsetY: this.cropData.imageOffsetY,
-          finalX, finalY, finalWidth, finalHeight,
-          finalX_clamped, finalY_clamped,
-          imgWidth: img.width, imgHeight: img.height
-        });
+        
         
         // Verificar que las coordenadas no sean negativas o inválidas
         if (finalX_clamped < 0 || finalY_clamped < 0 || finalWidth <= 0 || finalHeight <= 0) {
-          console.error('Coordenadas de recorte inválidas!');
+          
           return;
         }
         
         if (finalX_clamped + finalWidth > img.width || finalY_clamped + finalHeight > img.height) {
-          console.error('Recorte se sale de la imagen!');
+          
           return;
         }
         
@@ -2255,7 +2217,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         
         // Guardar la imagen procesada
         this.nuevoEmpleado.foto = compressedBase64;
-        console.log('Imagen procesada guardada:', compressedBase64.substring(0, 50) + '...');
+        
         
         // Limpiar variables de procesamiento
         this.processingMessage = '';
@@ -2273,7 +2235,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       img.src = this.originalImage;
       
     } catch (error) {
-      console.error('Error procesando imagen recortada:', error);
+      
       this.processingMessage = 'Error procesando la imagen';
     }
   }
@@ -2379,28 +2341,28 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     
     this.hasChanges = basicFieldsChanged || fotoChanged || dispositivosChanged;
     
-    console.log('🔍 Detección de cambios:');
-    console.log('  - Campos básicos:', basicFieldsChanged);
-    console.log('  - Cargo cambió:', cargoChanged);
-    console.log('  - Cargo original:', original.cargo_id, 'tipo:', typeof original.cargo_id, 'normalizado:', originalCargo);
-    console.log('  - Cargo actual:', current.cargo_id, 'tipo:', typeof current.cargo_id, 'normalizado:', currentCargo);
-    console.log('  - Cargo iguales:', originalCargo === currentCargo);
-    console.log('  - Foto:', fotoChanged);
-    console.log('  - Dispositivos:', dispositivosChanged);
-    console.log('  - Dispositivos originales:', dispositivosOriginales);
-    console.log('  - Dispositivos nuevos:', dispositivosNuevos);
-    console.log('  - Hay cambios:', this.hasChanges);
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     // Log detallado de cada campo
-    console.log('🔍 Comparación detallada:');
-    console.log('  - nombre:', original.nombre, 'vs', current.nombre, '=', original.nombre !== current.nombre);
-    console.log('  - cedula:', original.cedula, 'vs', current.cedula, '=', original.cedula !== current.cedula);
-    console.log('  - fecha_ingreso:', original.fecha_ingreso, 'vs', current.fecha_ingreso, '=', original.fecha_ingreso !== current.fecha_ingreso);
-    console.log('  - fecha_cumpleanos:', original.fecha_cumpleanos, 'vs', current.fecha_cumpleanos, '=', original.fecha_cumpleanos !== current.fecha_cumpleanos);
-    console.log('  - sexo:', original.sexo, 'vs', current.sexo, '=', original.sexo !== current.sexo);
-    console.log('  - cargo_id:', original.cargo_id, 'vs', current.cargo_id, '=', original.cargo_id !== current.cargo_id);
-    console.log('  - primer_dia_horario:', original.primer_dia_horario, 'vs', current.primer_dia_horario, '=', original.primer_dia_horario !== current.primer_dia_horario);
-    console.log('  - horario_id:', original.horario_id, 'vs', current.horario_id, '=', original.horario_id !== current.horario_id);
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     return this.hasChanges;
   }
@@ -2411,35 +2373,35 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       this.detectChanges();
       
       if (!this.hasChanges) {
-        console.log('ℹ️ No se detectaron cambios, no se guardará');
+        
         this.closeCargoSelector();
         return;
       }
       
       // Actualizar empleado existente
-      console.log('🔄 Actualizando empleado:', this.nuevoEmpleado);
-      console.log('🔄 Dispositivos en nuevoEmpleado:', this.nuevoEmpleado.dispositivos);
+      
+      
       
       // Obtener dispositivos anteriores y nuevos
       const dispositivosAnteriores = this.selectedEmpleado.dispositivos?.map((d: any) => d.id) || [];
       const dispositivosNuevos = this.nuevoEmpleado.dispositivos || [];
       
-      console.log('🔄 Dispositivos anteriores:', dispositivosAnteriores);
-      console.log('🔄 Dispositivos nuevos:', dispositivosNuevos);
+      
+      
       
       // Verificar datos que se envían al backend
       const empleadoData = this.toEmpleadoData(this.nuevoEmpleado);
-      console.log('🔄 Datos que se envían al backend:', empleadoData);
-      console.log('🔄 Dispositivos en empleadoData:', empleadoData.dispositivos);
+      
+      
       
       this.empleadosService.updateEmpleado(this.selectedEmpleado.id, this.toEmpleadoData(this.nuevoEmpleado)).subscribe({
         next: async (empleado) => {
-          console.log('✅ Empleado actualizado:', empleado);
+          
           const index = this.empleados.findIndex(e => e.id === empleado.id);
           if (index !== -1) {
             // Actualizar el empleado en la lista con los datos completos
             this.empleados[index] = empleado;
-            console.log('🔄 Lista de empleados actualizada');
+            
           }
           
           // Crear tareas automáticas para la edición
@@ -2450,61 +2412,55 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           setTimeout(() => {
             this.loadEmpleados();
           }, 500);
-          console.log('✅ Empleado actualizado exitosamente');
+          
         },
         error: (error) => {
-          console.error('Error actualizando empleado:', error);
+          
         }
       });
     } else {
       // Crear nuevo empleado
-      console.log('🔄 Creando empleado:', this.nuevoEmpleado);
+      
       this.empleadosService.createEmpleado(this.toEmpleadoData(this.nuevoEmpleado)).subscribe({
         next: async (empleado) => {
-          console.log('✅ Empleado creado:', empleado);
+          
           
           // Recargar la lista completa de empleados para obtener las relaciones de dispositivos
-          console.log('🔄 Recargando lista de empleados para obtener relaciones...');
+          
           this.loadEmpleados();
           
           // Crear tareas automáticas para el nuevo empleado
-          console.log('🔄 Llamando a crearTareasNuevoEmpleado...');
-          console.log('🔄 Dispositivos del nuevo empleado:', this.nuevoEmpleado.dispositivos);
+          
+          
           await this.crearTareasNuevoEmpleado(empleado, this.nuevoEmpleado.dispositivos || []);
           
           this.closeCargoSelector();
-          console.log('✅ Empleado creado exitosamente');
+          
         },
         error: (error) => {
-          console.error('Error creando empleado:', error);
+          
         }
       });
     }
   }
 
   editEmpleado(empleado: any): void {
-    console.log('🔍 Editando empleado:', empleado);
-    console.log('🔍 Dispositivos del empleado:', empleado.dispositivos);
-    console.log('🔍 Tipo de dispositivos:', typeof empleado.dispositivos);
-    console.log('🔍 Es array?:', Array.isArray(empleado.dispositivos));
-    console.log('🔍 Longitud:', empleado.dispositivos?.length);
-    console.log('🔍 Estructura completa del empleado:', JSON.stringify(empleado, null, 2));
+    
+    
+    
+    
+    
+    
     
     // Log detallado de dispositivos asociados al empleado
     if (empleado.dispositivos && empleado.dispositivos.length > 0) {
-      console.log('📱 DISPOSITIVOS ASOCIADOS AL EMPLEADO:');
+      
       empleado.dispositivos.forEach((dispositivo: any, index: number) => {
-        console.log(`📱 Dispositivo ${index + 1}:`, {
-          id: dispositivo.id,
-          nombre: dispositivo.nombre,
-          sala: dispositivo.sala_nombre || 'Sin sala',
-          ip_local: dispositivo.ip_local,
-          ip_remota: dispositivo.ip_remota
-        });
+        
       });
     } else {
-      console.log('📱 El empleado NO tiene dispositivos asociados');
-      console.log('📱 Valor de dispositivos:', empleado.dispositivos);
+      
+      
     }
     
     this.selectedEmpleado = empleado;
@@ -2522,13 +2478,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       dispositivos: empleado.dispositivos ? empleado.dispositivos.map((d: any) => d.id) : []
     };
     
-    console.log('🔍 Dispositivos mapeados (IDs):', this.nuevoEmpleado.dispositivos);
-    console.log('🔍 Verificando mapeo - empleado.dispositivos:', empleado.dispositivos);
-    console.log('🔍 Verificando mapeo - empleado.dispositivos?.map:', empleado.dispositivos?.map((d: any) => d.id));
-    console.log('🔍 Verificando mapeo - empleado.dispositivos?.length:', empleado.dispositivos?.length);
-    console.log('🔍 Verificando mapeo - Array.isArray(empleado.dispositivos):', Array.isArray(empleado.dispositivos));
-    console.log('🔍 Verificando mapeo - empleado.dispositivos[0]:', empleado.dispositivos?.[0]);
-    console.log('🔍 Verificando mapeo - empleado.dispositivos[0]?.id:', empleado.dispositivos?.[0]?.id);
+    
+    
+    
+    
+    
+    
+    
     
     // Cargar cargos primero, luego los demás datos
     this.loadUserCargos();
@@ -2549,8 +2505,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     const empleado = this.empleados.find(e => e.id === id);
     const dispositivosIds = empleado?.dispositivos?.map((d: any) => d.id) || [];
     
-    console.log('🗑️ Eliminando empleado:', empleado?.nombre);
-    console.log('🗑️ Dispositivos asociados:', dispositivosIds);
+    
+    
     
     this.empleadosService.deleteEmpleado(id).subscribe({
       next: async () => {
@@ -2560,10 +2516,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         }
         
         this.empleados = this.empleados.filter(empleado => empleado.id !== id);
-        console.log('✅ Empleado eliminado correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando empleado:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -2592,15 +2548,15 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       this.empleadosService.getTareasByUser(user.id).subscribe({
         next: (tareas: any) => {
           this.tareasCount = Array.isArray(tareas) ? tareas.length : 0;
-          console.log('Tareas cargadas:', this.tareasCount);
+          
         },
         error: (error) => {
-          console.error('Error cargando tareas:', error);
+          
           this.tareasCount = 0;
         }
       });
     } else {
-      console.log('Usuario no disponible aún, tareas en 0');
+      
       this.tareasCount = 0;
     }
   }
@@ -2611,7 +2567,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     if (user) {
       this.router.navigate(['/empleados/user', user.id, 'tareas']);
     } else {
-      console.error('No se encontró información del usuario logueado');
+      
       alert('Error: No se encontró información del usuario');
     }
   }
@@ -2633,18 +2589,18 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   // Crear tareas para nuevo empleado
   async crearTareasNuevoEmpleado(empleado: any, dispositivosIds: number[]): Promise<void> {
     try {
-      console.log('🔄 Creando tareas para nuevo empleado:', empleado.nombre);
-      console.log('🔄 Dispositivos seleccionados:', dispositivosIds);
-      console.log('🔄 Empleado completo:', empleado);
+      
+      
+      
 
       if (dispositivosIds.length === 0) {
-        console.log('⚠️ No hay dispositivos seleccionados, no se crearán tareas');
+        
         return;
       }
 
       // Obtener información de los dispositivos
       const dispositivos = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds).toPromise();
-      console.log('🔄 Dispositivos obtenidos:', dispositivos);
+      
 
       // Obtener ID del usuario logueado
       let user = this.getCurrentUser();
@@ -2654,27 +2610,27 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         try {
           const userData = await this.empleadosService.getCurrentUser().toPromise();
           user = { id: userData.id };
-          console.log('🔍 Usuario obtenido del backend:', user);
+          
         } catch (error) {
-          console.error('❌ Error obteniendo usuario del backend:', error);
+          
           return;
         }
       } else {
-        console.log('🔍 Usuario obtenido del token:', user);
+        
       }
 
         // Obtener información completa del empleado con relaciones
         const empleadoCompleto = await this.tareasAutomaticasService.getEmpleadoById(empleado.id).toPromise();
-        console.log('🔍 Empleado completo obtenido:', empleadoCompleto);
-        console.log('🔍 Cargo del empleado:', empleadoCompleto.Cargo);
-        console.log('🔍 Departamento del cargo:', empleadoCompleto.Cargo?.Departamento);
-        console.log('🔍 Area del departamento:', empleadoCompleto.Cargo?.Departamento?.Area);
+        
+        
+        
+        
 
         // Crear tareas: 2 por cada dispositivo (Agregar Usuario + Agregar Foto)
         const tareas = [];
         if (dispositivos && dispositivos.length > 0) {
           for (const dispositivo of dispositivos) {
-          console.log('🔧 Procesando dispositivo:', dispositivo.nombre);
+          
           
           // Tarea 1: Agregar Usuario
           const tareaUsuario = {
@@ -2695,7 +2651,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
             marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
           };
-          console.log('🔧 Tarea Usuario creada:', tareaUsuario);
+          
           tareas.push(tareaUsuario);
 
           // Tarea 2: Agregar Foto
@@ -2717,56 +2673,56 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
             marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
           };
-          console.log('🔧 Tarea Foto creada:', tareaFoto);
+          
           tareas.push(tareaFoto);
           }
         }
 
-      console.log(`🔄 Creando ${tareas.length} tareas para ${dispositivosIds.length} dispositivos`);
-      console.log('🔄 Tareas a crear:', tareas);
+      
+      
       
       // Crear todas las tareas
       const resultados = await this.tareasAutomaticasService.createMultipleTareas(tareas).toPromise();
-      console.log('✅ Resultados de creación de tareas:', resultados);
       
-      console.log('✅ Tareas creadas exitosamente');
+      
+      
       
       // Actualizar contador de tareas
       this.loadTareasCount();
       
     } catch (error) {
-      console.error('❌ Error creando tareas para nuevo empleado:', error);
+      
     }
   }
 
   // Crear tareas para eliminar empleado
   async crearTareasEliminarEmpleado(empleado: any, dispositivosIds: number[]): Promise<void> {
     try {
-      console.log('🗑️ Creando tareas para eliminar empleado:', empleado.nombre);
-      console.log('🗑️ Dispositivos asociados:', dispositivosIds);
+      
+      
 
       if (dispositivosIds.length === 0) {
-        console.log('⚠️ No hay dispositivos asociados, no se crearán tareas');
+        
         return;
       }
 
       // Obtener información completa del empleado con relaciones ANTES de eliminarlo
       const empleadoCompleto = await this.tareasAutomaticasService.getEmpleadoById(empleado.id).toPromise();
-      console.log('🔍 Empleado completo para eliminación:', empleadoCompleto);
-      console.log('🔍 Cargo del empleado:', empleadoCompleto.Cargo);
-      console.log('🔍 Departamento del cargo:', empleadoCompleto.Cargo?.Departamento);
-      console.log('🔍 Area del departamento:', empleadoCompleto.Cargo?.Departamento?.Area);
-      console.log('🔍 Nombre del área:', empleadoCompleto.Cargo?.Departamento?.Area?.nombre);
-      console.log('🔍 Estructura completa del cargo:', JSON.stringify(empleadoCompleto.Cargo, null, 2));
+      
+      
+      
+      
+      
+      
 
       // Obtener información de los dispositivos
       const dispositivos = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds).toPromise();
-      console.log('🗑️ Dispositivos obtenidos:', dispositivos);
+      
 
       // Obtener ID del usuario logueado
       const user = this.authService.getCurrentUser();
       if (!user) {
-        console.log('⚠️ Usuario no disponible aún');
+        
         return;
       }
 
@@ -2816,34 +2772,34 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         }
       }
 
-      console.log(`🗑️ Creando ${tareas.length} tareas para ${dispositivosIds.length} dispositivos`);
-      console.log('🗑️ Tareas de eliminación a crear:', tareas);
+      
+      
       
       // Crear todas las tareas
       const resultados = await this.tareasAutomaticasService.createMultipleTareas(tareas).toPromise();
-      console.log('✅ Resultados de eliminación de tareas:', resultados);
       
-      console.log('✅ Tareas de eliminación creadas exitosamente');
+      
+      
       
       // Actualizar contador de tareas
       this.loadTareasCount();
       
     } catch (error) {
-      console.error('❌ Error creando tareas para eliminar empleado:', error);
+      
     }
   }
 
   // Crear tareas para editar empleado
   async crearTareasEditarEmpleado(empleado: any, dispositivosAnteriores: number[], dispositivosNuevos: number[]): Promise<void> {
     try {
-      console.log('✏️ Creando tareas para editar empleado:', empleado.nombre);
-      console.log('✏️ Dispositivos anteriores:', dispositivosAnteriores);
-      console.log('✏️ Dispositivos nuevos:', dispositivosNuevos);
+      
+      
+      
 
       // Obtener ID del usuario logueado
       const user = this.authService.getCurrentUser();
       if (!user) {
-        console.log('⚠️ Usuario no disponible aún');
+        
         return;
       }
 
@@ -2852,9 +2808,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       const dispositivosQueSeAgregan = dispositivosNuevos.filter(id => !dispositivosAnteriores.includes(id));
       const dispositivosQuePermanecen = dispositivosAnteriores.filter(id => dispositivosNuevos.includes(id));
 
-      console.log('🔍 Dispositivos que se quitan:', dispositivosQueSeQuitan);
-      console.log('🔍 Dispositivos que se agregan:', dispositivosQueSeAgregan);
-      console.log('🔍 Dispositivos que permanecen:', dispositivosQuePermanecen);
+      
+      
+      
 
       const tareas = [];
 
@@ -3005,26 +2961,26 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         }
       }
 
-      console.log(`✏️ Creando ${tareas.length} tareas totales`);
-      console.log(`✏️ - ${dispositivosQueSeQuitan.length * 2} tareas de eliminación (dispositivos que se quitan)`);
-      console.log(`✏️ - ${dispositivosQueSeAgregan.length * 2} tareas de agregación (dispositivos nuevos)`);
-      console.log(`✏️ - ${dispositivosQuePermanecen.length * 2} tareas de edición (dispositivos que permanecen)`);
-      console.log('✏️ Tareas de edición a crear:', tareas);
+      
+      
+      
+      
+      
       
       if (tareas.length > 0) {
         // Crear todas las tareas
         const resultados = await this.tareasAutomaticasService.createMultipleTareas(tareas).toPromise();
-        console.log('✅ Resultados de edición de tareas:', resultados);
-        console.log('✅ Tareas de edición creadas exitosamente');
+        
+        
         
         // Actualizar contador de tareas
         this.loadTareasCount();
       } else {
-        console.log('⚠️ No hay cambios en dispositivos, no se crearán tareas');
+        
       }
       
     } catch (error) {
-      console.error('❌ Error creando tareas para editar empleado:', error);
+      
     }
   }
 
@@ -3082,7 +3038,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           this.validandoCedula = false;
-          console.error('Error verificando cédula:', error);
+          
           // En caso de error, permitir continuar
         }
       });

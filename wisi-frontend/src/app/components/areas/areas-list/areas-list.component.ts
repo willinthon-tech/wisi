@@ -466,7 +466,6 @@ export class AreasListComponent implements OnInit, OnDestroy {
         this.areas = areas;
       },
       error: (error) => {
-        console.error('Error cargando áreas:', error);
         alert('Error cargando áreas');
       }
     });
@@ -490,7 +489,6 @@ export class AreasListComponent implements OnInit, OnDestroy {
         this.userSalas = salas;
       },
       error: (error) => {
-        console.error('Error cargando salas:', error);
         alert('Error cargando salas');
       }
     });
@@ -513,10 +511,8 @@ export class AreasListComponent implements OnInit, OnDestroy {
             this.areas[index] = area;
           }
           this.closeSalaSelector();
-          console.log('Área actualizada exitosamente');
         },
         error: (error) => {
-          console.error('Error actualizando área:', error);
           alert('Error actualizando área');
         }
       });
@@ -526,10 +522,8 @@ export class AreasListComponent implements OnInit, OnDestroy {
         next: (area) => {
           this.areas.unshift(area);
           this.closeSalaSelector();
-          console.log('Área creada exitosamente');
         },
         error: (error) => {
-          console.error('Error creando área:', error);
           alert('Error creando área');
         }
       });
@@ -549,10 +543,8 @@ export class AreasListComponent implements OnInit, OnDestroy {
     this.areasService.deleteArea(id).subscribe({
       next: () => {
         this.areas = this.areas.filter(area => area.id !== id);
-        console.log('Área eliminada exitosamente');
       },
       error: (error) => {
-        console.error('Error eliminando área:', error);
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {

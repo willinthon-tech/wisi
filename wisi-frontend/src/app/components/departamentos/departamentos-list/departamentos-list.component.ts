@@ -468,7 +468,6 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
         this.departamentos = departamentos;
       },
       error: (error) => {
-        console.error('Error cargando departamentos:', error);
         alert('Error cargando departamentos');
       }
     });
@@ -492,7 +491,6 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
         this.userAreas = areas;
       },
       error: (error) => {
-        console.error('Error cargando áreas:', error);
         alert('Error cargando áreas');
       }
     });
@@ -515,10 +513,8 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
             this.departamentos[index] = departamento;
           }
           this.closeAreaSelector();
-          console.log('Departamento actualizado exitosamente');
         },
         error: (error) => {
-          console.error('Error actualizando departamento:', error);
           alert('Error actualizando departamento');
         }
       });
@@ -528,10 +524,8 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
         next: (departamento) => {
           this.departamentos.unshift(departamento);
           this.closeAreaSelector();
-          console.log('Departamento creado exitosamente');
         },
         error: (error) => {
-          console.error('Error creando departamento:', error);
           alert('Error creando departamento');
         }
       });
@@ -551,10 +545,8 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
     this.departamentosService.deleteDepartamento(id).subscribe({
       next: () => {
         this.departamentos = this.departamentos.filter(departamento => departamento.id !== id);
-        console.log('Departamento eliminado exitosamente');
       },
       error: (error) => {
-        console.error('Error eliminando departamento:', error);
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {

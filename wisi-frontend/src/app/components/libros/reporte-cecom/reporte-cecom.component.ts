@@ -566,7 +566,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
         this.updateMetaTags();
       },
       error: (error: any) => {
-        console.error('Error cargando libro:', error);
         this.loading = false;
       }
     });
@@ -580,7 +579,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
         this.calculateTotals();
       },
       error: (error: any) => {
-        console.error('Error cargando drops:', error);
       }
     });
 
@@ -592,7 +590,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
         this.novedadesAgrupadas = this.agruparNovedades(novedades);
       },
       error: (error: any) => {
-        console.error('Error cargando novedades:', error);
       }
     });
 
@@ -603,7 +600,6 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
         this.loading = false;
       },
       error: (error: any) => {
-        console.error('Error cargando incidencias:', error);
         this.loading = false;
       }
     });

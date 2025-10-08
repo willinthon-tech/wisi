@@ -498,7 +498,6 @@ export class JuegosListComponent implements OnInit, OnDestroy {
         this.juegos = juegos;
       },
       error: (error) => {
-        console.error('Error cargando juegos:', error);
       }
     });
   }
@@ -528,7 +527,6 @@ export class JuegosListComponent implements OnInit, OnDestroy {
         this.userSalas = salas;
       },
       error: (error) => {
-        console.error('Error cargando salas del usuario:', error);
       }
     });
   }
@@ -546,7 +544,6 @@ export class JuegosListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error actualizando juego:', error);
         }
       });
     } else {
@@ -557,7 +554,6 @@ export class JuegosListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error creando juego:', error);
         }
       });
     }
@@ -578,7 +574,6 @@ export class JuegosListComponent implements OnInit, OnDestroy {
         this.loadJuegos();
       },
       error: (error) => {
-        console.error('Error eliminando juego:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el juego',

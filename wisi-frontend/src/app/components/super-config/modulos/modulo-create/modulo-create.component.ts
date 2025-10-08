@@ -349,7 +349,6 @@ export class ModuloCreateComponent implements OnInit {
         this.availablePages = pages || [];
       },
       error: (error) => {
-        console.error('Error cargando páginas:', error);
         alert('Error cargando páginas: ' + (error.error?.message || error.message || 'Error desconocido'));
       }
     });
@@ -378,7 +377,6 @@ export class ModuloCreateComponent implements OnInit {
         this.router.navigate(['/super-config/modulos']);
       },
       error: (error) => {
-        console.error('Error creando módulo:', error);
         alert('Error creando módulo: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.loading = false;
       }

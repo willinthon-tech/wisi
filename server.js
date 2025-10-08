@@ -72,7 +72,6 @@ async function assignToCreator(element, elementType) {
       default:
     }
   } catch (error) {
-    console.error(`❌ Error asignando ${elementType} al creador:`, error);
   }
 }
 
@@ -201,7 +200,6 @@ app.post('/api/auth/login', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error en login:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -232,7 +230,6 @@ app.get('/api/users', authenticateToken, authorizeLevel('ADMINISTRADOR'), async 
     
     res.json(users);
   } catch (error) {
-    console.error('Error obteniendo usuarios:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

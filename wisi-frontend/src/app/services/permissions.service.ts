@@ -47,7 +47,6 @@ export class PermissionsService {
         }, 100);
       },
       error: (error) => {
-        console.error('❌ Error cargando permisos del usuario:', error);
         this.userPermissionsSubject.next([]);
       }
     });

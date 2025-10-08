@@ -513,14 +513,12 @@ export class DropMesasComponent implements OnInit, OnDestroy {
         this.userSalas = salas;
       },
       error: (error: any) => {
-        console.error('Error cargando salas del usuario:', error);
       }
     });
   }
 
   loadDrops() {
     if (!this.libroId) {
-      console.error('No hay libroId para cargar drops');
       return;
     }
     
@@ -529,7 +527,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
         this.drops = drops;
       },
       error: (error: any) => {
-        console.error('Error cargando drops:', error);
       }
     });
   }
@@ -543,7 +540,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
         );
       },
       error: (error: any) => {
-        console.error('Error cargando mesas del usuario:', error);
       }
     });
   }
@@ -607,7 +603,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
         this.resetForm();
       },
       error: (error: any) => {
-        console.error('Error guardando drop:', error);
       }
     });
   }
@@ -618,7 +613,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
         this.loadDrops(); // Recargar la lista
       },
       error: (error: any) => {
-        console.error('Error eliminando drop:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el drop',
@@ -674,7 +668,6 @@ export class DropMesasComponent implements OnInit, OnDestroy {
         this.libro = libro;
       },
       error: (error) => {
-        console.error('Error cargando libro:', error);
       }
     });
   }

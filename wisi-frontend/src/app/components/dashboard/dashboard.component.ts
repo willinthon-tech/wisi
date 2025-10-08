@@ -231,7 +231,6 @@ export class DashboardComponent implements OnInit {
         this.pages = pages;
       },
       error: (error) => {
-        console.error('❌ Error cargando páginas:', error);
       }
     });
   }
@@ -255,7 +254,6 @@ export class DashboardComponent implements OnInit {
           
         },
         error: (error) => {
-          console.error('❌ Error cargando páginas del usuario:', error);
           // Si hay error, no dar acceso a ninguna página
           this.userPages = [];
         }

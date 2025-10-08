@@ -28,9 +28,7 @@ export class BiometricImageService {
       
       await Promise.race([loadPromise, timeoutPromise]);
       this.modelsLoaded = true;
-      console.log('✅ Modelos de detección facial cargados correctamente');
     } catch (error) {
-      console.warn('⚠️ Modelos avanzados no disponibles, usando detección básica mejorada:', error);
       // Continuar sin los modelos avanzados - el sistema funcionará con detección básica
       this.modelsLoaded = false;
     }
@@ -88,7 +86,6 @@ export class BiometricImageService {
       };
 
     } catch (error) {
-      console.error('Error procesando imagen:', error);
       return { 
         success: false, 
         error: 'Error interno procesando la imagen' 
@@ -157,7 +154,6 @@ export class BiometricImageService {
         }
 
         if (detections.length > 1) {
-          console.log(`face-api.js detectó ${detections.length} rostros - rechazando imagen`);
           return { 
             success: false, 
             error: 'Se detectaron múltiples rostros en la imagen. Use una imagen con un solo rostro visible',
@@ -188,7 +184,6 @@ export class BiometricImageService {
         return this.detectFaceBasic(img);
       }
     } catch (error) {
-      console.error('Error en detección facial:', error);
       return { 
         success: false, 
         error: 'Error detectando el rostro' 
@@ -201,8 +196,6 @@ export class BiometricImageService {
     faceData?: { x: number, y: number, width: number, height: number };
     error?: string;
   } {
-    console.log('Iniciando detección facial mejorada...');
-    
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
@@ -220,16 +213,13 @@ export class BiometricImageService {
     // 1. Detección simple y confiable primero
     const simpleDetection = this.detectFaceSimple(img);
     if (simpleDetection.success) {
-      console.log('Detección simple exitosa');
       return simpleDetection;
     }
 
     // 2. Análisis avanzado solo si la detección simple falla
     const faceCandidates = this.findFaceCandidates(data, canvas.width, canvas.height);
-    console.log(`Encontrados ${faceCandidates.length} candidatos a rostro`);
 
     if (faceCandidates.length === 0) {
-      console.log('No se encontraron candidatos a rostro');
       return { 
         success: false, 
         error: 'No se detectó ningún rostro en la imagen. Asegúrese de que la imagen contenga un rostro claro y visible' 
@@ -238,10 +228,8 @@ export class BiometricImageService {
 
     // 3. Filtrar candidatos superpuestos (más estricto)
     const distinctFaces = this.identifyDistinctFaces(faceCandidates);
-    console.log(`Después del filtrado: ${distinctFaces.length} rostros distintos`);
     
     if (distinctFaces.length > 1) {
-      console.log('Múltiples rostros distintos detectados - rechazando imagen');
       return { 
         success: false, 
         error: 'Se detectaron múltiples rostros en la imagen. Use una imagen con un solo rostro visible' 
@@ -251,10 +239,8 @@ export class BiometricImageService {
     // 4. Usar el mejor candidato
     const bestCandidate = distinctFaces[0];
     const score = this.evaluateFaceCandidate(data, canvas.width, bestCandidate);
-    console.log(`Mejor candidato:`, bestCandidate, `Score: ${score}`);
 
     if (score > 0.15) { // Score aún más bajo
-      console.log('Rostro detectado con score:', score);
       return {
         success: true,
         faceData: bestCandidate
@@ -262,7 +248,6 @@ export class BiometricImageService {
     }
 
     // 5. Último recurso: detección muy permisiva
-    console.log('Usando detección muy permisiva como último recurso...');
     return this.detectFacePermissive(img);
   }
 
@@ -438,7 +423,7 @@ export class BiometricImageService {
     
     // Si hay más de 1 candidato después del filtrado, es sospechoso
     if (filtered.length > 1) {
-      console.log(`Después del filtrado quedan ${filtered.length} candidatos - posible múltiple rostro`);
+      // Posible múltiple rostro
     }
     
     return filtered.slice(0, 5); // Máximo 5 candidatos (más flexible)
@@ -706,16 +691,6 @@ export class BiometricImageService {
     const hasReasonableSize = w > 50 && h > 50; // Tamaño mínimo razonable
 
     // Debug logging
-    console.log('Validación de región:', {
-      region: { x, y, w, h },
-      averageBrightness: Math.round(averageBrightness),
-      averageContrast: Math.round(averageContrast),
-      edgeRatio: Math.round(edgeRatio * 100) + '%',
-      hasGoodBrightness,
-      hasContrast,
-      hasEdges,
-      hasReasonableSize
-    });
 
     return hasGoodBrightness && hasContrast && hasEdges && hasReasonableSize;
   }
@@ -748,7 +723,6 @@ export class BiometricImageService {
       // Verificar que la región tenga contenido válido y sea apropiada para carnet
       if (this.isValidFaceRegion(img, faceX, faceY, faceW, faceH) && 
           this.isGoodCarnetPosition(faceX, faceY, faceW, faceH, img.width, img.height)) {
-        console.log('Detección simple exitosa en posición:', pos);
         return {
           success: true,
           faceData: {
@@ -778,11 +752,6 @@ export class BiometricImageService {
     const faceY = Math.max(0, centerY - faceSize / 2);
     const faceW = Math.min(faceSize, img.width - faceX);
     const faceH = Math.min(faceSize, img.height - faceY);
-
-    console.log('Detección permisiva - Asumiendo rostro para carnet:', {
-      imgSize: { width: img.width, height: img.height },
-      faceRegion: { x: faceX, y: faceY, width: faceW, height: faceH }
-    });
 
     return {
       success: true,
@@ -959,29 +928,6 @@ export class BiometricImageService {
     const finalCropSize = Math.min(cropSize, Math.min(img.width - finalCropX, img.height - finalCropY));
 
     // Debug logging para verificar el recorte
-    console.log('Recorte optimizado para carnet:', {
-      imagenOriginal: { width: img.width, height: img.height },
-      rostroDetectado: faceData,
-      dimensionesRecorte: { 
-        baseSize: Math.round(baseSize),
-        cropSize: Math.round(cropSize),
-        finalCropSize: Math.round(finalCropSize),
-        factorExpansion: (cropSize / baseSize).toFixed(2)
-      },
-      centroRecorte: { centerX: Math.round(centerX), centerY: Math.round(centerY) },
-      areaRecorte: { 
-        x: Math.round(finalCropX), 
-        y: Math.round(finalCropY), 
-        size: Math.round(finalCropSize) 
-      },
-      espacios: {
-        arriba: Math.round(faceData.y - finalCropY),
-        abajo: Math.round((finalCropY + finalCropSize) - (faceData.y + faceData.height)),
-        izquierda: Math.round(finalCropX),
-        derecha: Math.round(img.width - (finalCropX + finalCropSize))
-      },
-      proporcionRostro: Math.round((faceData.width * faceData.height) / (finalCropSize * finalCropSize) * 100) + '%'
-    });
 
     // Configurar canvas para el recorte
     canvas.width = 300;

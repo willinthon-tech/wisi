@@ -688,7 +688,6 @@ export class HorariosListComponent implements OnInit, OnDestroy {
         this.horarios = horarios;
       },
       error: (error) => {
-        console.error('Error cargando horarios:', error);
         alert('Error cargando horarios');
       }
     });
@@ -712,7 +711,6 @@ export class HorariosListComponent implements OnInit, OnDestroy {
         this.userSalas = salas;
       },
       error: (error: any) => {
-        console.error('Error cargando salas:', error);
         alert('Error cargando salas');
       }
     });
@@ -796,10 +794,8 @@ export class HorariosListComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.loadHorarios();
           this.closeSalaSelector();
-          console.log('Horario actualizado exitosamente');
         },
         error: (error) => {
-          console.error('Error actualizando horario:', error);
           alert('Error actualizando horario');
         }
       });
@@ -808,10 +804,8 @@ export class HorariosListComponent implements OnInit, OnDestroy {
         next: (response) => {
           this.loadHorarios();
           this.closeSalaSelector();
-          console.log('Horario creado exitosamente');
         },
         error: (error) => {
-          console.error('Error creando horario:', error);
           alert('Error creando horario');
         }
       });
@@ -839,10 +833,8 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     this.horariosService.deleteHorario(id).subscribe({
       next: (response) => {
         this.horarios = this.horarios.filter(horario => horario.id !== id);
-        console.log('Horario eliminado:', response);
       },
       error: (error) => {
-        console.error('Error eliminando horario:', error);
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {

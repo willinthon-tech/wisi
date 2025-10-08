@@ -332,7 +332,6 @@ export class PermisosListComponent implements OnInit {
         this.loading = false;
       },
       error: (error) => {
-        console.error('Error cargando permisos:', error);
         alert('Error cargando permisos: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.loading = false;
       }
@@ -366,7 +365,6 @@ export class PermisosListComponent implements OnInit {
           this.loadPermissions(); // Recargar la lista
         },
         error: (error) => {
-          console.error('Error eliminando permiso:', error);
           alert('Error eliminando permiso: ' + (error.error?.message || error.message || 'Error desconocido'));
         }
       });

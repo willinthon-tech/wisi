@@ -166,7 +166,6 @@ export class NavbarComponent implements OnInit {
         this.salas = salas;
       },
       error: (error: any) => {
-        console.error('Error cargando salas del usuario para navbar:', error);
       }
     });
   }

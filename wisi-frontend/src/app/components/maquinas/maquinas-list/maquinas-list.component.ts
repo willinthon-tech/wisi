@@ -500,7 +500,6 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
         this.maquinas = maquinas;
       },
       error: (error) => {
-        console.error('Error cargando máquinas:', error);
       }
     });
   }
@@ -529,12 +528,9 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
       next: (rangos) => {
         this.userRangos = rangos;
         if (rangos.length === 0) {
-          console.warn('No se encontraron rangos para el usuario');
         }
       },
       error: (error) => {
-        console.error('Error cargando rangos del usuario:', error);
-        console.error('Error completo:', error);
       }
     });
   }
@@ -552,7 +548,6 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error actualizando máquina:', error);
         }
       });
     } else {
@@ -563,7 +558,6 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error creando máquina:', error);
         }
       });
     }
@@ -584,7 +578,6 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
         this.loadMaquinas();
       },
       error: (error) => {
-        console.error('Error eliminando máquina:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la máquina',

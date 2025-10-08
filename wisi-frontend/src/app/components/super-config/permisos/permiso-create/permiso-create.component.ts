@@ -346,7 +346,6 @@ export class PermisoCreateComponent implements OnInit {
         this.router.navigate(['/super-config/permisos']);
       },
       error: (error) => {
-        console.error('Error creando permiso:', error);
         alert('Error creando permiso: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.loading = false;
       }

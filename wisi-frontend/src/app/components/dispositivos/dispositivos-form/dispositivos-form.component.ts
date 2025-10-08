@@ -330,7 +330,6 @@ export class DispositivosFormComponent implements OnInit {
           this.loading = false;
         },
         error: (error: any) => {
-          console.error('Error cargando dispositivo:', error);
           alert('Error cargando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
           this.loading = false;
           this.goBack();
@@ -345,7 +344,6 @@ export class DispositivosFormComponent implements OnInit {
         this.salas = salas;
       },
       error: (error: any) => {
-        console.error('Error cargando salas:', error);
         alert('Error cargando salas: ' + (error.error?.message || error.message || 'Error desconocido'));
       }
     });
@@ -369,9 +367,6 @@ export class DispositivosFormComponent implements OnInit {
       this.dispositivo.marcaje_inicio = today.toISOString().split('T')[0] + 'T00:00:00';
       this.dispositivo.marcaje_fin = futureDate.toISOString().split('T')[0] + 'T23:59:59';
       
-      console.log('📅 Valores automáticos de marcaje establecidos:');
-      console.log('📅 Marcaje inicio:', this.dispositivo.marcaje_inicio);
-      console.log('📅 Marcaje fin:', this.dispositivo.marcaje_fin);
     }
 
     if (this.isEdit && this.dispositivoId) {
@@ -381,7 +376,6 @@ export class DispositivosFormComponent implements OnInit {
           this.goBack();
         },
         error: (error: any) => {
-          console.error('Error actualizando dispositivo:', error);
           alert('Error actualizando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
           this.loading = false;
         }
@@ -393,7 +387,6 @@ export class DispositivosFormComponent implements OnInit {
           this.goBack();
         },
         error: (error: any) => {
-          console.error('Error creando dispositivo:', error);
           alert('Error creando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
           this.loading = false;
         }
@@ -402,7 +395,6 @@ export class DispositivosFormComponent implements OnInit {
   }
 
   openDatePicker(field: string): void {
-    console.log('🗓️ Abriendo date picker para:', field);
     
     // Crear un input temporal de tipo date
     const input = document.createElement('input');
@@ -439,15 +431,12 @@ export class DispositivosFormComponent implements OnInit {
     // Manejar la selección de fecha
     input.addEventListener('change', (event: any) => {
       const selectedDate = event.target.value;
-      console.log('🗓️ Fecha seleccionada:', selectedDate);
       
       if (selectedDate) {
         if (field === 'marcaje_inicio') {
           this.dispositivo.marcaje_inicio = selectedDate + 'T00:00:00';
-          console.log('🗓️ Marcaje inicio actualizado:', this.dispositivo.marcaje_inicio);
         } else if (field === 'marcaje_fin') {
           this.dispositivo.marcaje_fin = selectedDate + 'T23:59:59';
-          console.log('🗓️ Marcaje fin actualizado:', this.dispositivo.marcaje_fin);
         }
       }
       
@@ -472,7 +461,6 @@ export class DispositivosFormComponent implements OnInit {
       try {
         input.showPicker();
       } catch (error) {
-        console.log('showPicker no disponible:', error);
       }
     }
   }

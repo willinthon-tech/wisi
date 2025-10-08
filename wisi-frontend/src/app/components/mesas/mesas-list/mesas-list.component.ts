@@ -506,7 +506,6 @@ export class MesasListComponent implements OnInit, OnDestroy {
         this.mesas = mesas;
       },
       error: (error) => {
-        console.error('Error cargando mesas:', error);
       }
     });
   }
@@ -536,7 +535,6 @@ export class MesasListComponent implements OnInit, OnDestroy {
         this.userJuegos = juegos;
       },
       error: (error) => {
-        console.error('Error cargando juegos del usuario:', error);
       }
     });
   }
@@ -554,7 +552,6 @@ export class MesasListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error actualizando mesa:', error);
         }
       });
     } else {
@@ -565,7 +562,6 @@ export class MesasListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error creando mesa:', error);
         }
       });
     }
@@ -586,7 +582,6 @@ export class MesasListComponent implements OnInit, OnDestroy {
         this.loadMesas();
       },
       error: (error) => {
-        console.error('Error eliminando mesa:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la mesa',

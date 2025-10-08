@@ -13,7 +13,6 @@ export class XmlParserService {
       const xmlDoc = parser.parseFromString(xmlString, 'text/xml');
       return this.xmlToObject(xmlDoc.documentElement);
     } catch (error) {
-      console.error('Error parsing XML:', error);
       return null;
     }
   }
@@ -70,7 +69,6 @@ export class XmlParserService {
       }
       return [];
     } catch (error) {
-      console.error('Error parsing users XML:', error);
       return [];
     }
   }
@@ -89,7 +87,6 @@ export class XmlParserService {
       }
       return [];
     } catch (error) {
-      console.error('Error parsing events XML:', error);
       return [];
     }
   }
@@ -108,7 +105,6 @@ export class XmlParserService {
       }
       return [];
     } catch (error) {
-      console.error('Error parsing photos XML:', error);
       return [];
     }
   }

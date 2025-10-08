@@ -78,7 +78,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    console.log('🔧 Inicializando componente DispositivosListComponent');
+    
     this.initializeForms();
     this.loadDispositivos();
   }
@@ -88,7 +88,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   private initializeForms(): void {
-    console.log('🔧 Inicializando formularios...');
+    
     
     // Inicializar formulario de agregar usuario
     this.addUserForm = this.fb.group({
@@ -171,10 +171,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       PersonInfoExtends: [{value: '', disabled: true}]
     });
     
-    console.log('✅ Formularios inicializados correctamente');
-    console.log('📝 addUserForm:', this.addUserForm);
-    console.log('📝 editUserForm:', this.editUserForm);
-    console.log('📝 createUserForm:', this.createUserForm);
+    
+    
+    
+    
   }
 
   loadDispositivos(): void {
@@ -182,17 +182,17 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       next: (response: any) => {
         this.dispositivos = response.data || response;
         this.loading = false;
-        console.log('Dispositivos cargados:', this.dispositivos);
+        
       },
       error: (error) => {
-        console.error('Error cargando dispositivos:', error);
+        
         this.loading = false;
       }
     });
   }
 
   openBiometricModal(dispositivo: any): void {
-    console.log('🔧 Abriendo modal biométrico para dispositivo:', dispositivo);
+    
     this.selectedDispositivo = dispositivo;
     this.showBiometricModal = true;
     this.currentView = 'lista';
@@ -200,7 +200,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     this.showUserTable = false; // Ocultar tabla inicialmente
     
     // Establecer valores de marcaje del dispositivo en los formularios con delay
-    console.log('🔧 Llamando setMarcajeValuesFromDispositivo...');
+    
     setTimeout(() => {
       this.setMarcajeValuesFromDispositivo(dispositivo);
     }, 100);
@@ -212,22 +212,22 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   setMarcajeValuesFromDispositivo(dispositivo: any): void {
-    console.log('📅 Estableciendo valores de marcaje del dispositivo:', dispositivo);
-    console.log('📅 Dispositivo marcaje_inicio:', dispositivo.marcaje_inicio);
-    console.log('📅 Dispositivo marcaje_fin:', dispositivo.marcaje_fin);
+    
+    
+    
     
     // Valores por defecto si no existen en el dispositivo
     const marcajeInicio = dispositivo.marcaje_inicio || this.getDefaultMarcajeInicio();
     const marcajeFin = dispositivo.marcaje_fin || this.getDefaultMarcajeFin();
     
-    console.log('📅 Marcaje inicio del dispositivo:', marcajeInicio);
-    console.log('📅 Marcaje fin del dispositivo:', marcajeFin);
-    console.log('📅 addUserForm existe:', !!this.addUserForm);
-    console.log('📅 createUserForm existe:', !!this.createUserForm);
+    
+    
+    
+    
     
     // Establecer valores en el formulario de agregar usuario (addUserForm)
     if (this.addUserForm) {
-      console.log('📅 Estableciendo valores en addUserForm:', marcajeInicio, marcajeFin);
+      
       this.addUserForm.get('ValidBeginTime')?.setValue(marcajeInicio);
       this.addUserForm.get('ValidEndTime')?.setValue(marcajeFin);
       
@@ -235,17 +235,17 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       this.addUserForm.get('ValidBeginTime')?.disable();
       this.addUserForm.get('ValidEndTime')?.disable();
       
-      console.log('📅 Valores establecidos en addUserForm:', this.addUserForm.get('ValidBeginTime')?.value, this.addUserForm.get('ValidEndTime')?.value);
+      
       
       // Forzar detección de cambios
       this.cdr.detectChanges();
     } else {
-      console.log('❌ addUserForm no está disponible');
+      
     }
     
     // También establecer valores en el formulario de crear usuario (createUserForm)
     if (this.createUserForm) {
-      console.log('📅 Estableciendo valores en createUserForm:', marcajeInicio, marcajeFin);
+      
       this.createUserForm.get('ValidBeginTime')?.setValue(marcajeInicio);
       this.createUserForm.get('ValidEndTime')?.setValue(marcajeFin);
       
@@ -253,12 +253,12 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       this.createUserForm.get('ValidBeginTime')?.disable();
       this.createUserForm.get('ValidEndTime')?.disable();
       
-      console.log('📅 Valores establecidos en createUserForm:', this.createUserForm.get('ValidBeginTime')?.value, this.createUserForm.get('ValidEndTime')?.value);
+      
       
       // Forzar detección de cambios
       this.cdr.detectChanges();
     } else {
-      console.log('❌ createUserForm no está disponible');
+      
     }
   }
 
@@ -322,20 +322,20 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       this.selectedDispositivo.clave
     ).subscribe({
       next: (response) => {
-        console.log('Respuesta de getUsers:', response);
+        
         this.biometricUsers = response.data?.users || response.UserInfo || [];
         this.loadingUsers = false;
-        console.log('Usuarios cargados:', this.biometricUsers);
+        
       },
       error: (error) => {
-        console.error('Error obteniendo usuarios:', error);
+        
         this.loadingUsers = false;
       }
     });
   }
 
   verFoto(user: any): void {
-    console.log('Ver foto del usuario:', user);
+    
     this.editingUser = user;
     this.currentView = 'foto';
     this.photoLoading = true;
@@ -343,7 +343,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     
     // LIMPIAR la variable para que siempre inicie vacía
     this.userPhotoUrl = '';
-    console.log('🧹 userPhotoUrl inicializado como vacío');
+    
     
     this.hikvisionService.getUserPhoto(
       this.selectedDispositivo.ip_remota,
@@ -352,13 +352,13 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       user.employeeNo
     ).subscribe({
       next: (response) => {
-        console.log('Respuesta de getUserPhoto:', response);
+        
         this.photoLoading = false;
         if (response.success && response.data?.photoUrl && response.data.photoUrl.trim() !== '') {
           // Validar que la URL base64 sea válida
           const photoUrl = response.data.photoUrl;
-          console.log('🔍 URL recibida (primeros 100 chars):', photoUrl.substring(0, 100));
-          console.log('🔍 Longitud de URL:', photoUrl.length);
+          
+          
           
           // Verificar que sea una URL base64 válida
           if (photoUrl.startsWith('data:image/') && photoUrl.includes('base64,')) {
@@ -369,26 +369,26 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
             if (base64Data.length > 100) { // Debe tener al menos 100 caracteres de datos
               // Usar la URL base64 directamente sin modificar
               this.userPhotoUrl = photoUrl;
-              console.log('✅ Foto válida asignada, datos base64:', base64Data.length, 'caracteres');
+              
             } else {
-              console.log('❌ URL base64 corrupta, datos insuficientes:', base64Data.length, 'caracteres');
+              
               this.userPhotoUrl = '';
               this.photoError = 'Imagen corrupta o incompleta';
             }
           } else {
-            console.log('❌ URL base64 inválida, formato incorrecto');
+            
             this.userPhotoUrl = '';
             this.photoError = 'Formato de imagen no válido';
           }
         } else {
           // Si no hay foto, limpiar la URL
-          console.log('❌ No hay foto, limpiando userPhotoUrl');
+          
           this.userPhotoUrl = '';
           this.photoError = 'No se encontró foto para este usuario';
         }
       },
       error: (error) => {
-        console.error('Error obteniendo foto:', error);
+        
         this.photoLoading = false;
         this.userPhotoUrl = '';
         this.photoError = 'Error cargando foto: ' + error.message;
@@ -397,7 +397,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   editarUsuario(user: any): void {
-    console.log('Editando usuario:', user);
+    
     this.editingUser = user;
     this.currentView = 'editar';
     
@@ -409,14 +409,14 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       user.employeeNo
     ).subscribe({
       next: (response) => {
-        console.log('Información del usuario:', response);
+        
         if (response.success && response.data) {
           this.originalUserData = response.data;
           this.populateEditForm(response.data);
         }
       },
       error: (error) => {
-        console.error('Error obteniendo información del usuario:', error);
+        
       }
     });
   }
@@ -430,8 +430,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     const dispositivoBeginTime = this.selectedDispositivo?.marcaje_inicio || this.getDefaultMarcajeInicio();
     const dispositivoEndTime = this.selectedDispositivo?.marcaje_fin || this.getDefaultMarcajeFin();
     
-    console.log('📝 Datos del usuario para labels:', this.userBeginTime, this.userEndTime);
-    console.log('📝 Datos del dispositivo para campos:', dispositivoBeginTime, dispositivoEndTime);
+    
+    
     
     this.editUserForm.patchValue({
       employeeNo: userData.employeeNo || '',
@@ -461,7 +461,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   eliminarUsuario(user: any): void {
-    console.log('Eliminando usuario:', user);
+    
     this.deletingUsers[user.employeeNo] = true; // Estado individual para este usuario
     
     this.hikvisionService.deleteUser(
@@ -471,25 +471,25 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       user.employeeNo
     ).subscribe({
       next: (response) => {
-        console.log('Usuario eliminado:', response);
+        
         if (response.success) {
           // Si el usuario se eliminó exitosamente, proceder a eliminar la foto
-          console.log('✅ Usuario eliminado exitosamente, ahora eliminando foto...');
+          
           this.eliminarFotoDelUsuario(user.employeeNo);
         } else {
           this.deletingUsers[user.employeeNo] = false;
-          console.log('❌ No se pudo eliminar el usuario, manteniendo en la lista');
+          
         }
       },
       error: (error) => {
-        console.error('Error eliminando usuario:', error);
+        
         this.deletingUsers[user.employeeNo] = false;
       }
     });
   }
 
   eliminarFotoDelUsuario(employeeNo: string): void {
-    console.log('🗑️ Eliminando foto del usuario:', employeeNo);
+    
     
     // Construir payload para eliminar solo la foto
     const deletePhotoPayload = {
@@ -500,7 +500,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       ]
     };
 
-    console.log('🗑️ Payload para eliminar foto:', deletePhotoPayload);
+    
 
     // Llamar al servicio para eliminar solo la foto
     this.hikvisionService.deleteUserPhotoOnly(
@@ -510,14 +510,14 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       deletePhotoPayload
     ).subscribe({
       next: (response) => {
-        console.log('✅ Foto eliminada exitosamente:', response);
+        
         this.deletingUsers[employeeNo] = false; // Estado individual para este usuario
         // Remover solo el usuario específico del array
         this.removerUsuarioDelArray(employeeNo);
         this.currentView = 'lista';
       },
       error: (error) => {
-        console.error('❌ Error eliminando foto:', error);
+        
         // Aunque falle la eliminación de la foto, el usuario ya fue eliminado
         // así que continuamos con el flujo normal
         this.deletingUsers[employeeNo] = false; // Estado individual para este usuario
@@ -528,14 +528,14 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   removerUsuarioDelArray(employeeNo: string): void {
-    console.log('🗑️ Removiendo usuario del array:', employeeNo);
+    
     // Filtrar el array para remover solo el usuario específico
     this.biometricUsers = this.biometricUsers.filter(user => user.employeeNo !== employeeNo);
-    console.log('✅ Usuario removido del array. Usuarios restantes:', this.biometricUsers.length);
+    
   }
 
   actualizarUsuario(): void {
-    console.log('Actualizando usuario...');
+    
     this.updatingUser = true;
     
     const formData = this.editUserForm.getRawValue();
@@ -580,11 +580,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       }
     };
 
-    console.log('Payload de actualización:', userPayload);
-    console.log('🔍 Valores de los campos del formulario:', {
-      ValidBeginTime: formData.ValidBeginTime,
-      ValidEndTime: formData.ValidEndTime
-    });
+    
+    
 
     this.hikvisionService.updateUser(
       this.selectedDispositivo.ip_remota,
@@ -593,7 +590,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       userPayload
     ).subscribe({
       next: (response) => {
-        console.log('Usuario actualizado:', response);
+        
         this.updatingUser = false;
         if (response.success) {
           this.getUsers(); // Recargar lista
@@ -601,7 +598,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
         }
       },
       error: (error) => {
-        console.error('Error actualizando usuario:', error);
+        
         this.updatingUser = false;
       }
     });
@@ -620,7 +617,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   inicializarFormularioCrear(): void {
     // Los valores se establecerán desde setMarcajeValuesFromDispositivo
     // No establecer valores hardcodeados aquí
-    console.log('📝 Inicializando formulario crear - valores se establecerán desde dispositivo');
+    
   }
 
 
@@ -630,11 +627,11 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   crearUsuario(): void {
-    console.log('Creando usuario...');
+    
     this.creatingUser = true;
 
     const formData = this.createUserForm.getRawValue();
-    console.log('Datos del formulario:', formData);
+    
 
     const userPayload = {
       "UserInfo": {
@@ -674,11 +671,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       }
     };
 
-    console.log('Payload para crear usuario:', userPayload);
-    console.log('🔍 Valores de los campos del formulario:', {
-      ValidBeginTime: formData.ValidBeginTime,
-      ValidEndTime: formData.ValidEndTime
-    });
+    
+    
 
     this.hikvisionService.updateUser(
       this.selectedDispositivo.ip_remota,
@@ -687,13 +681,13 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       userPayload
     ).subscribe({
       next: (response) => {
-        console.log('Usuario creado exitosamente:', response);
+        
         this.creatingUser = false;
         this.currentView = 'lista';
         this.getUsers();
       },
       error: (error) => {
-        console.error('Error creando usuario:', error);
+        
         this.creatingUser = false;
         }
       });
@@ -718,20 +712,20 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   }
 
   registrarUsuario(): void {
-    console.log('Funcionalidad de registrar usuario no implementada');
+    
   }
 
   // Método para seleccionar foto
   onPhotoSelected(event: any): void {
     const file = event.target.files[0];
     if (file) {
-      console.log('📸 Foto seleccionada:', file.name, file.size, 'bytes');
+      
       
       // Convertir a base64
       const reader = new FileReader();
       reader.onload = (e: any) => {
         this.selectedPhoto = e.target.result;
-        console.log('📸 Foto convertida a base64, tamaño:', this.selectedPhoto?.length || 0, 'caracteres');
+        
         
         // Automáticamente proceder a registrar el rostro
         this.registrarRostro();
@@ -747,10 +741,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   // Método para seleccionar archivo y registrar rostro automáticamente
   seleccionarYRegistrarRostro(): void {
-    console.log('📸 Abriendo selector de archivo para registrar rostro...');
+    
     
     if (!this.editingUser || !this.editingUser.employeeNo) {
-      console.error('❌ No hay usuario seleccionado para registrar rostro');
+      
       return;
     }
 
@@ -763,27 +757,27 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   // Método para registrar solo el rostro (llamado después de seleccionar archivo)
   registrarRostro(): void {
-    console.log('📸 Registrando solo el rostro del usuario...');
+    
     
     if (!this.selectedPhoto) {
-      console.error('❌ No se ha seleccionado una foto');
+      
       return;
     }
 
     if (!this.editingUser || !this.editingUser.employeeNo) {
-      console.error('❌ No hay usuario seleccionado para registrar rostro');
+      
       return;
     }
 
-    console.log('📸 Usuario:', this.editingUser.employeeNo);
-    console.log('📸 Foto seleccionada:', this.selectedPhoto ? 'Sí' : 'No');
+    
+    
 
     this.photoLoading = true;
 
     // Enviar foto al servidor PHP para obtener URL
     this.uploadPhotoToPhpServer(this.selectedPhoto).then(photoUrl => {
       if (photoUrl) {
-        console.log('✅ URL de foto obtenida:', photoUrl);
+        
         
         // Construir payload para registrar solo el rostro
         const facePayload = {
@@ -796,7 +790,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
           "featurePointType": "face"
         };
 
-        console.log('📸 Payload para registrar rostro:', facePayload);
+        
 
         // Registrar solo el rostro en el dispositivo
         this.hikvisionService.registerUserFaceWithPayload(
@@ -806,22 +800,22 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
           facePayload
     ).subscribe({
       next: (response) => {
-            console.log('✅ Rostro registrado exitosamente:', response);
+            
             this.photoLoading = false;
             // NO cerrar la modal, solo recargar la foto del usuario
             this.verFoto(this.editingUser);
       },
       error: (error) => {
-            console.error('❌ Error registrando rostro:', error);
+            
             this.photoLoading = false;
           }
         });
         } else {
-        console.error('❌ No se pudo obtener URL de la foto');
+        
         this.photoLoading = false;
       }
     }).catch(error => {
-      console.error('❌ Error subiendo foto:', error);
+      
       this.photoLoading = false;
     });
   }
@@ -829,7 +823,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   // Método para subir foto al servidor PHP
   async uploadPhotoToPhpServer(base64Image: string): Promise<string | null> {
     try {
-      console.log('📤 Subiendo foto al servidor PHP...');
+      
       
       // Crear FormData
       const formData = new FormData();
@@ -845,18 +839,18 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.url) {
-          console.log('✅ Foto subida exitosamente:', result.url);
+          
           return result.url;
           } else {
-          console.error('❌ Error del servidor PHP:', result.error);
+          
           return null;
           }
         } else {
-        console.error('❌ Error HTTP:', response.status, response.statusText);
+        
         return null;
       }
     } catch (error) {
-      console.error('❌ Error subiendo foto:', error);
+      
       return null;
     }
   }
@@ -877,13 +871,13 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   // Métodos para manejo de imágenes
   onImageError(event: any): void {
-    console.log('❌ Error cargando imagen:', event);
-    console.log('❌ userPhotoUrl que causó el error:', this.userPhotoUrl);
+    
+    
   }
 
   onImageLoad(event: any): void {
-    console.log('✅ Imagen cargada exitosamente:', event);
-    console.log('✅ userPhotoUrl que se cargó:', this.userPhotoUrl);
+    
+    
   }
 
   // Métodos de navegación
@@ -897,16 +891,16 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
 
   deleteDispositivo(dispositivo: any): void {
-    console.log('Eliminando dispositivo:', dispositivo);
+    
     
     this.dispositivosService.deleteDispositivo(dispositivo.id).subscribe({
       next: (response) => {
-        console.log('Dispositivo eliminado:', response);
+        
         // Remover el dispositivo del array local
         this.dispositivos = this.dispositivos.filter(d => d.id !== dispositivo.id);
       },
       error: (error) => {
-        console.error('Error eliminando dispositivo:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -949,11 +943,11 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   // Método para eliminar solo la foto
   eliminarSoloFoto(): void {
-    console.log('🗑️ INICIANDO eliminarSoloFoto()');
-    console.log('🗑️ Eliminando solo la foto del usuario:', this.editingUser);
+    
+    
     
     if (!this.editingUser || !this.editingUser.employeeNo) {
-      console.error('❌ No hay usuario seleccionado para eliminar foto');
+      
       return;
     }
 
@@ -968,8 +962,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       ]
     };
 
-    console.log('🗑️ Payload para eliminar foto:', deletePhotoPayload);
-    console.log('🗑️ LLAMANDO al servicio deleteUserPhotoOnly...');
+    
+    
 
     // Llamar al servicio para eliminar solo la foto
     this.hikvisionService.deleteUserPhotoOnly(
@@ -979,24 +973,24 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       deletePhotoPayload
     ).subscribe({
       next: (response) => {
-        console.log('✅ Foto eliminada exitosamente:', response);
+        
         this.photoLoading = false;
         if (response.success) {
           // Limpiar la foto actual para actualizar la interfaz
-          console.log('🧹 ANTES de limpiar userPhotoUrl:', this.userPhotoUrl);
+          
           this.userPhotoUrl = '';
           this.photoError = 'Foto eliminada correctamente';
-          console.log('🧹 DESPUÉS de limpiar userPhotoUrl:', this.userPhotoUrl);
-          console.log('🧹 Tipo de userPhotoUrl:', typeof this.userPhotoUrl);
-          console.log('🧹 userPhotoUrl === "":', this.userPhotoUrl === '');
+          
+          
+          
           
           // Forzar detección de cambios
           this.cdr.detectChanges();
-          console.log('🧹 Después de detectChanges userPhotoUrl:', this.userPhotoUrl);
+          
         }
       },
       error: (error) => {
-        console.error('❌ Error eliminando foto:', error);
+        
         this.photoLoading = false;
       }
     });

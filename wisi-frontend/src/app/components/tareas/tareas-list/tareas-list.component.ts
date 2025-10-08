@@ -688,17 +688,17 @@ export class TareasListComponent implements OnInit {
         this.tareas = response.data || response;
         // La primera tarea (por orden de base de datos) es la activa
         this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
-        console.log('Tareas cargadas:', this.tareas);
-        console.log('Tarea activa:', this.tareaActiva);
+        
+        
       },
       error: (error) => {
-        console.error('Error cargando tareas:', error);
+        
       }
     });
   }
 
   ejecutarTodas(): void {
-    console.log('🚀 Ejecutando todas las tareas...');
+    
     this.ejecutandoTodas = true;
     this.procesandoTodas = true;
     this.detenerProcesos = true; // Activar botón "Detener Procesos"
@@ -706,7 +706,7 @@ export class TareasListComponent implements OnInit {
   }
 
   rechazarTodas(): void {
-    console.log('❌ Rechazando todas las tareas...');
+    
     this.rechazandoTodas = true;
     this.procesandoTodas = true;
     this.detenerProcesos = true; // Activar botón "Detener Procesos"
@@ -714,12 +714,12 @@ export class TareasListComponent implements OnInit {
   }
 
   async procesarTodasTareas(accion: 'ejecutar' | 'rechazar'): Promise<void> {
-    console.log(`🔄 Procesando todas las tareas con acción: ${accion}`);
+    
     
     try {
       while (this.tareas.length > 0) {
         const tareaActual = this.tareas[0];
-        console.log(`🔄 Procesando tarea ${tareaActual.id} (${accion})`);
+        
         
         // Simular clic en el botón individual
         if (accion === 'ejecutar') {
@@ -730,12 +730,12 @@ export class TareasListComponent implements OnInit {
         
         // Pausa para mostrar la siguiente tarea (si hay más)
         if (this.tareas.length > 0) {
-          console.log(`⏳ Pausa para mostrar siguiente tarea. Tareas restantes: ${this.tareas.length}`);
+          
           await new Promise(resolve => setTimeout(resolve, 1500)); // Pausa para ver la siguiente
         }
       }
       
-      console.log(`✅ Todas las tareas han sido ${accion === 'ejecutar' ? 'ejecutadas' : 'rechazadas'}`);
+      
     } finally {
       // Resetear estados al finalizar
       this.ejecutandoTodas = false;
@@ -746,7 +746,7 @@ export class TareasListComponent implements OnInit {
   }
 
   async simularEjecutarTarea(tarea: any): Promise<void> {
-    console.log('🚀 Simulando ejecutar tarea:', tarea.id);
+    
     
     // Activar botón "Detener Procesos"
     this.detenerProcesos = true;
@@ -757,7 +757,7 @@ export class TareasListComponent implements OnInit {
     
     try {
       // Aquí se haría el proceso real al dispositivo externo
-      console.log('🔗 Procesando en dispositivo externo...');
+      
       
       // Eliminar la tarea del backend (el spinner se quita cuando responde)
       await this.eliminarTareaAsync(tarea.id);
@@ -768,9 +768,9 @@ export class TareasListComponent implements OnInit {
       // Actualizar tarea activa
       this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
       
-      console.log(`✅ Tarea ${tarea.id} ejecutada y eliminada. Tareas restantes: ${this.tareas.length}`);
+      
     } catch (error) {
-      console.error('❌ Error ejecutando tarea:', error);
+      
     } finally {
       // Resetear estados cuando termine
       this.ejecutandoTarea = null;
@@ -784,7 +784,7 @@ export class TareasListComponent implements OnInit {
   }
 
   async simularRechazarTarea(tarea: any): Promise<void> {
-    console.log('❌ Simulando rechazar tarea:', tarea.id);
+    
     
     // Activar botón "Detener Procesos"
     this.detenerProcesos = true;
@@ -794,7 +794,7 @@ export class TareasListComponent implements OnInit {
     this.procesandoTarea = true;
     
     try {
-      console.log('🗑️ Eliminando tarea del backend...');
+      
       
       // Eliminar la tarea del backend (el spinner se quita cuando responde)
       await this.eliminarTareaAsync(tarea.id);
@@ -805,9 +805,9 @@ export class TareasListComponent implements OnInit {
       // Actualizar tarea activa
       this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
       
-      console.log(`✅ Tarea ${tarea.id} rechazada y eliminada. Tareas restantes: ${this.tareas.length}`);
+      
     } catch (error) {
-      console.error('❌ Error rechazando tarea:', error);
+      
     } finally {
       // Resetear estados cuando termine
       this.rechazandoTarea = null;
@@ -822,13 +822,13 @@ export class TareasListComponent implements OnInit {
 
 
   detenerTodosLosProcesos(): void {
-    console.log('🛑 Deteniendo todos los procesos...');
+    
     // Recargar la página para detener todo
     window.location.reload();
   }
 
   verDetalles(tarea: any): void {
-    console.log('🔍 Ver detalles de tarea:', tarea);
+    
     this.selectedTarea = tarea;
     this.showDetailsModal = true;
   }
@@ -863,7 +863,7 @@ export class TareasListComponent implements OnInit {
   eliminarTarea(tareaId: number): void {
     this.http.delete(`http://localhost:3000/api/tareas-dispositivo-usuarios/${tareaId}`).subscribe({
       next: (response) => {
-        console.log('Tarea eliminada:', response);
+        
         
         // Resetear estados cuando el backend responde
         this.ejecutandoTarea = null;
@@ -879,7 +879,7 @@ export class TareasListComponent implements OnInit {
         this.loadTareas();
       },
       error: (error) => {
-        console.error('Error eliminando tarea:', error);
+        
         
         // Resetear estados también en caso de error
         this.ejecutandoTarea = null;
@@ -895,11 +895,11 @@ export class TareasListComponent implements OnInit {
     return new Promise((resolve, reject) => {
       this.http.delete(`http://localhost:3000/api/tareas-dispositivo-usuarios/${tareaId}`).subscribe({
         next: (response) => {
-          console.log('Tarea eliminada:', response);
+          
           resolve(response);
         },
         error: (error) => {
-          console.error('Error eliminando tarea:', error);
+          
           reject(error);
         }
       });
@@ -916,10 +916,10 @@ export class TareasListComponent implements OnInit {
     this.procesandoTarea = true;
     this.ejecutandoTarea = tarea.id;
     this.detenerProcesos = true; // Activar botón "Detener Procesos"
-    console.log('🚀 Ejecutando tarea:', tarea);
+    
     
     // Aquí se haría el proceso real al dispositivo externo
-    console.log('🔗 Procesando en dispositivo externo...');
+    
     
     // Eliminar la tarea (el spinner se quita cuando el backend responde)
     this.eliminarTarea(tarea.id);
@@ -934,9 +934,9 @@ export class TareasListComponent implements OnInit {
     this.procesandoTarea = true;
     this.rechazandoTarea = tarea.id;
     this.detenerProcesos = true; // Activar botón "Detener Procesos"
-    console.log('❌ Rechazando tarea:', tarea);
     
-    console.log('🗑️ Eliminando tarea del backend...');
+    
+    
     
     // Eliminar la tarea (el spinner se quita cuando el backend responde)
     this.eliminarTarea(tarea.id);

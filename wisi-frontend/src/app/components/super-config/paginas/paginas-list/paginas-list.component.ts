@@ -373,7 +373,6 @@ export class PaginasListComponent implements OnInit {
         this.loading = false;
       },
       error: (error) => {
-        console.error('Error cargando páginas:', error);
         alert('Error cargando páginas: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.loading = false;
       }
@@ -396,7 +395,6 @@ export class PaginasListComponent implements OnInit {
           this.loadPages(); // Recargar la lista
         },
         error: (error) => {
-          console.error('Error eliminando página:', error);
           alert('Error eliminando página: ' + (error.error?.message || error.message || 'Error desconocido'));
         }
       });

@@ -211,7 +211,6 @@ export class PageViewComponent implements OnInit {
         }
       },
       error: (error) => {
-        console.error('Error cargando página:', error);
       }
     });
   }
@@ -225,7 +224,6 @@ export class PageViewComponent implements OnInit {
         );
       },
       error: (error) => {
-        console.error('Error cargando módulos:', error);
       }
     });
   }
@@ -245,7 +243,6 @@ export class PageViewComponent implements OnInit {
         this.userModules = modules;
       },
       error: (error) => {
-        console.error('Error cargando módulos del usuario:', error);
         this.userModules = [];
       }
     });

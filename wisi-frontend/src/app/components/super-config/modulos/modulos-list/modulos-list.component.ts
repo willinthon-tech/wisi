@@ -367,7 +367,6 @@ export class ModulosListComponent implements OnInit {
         this.checkLoadingComplete();
       },
       error: (error) => {
-        console.error('Error cargando módulos:', error);
         alert('Error cargando módulos: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.loading = false;
       }
@@ -379,7 +378,6 @@ export class ModulosListComponent implements OnInit {
         this.checkLoadingComplete();
       },
       error: (error) => {
-        console.error('Error cargando páginas:', error);
         this.pages = [];
         this.checkLoadingComplete();
       }
@@ -414,7 +412,6 @@ export class ModulosListComponent implements OnInit {
           this.loadData(); // Recargar la lista
         },
         error: (error) => {
-          console.error('Error eliminando módulo:', error);
           alert('Error eliminando módulo: ' + (error.error?.message || error.message || 'Error desconocido'));
         }
       });

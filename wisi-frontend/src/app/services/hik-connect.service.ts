@@ -27,7 +27,6 @@ export class HikConnectService {
         return response;
       }),
       catchError(error => {
-        console.error('Error authenticating with Hik-Connect:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -42,7 +41,6 @@ export class HikConnectService {
         data: response.data || response
       })),
       catchError(error => {
-        console.error('Error getting devices:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -57,7 +55,6 @@ export class HikConnectService {
         data: response.data || response
       })),
       catchError(error => {
-        console.error('Error getting device users:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -78,7 +75,6 @@ export class HikConnectService {
         data: response.data || response
       })),
       catchError(error => {
-        console.error('Error getting device events:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -99,7 +95,6 @@ export class HikConnectService {
         data: response.data || response
       })),
       catchError(error => {
-        console.error('Error getting user photos:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -114,7 +109,6 @@ export class HikConnectService {
         data: response.data || response
       })),
       catchError(error => {
-        console.error('Error syncing device data:', error);
         return of({ success: false, error: error.message });
       })
     );
@@ -129,7 +123,6 @@ export class HikConnectService {
         data: response.data || response
       })),
       catchError(error => {
-        console.error('Error getting device info:', error);
         return of({ success: false, error: error.message });
       })
     );

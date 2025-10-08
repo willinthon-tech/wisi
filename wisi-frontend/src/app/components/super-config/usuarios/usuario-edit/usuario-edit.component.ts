@@ -965,7 +965,6 @@ export class UsuarioEditComponent implements OnInit {
       
       this.loading = false;
     }).catch(error => {
-      console.error('Error cargando datos:', error);
       alert('Error cargando datos: ' + (error.error?.message || error.message || 'Error desconocido'));
       this.goBack();
     });
@@ -1119,7 +1118,6 @@ export class UsuarioEditComponent implements OnInit {
         this.router.navigate(['/super-config/usuarios']);
       },
       error: (error) => {
-        console.error('Error actualizando usuario:', error);
         alert('Error actualizando usuario: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.saving = false;
       }

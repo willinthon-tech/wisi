@@ -493,7 +493,6 @@ export class RangosListComponent implements OnInit, OnDestroy {
         this.rangos = rangos;
       },
       error: (error) => {
-        console.error('Error cargando rangos:', error);
       }
     });
   }
@@ -522,11 +521,9 @@ export class RangosListComponent implements OnInit, OnDestroy {
       next: (salas) => {
         this.userSalas = salas;
         if (salas.length === 0) {
-          console.warn('⚠️ El usuario no tiene salas asignadas');
         }
       },
       error: (error) => {
-        console.error('❌ Error cargando salas del usuario:', error);
       }
     });
   }
@@ -544,7 +541,6 @@ export class RangosListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error actualizando rango:', error);
         }
       });
     } else {
@@ -555,7 +551,6 @@ export class RangosListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error creando rango:', error);
         }
       });
     }
@@ -575,7 +570,6 @@ export class RangosListComponent implements OnInit, OnDestroy {
         this.loadRangos();
       },
       error: (error) => {
-        console.error('Error eliminando rango:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el rango',

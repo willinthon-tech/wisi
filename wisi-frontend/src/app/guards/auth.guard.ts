@@ -51,7 +51,6 @@ export class AuthGuard implements CanActivate {
           }
         },
         error: (error) => {
-          console.error('❌ AuthGuard - Error en verificación:', error);
           clearTimeout(timeoutId);
           this.router.navigate(['/login']);
           observer.next(false);

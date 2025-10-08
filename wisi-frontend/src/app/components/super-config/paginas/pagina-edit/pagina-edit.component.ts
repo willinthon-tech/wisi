@@ -539,7 +539,6 @@ export class PaginaEditComponent implements OnInit {
         }
       },
       error: (error) => {
-        console.error('Error cargando página:', error);
         alert('Error cargando página: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.goBack();
       }
@@ -567,7 +566,6 @@ export class PaginaEditComponent implements OnInit {
         this.router.navigate(['/super-config/paginas']);
       },
       error: (error) => {
-        console.error('Error actualizando página:', error);
         alert('Error actualizando página: ' + (error.error?.message || error.message || 'Error desconocido'));
         this.saving = false;
       }
