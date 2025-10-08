@@ -26,6 +26,7 @@ const Mesa = require('./Mesa')(sequelize);
 const Juego = require('./Juego')(sequelize);
 const Maquina = require('./Maquina')(sequelize);
 const Drop = require('./Drop')(sequelize);
+const Attlog = require('./Attlog')(sequelize);
 
 // Definir asociaciones
 User.belongsToMany(Sala, { through: UserSala, foreignKey: 'user_id' });
@@ -157,6 +158,10 @@ Sala.hasMany(Horario, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 // Asociaciones para Dispositivo
 Dispositivo.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 Sala.hasMany(Dispositivo, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+
+// Asociaciones para Attlog
+Attlog.belongsTo(Dispositivo, { foreignKey: 'dispositivo_id', onDelete: 'RESTRICT' });
+Dispositivo.hasMany(Attlog, { foreignKey: 'dispositivo_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Bloque
 Bloque.belongsTo(Horario, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
@@ -316,6 +321,7 @@ module.exports = {
   Horario,
   Bloque,
   Dispositivo,
+  Attlog,
   syncDatabase
 };
 

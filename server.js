@@ -5,6 +5,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const axios = require('axios');
+const cron = require('node-cron');
 const hikConnectRoutes = require('./hik-connect-api');
 const hybridRoutes = require('./wisi-hikvision-hybrid');
 const TPPHikvisionAPI = require('./tpp-hikvision-api');
@@ -36,6 +37,7 @@ const {
   Horario,
   Bloque,
   Dispositivo,
+  Attlog,
   syncDatabase 
 } = require('./models');
 const { Op } = require('sequelize');
@@ -72,6 +74,452 @@ async function assignToCreator(element, elementType) {
       default:
     }
   } catch (error) {
+  }
+}
+
+// Función para sincronizar marcajes desde dispositivo con paginación
+async function syncAttendanceFromDevice(dispositivo) {
+  const fs = require('fs');
+  const path = require('path');
+  
+  try {
+    // Crear carpeta attlogs si no existe
+    const attlogsDir = path.join(__dirname, 'attlogs');
+    if (!fs.existsSync(attlogsDir)) {
+      fs.mkdirSync(attlogsDir, { recursive: true });
+    }
+
+    // Obtener el último evento sincronizado para este dispositivo
+    const lastEvent = await Attlog.findOne({
+      where: { dispositivo_id: dispositivo.id },
+      order: [['event_time', 'DESC']]
+    });
+
+    const lastEventTime = lastEvent ? lastEvent.event_time : null;
+    console.log(`📅 Último evento sincronizado: ${lastEventTime || 'Ninguno - sincronizando todos los eventos'}`);
+    
+    // Función para formatear fechas al formato correcto de Hikvision
+    function formatDateForHikvision(dateInput) {
+      console.log(`🔍 formatDateForHikvision - Input: ${dateInput}, Tipo: ${typeof dateInput}`);
+      
+      if (!dateInput) {
+        console.log(`⚠️ dateInput es null/undefined`);
+        return null;
+      }
+      
+      const date = new Date(dateInput);
+      console.log(`🔍 Date creado: ${date}, isValid: ${!isNaN(date.getTime())}`);
+      
+      if (isNaN(date.getTime())) {
+        console.log(`⚠️ Fecha inválida: ${dateInput}`);
+        return null;
+      }
+      
+      // Formato específico para Hikvision: YYYY-MM-DDTHH:mm:ss-07:00
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      
+      const result = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-07:00`;
+      console.log(`🔍 Resultado formateado: ${result}`);
+      return result;
+    }
+    
+    // Si no hay eventos previos, usar marcaje_inicio del dispositivo
+    // Si hay eventos previos, usar el último evento
+    let startTimeForQuery = lastEventTime || dispositivo.marcaje_inicio;
+    startTimeForQuery = formatDateForHikvision(startTimeForQuery);
+    
+    // Convertir marcaje_fin al formato correcto
+    console.log(`🔍 marcaje_fin original: ${dispositivo.marcaje_fin}`);
+    console.log(`🔍 Tipo de marcaje_fin: ${typeof dispositivo.marcaje_fin}`);
+    
+    let endTimeForQuery = formatDateForHikvision(dispositivo.marcaje_fin);
+    console.log(`🔍 endTimeForQuery después del formateo: ${endTimeForQuery}`);
+    
+    console.log(`🔍 Fechas que se envían al dispositivo:`);
+    console.log(`   startTime: ${startTimeForQuery}`);
+    console.log(`   endTime: ${endTimeForQuery}`);
+    
+    // Validar que las fechas sean válidas
+    if (!startTimeForQuery || !endTimeForQuery) {
+      console.log(`❌ Error: Fechas inválidas - startTime: ${startTimeForQuery}, endTime: ${endTimeForQuery}`);
+      return {
+        totalEvents: 0,
+        savedCount: 0,
+        skippedCount: 0,
+        errorCount: 1,
+        imagesDownloaded: 0,
+        imagesErrors: 0,
+        dispositivo: dispositivo.nombre,
+        error: 'Fechas inválidas para la consulta'
+      };
+    }
+
+    let allEvents = [];
+    let startIndex = 0;
+    let hasMoreData = true;
+    let totalProcessed = 0;
+
+    console.log(`🔄 Iniciando sincronización para dispositivo: ${dispositivo.nombre} (${dispositivo.ip_remota})`);
+
+    // Primera consulta: obtener información general (sin eventos, solo para saber cuántos hay)
+    console.log(`🔍 Consulta inicial: verificando eventos disponibles...`);
+    const initialEndpoint = `/ISAPI/AccessControl/AcsEvent?format=json`;
+    const initialBody = {
+      "AcsEventCond": {
+        "searchID": "0",
+        "searchResultPosition": 0,
+        "maxResults": 1, // Solo 1 para verificar
+        "major": 5,
+        "minor": 75,
+        "startTime": startTimeForQuery,
+        "endTime": endTimeForQuery
+      }
+    };
+
+    // Crear objeto similar a tarea para la autenticación
+    const authObject = {
+      usuario_login_dispositivo: dispositivo.usuario,
+      clave_login_dispositivo: dispositivo.clave
+    };
+    
+    console.log(`🔐 Credenciales para autenticación:`);
+    console.log(`👤 Usuario: ${authObject.usuario_login_dispositivo}`);
+    console.log(`🔑 Clave: ${authObject.clave_login_dispositivo ? '***' + authObject.clave_login_dispositivo.slice(-3) : 'undefined'}`);
+    console.log(`🌐 URL dispositivo: http://${dispositivo.ip_remota}`);
+    
+    const initialResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, initialEndpoint, 'POST', initialBody, authObject);
+    
+    if (!initialResponse) {
+      console.log(`❌ Error: makeDigestRequest devolvió undefined/null en consulta inicial`);
+      return { totalEvents: 0, savedCount: 0, skippedCount: 0, errorCount: 1, dispositivo: dispositivo.nombre };
+    }
+    
+    if (!initialResponse || initialResponse.status !== 200) {
+      console.log(`❌ Error en consulta inicial: ${initialResponse.status}`);
+      return { totalEvents: 0, savedCount: 0, skippedCount: 0, errorCount: 1, dispositivo: dispositivo.nombre };
+    }
+
+    // Paginación para obtener todos los eventos
+    while (hasMoreData) {
+      const endpoint = `/ISAPI/AccessControl/AcsEvent?format=json`;
+      
+      const requestBody = {
+        "AcsEventCond": {
+          "searchID": "0",
+          "searchResultPosition": startIndex,
+          "maxResults": 30,
+          "major": 5,
+          "minor": 75,
+          "startTime": startTimeForQuery,
+          "endTime": endTimeForQuery
+        }
+      };
+      
+      console.log(`📡 Consultando página ${Math.floor(startIndex/30) + 1} - Índice: ${startIndex}`);
+      console.log(`🌐 URL completa: http://${dispositivo.ip_remota}${endpoint}`);
+      console.log(`📦 Body: ${JSON.stringify(requestBody)}`);
+      
+      const response = await makeDigestRequest(`http://${dispositivo.ip_remota}`, endpoint, 'POST', requestBody, authObject);
+      
+      if (!response) {
+        console.log(`❌ Error: makeDigestRequest devolvió undefined/null`);
+        hasMoreData = false;
+        continue;
+      }
+      
+      // Pausa entre peticiones para evitar sobrecargar el dispositivo
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 1 segundo de pausa
+      
+      if (response && response.status === 200 && response.data) {
+        // Manejar diferentes estructuras de respuesta
+        let events = [];
+        
+        if (Array.isArray(response.data)) {
+          // Si la respuesta es un array directo
+          events = response.data;
+        } else if (response.data.AcsEvent && Array.isArray(response.data.AcsEvent)) {
+          // Si la respuesta tiene estructura AcsEvent
+          events = response.data.AcsEvent;
+        } else if (response.data.AcsEvent) {
+          // Si AcsEvent existe pero no es array, intentar convertirlo
+          if (typeof response.data.AcsEvent === 'object' && response.data.AcsEvent !== null) {
+            // Si es un objeto, intentar convertirlo a array
+            const values = Object.values(response.data.AcsEvent);
+            
+            // Si los valores son arrays, aplanarlos
+            events = [];
+            for (const value of values) {
+              if (Array.isArray(value)) {
+                events = events.concat(value);
+              } else {
+                events.push(value);
+              }
+            }
+          } else {
+            events = [];
+          }
+        } else {
+          // Si no hay eventos, array vacío
+          events = [];
+        }
+        
+        if (events.length === 0) {
+          hasMoreData = false;
+          console.log(`✅ No hay más eventos. Total procesados: ${totalProcessed}`);
+        } else {
+          allEvents = allEvents.concat(events);
+          totalProcessed += events.length;
+          startIndex += 30;
+          
+          console.log(`📊 Página procesada: ${events.length} eventos. Total acumulado: ${totalProcessed}`);
+          
+          // Si recibimos menos de 30 eventos, es la última página
+          if (events.length < 30) {
+            hasMoreData = false;
+            console.log(`✅ Última página detectada. Total final: ${totalProcessed}`);
+          }
+          
+        }
+      } else {
+        console.log(`❌ Error en página ${Math.floor(startIndex/30) + 1}: ${response.status}`);
+        console.log(`🔍 Respuesta de error:`, JSON.stringify(response.data, null, 2));
+        hasMoreData = false;
+      }
+    }
+    
+
+    console.log(`📋 Total de eventos obtenidos: ${allEvents.length}`);
+
+    // Procesar cada evento
+    let savedCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+
+    for (const event of allEvents) {
+      try {
+        
+        // Verificar si el evento ya existe
+        const existingLog = await Attlog.findOne({
+          where: {
+            dispositivo_id: dispositivo.id,
+            employee_no: event.employeeNoString,
+            event_time: event.time
+          }
+        });
+
+        if (existingLog) {
+          skippedCount++;
+          continue;
+        }
+
+        // Crear nuevo registro
+        console.log(`💾 Guardando evento: ${event.employeeNoString} - ${event.name} - ${event.time}`);
+        const attlog = await Attlog.create({
+          dispositivo_id: dispositivo.id,
+          employee_no: event.employeeNoString,
+          event_time: event.time,
+          nombre: event.name
+        });
+        console.log(`✅ Evento guardado con ID: ${attlog.id}`);
+
+        // Procesar imagen si existe
+        console.log(`🔍 Evento ${attlog.id} - pictureURL: ${event.pictureURL || 'NO TIENE'}`);
+        if (event.pictureURL) {
+          console.log(`📸 Evento ${attlog.id} tiene imagen: ${event.pictureURL}`);
+          try {
+            // Extraer el imageId de la URL (última parte después del último @)
+            const imageId = event.pictureURL.split('@').pop();
+            console.log(`🔍 ImageId extraído: ${imageId}`);
+            
+            // Usar el endpoint correcto para descargar la imagen
+            const imageUrl = `/ISAPI/Intelligent/FDLib/FDSearch/DownloadPicture?format=json&FDID=1&faceLibType=blackFD&faceID=${imageId}`;
+            console.log(`🔍 Endpoint de imagen: ${imageUrl}`);
+            
+            // Descargar imagen del dispositivo usando Digest auth
+            const imageResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imageUrl, 'GET', null, authObject);
+            
+            console.log(`🔍 Respuesta de imagen - Status: ${imageResponse.status}`);
+            console.log(`🔍 Respuesta de imagen - Data type: ${typeof imageResponse.data}`);
+            console.log(`🔍 Respuesta de imagen - Data length: ${imageResponse.data ? imageResponse.data.length : 'undefined'}`);
+            
+            if (imageResponse.status === 200 && imageResponse.data) {
+              let imageBuffer;
+              
+              // Manejar diferentes formatos de respuesta
+              if (typeof imageResponse.data === 'string') {
+                // Si es string, asumir que es base64
+                imageBuffer = Buffer.from(imageResponse.data, 'base64');
+              } else if (imageResponse.data.pictureInfo && imageResponse.data.pictureInfo.picData) {
+                // Si es objeto con pictureInfo.picData
+                imageBuffer = Buffer.from(imageResponse.data.pictureInfo.picData, 'base64');
+              } else if (Buffer.isBuffer(imageResponse.data)) {
+                // Si ya es un buffer
+                imageBuffer = imageResponse.data;
+              } else {
+                console.log(`❌ Formato de imagen no reconocido para evento ${attlog.id}`);
+                continue;
+              }
+              
+              const filePath = path.join(attlogsDir, `${attlog.id}.jpg`);
+              fs.writeFileSync(filePath, imageBuffer);
+              console.log(`✅ Imagen guardada: ${filePath}`);
+            } else {
+              console.log(`❌ Error descargando imagen para evento ${attlog.id}: ${imageResponse.status}`);
+              console.log(`🔍 Respuesta de error:`, imageResponse.data);
+            }
+          } catch (imageError) {
+            console.log(`❌ Error procesando imagen para evento ${attlog.id}:`, imageError.message);
+          }
+        }
+
+        savedCount++;
+        console.log(`✅ Evento guardado: ${event.employeeNoString} - ${event.time}`);
+
+      } catch (eventError) {
+        errorCount++;
+        console.log(`❌ Error procesando evento:`, eventError.message);
+      }
+    }
+
+    // Descargar imágenes para eventos que tienen pictureInfo
+    console.log(`📸 Procesamiento de imágenes completado durante el guardado de eventos`);
+
+    return {
+      totalEvents: allEvents.length,
+      savedCount,
+      skippedCount,
+      errorCount,
+      imagesDownloaded,
+      imagesErrors,
+      dispositivo: dispositivo.nombre
+    };
+
+  } catch (error) {
+    console.error('❌ Error en syncAttendanceFromDevice:', error);
+    
+    // Manejo específico para socket hang up
+    if (error.code === 'ECONNRESET' || error.message.includes('socket hang up')) {
+      console.log('⚠️ Dispositivo cerró la conexión - reintentando en el siguiente ciclo');
+    }
+    
+    // Devolver un resultado de error en lugar de lanzar la excepción
+    return {
+      totalEvents: 0,
+      savedCount: 0,
+      skippedCount: 0,
+      errorCount: 1,
+      imagesDownloaded: 0,
+      imagesErrors: 0,
+      dispositivo: dispositivo.nombre,
+      error: error.message
+    };
+  }
+}
+
+// Sistema de gestión de CRON dinámico
+const activeCronJobs = new Map(); // Almacena los trabajos CRON activos
+
+// Función para convertir tiempo a expresión CRON
+function timeToCronExpression(timeString) {
+  switch (timeString) {
+    case '10s': return '*/10 * * * * *'; // Cada 10 segundos
+    case '1m': return '*/1 * * * *';    // Cada minuto
+    case '5m': return '*/5 * * * *';    // Cada 5 minutos
+    case '10m': return '*/10 * * * *';  // Cada 10 minutos
+    case '30m': return '*/30 * * * *';  // Cada 30 minutos
+    case '1h': return '0 */1 * * *';     // Cada hora
+    case '6h': return '0 */6 * * *';     // Cada 6 horas
+    case '12h': return '0 */12 * * *';   // Cada 12 horas
+    case '24h': return '0 0 */1 * *';   // Cada 24 horas
+    default: return '0 0 */1 * *';      // Por defecto cada 24 horas
+  }
+}
+
+// Función para iniciar CRON para un dispositivo
+function startCronForDevice(dispositivo) {
+  const jobId = `device_${dispositivo.id}`;
+  
+  console.log(`🔍 startCronForDevice - Dispositivo recibido:`, {
+    id: dispositivo.id,
+    nombre: dispositivo.nombre,
+    ip_remota: dispositivo.ip_remota,
+    usuario: dispositivo.usuario,
+    clave: dispositivo.clave ? '***' + dispositivo.clave.slice(-3) : 'undefined',
+    cron_activo: dispositivo.cron_activo,
+    cron_tiempo: dispositivo.cron_tiempo
+  });
+  
+  // Detener CRON existente si existe
+  if (activeCronJobs.has(jobId)) {
+    activeCronJobs.get(jobId).destroy();
+    activeCronJobs.delete(jobId);
+  }
+
+  if (dispositivo.cron_activo === 1) {
+    const cronExpression = timeToCronExpression(dispositivo.cron_tiempo);
+    
+    const job = cron.schedule(cronExpression, async () => {
+      try {
+        console.log(`🔄 [CRON] Ejecutando sincronización automática para dispositivo: ${dispositivo.nombre}`);
+        console.log(`🔄 [CRON] Timestamp: ${new Date().toISOString()}`);
+        
+        const result = await syncAttendanceFromDevice(dispositivo);
+        
+        if (result.error) {
+          console.log(`⚠️ [CRON] Sincronización con errores para ${dispositivo.nombre}: ${result.error}`);
+        } else {
+          console.log(`✅ [CRON] Sincronización completada para dispositivo: ${dispositivo.nombre}`);
+          console.log(`📊 [CRON] Resultado: ${result.savedCount} guardados, ${result.skippedCount} omitidos, ${result.errorCount} errores`);
+        }
+      } catch (error) {
+        console.error(`❌ [CRON] Error crítico en sincronización automática para ${dispositivo.nombre}:`, error);
+        // No lanzar la excepción para que el CRON continúe
+      }
+    }, {
+      scheduled: true,
+      timezone: "America/Caracas"
+    });
+    
+    console.log(`⏰ [CRON] Trabajo programado para ${dispositivo.nombre} con expresión: ${cronExpression}`);
+
+    activeCronJobs.set(jobId, job);
+    console.log(`⏰ CRON iniciado para dispositivo ${dispositivo.nombre} (${dispositivo.cron_tiempo})`);
+  }
+}
+
+// Función para detener CRON de un dispositivo
+function stopCronForDevice(dispositivoId) {
+  const jobId = `device_${dispositivoId}`;
+  
+  if (activeCronJobs.has(jobId)) {
+    activeCronJobs.get(jobId).destroy();
+    activeCronJobs.delete(jobId);
+    console.log(`⏹️ CRON detenido para dispositivo ID: ${dispositivoId}`);
+  }
+}
+
+// Función para inicializar todos los CRON al arrancar el servidor
+async function initializeAllCronJobs() {
+  try {
+    console.log('🔄 Inicializando trabajos CRON...');
+    
+    const dispositivos = await Dispositivo.findAll({
+      where: { cron_activo: 1 },
+      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'cron_activo', 'cron_tiempo', 'marcaje_inicio', 'marcaje_fin']
+    });
+
+    for (const dispositivo of dispositivos) {
+      startCronForDevice(dispositivo);
+    }
+
+    console.log(`✅ ${dispositivos.length} trabajos CRON inicializados`);
+  } catch (error) {
+    console.error('❌ Error inicializando trabajos CRON:', error);
   }
 }
 
@@ -1439,7 +1887,7 @@ app.put('/api/libros/:id', authenticateToken, async (req, res) => {
     }
 
     await libro.update({
-      });
+    });
 
     res.json({ message: 'Libro actualizado exitosamente', libro });
   } catch (error) {
@@ -3238,9 +3686,9 @@ app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
         include: [{
           model: Area,
           attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
           }]
         }]
       }],
@@ -3291,12 +3739,12 @@ app.get('/api/empleados/tareas/:userId', authenticateToken, async (req, res) => 
 app.get('/api/empleados/horarios', authenticateToken, async (req, res) => {
   try {
     const horarios = await Horario.findAll({
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }],
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }],
       order: [['nombre', 'ASC']]
-    });
+      });
     
     res.json(horarios);
   } catch (error) {
@@ -3334,7 +3782,7 @@ app.get('/api/empleados/current-user', authenticateToken, async (req, res) => {
         attributes: ['id', 'nombre']
       }]
     });
-    
+
     if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
@@ -3843,10 +4291,10 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
               attributes: ['id', 'nombre'],
               include: [{
                 model: Area,
-                attributes: ['id', 'nombre'],
-                include: [{
-                  model: Sala,
-                  attributes: ['id', 'nombre']
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre']
                 }]
               }]
             }]
@@ -3905,11 +4353,11 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
               attributes: ['id', 'nombre'],
               include: [{
                 model: Area,
-                attributes: ['id', 'nombre'],
-                include: [{
-                  model: Sala,
-                  attributes: ['id', 'nombre'],
-                  where: { id: userSalaIds }
+          attributes: ['id', 'nombre'],
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre'],
+            where: { id: userSalaIds }
                 }]
               }]
             }]
@@ -3991,10 +4439,10 @@ app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res
             attributes: ['id', 'nombre'],
             include: [{
               model: Area,
-              attributes: ['id', 'nombre'],
-              include: [{
-                model: Sala,
-                attributes: ['id', 'nombre']
+        attributes: ['id', 'nombre'],
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
               }]
             }]
           }]
@@ -5199,43 +5647,73 @@ async function subirImagenAlServidor(base64Image) {
 }
 
 // Función para hacer peticiones con autenticación Digest (igual que en gestión biométrica)
-async function makeDigestRequest(deviceUrl, endpoint, method, body, tarea) {
+async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials) {
   const axios = require('axios');
   const crypto = require('crypto');
   
-  const username = tarea.usuario_login_dispositivo;
-  const password = tarea.clave_login_dispositivo;
+  // Manejar tanto objeto tarea como credenciales directas
+  let username, password, requestBody;
+  
+  if (typeof credentials === 'object' && credentials.usuario_login_dispositivo) {
+    // Es un objeto tarea o authObject
+    username = credentials.usuario_login_dispositivo;
+    password = credentials.clave_login_dispositivo;
+    requestBody = body; // body contiene el JSON del POST
+  } else if (typeof credentials === 'string') {
+    // Es credenciales directas: credentials = clave, body = usuario
+    username = body;  // body contiene el usuario
+    password = credentials;  // credentials contiene la clave
+    requestBody = null; // No hay body JSON
+  } else {
+    throw new Error('Formato de credenciales no válido');
+  }
+  
   const fullUrl = `${deviceUrl}${endpoint}`;
   
+  console.log(`🔍 makeDigestRequest - URL: ${fullUrl}`);
+  console.log(`🔍 makeDigestRequest - Method: ${method}`);
+  console.log(`🔍 makeDigestRequest - Username: ${username}`);
+  console.log(`🔍 makeDigestRequest - Password: ${password ? '***' + password.slice(-3) : 'undefined'}`);
+  console.log(`🔍 makeDigestRequest - RequestBody: ${requestBody ? JSON.stringify(requestBody).substring(0, 100) + '...' : 'null'}`);
+  
+  // Primera petición para obtener challenge digest
+  console.log(`🔄 Realizando primera petición para obtener challenge digest...`);
   
   try {
-    // Primera petición para obtener challenge digest
     const firstResponse = await axios({
       method: method,
       url: fullUrl,
-      data: JSON.stringify(body),
+      data: requestBody ? JSON.stringify(requestBody) : undefined,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
+      timeout: 30000, // 30 segundos
       validateStatus: (status) => status === 401
     });
     
     // Si llegamos aquí, no hubo error 401, intentar sin autenticación
+    console.log(`⚠️ No se recibió challenge 401, intentando sin autenticación...`);
     const directResponse = await axios({
       method: method,
       url: fullUrl,
-      data: JSON.stringify(body),
+      data: requestBody ? JSON.stringify(requestBody) : undefined,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      }
+      },
+      timeout: 30000 // 30 segundos
     });
     
+    console.log(`🔍 makeDigestRequest - Respuesta sin auth:`, directResponse.status);
     return directResponse;
     
   } catch (error) {
     if (error.response && error.response.status === 401) {
+      console.log('✅ Challenge digest recibido (401)');
+      console.log(`🔍 Status: ${error.response.status}`);
+      console.log(`🔍 Headers: ${JSON.stringify(error.response.headers, null, 2)}`);
+      
       // Extraer información del challenge digest
       const wwwAuthenticate = error.response.headers['www-authenticate'];
       
@@ -5244,25 +5722,41 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, tarea) {
         const challenge = parseDigestChallenge(wwwAuthenticate);
         
         // Generar respuesta digest
+        console.log(`🔐 Challenge parseado:`, challenge);
         const digestResponse = generateDigestResponse(challenge, username, password, fullUrl, method);
+        console.log(`🔑 Respuesta digest generada: ${digestResponse}`);
         
         // Segunda petición con la respuesta digest
         try {
           const secondResponse = await axios({
             method: method,
             url: fullUrl,
-            data: JSON.stringify(body),
+            data: requestBody ? JSON.stringify(requestBody) : undefined,
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json',
               'Authorization': `Digest ${digestResponse}`
-            }
+            },
+            timeout: 30000 // 30 segundos
           });
           
+          console.log(`🔍 makeDigestRequest - Respuesta final:`, secondResponse.status);
+          console.log(`🔍 makeDigestRequest - Data:`, secondResponse.data ? 'Presente' : 'Ausente');
           return secondResponse;
         } catch (secondError) {
           // Devolver la respuesta del error para que el frontend pueda manejarla
-          return secondError.response;
+          console.log(`❌ Error en segunda petición: ${secondError.response ? secondError.response.status : 'Sin respuesta'}`);
+          if (secondError.response) {
+            console.log(`📦 Respuesta del dispositivo:`, JSON.stringify(secondError.response.data, null, 2));
+            return secondError.response;
+          } else {
+            // Si no hay respuesta, crear una respuesta de error
+            console.log(`❌ Sin respuesta del dispositivo`);
+            return {
+              status: 500,
+              data: { error: 'Error en autenticación Digest' }
+            };
+          }
         }
       } else {
         throw new Error('No se encontró challenge digest válido');
@@ -5850,16 +6344,37 @@ app.put('/api/dispositivos/:id/cron', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'cron_tiempo debe ser uno de: ' + tiempoValidos.join(', ') });
     }
 
+    // Guardar valores anteriores para comparación
+    const previousCronActivo = dispositivo.cron_activo;
+    const previousCronTiempo = dispositivo.cron_tiempo;
+
     // Actualizar solo los campos CRON
     await dispositivo.update({
       cron_activo: cron_activo !== undefined ? cron_activo : dispositivo.cron_activo,
       cron_tiempo: cron_tiempo || dispositivo.cron_tiempo
     });
 
-    // Obtener el dispositivo actualizado
+    // Obtener el dispositivo actualizado con todos los campos necesarios
     const dispositivoActualizado = await Dispositivo.findByPk(id, {
-      attributes: ['id', 'nombre', 'cron_activo', 'cron_tiempo']
+      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'cron_activo', 'cron_tiempo', 'marcaje_inicio', 'marcaje_fin']
     });
+
+    // Gestionar CRON automáticamente
+    const newCronActivo = cron_activo !== undefined ? cron_activo : dispositivo.cron_activo;
+    const newCronTiempo = cron_tiempo || dispositivo.cron_tiempo;
+
+    // Si cambió la configuración CRON, actualizar el trabajo programado
+    if (previousCronActivo !== newCronActivo || previousCronTiempo !== newCronTiempo) {
+      if (newCronActivo === 1) {
+        // Activar o actualizar CRON
+        startCronForDevice(dispositivoActualizado);
+        console.log(`✅ CRON activado/actualizado para dispositivo: ${dispositivoActualizado.nombre}`);
+      } else {
+        // Desactivar CRON
+        stopCronForDevice(id);
+        console.log(`⏹️ CRON desactivado para dispositivo: ${dispositivoActualizado.nombre}`);
+      }
+    }
 
     res.json({
       success: true,
@@ -5868,6 +6383,105 @@ app.put('/api/dispositivos/:id/cron', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error actualizando configuración CRON:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// POST /api/dispositivos/:id/sync-attendance - Sincronizar marcajes del dispositivo
+app.post('/api/dispositivos/:id/sync-attendance', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const dispositivo = await Dispositivo.findByPk(id);
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+
+    if (!dispositivo.ip_remota || !dispositivo.usuario || !dispositivo.clave) {
+      return res.status(400).json({ message: 'Dispositivo no tiene credenciales completas' });
+    }
+
+    // Sincronizar marcajes
+    const result = await syncAttendanceFromDevice(dispositivo);
+    
+    res.json({
+      success: true,
+      message: 'Sincronización completada',
+      data: result
+    });
+  } catch (error) {
+    console.error('❌ Error sincronizando marcajes:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/dispositivos/:id/download-image/:imageId - Descargar imagen de marcaje
+app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, async (req, res) => {
+  try {
+    const { id, imageId } = req.params;
+    
+    const dispositivo = await Dispositivo.findByPk(id);
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+
+    if (!dispositivo.ip_remota || !dispositivo.usuario || !dispositivo.clave) {
+      return res.status(400).json({ message: 'Dispositivo no tiene credenciales completas' });
+    }
+
+    // Construir URL para descargar imagen del dispositivo
+    const imageUrl = `/ISAPI/Intelligent/FDLib/FDSearch/DownloadPicture?format=json&FDID=1&faceLibType=blackFD&faceID=${imageId}`;
+    
+    console.log(`📸 Descargando imagen ${imageId} del dispositivo ${dispositivo.nombre}`);
+    console.log(`🌐 URL imagen: http://${dispositivo.ip_remota}${imageUrl}`);
+    
+    // Crear objeto similar a tarea para la autenticación
+    const authObject = {
+      usuario_login_dispositivo: dispositivo.usuario,
+      clave_login_dispositivo: dispositivo.clave
+    };
+    
+    const response = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imageUrl, 'GET', null, authObject);
+    
+    if (response.status === 200 && response.data) {
+      // La respuesta debería contener la imagen en base64
+      const imageData = response.data.pictureInfo?.picData;
+      
+      if (imageData) {
+        // Convertir base64 a buffer
+        const imageBuffer = Buffer.from(imageData, 'base64');
+        
+        // Guardar imagen en carpeta attlogs
+        const fs = require('fs');
+        const path = require('path');
+        const attlogsDir = path.join(__dirname, 'attlogs');
+        
+        if (!fs.existsSync(attlogsDir)) {
+          fs.mkdirSync(attlogsDir, { recursive: true });
+        }
+        
+        const imagePath = path.join(attlogsDir, `${imageId}.jpg`);
+        fs.writeFileSync(imagePath, imageBuffer);
+        
+        console.log(`✅ Imagen guardada: ${imageId}.jpg`);
+        
+        res.json({
+          success: true,
+          message: 'Imagen descargada y guardada correctamente',
+          imagePath: imagePath,
+          imageId: imageId
+        });
+      } else {
+        res.status(404).json({ message: 'No se encontró imagen en la respuesta del dispositivo' });
+      }
+    } else {
+      res.status(response.status || 500).json({ 
+        message: 'Error descargando imagen del dispositivo',
+        status: response.status
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error descargando imagen:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -6815,4 +7429,11 @@ app.listen(PORT, () => {
   console.log('   POST /api/tareas/dispositivo/agregar-foto');
   console.log('   POST /api/tareas/dispositivo/editar-foto');
   console.log(`🚀 TPP Hikvision API: http://localhost:${PORT}/api/tpp`);
+  
+  // Inicializar trabajos CRON después de que el servidor esté listo
+  setTimeout(async () => {
+    console.log('🔄 [INIT] Iniciando trabajos CRON...');
+    await initializeAllCronJobs();
+    console.log('✅ [INIT] Trabajos CRON inicializados');
+  }, 2000); // Esperar 2 segundos para que la base de datos esté lista
 });
