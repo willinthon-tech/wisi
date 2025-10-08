@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
@@ -195,7 +195,7 @@ import { Subscription } from 'rxjs';
                 <button type="button" class="btn btn-secondary" (click)="closeSalaSelector()">
                   Cancelar
                 </button>
-                <button type="submit" class="btn btn-success" [disabled]="!horarioForm.form.valid">
+                <button type="submit" class="btn btn-success" [disabled]="!isFormValid()">
                   {{ selectedHorario ? 'Actualizar Horario' : 'Guardar Horario' }}
                 </button>
               </div>
@@ -654,7 +654,8 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     private areasService: AreasService,
     private router: Router,
     private route: ActivatedRoute,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -662,6 +663,11 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {
       // Los permisos se actualizan automáticamente
     });
+  }
+
+  isFormValid(): boolean {
+    // Validación básica del formulario
+    return !!(this.nuevoHorario.nombre && this.nuevoHorario.sala_id && this.bloques.length > 0);
   }
 
   ngOnDestroy(): void {

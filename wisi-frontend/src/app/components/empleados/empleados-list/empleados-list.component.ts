@@ -264,6 +264,7 @@ import { Subscription } from 'rxjs';
                   id="sexoEmpleado" 
                   name="sexoEmpleado"
                   [(ngModel)]="nuevoEmpleado.sexo"
+                  (ngModelChange)="detectChanges()"
                   class="form-control"
                   required
                 >
@@ -329,6 +330,7 @@ import { Subscription } from 'rxjs';
                   id="horarioSelect" 
                   name="horarioSelect"
                   [(ngModel)]="nuevoEmpleado.horario_id"
+                  (ngModelChange)="detectChanges()"
                   class="form-control"
                   required
                 >
@@ -2637,7 +2639,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             user_id: user.id,
             numero_cedula_empleado: empleadoCompleto.cedula,
             nombre_empleado: empleadoCompleto.nombre,
-            nombre_genero: empleadoCompleto.sexo === 'masculino' ? 'male' : 'female',
+            nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
             nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
             nombre_sala: dispositivo.Sala?.nombre || '',
             nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
@@ -2659,7 +2661,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             user_id: user.id,
             numero_cedula_empleado: empleadoCompleto.cedula,
             nombre_empleado: empleadoCompleto.nombre,
-            nombre_genero: empleadoCompleto.sexo === 'masculino' ? 'male' : 'female',
+            nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
             nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
             nombre_sala: dispositivo.Sala?.nombre || '',
             nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
@@ -2735,7 +2737,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           user_id: user.id,
           numero_cedula_empleado: empleadoCompleto.cedula,
           nombre_empleado: empleadoCompleto.nombre,
-          nombre_genero: empleadoCompleto.sexo === 'masculino' ? 'male' : 'female',
+          nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
           nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
           nombre_sala: dispositivo.Sala?.nombre || '',
           nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
@@ -2755,7 +2757,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           user_id: user.id,
           numero_cedula_empleado: empleadoCompleto.cedula,
           nombre_empleado: empleadoCompleto.nombre,
-          nombre_genero: empleadoCompleto.sexo === 'masculino' ? 'male' : 'female',
+          nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
           nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
           nombre_sala: dispositivo.Sala?.nombre || '',
           nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
@@ -2825,7 +2827,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
               nombre_empleado: empleado.nombre,
-              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
@@ -2845,7 +2847,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
               nombre_empleado: empleado.nombre,
-              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
@@ -2874,7 +2876,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
               nombre_empleado: empleado.nombre,
-              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
@@ -2894,7 +2896,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
               nombre_empleado: empleado.nombre,
-              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
@@ -2923,7 +2925,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
               nombre_empleado: empleado.nombre,
-              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
@@ -2943,7 +2945,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
               nombre_empleado: empleado.nombre,
-              nombre_genero: empleado.sexo === 'masculino' ? 'male' : 'female',
+              nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
