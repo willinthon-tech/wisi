@@ -10,34 +10,6 @@ import { environment } from '../../../../environments/environment';
   imports: [CommonModule],
   template: `
     <div class="tareas-container">
-      <div class="header">
-        <div class="header-left">
-          <button 
-            class="btn btn-success" 
-            [disabled]="procesandoTodas || tareas.length === 0"
-            (click)="ejecutarTodas()">
-            <span *ngIf="ejecutandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            <span *ngIf="!ejecutandoTodas">Ejecutar Todo</span>
-            <span *ngIf="ejecutandoTodas">Ejecutando...</span>
-          </button>
-          <button 
-            class="btn btn-danger" 
-            [disabled]="procesandoTodas || tareas.length === 0"
-            (click)="rechazarTodas()">
-            <span *ngIf="rechazandoTodas" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-            <span *ngIf="!rechazandoTodas">Rechazar Todo</span>
-            <span *ngIf="rechazandoTodas">Rechazando...</span>
-          </button>
-        </div>
-        <div class="header-right">
-          <button 
-            class="btn btn-warning" 
-            [disabled]="!detenerProcesos"
-            (click)="detenerTodosLosProcesos()">
-            Detener Procesos
-          </button>
-        </div>
-      </div>
       
       <div class="table-wrapper">
         <table class="table table-striped table-hover">
@@ -73,7 +45,7 @@ import { environment } from '../../../../environments/environment';
               <td>
                 <button 
                   class="btn btn-success btn-sm me-2" 
-                  [disabled]="!isTareaActiva(tarea) || procesandoTarea || ejecutandoTodas || rechazandoTodas"
+                  [disabled]="!isTareaActiva(tarea) || procesandoTarea"
                   (click)="ejecutarTarea(tarea)">
                   <span *ngIf="ejecutandoTarea === tarea.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                   <span *ngIf="ejecutandoTarea !== tarea.id">Ejecutar</span>
@@ -81,7 +53,7 @@ import { environment } from '../../../../environments/environment';
                 </button>
                 <button 
                   class="btn btn-danger btn-sm" 
-                  [disabled]="!isTareaActiva(tarea) || procesandoTarea || ejecutandoTodas || rechazandoTodas"
+                  [disabled]="!isTareaActiva(tarea) || procesandoTarea"
                   (click)="rechazarTarea(tarea)">
                   <span *ngIf="rechazandoTarea === tarea.id" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                   <span *ngIf="rechazandoTarea !== tarea.id">Rechazar</span>
@@ -717,10 +689,6 @@ export class TareasListComponent implements OnInit {
   ejecutandoTarea: number | null = null; // ID de la tarea que se está ejecutando
   rechazandoTarea: number | null = null; // ID de la tarea que se está rechazando
   procesandoTarea: boolean = false; // Estado general de procesamiento
-  ejecutandoTodas: boolean = false; // Estado para "Ejecutar Todo"
-  rechazandoTodas: boolean = false; // Estado para "Rechazar Todo"
-  procesandoTodas: boolean = false; // Controla si se están procesando todas las tareas
-  detenerProcesos: boolean = false; // Controla si se puede detener procesos
   
   // Modal de error de ejecución
   showErrorModal = false;
@@ -756,135 +724,10 @@ export class TareasListComponent implements OnInit {
     });
   }
 
-  ejecutarTodas(): void {
-    
-    this.ejecutandoTodas = true;
-    this.procesandoTodas = true;
-    this.detenerProcesos = true; // Activar botón "Detener Procesos"
-    this.procesarTodasTareas('ejecutar');
-  }
-
-  rechazarTodas(): void {
-    
-    this.rechazandoTodas = true;
-    this.procesandoTodas = true;
-    this.detenerProcesos = true; // Activar botón "Detener Procesos"
-    this.procesarTodasTareas('rechazar');
-  }
-
-  async procesarTodasTareas(accion: 'ejecutar' | 'rechazar'): Promise<void> {
-    
-    
-    try {
-      while (this.tareas.length > 0) {
-        const tareaActual = this.tareas[0];
-        
-        
-        // Simular clic en el botón individual
-        if (accion === 'ejecutar') {
-          await this.simularEjecutarTarea(tareaActual);
-        } else {
-          await this.simularRechazarTarea(tareaActual);
-        }
-        
-        // Pausa para mostrar la siguiente tarea (si hay más)
-        if (this.tareas.length > 0) {
-          
-          await new Promise(resolve => setTimeout(resolve, 1500)); // Pausa para ver la siguiente
-        }
-      }
-      
-      
-    } finally {
-      // Resetear estados al finalizar
-      this.ejecutandoTodas = false;
-      this.rechazandoTodas = false;
-      this.procesandoTodas = false;
-      this.detenerProcesos = false; // Desactivar botón "Detener Procesos"
-    }
-  }
-
-  async simularEjecutarTarea(tarea: any): Promise<void> {
-    
-    
-    // Activar botón "Detener Procesos"
-    this.detenerProcesos = true;
-    
-    // Activar estados para mostrar spinner en botón individual
-    this.ejecutandoTarea = tarea.id;
-    this.procesandoTarea = true;
-    
-    try {
-      // Aquí se haría el proceso real al dispositivo externo
-      
-      
-      // Eliminar la tarea del backend (el spinner se quita cuando responde)
-      await this.eliminarTareaAsync(tarea.id);
-      
-      // Eliminar de la lista local
-      this.tareas = this.tareas.filter(t => t.id !== tarea.id);
-      
-      // Actualizar tarea activa
-      this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
-      
-      
-    } catch (error) {
-      
-    } finally {
-      // Resetear estados cuando termine
-      this.ejecutandoTarea = null;
-      this.procesandoTarea = false;
-      
-      // Desactivar botón "Detener Procesos" si no hay más tareas
-      if (this.tareas.length === 0) {
-        this.detenerProcesos = false;
-      }
-    }
-  }
-
-  async simularRechazarTarea(tarea: any): Promise<void> {
-    
-    
-    // Activar botón "Detener Procesos"
-    this.detenerProcesos = true;
-    
-    // Activar estados para mostrar spinner en botón individual
-    this.rechazandoTarea = tarea.id;
-    this.procesandoTarea = true;
-    
-    try {
-      
-      
-      // Eliminar la tarea del backend (el spinner se quita cuando responde)
-      await this.eliminarTareaAsync(tarea.id);
-      
-      // Eliminar de la lista local
-      this.tareas = this.tareas.filter(t => t.id !== tarea.id);
-      
-      // Actualizar tarea activa
-      this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
-      
-      
-    } catch (error) {
-      
-    } finally {
-      // Resetear estados cuando termine
-      this.rechazandoTarea = null;
-      this.procesandoTarea = false;
-      
-      // Desactivar botón "Detener Procesos" si no hay más tareas
-      if (this.tareas.length === 0) {
-        this.detenerProcesos = false;
-      }
-    }
-  }
 
 
-  detenerTodosLosProcesos(): void {
-    
-    // Recargar la página para detener todo
-    window.location.reload();
-  }
+
+
 
   verDetalles(tarea: any): void {
     
@@ -938,7 +781,6 @@ export class TareasListComponent implements OnInit {
         // Resetear estados
         this.ejecutandoTarea = null;
         this.procesandoTarea = false;
-        this.detenerProcesos = false;
       }
     } catch (error) {
       // ❌ Error de comunicación
@@ -950,61 +792,34 @@ export class TareasListComponent implements OnInit {
       // Resetear estados
       this.ejecutandoTarea = null;
       this.procesandoTarea = false;
-      this.detenerProcesos = false;
     }
   }
 
   async comunicarConDispositivo(tarea: any): Promise<{success: boolean, message?: string, deviceResponse?: any}> {
     try {
-      console.log('🚀 FRONTEND: Iniciando comunicación con dispositivo');
-      console.log('📋 Tarea recibida:', tarea);
-      
       // Determinar el endpoint del backend según la acción
-      console.log('🔍 FRONTEND: Acción detectada:', tarea.accion_realizar);
       let backendEndpoint = '';
       
       if (tarea.accion_realizar === 'Borrar Foto') {
-        console.log('🔍 FRONTEND: Detectada acción de BORRAR FOTO');
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/borrar-foto`;
       } else if (tarea.accion_realizar === 'Agregar Foto') {
-        console.log('🔍 FRONTEND: Detectada acción de AGREGAR FOTO');
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/agregar-foto`;
       } else if (tarea.accion_realizar === 'Editar Foto') {
-        console.log('🔍 FRONTEND: Detectada acción de EDITAR FOTO');
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/editar-foto`;
       } else if (tarea.accion_realizar === 'Borrar Usuario') {
-        console.log('🔍 FRONTEND: Detectada acción de BORRAR USUARIO');
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/borrar-usuario`;
       } else if (tarea.accion_realizar === 'Agregar Usuario') {
-        console.log('🔍 FRONTEND: Detectada acción de AGREGAR USUARIO');
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/agregar-usuario`;
       } else if (tarea.accion_realizar === 'Editar Usuario') {
-        console.log('🔍 FRONTEND: Detectada acción de EDITAR USUARIO');
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/editar-usuario`;
       } else {
-        console.log('❌ FRONTEND: Acción no reconocida:', tarea.accion_realizar);
         throw new Error('Acción no reconocida: ' + tarea.accion_realizar);
       }
-      
-      console.log('🌐 FRONTEND: Endpoint seleccionado:', backendEndpoint);
-      console.log('📤 FRONTEND: Enviando datos al backend...');
-      
-      // Mostrar información detallada que se enviará al dispositivo
-      console.log('🔍 ========== INFORMACIÓN QUE SE ENVIARÁ AL DISPOSITIVO ==========');
-      console.log('🌐 URL del dispositivo:', `http://${tarea.ip_publica_dispositivo}`);
-      console.log('📡 Endpoint específico:', 'Se determinará en el backend según la acción');
-      console.log('📡 Método HTTP:', 'Se determinará en el backend según la acción');
-      console.log('📦 Payload completo:', JSON.stringify({
-        tarea: tarea
-      }, null, 2));
-      console.log('🔍 ================================================================');
       
       // Realizar la llamada al backend
       const response = await this.http.post(backendEndpoint, {
         tarea: tarea
       }).toPromise() as any;
-      
-      console.log('📥 FRONTEND: Respuesta del backend:', response);
       
       return {
         success: response.success || true,
@@ -1012,8 +827,6 @@ export class TareasListComponent implements OnInit {
       };
       
     } catch (error: any) {
-      console.log('❌ FRONTEND: Error en comunicación:', error);
-      
       // Manejar diferentes tipos de errores
       let errorMessage = 'Error desconocido';
       
@@ -1071,7 +884,6 @@ export class TareasListComponent implements OnInit {
         
         // Desactivar botón "Detener Procesos" si no hay más tareas
         if (this.tareas.length === 0) {
-          this.detenerProcesos = false;
         }
         
         // Recargar la lista de tareas para actualizar la tarea activa
@@ -1120,7 +932,6 @@ export class TareasListComponent implements OnInit {
 
     this.procesandoTarea = true;
     this.ejecutandoTarea = tarea.id;
-    this.detenerProcesos = true; // Activar botón "Detener Procesos"
     
     // Ejecutar la función real en el dispositivo
     this.ejecutarFuncionDispositivo(tarea);
@@ -1134,7 +945,6 @@ export class TareasListComponent implements OnInit {
 
     this.procesandoTarea = true;
     this.rechazandoTarea = tarea.id;
-    this.detenerProcesos = true; // Activar botón "Detener Procesos"
     
     
     

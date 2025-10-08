@@ -5021,28 +5021,35 @@ app.post('/api/tareas/dispositivo/borrar-foto', authenticateToken, async (req, r
 
 // POST /api/tareas/dispositivo/agregar-foto
 app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, res) => {
-  console.log('🚀 ENDPOINT AGREGAR FOTO LLAMADO!');
   try {
     const { tarea } = req.body;
-    console.log('📸 ========== AGREGAR FOTO ==========');
-    console.log('👤 Empleado:', tarea.numero_cedula_empleado);
-    console.log('📝 Nombre:', tarea.nombre_empleado);
-    console.log('📱 Dispositivo:', tarea.ip_publica_dispositivo);
-    console.log('🔐 Usuario login:', tarea.usuario_login_dispositivo);
-    console.log('📸 ======================================');
     
-    // Primero subir la imagen al servidor PHP
-    console.log('📤 Subiendo imagen al servidor PHP...');
+    // Primero eliminar la foto existente del dispositivo (si existe)
+    try {
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
+      const deleteBody = {
+        FPID: [
+          {
+            value: tarea.numero_cedula_empleado
+          }
+        ]
+      };
+      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
+    } catch (deleteError) {
+      // Continuar aunque falle la eliminación (puede que no exista foto previa)
+    }
+    
+    // Subir la imagen al servidor PHP
     const imageUrl = await subirImagenAlServidor(tarea.foto_empleado);
     if (!imageUrl) {
-      console.log('❌ Error: No se pudo subir la imagen al servidor PHP');
       return res.status(500).json({
         success: false,
         message: 'Error al subir la imagen al servidor'
       });
     }
-    console.log('✅ Imagen subida exitosamente. URL:', imageUrl);
     
+    // Agregar la nueva foto al dispositivo
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
     const method = 'POST';
@@ -5163,14 +5170,9 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
 // Función para subir imagen al servidor PHP
 async function subirImagenAlServidor(base64Image) {
   try {
-    console.log('📤 ========== SUBIENDO IMAGEN AL SERVIDOR PHP ==========');
-    console.log('🌐 URL del servidor PHP:', 'http://hotelroraimainn.com/upload.php');
-    console.log('📏 Tamaño de la imagen base64:', base64Image ? base64Image.length : 'No definida');
-    
     // Convertir base64 a blob
     const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
     const byteCharacters = Buffer.from(base64Data, 'base64');
-    console.log('📦 Tamaño del buffer:', byteCharacters.length, 'bytes');
     
     // Crear FormData
     const FormData = require('form-data');
@@ -5179,31 +5181,19 @@ async function subirImagenAlServidor(base64Image) {
       filename: 'foto_empleado.jpg',
       contentType: 'image/jpeg'
     });
-    console.log('📋 FormData creado correctamente');
     
     // Enviar al servidor PHP
     const axios = require('axios');
-    console.log('🚀 Enviando petición al servidor PHP...');
     const response = await axios.post('http://hotelroraimainn.com/upload.php', form, {
       headers: form.getHeaders()
     });
     
-    console.log('📥 Respuesta del servidor PHP:');
-    console.log('📊 Status:', response.status);
-    console.log('📦 Data:', JSON.stringify(response.data, null, 2));
-    
     if (response.data && response.data.success && response.data.url) {
-      console.log('✅ Imagen subida exitosamente. URL obtenida:', response.data.url);
-      console.log('📤 ================================================');
       return response.data.url;
     } else {
-      console.log('❌ Error: Respuesta del servidor PHP no contiene URL válida');
-      console.log('📤 ================================================');
       return null;
     }
   } catch (error) {
-    console.log('❌ Error subiendo imagen:', error.message);
-    console.log('📤 ================================================');
     return null;
   }
 }
@@ -5217,17 +5207,9 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, tarea) {
   const password = tarea.clave_login_dispositivo;
   const fullUrl = `${deviceUrl}${endpoint}`;
   
-  console.log('🔍 ========== COMUNICACIÓN CON DISPOSITIVO ==========');
-  console.log('🌐 URL Completa:', fullUrl);
-  console.log('📡 Método HTTP:', method);
-  console.log('👤 Usuario:', username);
-  console.log('🔑 Clave:', password ? '***' + password.slice(-3) : 'No definida');
-  console.log('📦 Body enviado:', JSON.stringify(body, null, 2));
-  console.log('🔍 ================================================');
   
   try {
     // Primera petición para obtener challenge digest
-    console.log('🔄 Realizando primera petición para obtener challenge digest...');
     const firstResponse = await axios({
       method: method,
       url: fullUrl,
@@ -5240,7 +5222,6 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, tarea) {
     });
     
     // Si llegamos aquí, no hubo error 401, intentar sin autenticación
-    console.log('⚠️ No se recibió challenge 401, intentando sin autenticación...');
     const directResponse = await axios({
       method: method,
       url: fullUrl,
@@ -5251,34 +5232,21 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, tarea) {
       }
     });
     
-    console.log('✅ Respuesta directa del dispositivo:');
-    console.log('📊 Status:', directResponse.status);
-    console.log('📋 Headers:', directResponse.headers);
-    console.log('📦 Data:', JSON.stringify(directResponse.data, null, 2));
-    console.log('🔍 ================================================');
-    
     return directResponse;
     
   } catch (error) {
     if (error.response && error.response.status === 401) {
-      console.log('✅ Challenge digest recibido (401)');
-      
       // Extraer información del challenge digest
       const wwwAuthenticate = error.response.headers['www-authenticate'];
-      console.log('🔐 WWW-Authenticate header:', wwwAuthenticate);
       
       if (wwwAuthenticate && wwwAuthenticate.includes('Digest')) {
         // Parsear el challenge digest
         const challenge = parseDigestChallenge(wwwAuthenticate);
-        console.log('📋 Challenge parseado:', challenge);
         
         // Generar respuesta digest
         const digestResponse = generateDigestResponse(challenge, username, password, fullUrl, method);
-        console.log('🔑 Respuesta digest generada:', digestResponse);
         
         // Segunda petición con la respuesta digest
-        console.log('🔄 Realizando segunda petición con autenticación digest...');
-        
         try {
           const secondResponse = await axios({
             method: method,
@@ -5291,29 +5259,15 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, tarea) {
             }
           });
           
-          console.log('✅ Respuesta del dispositivo:');
-          console.log('📊 Status:', secondResponse.status);
-          console.log('📋 Headers:', secondResponse.headers);
-          console.log('📦 Data:', JSON.stringify(secondResponse.data, null, 2));
-          console.log('🔍 ================================================');
-          
           return secondResponse;
         } catch (secondError) {
-          console.log('❌ Error en segunda petición:', secondError.response?.status);
-          console.log('📦 Respuesta del dispositivo:', JSON.stringify(secondError.response?.data, null, 2));
-          console.log('🔍 ================================================');
-          
           // Devolver la respuesta del error para que el frontend pueda manejarla
           return secondError.response;
         }
       } else {
-        console.log('❌ No se encontró challenge digest válido');
-        console.log('🔍 ================================================');
         throw new Error('No se encontró challenge digest válido');
       }
     } else {
-      console.log('❌ Error en comunicación:', error.message);
-      console.log('🔍 ================================================');
       throw error;
     }
   }
@@ -5336,54 +5290,34 @@ function generateDigestResponse(challenge, username, password, uri, method) {
   const realm = challenge.realm || '';
   const nonce = challenge.nonce || '';
   const qop = challenge.qop || '';
-  
-  console.log('🔐 ========== CÁLCULO DIGEST ==========');
-  console.log('👤 Username:', username);
-  console.log('🌍 Realm:', realm);
-  console.log('🔑 Password:', password ? '***' + password.slice(-3) : 'No definida');
-  console.log('🎲 Nonce:', nonce);
-  console.log('🔒 QOP:', qop);
-  console.log('🌐 URI:', uri);
-  console.log('📡 Method:', method);
-  
+
   const cnonce = crypto.randomBytes(16).toString('hex');
-  console.log('🎲 CNonce generado:', cnonce);
-  
+
   const ha1String = `${username}:${realm}:${password}`;
   const ha1 = crypto.createHash('md5').update(ha1String).digest('hex');
-  console.log('🔐 HA1 string:', ha1String);
-  console.log('🔐 HA1 hash:', ha1);
-  
+
   const ha2String = `${method}:${uri}`;
   const ha2 = crypto.createHash('md5').update(ha2String).digest('hex');
-  console.log('🔐 HA2 string:', ha2String);
-  console.log('🔐 HA2 hash:', ha2);
-  
+
   let response;
   if (qop === 'auth') {
     const responseString = `${ha1}:${nonce}:00000001:${cnonce}:${qop}:${ha2}`;
     response = crypto.createHash('md5').update(responseString).digest('hex');
-    console.log('🔐 Response string (QOP=auth):', responseString);
   } else {
     const responseString = `${ha1}:${nonce}:${ha2}`;
     response = crypto.createHash('md5').update(responseString).digest('hex');
-    console.log('🔐 Response string (sin QOP):', responseString);
   }
-  console.log('🔐 Response hash:', response);
-  
+
   let digestResponse = `username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}"`;
-  
+
   if (qop) {
     digestResponse += `, qop=${qop}, nc=00000001, cnonce="${cnonce}"`;
   }
-  
+
   if (challenge.opaque) {
     digestResponse += `, opaque="${challenge.opaque}"`;
   }
-  
-  console.log('🔑 Header Authorization final:', digestResponse);
-  console.log('🔐 ======================================');
-  
+
   return digestResponse;
 }
 
