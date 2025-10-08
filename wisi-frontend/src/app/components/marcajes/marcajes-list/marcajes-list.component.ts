@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -20,23 +20,27 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       <div class="header">
         <h2>📊 Marcajes de Asistencia</h2>
         <div class="header-stats">
-          <div class="header-stat-card">
-            <span class="stat-number">{{ marcajesFiltrados.length }}</span>
-            <span class="stat-label">Total Marcajes</span>
-          </div>
-          <div class="header-stat-card">
-            <span class="stat-number">{{ dispositivosUnicos.size }}</span>
-            <span class="stat-label">Dispositivos</span>
-          </div>
-          <div class="header-stat-card">
-            <span class="stat-number">{{ empleadosUnicos.size }}</span>
-            <span class="stat-label">Empleados</span>
-          </div>
+        <div class="header-stat-card" [class.updating]="actualizandoDatos">
+          <span class="stat-number">
+            {{ actualizandoDatos ? '...' : marcajesFiltrados.length }}
+            <i class="fas fa-sync-alt fa-spin" *ngIf="actualizandoDatos"></i>
+          </span>
+          <span class="stat-label">Total Marcajes</span>
         </div>
-        <div class="header-actions">
-          <button class="btn btn-primary" (click)="recargarTabla()">
-            <i class="fas fa-sync-alt"></i> Actualizar
-          </button>
+        <div class="header-stat-card" [class.updating]="actualizandoDatos">
+          <span class="stat-number">
+            {{ actualizandoDatos ? '...' : dispositivosUnicos.size }}
+            <i class="fas fa-sync-alt fa-spin" *ngIf="actualizandoDatos"></i>
+          </span>
+          <span class="stat-label">Dispositivos</span>
+        </div>
+        <div class="header-stat-card" [class.updating]="actualizandoDatos">
+          <span class="stat-number">
+            {{ actualizandoDatos ? '...' : empleadosUnicos.size }}
+            <i class="fas fa-sync-alt fa-spin" *ngIf="actualizandoDatos"></i>
+          </span>
+          <span class="stat-label">Empleados</span>
+        </div>
         </div>
       </div>
 
@@ -234,17 +238,38 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       margin-right: 20px;
     }
 
-    .header-stat-card .stat-label {
-      font-size: 0.8rem;
-      opacity: 0.9;
-      margin: 0;
-      text-align: right;
-    }
+         .header-stat-card .stat-label {
+           font-size: 0.8rem;
+           opacity: 0.9;
+           margin: 0;
+           text-align: right;
+         }
 
-    .header-actions {
-      display: flex;
-      gap: 10px;
-    }
+         .header-stat-card.updating {
+           opacity: 0.7;
+           animation: pulse 1.5s ease-in-out infinite;
+         }
+
+         .header-stat-card .stat-number {
+           display: flex;
+           align-items: center;
+           gap: 8px;
+         }
+
+         .fa-spin {
+           animation: fa-spin 1s linear infinite;
+         }
+
+         @keyframes pulse {
+           0%, 100% { opacity: 0.7; }
+           50% { opacity: 1; }
+         }
+
+         @keyframes fa-spin {
+           0% { transform: rotate(0deg); }
+           100% { transform: rotate(360deg); }
+         }
+
 
     .main-content {
       display: flex;
@@ -633,7 +658,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     }
   `]
 })
-export class MarcajesListComponent implements OnInit {
+export class MarcajesListComponent implements OnInit, OnDestroy {
   marcajes: Marcaje[] = [];
   marcajesFiltrados: Marcaje[] = [];
   dispositivos: any[] = [];
@@ -735,6 +760,11 @@ export class MarcajesListComponent implements OnInit {
   ngOnInit() {
     this.cargarDispositivos();
     this.cargarMarcajes();
+    this.iniciarAutoRefresh();
+  }
+
+  ngOnDestroy(): void {
+    this.detenerAutoRefresh();
   }
 
   cargarDispositivos() {
@@ -763,12 +793,20 @@ export class MarcajesListComponent implements OnInit {
         } else {
           this.marcajes = [];
         }
+        
         this.aplicarFiltros();
+        this.calcularEstadisticas();
         this.cargando = false;
+        
+        // Inicializar conteo para auto-refresh inteligente (usar datos filtrados)
+        this.ultimoConteoRegistros = this.marcajesFiltrados.length;
+        
+        // Forzar detección de cambios
+        this.cdr.detectChanges();
       },
       error: (error) => {
-        console.error('Error cargando marcajes:', error);
         this.cargando = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -808,9 +846,16 @@ export class MarcajesListComponent implements OnInit {
     this.empleadosUnicos.clear();
     
     this.marcajesFiltrados.forEach(marcaje => {
-      this.dispositivosUnicos.add(marcaje.dispositivo_id);
-      this.empleadosUnicos.add(marcaje.employee_no);
+      if (marcaje.Dispositivo?.nombre) {
+        this.dispositivosUnicos.add(marcaje.Dispositivo.nombre);
+      }
+      if (marcaje.employee_no) {
+        this.empleadosUnicos.add(marcaje.employee_no);
+      }
     });
+    
+    // Forzar detección de cambios después de calcular estadísticas
+    this.cdr.detectChanges();
   }
 
   calcularPaginacion() {
@@ -822,9 +867,6 @@ export class MarcajesListComponent implements OnInit {
     this.paginaActual = pagina;
   }
 
-  recargarTabla() {
-    this.cargarMarcajes();
-  }
 
 
   formatearFecha(fecha: string): string {
@@ -866,18 +908,32 @@ export class MarcajesListComponent implements OnInit {
   selectedMarcaje: any = null;
   imageUrl = '';
 
+  // Variables para auto-refresh
+  private refreshInterval: any;
+  private readonly REFRESH_INTERVAL = 30000; // 30 segundos
+  autoRefreshEnabled = true;
+  actualizandoDatos = false;
+  verificandoCambios = false;
+  private ultimoConteoRegistros = 0;
+
+  // Variables para filtros
+  filtros = {
+    dispositivo_id: '',
+    employee_no: '',
+    fecha_inicio: '',
+    fecha_fin: ''
+  };
+
   descargarImagen(marcaje: Marcaje) {
     if (marcaje.id) {
       // Configurar datos para la modal
       this.selectedMarcaje = marcaje;
-      console.log(`📸 Abriendo modal de imagen para marcaje ${marcaje.id}`);
       
       // Obtener imagen usando el servicio con autenticación
       this.marcajesService.getMarcajeImage(marcaje.id).subscribe({
         next: (blob: Blob) => {
           // Crear URL del blob
           this.imageUrl = URL.createObjectURL(blob);
-          console.log(`📸 Imagen cargada correctamente para marcaje ${marcaje.id}`);
           
           // Forzar detección de cambios
           this.cdr.detectChanges();
@@ -889,7 +945,6 @@ export class MarcajesListComponent implements OnInit {
           this.cdr.detectChanges();
         },
         error: (error) => {
-          console.error(`❌ Error cargando imagen para marcaje ${marcaje.id}:`, error);
           this.imageUrl = '';
           
           // Forzar detección de cambios
@@ -930,9 +985,115 @@ export class MarcajesListComponent implements OnInit {
   }
 
   onImageError() {
-    console.log('Error cargando imagen');
     this.imageUrl = '';
   }
+
+  // Métodos para auto-refresh de datos
+  iniciarAutoRefresh() {
+    if (this.autoRefreshEnabled) {
+      this.refreshInterval = setInterval(() => {
+        this.verificarYActualizarSiEsNecesario();
+      }, this.REFRESH_INTERVAL);
+    }
+  }
+
+  detenerAutoRefresh() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
+  }
+
+  verificarYActualizarSiEsNecesario() {
+    this.verificandoCambios = true;
+    this.cdr.detectChanges();
+    
+    // Hacer una petición ligera solo para obtener el conteo total
+    this.marcajesService.getMarcajes(this.obtenerFiltrosActuales()).subscribe({
+      next: (response) => {
+        const nuevoConteo = response.attlogs ? response.attlogs.length : 0;
+        
+        // Verificar si hay cambios en los datos filtrados
+        if (nuevoConteo !== this.ultimoConteoRegistros) {
+          this.actualizarDatos();
+        }
+        
+        // Actualizar el conteo para la próxima verificación
+        this.ultimoConteoRegistros = nuevoConteo;
+        this.verificandoCambios = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.verificandoCambios = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  actualizarDatos() {
+    this.actualizandoDatos = true;
+    
+    // Forzar detección de cambios inmediatamente
+    this.cdr.detectChanges();
+    
+    // Solo actualizar los datos, no toda la página
+    this.marcajesService.getMarcajes(this.obtenerFiltrosActuales()).subscribe({
+      next: (response) => {
+        this.marcajes = response.attlogs || [];
+        
+        // Aplicar filtros actuales para mantener la vista filtrada
+        this.aplicarFiltros();
+        
+        // Actualizar estadísticas (botones de números)
+        this.calcularEstadisticas();
+        
+        // Actualizar ag-Grid si está disponible
+        if (this.gridApi) {
+          this.gridApi.setGridOption('rowData', this.marcajesFiltrados);
+        }
+        
+        this.actualizandoDatos = false;
+        
+        // Actualizar conteo para la próxima verificación (usar datos filtrados)
+        this.ultimoConteoRegistros = this.marcajesFiltrados.length;
+        
+        // Forzar detección de cambios para actualizar la UI
+        this.cdr.detectChanges();
+        
+        // Forzar detección de cambios nuevamente después de un pequeño delay
+        setTimeout(() => {
+          this.cdr.detectChanges();
+        }, 100);
+      },
+      error: (error) => {
+        this.actualizandoDatos = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  obtenerFiltrosActuales() {
+    return {
+      dispositivo_id: this.filtros.dispositivo_id || undefined,
+      employee_no: this.filtros.employee_no || undefined,
+      fecha_inicio: this.filtros.fecha_inicio || undefined,
+      fecha_fin: this.filtros.fecha_fin || undefined
+    };
+  }
+
+  toggleAutoRefresh() {
+    this.autoRefreshEnabled = !this.autoRefreshEnabled;
+    
+    if (this.autoRefreshEnabled) {
+      this.iniciarAutoRefresh();
+    } else {
+      this.detenerAutoRefresh();
+    }
+    
+    // Forzar detección de cambios
+    this.cdr.detectChanges();
+  }
+
 
   // Métodos para ag-Grid
   onGridReady(params: GridReadyEvent) {
