@@ -299,11 +299,19 @@ async function syncAttendanceFromDevice(dispositivo) {
     let savedCount = 0;
     let skippedCount = 0;
     let errorCount = 0;
+    let imagesDownloaded = 0;
+    let imagesErrors = 0;
 
     for (const event of allEvents) {
       try {
         
         // Verificar si el evento ya existe
+        if (!event.employeeNoString) {
+          console.log(`⚠️ Evento sin employeeNoString, saltando...`);
+          skippedCount++;
+          continue;
+        }
+        
         const existingLog = await Attlog.findOne({
           where: {
             dispositivo_id: dispositivo.id,
@@ -362,18 +370,22 @@ async function syncAttendanceFromDevice(dispositivo) {
                 imageBuffer = imageResponse.data;
               } else {
                 console.log(`❌ Formato de imagen no reconocido para evento ${attlog.id}`);
+                imagesErrors++;
                 continue;
               }
               
               const filePath = path.join(attlogsDir, `${attlog.id}.jpg`);
               fs.writeFileSync(filePath, imageBuffer);
               console.log(`✅ Imagen guardada: ${filePath}`);
+              imagesDownloaded++;
             } else {
               console.log(`❌ Error descargando imagen para evento ${attlog.id}: ${imageResponse.status}`);
               console.log(`🔍 Respuesta de error:`, imageResponse.data);
+              imagesErrors++;
             }
           } catch (imageError) {
             console.log(`❌ Error procesando imagen para evento ${attlog.id}:`, imageError.message);
+            imagesErrors++;
           }
         }
 
@@ -387,7 +399,7 @@ async function syncAttendanceFromDevice(dispositivo) {
     }
 
     // Descargar imágenes para eventos que tienen pictureInfo
-    console.log(`📸 Procesamiento de imágenes completado durante el guardado de eventos`);
+    console.log(`📸 Procesamiento de imágenes completado: ${imagesDownloaded} descargadas, ${imagesErrors} errores`);
 
     return {
       totalEvents: allEvents.length,
@@ -7321,6 +7333,86 @@ app.post('/api/hikvision/discover-channels', authenticateToken, async (req, res)
   } catch (error) {
     console.error('Error en /api/hikvision/discover-channels:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ==================== RUTAS DE ATTLOGS (MARCJES) ====================
+
+// GET /api/attlogs - Obtener todos los marcajes (DataTables server-side)
+app.get('/api/attlogs', authenticateToken, async (req, res) => {
+  try {
+    const { 
+      dispositivo_id, 
+      employee_no, 
+      fecha_inicio, 
+      fecha_fin
+    } = req.query;
+    
+    // Construir filtros
+    const whereClause = {};
+    
+    if (dispositivo_id) {
+      whereClause.dispositivo_id = dispositivo_id;
+    }
+    
+    if (employee_no) {
+      whereClause.employee_no = { [Op.like]: `%${employee_no}%` };
+    }
+    
+    if (fecha_inicio && fecha_fin) {
+      whereClause.event_time = {
+        [Op.between]: [fecha_inicio, fecha_fin]
+      };
+    }
+    
+    const queryOptions = {
+      where: whereClause,
+      include: [
+        {
+          model: Dispositivo,
+          as: 'Dispositivo',
+          attributes: ['id', 'nombre', 'ip_remota']
+        }
+      ],
+      order: [['event_time', 'DESC']]
+    };
+    
+    const attlogs = await Attlog.findAll(queryOptions);
+    
+    // Respuesta simple con todos los datos
+    res.json({
+      attlogs: attlogs,
+      total: attlogs.length
+    });
+  } catch (error) {
+    console.error('❌ Error obteniendo attlogs:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/attlogs/:id - Obtener marcaje por ID
+app.get('/api/attlogs/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const attlog = await Attlog.findByPk(id, {
+      include: [
+        {
+          model: Dispositivo,
+          as: 'Dispositivo',
+          attributes: ['id', 'nombre', 'ip_remota']
+        }
+      ]
+    });
+    
+    if (!attlog) {
+      return res.status(404).json({ message: 'Marcaje no encontrado' });
+    }
+    
+    res.json(attlog);
+  } catch (error) {
+    console.error('❌ Error obteniendo marcaje:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
 

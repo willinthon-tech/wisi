@@ -156,6 +156,7 @@ import { UserService } from '../../services/user.service';
     }
 
 
+
     .page-info {
       text-align: center;
       display: flex;
@@ -301,6 +302,7 @@ export class DashboardComponent implements OnInit {
       this.router.navigate(['/super-config']);
     }
   }
+
 
   logout() {
     this.authService.logout();
