@@ -707,14 +707,15 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
       sortable: true, 
       filter: false
     },
-    { 
-      field: 'event_time', 
-      headerName: 'Fecha/Hora', 
-      width: 180, 
-      sortable: true, 
-      filter: false,
-      valueFormatter: (params) => this.formatearFecha(params.value)
-    },
+           { 
+             field: 'event_time', 
+             headerName: 'Fecha/Hora', 
+             width: 180, 
+             sortable: true, 
+             filter: false,
+             sort: 'desc', // Ordenar por defecto descendente (más reciente primero)
+             valueFormatter: (params) => this.formatearFecha(params.value)
+           },
     { 
       field: 'Dispositivo.nombre', 
       headerName: 'Dispositivo', 
@@ -791,10 +792,16 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
             dispositivo_ip: marcaje.Dispositivo?.ip_remota || 'N/A'
           }));
           
-          // Ordenar por fecha más reciente primero
+          // Ordenar por fecha más reciente primero (verificar fechas válidas)
           this.marcajes.sort((a, b) => {
             const fechaA = new Date(a.event_time);
             const fechaB = new Date(b.event_time);
+            
+            // Verificar que las fechas sean válidas
+            if (isNaN(fechaA.getTime()) && isNaN(fechaB.getTime())) return 0;
+            if (isNaN(fechaA.getTime())) return 1;
+            if (isNaN(fechaB.getTime())) return -1;
+            
             return fechaB.getTime() - fechaA.getTime(); // Más reciente primero
           });
         } else {
@@ -843,10 +850,16 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
       });
     }
     
-    // Ordenar por fecha más reciente primero
+    // Ordenar por fecha más reciente primero (verificar fechas válidas)
     filtrados.sort((a, b) => {
       const fechaA = new Date(a.event_time);
       const fechaB = new Date(b.event_time);
+      
+      // Verificar que las fechas sean válidas
+      if (isNaN(fechaA.getTime()) && isNaN(fechaB.getTime())) return 0;
+      if (isNaN(fechaA.getTime())) return 1;
+      if (isNaN(fechaB.getTime())) return -1;
+      
       return fechaB.getTime() - fechaA.getTime(); // Más reciente primero
     });
     
@@ -1055,10 +1068,16 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.marcajes = response.attlogs || [];
         
-        // Ordenar por fecha más reciente primero
+        // Ordenar por fecha más reciente primero (verificar fechas válidas)
         this.marcajes.sort((a, b) => {
           const fechaA = new Date(a.event_time);
           const fechaB = new Date(b.event_time);
+          
+          // Verificar que las fechas sean válidas
+          if (isNaN(fechaA.getTime()) && isNaN(fechaB.getTime())) return 0;
+          if (isNaN(fechaA.getTime())) return 1;
+          if (isNaN(fechaB.getTime())) return -1;
+          
           return fechaB.getTime() - fechaA.getTime(); // Más reciente primero
         });
         

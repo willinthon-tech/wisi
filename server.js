@@ -306,9 +306,37 @@ async function syncAttendanceFromDevice(dispositivo) {
     for (const event of allEvents) {
       try {
         
-        // Verificar si el evento ya existe
+        // Verificar si el evento ya existe y validar datos
         if (!event.employeeNoString) {
           console.log(`⚠️ Evento sin employeeNoString, saltando...`);
+          skippedCount++;
+          continue;
+        }
+
+        // Validar que employeeNoString no contenga datos corruptos (headers HTTP)
+        if (event.employeeNoString.includes('GMT') || 
+            event.employeeNoString.includes('Server:') || 
+            event.employeeNoString.includes('Content-') ||
+            event.employeeNoString.includes('Connection:') ||
+            event.employeeNoString.includes('Keep-Alive:') ||
+            event.employeeNoString.includes('X-Frame-Options:') ||
+            event.employeeNoString.includes('Cache-Control:') ||
+            event.employeeNoString.includes('Pragma:')) {
+          console.log(`⚠️ Evento con datos corruptos (headers HTTP), saltando: ${event.employeeNoString}`);
+          skippedCount++;
+          continue;
+        }
+
+        // Validar que el nombre no contenga datos corruptos
+        if (event.name && (event.name.includes('GMT') || 
+            event.name.includes('Server:') || 
+            event.name.includes('Content-') ||
+            event.name.includes('Connection:') ||
+            event.name.includes('Keep-Alive:') ||
+            event.name.includes('X-Frame-Options:') ||
+            event.name.includes('Cache-Control:') ||
+            event.name.includes('Pragma:'))) {
+          console.log(`⚠️ Evento con nombre corrupto (headers HTTP), saltando: ${event.name}`);
           skippedCount++;
           continue;
         }
