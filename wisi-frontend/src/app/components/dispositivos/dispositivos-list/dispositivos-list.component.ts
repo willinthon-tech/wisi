@@ -37,6 +37,27 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   currentView = 'lista'; // 'lista', 'foto', 'editar', 'test'
   showUserTable = false; // Controla si se muestra la tabla de usuarios
   editingUser: any = null;
+
+  // Variables para modal de configuración de CRON global
+  showCronConfigModal = false;
+  cronConfig = {
+    currentValue: 'Desactivado',
+    isActive: false,
+    options: ['Desactivado', '10s', '30s', '1m', '5m', '10m', '30m', '1h', '6h', '12h', '24h']
+  };
+  queueStatus = {
+    queueLength: 0,
+    isProcessing: false,
+    activeCronJobs: 0,
+    queue: [] as any[],
+    delayBetweenDevices: '1m',
+    delayMs: 60000,
+    timeoutPerDevice: 300000,
+    maxConcurrentDevices: 1,
+    currentProcessingDevice: null as any
+  };
+  loadingQueueStatus = false;
+  savingCronConfig = false;
   
   // Variables de estado para spinners
   loadingUsers = false;
@@ -302,33 +323,6 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     this.cronTiempo = '24h';
   }
 
-  saveCronConfig(): void {
-    if (!this.selectedDispositivo) {
-      return;
-    }
-
-    const cronConfig = {
-      cron_activo: this.cronActivo ? 1 : 0,
-      cron_tiempo: this.cronTiempo
-    };
-
-    this.dispositivosService.updateCronConfig(this.selectedDispositivo.id, cronConfig).subscribe({
-      next: (response) => {
-        // Actualizar el dispositivo en la lista local
-        const dispositivoIndex = this.dispositivos.findIndex(d => d.id === this.selectedDispositivo.id);
-        if (dispositivoIndex !== -1) {
-          this.dispositivos[dispositivoIndex].cron_activo = cronConfig.cron_activo;
-          this.dispositivos[dispositivoIndex].cron_tiempo = cronConfig.cron_tiempo;
-        }
-        
-        this.closeCronModal();
-      },
-      error: (error) => {
-        console.error('Error actualizando configuración CRON:', error);
-        // Aquí podrías mostrar un mensaje de error al usuario
-      }
-    });
-  }
 
   testConnection(): void {
     this.testing = true;
@@ -1041,5 +1035,163 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
         this.photoLoading = false;
       }
     });
+  }
+
+  // Métodos para modal de configuración de CRON global
+  openCronConfigModal() {
+    this.showCronConfigModal = true;
+    this.loadCronConfig();
+    this.refreshQueueStatus();
+  }
+
+  closeCronConfigModal() {
+    this.showCronConfigModal = false;
+  }
+
+  loadCronConfig() {
+    this.dispositivosService.getCronConfig().subscribe({
+      next: (response) => {
+        this.cronConfig.currentValue = response.currentValue;
+        this.cronConfig.isActive = response.isActive;
+      },
+      error: (error) => {
+        console.error('Error cargando configuración de CRON:', error);
+      }
+    });
+  }
+
+  saveCronConfig() {
+    this.savingCronConfig = true;
+    this.dispositivosService.updateCronConfig(this.cronConfig.currentValue).subscribe({
+      next: (response) => {
+        this.cronConfig.isActive = this.cronConfig.currentValue !== 'Desactivado';
+        this.savingCronConfig = false;
+        console.log('Configuración de CRON actualizada:', response);
+      },
+      error: (error) => {
+        console.error('Error actualizando configuración de CRON:', error);
+        this.savingCronConfig = false;
+      }
+    });
+  }
+
+  refreshQueueStatus() {
+    this.loadingQueueStatus = true;
+    this.dispositivosService.getQueueStatus().subscribe({
+      next: (response) => {
+        this.queueStatus = response;
+        this.loadingQueueStatus = false;
+      },
+      error: (error) => {
+        console.error('Error obteniendo estado de la cola:', error);
+        this.loadingQueueStatus = false;
+      }
+    });
+  }
+
+  clearQueue() {
+    if (confirm('¿Estás seguro de que quieres limpiar la cola de CRON?')) {
+      this.dispositivosService.clearQueue().subscribe({
+        next: (response) => {
+          console.log('Cola limpiada:', response);
+          this.refreshQueueStatus();
+        },
+        error: (error) => {
+          console.error('Error limpiando cola:', error);
+        }
+      });
+    }
+  }
+
+  trackByIndex(index: number, item: any): number {
+    return index;
+  }
+
+  // Método para calcular el intervalo de sincronización de cada dispositivo
+  getDeviceSyncInterval(): string {
+    const deviceCount = this.dispositivos.length;
+    const cronValue = this.cronConfig.currentValue;
+    
+    if (cronValue === 'Desactivado' || deviceCount === 0) {
+      return 'N/A';
+    }
+    
+    // Calcular el intervalo real por dispositivo
+    const cronMs = this.timeToMs(cronValue);
+    const totalMs = cronMs * deviceCount;
+    
+    return this.formatInterval(totalMs);
+  }
+
+  // Método para generar pasos de ejemplo dinámicos
+  getExampleSteps(): string[] {
+    const cronValue = this.cronConfig.currentValue;
+    const deviceCount = this.dispositivos.length;
+    
+    if (cronValue === 'Desactivado' || deviceCount === 0) {
+      return [];
+    }
+    
+    const steps: string[] = [];
+    const timeUnit = this.getTimeUnit(cronValue);
+    const timeValue = this.getTimeValue(cronValue);
+    
+    // Generar pasos para los primeros 4 dispositivos + ciclo
+    for (let i = 0; i < Math.min(deviceCount, 4); i++) {
+      const deviceName = this.dispositivos[i]?.nombre || `Dispositivo ${i + 1}`;
+      const time = (i + 1) * timeValue;
+      steps.push(`${time}${timeUnit}: ${deviceName}`);
+    }
+    
+    // Si hay más de 4 dispositivos, mostrar el ciclo
+    if (deviceCount > 4) {
+      const cycleTime = (deviceCount + 1) * timeValue;
+      steps.push(`${cycleTime}${timeUnit}: ${this.dispositivos[0]?.nombre || 'Dispositivo 1'} (ciclo)`);
+    }
+    
+    return steps;
+  }
+
+  // Método auxiliar para convertir tiempo a milisegundos
+  private timeToMs(timeValue: string): number {
+    const timeMap: { [key: string]: number } = {
+      '1m': 60 * 1000,      // 1 minuto
+      '5m': 5 * 60 * 1000,  // 5 minutos
+      '10m': 10 * 60 * 1000, // 10 minutos
+      '30m': 30 * 60 * 1000, // 30 minutos
+      '1h': 60 * 60 * 1000,  // 1 hora
+      '6h': 6 * 60 * 60 * 1000, // 6 horas
+      '12h': 12 * 60 * 60 * 1000, // 12 horas
+      '24h': 24 * 60 * 60 * 1000  // 24 horas
+    };
+    return timeMap[timeValue] || 60 * 1000; // Default 1 minuto
+  }
+
+  // Método auxiliar para formatear intervalo
+  private formatInterval(ms: number): string {
+    const minutes = Math.floor(ms / (60 * 1000));
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    
+    if (days > 0) {
+      return `${days}d ${hours % 24}h`;
+    } else if (hours > 0) {
+      return `${hours}h ${minutes % 60}m`;
+    } else {
+      return `${minutes}m`;
+    }
+  }
+
+  // Método auxiliar para obtener la unidad de tiempo
+  private getTimeUnit(cronValue: string): string {
+    if (cronValue.includes('h')) return 'h';
+    if (cronValue.includes('m')) return 'm';
+    return 'm';
+  }
+
+  // Método auxiliar para obtener el valor numérico del tiempo
+  private getTimeValue(cronValue: string): number {
+    const match = cronValue.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 1;
   }
 }

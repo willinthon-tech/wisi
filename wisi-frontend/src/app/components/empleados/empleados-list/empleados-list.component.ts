@@ -332,9 +332,14 @@ import { Subscription } from 'rxjs';
                   [(ngModel)]="nuevoEmpleado.horario_id"
                   (ngModelChange)="detectChanges()"
                   class="form-control"
+                  [disabled]="!nuevoEmpleado.cargo_id || userHorarios.length === 0"
                   required
                 >
-                  <option value="">Seleccione un horario</option>
+                  <option value="">
+                    {{ !nuevoEmpleado.cargo_id ? 'Seleccione un cargo primero' : 
+                       userHorarios.length === 0 ? 'No hay horarios disponibles' : 
+                       'Seleccione un horario' }}
+                  </option>
                   <option *ngFor="let horario of userHorarios" [value]="horario.id">
                     {{ horario.nombre }} ({{ horario.Sala?.nombre || 'Sin sala' }})
                   </option>
@@ -1370,7 +1375,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   showCargoSelector(): void {
     this.loadUserCargos();
-    this.loadUserHorarios();
+    // No cargar horarios inicialmente, se cargarán cuando se seleccione un cargo
+    this.userHorarios = [];
     // No cargar dispositivos inicialmente, se cargarán cuando se seleccione un cargo
     this.userDispositivos = [];
     this.resetForm();
@@ -1394,13 +1400,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadUserHorarios(): void {
-    this.empleadosService.getUserHorarios().subscribe({
+  loadUserHorarios(cargoId?: number): void {
+    this.empleadosService.getUserHorarios(cargoId).subscribe({
       next: (horarios: any[]) => {
         this.userHorarios = horarios;
       },
       error: (error: any) => {
-        alert('Error cargando horarios');
+        console.error('Error cargando horarios:', error);
+        this.userHorarios = [];
       }
     });
   }
@@ -1458,10 +1465,12 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   onCargoChange(): void {
-    
-    
-    
-    
+    // Cargar horarios cuando se seleccione un cargo
+    if (this.nuevoEmpleado.cargo_id) {
+      this.loadUserHorarios(this.nuevoEmpleado.cargo_id);
+    } else {
+      this.userHorarios = [];
+    }
     
     // Guardar dispositivos actuales antes de cambiar
     const dispositivosActuales = [...(this.nuevoEmpleado.dispositivos || [])];
@@ -2490,7 +2499,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     
     // Cargar cargos primero, luego los demás datos
     this.loadUserCargos();
-    this.loadUserHorarios();
+    
+    // Cargar horarios basados en el cargo del empleado que se está editando
+    if (empleado.cargo_id) {
+      this.loadUserHorarios(empleado.cargo_id);
+    } else {
+      this.userHorarios = [];
+    }
     
     // Esperar a que se carguen los cargos antes de cargar dispositivos
     setTimeout(() => {

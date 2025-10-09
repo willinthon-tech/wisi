@@ -108,6 +108,7 @@ const Empleado = require('./Empleado')(sequelize);
 const Horario = require('./Horario')(sequelize);
 const Bloque = require('./Bloque')(sequelize);
 const Dispositivo = require('./Dispositivo')(sequelize);
+const Cron = require('./Cron')(sequelize);
 
 // Asociaciones para NovedadMaquinaRegistro
 NovedadMaquinaRegistro.belongsTo(Libro, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
@@ -322,6 +323,7 @@ module.exports = {
   Bloque,
   Dispositivo,
   Attlog,
+  Cron,
   syncDatabase
 };
 

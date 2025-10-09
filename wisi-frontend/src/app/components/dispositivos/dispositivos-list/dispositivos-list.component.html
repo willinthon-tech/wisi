@@ -5,6 +5,11 @@
       (click)="navigateToCreate()">
       Crear Nuevo Dispositivo
     </button>
+    <button 
+      class="btn-cron-config" 
+      (click)="openCronConfigModal()">
+      Parámetros del CRON
+    </button>
   </div>
   
   <div class="list-section" *ngIf="!loading">
@@ -29,11 +34,6 @@
             class="btn-biometric" 
             (click)="openBiometricModal(dispositivo)">
             Gestión Biométrica
-          </button>
-          <button 
-            class="btn-cron" 
-            (click)="openCronModal(dispositivo)">
-            CRON
           </button>
           <button 
             class="btn-edit" 
@@ -809,6 +809,140 @@
       </button>
       <button type="button" class="btn btn-primary" (click)="saveCronConfig()">
         Guardar Configuración
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Configuración de CRON Global -->
+<div class="modal" [class.show]="showCronConfigModal" *ngIf="showCronConfigModal">
+  <div class="modal-content cron-config-modal">
+    <div class="modal-header">
+      <h3>⚙️ Parámetros del CRON Global</h3>
+      <button type="button" class="btn-close" (click)="closeCronConfigModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="cron-config-section">
+        <h4>🕐 Configuración de Intervalo</h4>
+        <div class="form-group">
+          <label for="cronInterval">Intervalo de Sincronización:</label>
+          <select 
+            id="cronInterval" 
+            [(ngModel)]="cronConfig.currentValue"
+            class="form-control">
+            <option value="Desactivado">Desactivado</option>
+            <option value="10s">10 segundos</option>
+            <option value="30s">30 segundos</option>
+            <option value="1m">1 minuto</option>
+            <option value="5m">5 minutos</option>
+            <option value="10m">10 minutos</option>
+            <option value="30m">30 minutos</option>
+            <option value="1h">1 hora</option>
+            <option value="6h">6 horas</option>
+            <option value="12h">12 horas</option>
+            <option value="24h">24 horas</option>
+          </select>
+        </div>
+        <div class="cron-status" [class.active]="cronConfig.isActive">
+          <span class="status-indicator"></span>
+          <span class="status-text">
+            {{ cronConfig.isActive ? 'CRON Activo' : 'CRON Desactivado' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="cron-info-section">
+        <h4>🔄 Sistema de CRON Rotativo</h4>
+        <div class="cron-explanation">
+          <p><strong>¿Cómo funciona?</strong></p>
+          <ul>
+            <li>El CRON global se ejecuta cada <strong>{{ cronConfig.currentValue }}</strong></li>
+            <li>Cada ejecución procesa <strong>un dispositivo</strong> en orden rotativo</li>
+            <li>Cuando termina el último dispositivo, vuelve al primero</li>
+          </ul>
+          <div class="example-flow" *ngIf="cronConfig.currentValue !== 'Desactivado'">
+            <p><strong>Ejemplo con {{ cronConfig.currentValue }}:</strong></p>
+            <div class="flow-steps">
+              <div class="step" *ngFor="let step of getExampleSteps(); let i = index">
+                {{ step }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cron-queue-section">
+        <h4>📋 Estado de la Cola</h4>
+        <div class="queue-info">
+          <div class="queue-stat">
+            <span class="stat-label">Dispositivos en cola:</span>
+            <span class="stat-value">{{ queueStatus.queueLength }}</span>
+          </div>
+          <div class="queue-stat">
+            <span class="stat-label">Procesando:</span>
+            <span class="stat-value">{{ queueStatus.isProcessing ? 'Sí' : 'No' }}</span>
+          </div>
+          <div class="queue-stat">
+            <span class="stat-label">CRON activos:</span>
+            <span class="stat-value">{{ queueStatus.activeCronJobs }}</span>
+          </div>
+          <div class="queue-stat">
+            <span class="stat-label">Intervalo entre dispositivos:</span>
+            <span class="stat-value">{{ queueStatus.delayBetweenDevices || '1m' }}</span>
+          </div>
+          <div class="queue-stat">
+            <span class="stat-label">Timeout por dispositivo:</span>
+            <span class="stat-value">{{ (queueStatus.timeoutPerDevice / 1000 / 60) | number:'1.1-1' }} min</span>
+          </div>
+          <div class="queue-stat">
+            <span class="stat-label">Máximo concurrente:</span>
+            <span class="stat-value">{{ queueStatus.maxConcurrentDevices }}</span>
+          </div>
+          <div class="queue-stat">
+            <span class="stat-label">Dispositivo actual:</span>
+            <span class="stat-value" [class.current-device]="queueStatus.currentProcessingDevice" [class.no-device]="!queueStatus.currentProcessingDevice">
+              {{ queueStatus.currentProcessingDevice ? queueStatus.currentProcessingDevice.nombre : 'Ninguno' }}
+            </span>
+          </div>
+        </div>
+        
+        <div class="queue-list" *ngIf="queueStatus.queue && queueStatus.queue.length > 0">
+          <h5>Dispositivos en Cola:</h5>
+          <div class="queue-item" *ngFor="let item of queueStatus.queue; trackBy: trackByIndex">
+            <span class="device-name">{{ item?.device || 'Dispositivo' }}</span>
+            <span class="queue-time">{{ item?.timestamp | date:'short' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cron-actions-section">
+        <h4>🔧 Acciones</h4>
+        <div class="action-buttons">
+          <button 
+            class="btn btn-info" 
+            (click)="refreshQueueStatus()"
+            [disabled]="loadingQueueStatus">
+            <i class="fas fa-sync-alt"></i> Actualizar Estado
+          </button>
+          <button 
+            class="btn btn-warning" 
+            (click)="clearQueue()"
+            [disabled]="queueStatus.queueLength === 0">
+            <i class="fas fa-trash"></i> Limpiar Cola
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="closeCronConfigModal()">
+        Cerrar
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-primary" 
+        (click)="saveCronConfig()"
+        [disabled]="savingCronConfig">
+        {{ savingCronConfig ? 'Guardando...' : 'Guardar Configuración' }}
       </button>
     </div>
   </div>

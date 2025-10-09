@@ -70,8 +70,14 @@ export class EmpleadosService {
     return this.http.get<any[]>(`${this.apiUrl}/cargos`);
   }
 
-  getUserHorarios(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/horarios`);
+  getUserHorarios(cargoId?: number): Observable<any[]> {
+    if (!cargoId) {
+      return new Observable(observer => {
+        observer.next([]);
+        observer.complete();
+      });
+    }
+    return this.http.get<any[]>(`${this.apiUrl}/horarios?cargoId=${cargoId}`);
   }
 
   getUserDispositivos(): Observable<any[]> {

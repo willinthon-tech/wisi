@@ -30,13 +30,27 @@ export class DispositivosService {
     return this.http.delete<any>(`${this.apiUrl}/${id}`);
   }
 
+  // Métodos para CRON global
+  getCronConfig(): Observable<any> {
+    return this.http.get<any>('http://localhost:3000/api/cron/config');
+  }
+
+  updateCronConfig(value: string): Observable<any> {
+    return this.http.put<any>('http://localhost:3000/api/cron/config', { value });
+  }
+
+  getQueueStatus(): Observable<any> {
+    return this.http.get<any>('http://localhost:3000/api/cron/queue-status');
+  }
+
+  clearQueue(): Observable<any> {
+    return this.http.post<any>('http://localhost:3000/api/cron/clear-queue', {});
+  }
+
   getSalas(): Observable<any[]> {
     return this.http.get<any[]>('http://localhost:3000/api/salas');
   }
 
-  updateCronConfig(id: number, cronConfig: { cron_activo: number, cron_tiempo: string }): Observable<any> {
-    return this.http.put<any>(`${this.apiUrl}/${id}/cron`, cronConfig);
-  }
 }
 
 

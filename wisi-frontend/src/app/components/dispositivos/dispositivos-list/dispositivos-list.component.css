@@ -7,6 +7,9 @@
   margin-bottom: 30px;
   padding-bottom: 20px;
   border-bottom: 2px solid #e9ecef;
+  display: flex;
+  gap: 15px;
+  align-items: center;
 }
 
 .btn-primary {
@@ -504,4 +507,254 @@ button:disabled {
 
 .checkmark {
   margin-left: 5px;
+}
+
+/* Estilos para botón de configuración de CRON */
+.btn-cron-config {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-cron-config:hover {
+  background: #138496;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Estilos para modal de configuración de CRON */
+.cron-config-modal {
+  max-width: 800px;
+  width: 90%;
+}
+
+.cron-config-section,
+.cron-queue-section,
+.cron-actions-section {
+  margin-bottom: 25px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #17a2b8;
+}
+
+.cron-config-section h4,
+.cron-queue-section h4,
+.cron-actions-section h4 {
+  margin: 0 0 15px 0;
+  color: #17a2b8;
+  font-size: 1.1em;
+}
+
+.cron-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 15px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.cron-status.active {
+  border-color: #28a745;
+  background: #d4edda;
+}
+
+.status-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #dc3545;
+}
+
+.cron-status.active .status-indicator {
+  background: #28a745;
+}
+
+.status-text {
+  font-weight: 500;
+  color: #495057;
+}
+
+.queue-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.queue-stat {
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.stat-label {
+  font-size: 0.9em;
+  color: #6c757d;
+  margin-bottom: 5px;
+}
+
+.stat-value {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #17a2b8;
+}
+
+.queue-list {
+  margin-top: 15px;
+}
+
+.queue-list h5 {
+  margin: 0 0 10px 0;
+  color: #495057;
+  font-size: 1em;
+}
+
+.queue-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.device-name {
+  font-weight: 500;
+  color: #495057;
+}
+
+.queue-time {
+  font-size: 0.9em;
+  color: #6c757d;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.action-buttons .btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: all 0.3s;
+}
+
+.action-buttons .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.action-buttons .btn i {
+  margin-right: 5px;
+}
+
+/* Estilos para la sección de información del CRON */
+.cron-info-section {
+  margin-bottom: 25px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #28a745;
+}
+
+.cron-info-section h4 {
+  margin: 0 0 15px 0;
+  color: #28a745;
+  font-size: 1.1em;
+}
+
+.cron-explanation {
+  background: #fff;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.cron-explanation p {
+  margin: 0 0 10px 0;
+  color: #495057;
+  font-size: 0.95em;
+}
+
+.cron-explanation ul {
+  margin: 10px 0;
+  padding-left: 20px;
+}
+
+.cron-explanation li {
+  margin: 5px 0;
+  color: #6c757d;
+  font-size: 0.9em;
+}
+
+.example-flow {
+  margin-top: 15px;
+  padding: 15px;
+  background: #e8f5e8;
+  border-radius: 6px;
+  border: 1px solid #c3e6c3;
+}
+
+.example-flow p {
+  margin: 0 0 10px 0;
+  color: #155724;
+  font-weight: 500;
+  font-size: 0.9em;
+}
+
+.flow-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.step {
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #c3e6c3;
+  color: #155724;
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+/* Estilos para dispositivo actual */
+.current-device {
+  color: #28a745 !important;
+  font-weight: bold !important;
+  background: #d4edda !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  border: 1px solid #c3e6c3 !important;
+}
+
+/* Estilos para cuando no hay dispositivo */
+.no-device {
+  color: #6c757d !important;
+  font-style: italic !important;
+  background: #f8f9fa !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  border: 1px solid #dee2e6 !important;
 }

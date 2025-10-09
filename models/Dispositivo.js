@@ -52,18 +52,6 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Fecha y hora de fin del marcaje en formato YYYY-MM-DDTHH:mm:ss'
     },
-    cron_activo: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
-      comment: 'Indica si el cron está activo (1) o inactivo (0)'
-    },
-    cron_tiempo: {
-      type: DataTypes.STRING(10),
-      allowNull: false,
-      defaultValue: '24h',
-      comment: 'Intervalo de tiempo para el cron (10s, 1m, 5m, 10m, 30m, 1h, 6h, 12h, 24h)'
-    }
   }, {
     tableName: 'dispositivos',
     timestamps: true,

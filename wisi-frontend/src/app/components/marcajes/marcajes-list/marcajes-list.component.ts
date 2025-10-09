@@ -91,7 +91,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
               [columnDefs]="columnDefs"
               [defaultColDef]="{
                 resizable: true,
-                sortable: true,
+                sortable: false,
                 filter: false,
                 flex: 1,
                 minWidth: 100
@@ -101,11 +101,11 @@ ModuleRegistry.registerModules([AllCommunityModule]);
               [paginationAutoPageSize]="false"
               [paginationPageSizeSelector]="[25, 50, 100]"
               [suppressPaginationPanel]="false"
-              [suppressColumnVirtualisation]="false"
-              [suppressRowHoverHighlight]="true"
-              [suppressCellFocus]="true"
-              [suppressMenuHide]="true"
-              [suppressColumnMoveAnimation]="true"
+                   [suppressColumnVirtualisation]="false"
+                   [suppressRowHoverHighlight]="true"
+                   [suppressCellFocus]="true"
+                   [suppressMenuHide]="true"
+                   [suppressColumnMoveAnimation]="true"
               [suppressRowTransform]="true"
               [suppressAnimationFrame]="true"
               (gridReady)="onGridReady($event)"
@@ -155,9 +155,28 @@ ModuleRegistry.registerModules([AllCommunityModule]);
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" (click)="cerrarModal()">
-              Cerrar
-            </button>
+            <div class="modal-navigation">
+              <button type="button" class="btn btn-outline-primary" 
+                      (click)="anteriorDetalle()" 
+                      [disabled]="!puedeAnteriorDetalle"
+                      title="Registro anterior">
+                <i class="fas fa-chevron-left"></i> Anterior
+              </button>
+              <span class="modal-counter">
+                {{ currentDetailIndex + 1 }} de {{ marcajesFiltrados.length }}
+              </span>
+              <button type="button" class="btn btn-outline-primary" 
+                      (click)="siguienteDetalle()" 
+                      [disabled]="!puedeSiguienteDetalle"
+                      title="Registro siguiente">
+                Siguiente <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-secondary" (click)="cerrarModal()">
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -165,25 +184,43 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       <!-- Modal de imagen -->
       <div class="modal" [class.show]="showImageModal" *ngIf="showImageModal">
         <div class="modal-content image-modal">
-          <div class="modal-header">
-            <h3>Imagen del Marcaje</h3>
-            <button type="button" class="btn-close" (click)="closeImageModal()">&times;</button>
-          </div>
-          <div class="modal-body">
+          <!-- Botón de cerrar flotante -->
+          <button type="button" class="btn-close-floating" (click)="closeImageModal()" title="Cerrar">
+            ✕
+          </button>
+          
+          <div class="modal-body" style="padding: 0 !important; margin: 0 !important;">
             <div class="image-container" *ngIf="imageUrl">
               <img [src]="imageUrl" [alt]="'Imagen del marcaje ' + selectedMarcaje?.id" 
                    class="marcaje-image" (error)="onImageError()">
             </div>
             <div class="no-image" *ngIf="!imageUrl">
-              <p>No se pudo cargar la imagen</p>
+              <p>No hay imagen disponible</p>
             </div>
           </div>
-          <div class="modal-footer">
+          <!-- Controles de navegación flotantes -->
+          <div class="modal-navigation-floating">
+            <button type="button" class="btn btn-outline-primary" 
+                    (click)="anteriorImagen()" 
+                    [disabled]="!puedeAnteriorImagen"
+                    title="Imagen anterior">
+              <i class="fas fa-chevron-left"></i> Anterior
+            </button>
+            <span class="modal-counter">
+              {{ currentMarcajeIndex + 1 }} de {{ marcajesFiltrados.length }}
+            </span>
+            <button type="button" class="btn btn-outline-primary" 
+                    (click)="siguienteImagen()" 
+                    [disabled]="!puedeSiguienteImagen"
+                    title="Imagen siguiente">
+              Siguiente <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+          
+          <!-- Acciones flotantes -->
+          <div class="modal-actions-floating">
             <button type="button" class="btn btn-primary" (click)="downloadImage()" *ngIf="imageUrl">
               <i class="fas fa-download"></i> Descargar
-            </button>
-            <button type="button" class="btn btn-secondary" (click)="closeImageModal()">
-              Cerrar
             </button>
           </div>
         </div>
@@ -424,6 +461,23 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       display: none !important;
     }
 
+    /* Ocultar indicadores de ordenamiento */
+    .ag-theme-alpine .ag-header-cell-sortable .ag-header-cell-label::after,
+    .ag-theme-alpine .ag-header-cell-sorted .ag-header-cell-label::after,
+    .ag-theme-alpine .ag-sort-indicator,
+    .ag-theme-alpine .ag-sort-indicator-icon {
+      display: none !important;
+    }
+
+    /* Deshabilitar cursor pointer en headers */
+    .ag-theme-alpine .ag-header-cell {
+      cursor: default !important;
+    }
+
+    .ag-theme-alpine .ag-header-cell:hover {
+      background-color: transparent !important;
+    }
+
 
     .table {
       margin: 0;
@@ -561,7 +615,42 @@ ModuleRegistry.registerModules([AllCommunityModule]);
     .modal-footer {
       padding: 20px;
       border-top: 1px solid #dee2e6;
-      text-align: right;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .modal-navigation {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-counter {
+      background: #f8f9fa;
+      padding: 5px 12px;
+      border-radius: 15px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #495057;
+      border: 1px solid #dee2e6;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .modal-navigation .btn {
+      padding: 6px 12px;
+      font-size: 0.9rem;
+    }
+
+    .modal-navigation .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
 
     @media (max-width: 1200px) {
@@ -623,38 +712,198 @@ ModuleRegistry.registerModules([AllCommunityModule]);
       .detail-grid {
         grid-template-columns: 1fr;
       }
+
+      .modal-footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+      }
+
+      .modal-navigation {
+        justify-content: center;
+        order: 1;
+      }
+
+      .modal-actions {
+        justify-content: center;
+        order: 2;
+      }
+
+      .modal-counter {
+        font-size: 0.8rem;
+        padding: 4px 10px;
+      }
     }
 
     /* Estilos para modal de imagen */
     .image-modal {
-      max-width: 800px;
+      width: 100vw !important;
+      height: 100vh !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      z-index: 9999 !important;
+      overflow: hidden !important;
+      max-width: none !important;
+      max-height: none !important;
     }
 
     .image-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-      background: #f8f9fa;
-      border-radius: 8px;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: center !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      background: #000 !important;
+      border-radius: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      position: relative !important;
+      overflow: hidden !important;
+      border: none !important;
+      box-sizing: border-box !important;
     }
 
     .marcaje-image {
-      max-width: 100%;
-      max-height: 600px;
-      border-radius: 4px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      border: none !important;
+      display: block !important;
+      box-sizing: border-box !important;
     }
 
     .no-image {
-      text-align: center;
-      padding: 40px;
-      color: #6c757d;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      background: #000;
+      border-radius: 0;
+      height: 100vh;
+      width: 100vw;
+      color: #fff;
+      font-size: 2rem;
+      overflow: hidden;
     }
 
     .no-image p {
-      font-size: 1.1rem;
+      font-size: 2rem;
       margin: 0;
+      font-weight: 500;
+      color: #fff;
+    }
+
+    /* Botón de cerrar flotante */
+    .btn-close-floating {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 10000;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.2rem;
+      transition: all 0.3s;
+      box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+
+    .btn-close-floating:hover {
+      background: #c82333;
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(220, 53, 69, 0.5);
+    }
+
+    .btn-close-floating {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: white;
+      line-height: 1;
+    }
+
+    /* Controles de navegación flotantes */
+    .modal-navigation-floating {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px 20px;
+      border-radius: 25px;
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-navigation-floating .btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      transition: all 0.3s;
+    }
+
+    .modal-navigation-floating .btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .modal-navigation-floating .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .modal-counter {
+      color: #000;
+      font-weight: 600;
+      font-size: 0.9rem;
+      min-width: 80px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 4px 8px;
+      border-radius: 12px;
+    }
+
+    /* Acciones flotantes */
+    .modal-actions-floating {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 10000;
+      display: flex;
+      gap: 10px;
+    }
+
+    .modal-actions-floating .btn {
+      background: rgba(0, 123, 255, 0.8);
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      transition: all 0.3s;
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-actions-floating .btn:hover {
+      background: rgba(0, 123, 255, 1);
+      transform: translateY(-2px);
     }
   `]
 })
@@ -678,6 +927,7 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
   // Modal
   mostrarModal = false;
   marcajeSeleccionado: Marcaje | null = null;
+  currentDetailIndex = -1;
   
   // Estados
   cargando = false;
@@ -689,7 +939,7 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
       field: 'id', 
       headerName: 'ID', 
       width: 80, 
-      sortable: true, 
+      sortable: false, 
       filter: false,
       pinned: 'left'
     },
@@ -697,21 +947,21 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
       field: 'employee_no', 
       headerName: 'Empleado', 
       width: 120, 
-      sortable: true, 
+      sortable: false, 
       filter: false
     },
     { 
       field: 'nombre', 
       headerName: 'Nombre', 
       width: 200, 
-      sortable: true, 
+      sortable: false, 
       filter: false
     },
            { 
              field: 'event_time', 
              headerName: 'Fecha/Hora', 
              width: 180, 
-             sortable: true, 
+             sortable: false, 
              filter: false,
              sort: 'desc', // Ordenar por defecto descendente (más reciente primero)
              valueFormatter: (params) => this.formatearFecha(params.value)
@@ -720,14 +970,14 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
       field: 'Dispositivo.nombre', 
       headerName: 'Dispositivo', 
       width: 180, 
-      sortable: true, 
+      sortable: false, 
       filter: false
     },
     { 
       field: 'Dispositivo.ip_remota', 
       headerName: 'IP', 
       width: 140, 
-      sortable: true, 
+      sortable: false, 
       filter: false
     },
     { 
@@ -911,6 +1161,7 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
 
   verDetalles(marcaje: Marcaje) {
     this.marcajeSeleccionado = marcaje;
+    this.currentDetailIndex = this.marcajesFiltrados.findIndex(m => m.id === marcaje.id);
     this.mostrarModal = true;
     
     // Forzar detección de cambios
@@ -920,9 +1171,35 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
   cerrarModal() {
     this.mostrarModal = false;
     this.marcajeSeleccionado = null;
+    this.currentDetailIndex = -1;
     
     // Forzar detección de cambios
     this.cdr.detectChanges();
+  }
+
+  // Navegación en modal de detalles
+  anteriorDetalle() {
+    if (this.currentDetailIndex > 0) {
+      this.currentDetailIndex--;
+      this.marcajeSeleccionado = this.marcajesFiltrados[this.currentDetailIndex];
+      this.cdr.detectChanges();
+    }
+  }
+
+  siguienteDetalle() {
+    if (this.currentDetailIndex < this.marcajesFiltrados.length - 1) {
+      this.currentDetailIndex++;
+      this.marcajeSeleccionado = this.marcajesFiltrados[this.currentDetailIndex];
+      this.cdr.detectChanges();
+    }
+  }
+
+  get puedeAnteriorDetalle(): boolean {
+    return this.currentDetailIndex > 0;
+  }
+
+  get puedeSiguienteDetalle(): boolean {
+    return this.currentDetailIndex < this.marcajesFiltrados.length - 1;
   }
 
   tieneImagen(marcaje: Marcaje): boolean {
@@ -934,6 +1211,7 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
   showImageModal = false;
   selectedMarcaje: any = null;
   imageUrl = '';
+  currentMarcajeIndex = -1;
 
   // Variables para auto-refresh
   private refreshInterval: any;
@@ -955,6 +1233,7 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
     if (marcaje.id) {
       // Configurar datos para la modal
       this.selectedMarcaje = marcaje;
+      this.currentMarcajeIndex = this.marcajesFiltrados.findIndex(m => m.id === marcaje.id);
       
       // Obtener imagen usando el servicio con autenticación
       this.marcajesService.getMarcajeImage(marcaje.id).subscribe({
@@ -996,9 +1275,55 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
     this.showImageModal = false;
     this.selectedMarcaje = null;
     this.imageUrl = '';
+    this.currentMarcajeIndex = -1;
     
     // Forzar detección de cambios
     this.cdr.detectChanges();
+  }
+
+  // Navegación en modal de imagen
+  anteriorImagen() {
+    if (this.currentMarcajeIndex > 0) {
+      this.currentMarcajeIndex--;
+      this.selectedMarcaje = this.marcajesFiltrados[this.currentMarcajeIndex];
+      this.cargarImagenActual();
+    }
+  }
+
+  siguienteImagen() {
+    if (this.currentMarcajeIndex < this.marcajesFiltrados.length - 1) {
+      this.currentMarcajeIndex++;
+      this.selectedMarcaje = this.marcajesFiltrados[this.currentMarcajeIndex];
+      this.cargarImagenActual();
+    }
+  }
+
+  private cargarImagenActual() {
+    if (this.selectedMarcaje?.id) {
+      this.marcajesService.getMarcajeImage(this.selectedMarcaje.id).subscribe({
+        next: (blob: Blob) => {
+          // Liberar URL anterior si existe
+          if (this.imageUrl) {
+            URL.revokeObjectURL(this.imageUrl);
+          }
+          this.imageUrl = URL.createObjectURL(blob);
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('Error cargando imagen:', error);
+          this.imageUrl = '';
+          this.cdr.detectChanges();
+        }
+      });
+    }
+  }
+
+  get puedeAnteriorImagen(): boolean {
+    return this.currentMarcajeIndex > 0;
+  }
+
+  get puedeSiguienteImagen(): boolean {
+    return this.currentMarcajeIndex < this.marcajesFiltrados.length - 1;
   }
 
   downloadImage() {

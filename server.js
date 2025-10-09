@@ -6,6 +6,30 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const axios = require('axios');
 const cron = require('node-cron');
+
+// Variables para control de cola de CRON
+let cronQueue = [];
+let isProcessingCron = false;
+const MAX_CONCURRENT_DEVICES = 1; // Máximo 1 dispositivo a la vez para evitar bloqueos
+let currentDeviceIndex = 0; // Índice para el dispositivo actual en el ciclo rotativo
+let currentProcessingDevice = null; // Dispositivo que se está procesando actualmente
+// Función para convertir tiempo a milisegundos
+function timeToMs(timeValue) {
+  const timeMap = {
+    '10s': 10 * 1000,     // 10 segundos
+    '30s': 30 * 1000,     // 30 segundos
+    '1m': 60 * 1000,      // 1 minuto
+    '5m': 5 * 60 * 1000,  // 5 minutos
+    '10m': 10 * 60 * 1000, // 10 minutos
+    '30m': 30 * 60 * 1000, // 30 minutos
+    '1h': 60 * 60 * 1000,  // 1 hora
+    '6h': 6 * 60 * 60 * 1000, // 6 horas
+    '12h': 12 * 60 * 60 * 1000, // 12 horas
+    '24h': 24 * 60 * 60 * 1000  // 24 horas
+  };
+  return timeMap[timeValue] || 60 * 1000; // Default 1 minuto
+}
+const CRON_TIMEOUT = 30000; // 30 segundos timeout máximo por dispositivo
 const hikConnectRoutes = require('./hik-connect-api');
 const hybridRoutes = require('./wisi-hikvision-hybrid');
 const TPPHikvisionAPI = require('./tpp-hikvision-api');
@@ -38,6 +62,7 @@ const {
   Bloque,
   Dispositivo,
   Attlog,
+  Cron,
   syncDatabase 
 } = require('./models');
 const { Op } = require('sequelize');
@@ -77,12 +102,127 @@ async function assignToCreator(element, elementType) {
   }
 }
 
+// Función para procesar la cola de CRON de forma asíncrona
+async function processCronQueue() {
+  if (isProcessingCron || cronQueue.length === 0) {
+    return;
+  }
+  
+  isProcessingCron = true;
+  console.log(`🔄 [COLA] Procesando cola de CRON: ${cronQueue.length} dispositivos pendientes`);
+  
+  while (cronQueue.length > 0) {
+    const { dispositivo, timestamp } = cronQueue.shift();
+    
+    // Actualizar dispositivo actual
+    currentProcessingDevice = dispositivo;
+    
+    try {
+      console.log(`🔄 [COLA] Procesando dispositivo: ${dispositivo.nombre} (en cola desde: ${timestamp})`);
+      
+      // Verificar salud del dispositivo antes de proceder
+      const isHealthy = await checkDeviceHealth(dispositivo);
+      if (!isHealthy) {
+        console.log(`⚠️ [COLA] Dispositivo ${dispositivo.nombre} no disponible, saltando sincronización`);
+        currentProcessingDevice = null;
+        continue;
+      }
+      
+      // Ejecutar sincronización con timeout
+      const result = await Promise.race([
+        syncAttendanceFromDevice(dispositivo),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), CRON_TIMEOUT)
+        )
+      ]);
+      
+      if (result.error) {
+        console.log(`⚠️ [COLA] Sincronización con errores para ${dispositivo.nombre}: ${result.error}`);
+      } else {
+        console.log(`✅ [COLA] Sincronización completada para dispositivo: ${dispositivo.nombre}`);
+        console.log(`📊 [COLA] Resultado: ${result.savedCount} guardados, ${result.skippedCount} omitidos, ${result.errorCount} errores`);
+      }
+    } catch (error) {
+      console.error(`❌ [COLA] Error en sincronización para ${dispositivo.nombre}:`, error.message);
+      
+      // Si es un error de timeout, marcar el dispositivo como problemático
+      if (error.message === 'Timeout' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
+        console.log(`🚫 [COLA] Dispositivo ${dispositivo.nombre} marcado como problemático por timeout`);
+      }
+    }
+    
+    // Delay entre dispositivos basado en la configuración del CRON global
+    if (cronQueue.length > 0) {
+      const cronConfig = await Cron.findOne();
+      const cronValue = cronConfig ? cronConfig.value : '1m';
+      const delayMs = timeToMs(cronValue);
+      
+      console.log(`⏳ [COLA] Esperando ${cronValue} antes del siguiente dispositivo...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+  
+  // Limpiar dispositivo actual
+  currentProcessingDevice = null;
+  isProcessingCron = false;
+  console.log(`✅ [COLA] Cola de CRON procesada completamente`);
+}
+
+// Función para verificar la salud del dispositivo
+async function checkDeviceHealth(dispositivo) {
+  try {
+    console.log(`🏥 Verificando salud del dispositivo: ${dispositivo.nombre} (${dispositivo.ip_remota})`);
+    
+    // Crear objeto de autenticación
+    const authObject = {
+      usuario_login_dispositivo: dispositivo.usuario,
+      clave_login_dispositivo: dispositivo.clave
+    };
+    
+    // Intentar una petición simple de información del dispositivo con timeout corto
+    const healthResponse = await makeDigestRequest(
+      `http://${dispositivo.ip_remota}`, 
+      '/ISAPI/System/deviceInfo', 
+      'GET', 
+      null, 
+      authObject
+    );
+    
+    if (healthResponse && healthResponse.status === 200) {
+      console.log(`✅ Dispositivo ${dispositivo.nombre} está disponible`);
+      return true;
+    } else {
+      console.log(`⚠️ Dispositivo ${dispositivo.nombre} respondió con status: ${healthResponse?.status}`);
+      return false;
+    }
+  } catch (error) {
+    console.log(`❌ Dispositivo ${dispositivo.nombre} no está disponible: ${error.message}`);
+    return false;
+  }
+}
+
 // Función para sincronizar marcajes desde dispositivo con paginación
 async function syncAttendanceFromDevice(dispositivo) {
   const fs = require('fs');
   const path = require('path');
   
   try {
+    // Verificar salud del dispositivo antes de proceder
+    const isDeviceHealthy = await checkDeviceHealth(dispositivo);
+    if (!isDeviceHealthy) {
+      console.log(`⚠️ Dispositivo ${dispositivo.nombre} no está disponible, saltando sincronización`);
+      return {
+        totalEvents: 0,
+        savedCount: 0,
+        skippedCount: 0,
+        errorCount: 0,
+        imagesDownloaded: 0,
+        imagesErrors: 0,
+        eventsWithoutImage: 0,
+        dispositivo: dispositivo.nombre,
+        error: 'Dispositivo no disponible'
+      };
+    }
     // Crear carpeta attlogs si no existe
     const attlogsDir = path.join(__dirname, 'attlogs');
     if (!fs.existsSync(attlogsDir)) {
@@ -528,22 +668,18 @@ function startCronForDevice(dispositivo) {
   if (dispositivo.cron_activo === 1) {
     const cronExpression = timeToCronExpression(dispositivo.cron_tiempo);
     
-    const job = cron.schedule(cronExpression, async () => {
-      try {
-        console.log(`🔄 [CRON] Ejecutando sincronización automática para dispositivo: ${dispositivo.nombre}`);
-        console.log(`🔄 [CRON] Timestamp: ${new Date().toISOString()}`);
-        
-        const result = await syncAttendanceFromDevice(dispositivo);
-        
-        if (result.error) {
-          console.log(`⚠️ [CRON] Sincronización con errores para ${dispositivo.nombre}: ${result.error}`);
-        } else {
-          console.log(`✅ [CRON] Sincronización completada para dispositivo: ${dispositivo.nombre}`);
-          console.log(`📊 [CRON] Resultado: ${result.savedCount} guardados, ${result.skippedCount} omitidos, ${result.errorCount} errores`);
-        }
-      } catch (error) {
-        console.error(`❌ [CRON] Error crítico en sincronización automática para ${dispositivo.nombre}:`, error);
-        // No lanzar la excepción para que el CRON continúe
+    const job = cron.schedule(cronExpression, () => {
+      // Agregar a la cola en lugar de ejecutar directamente
+      console.log(`📋 [CRON] Agregando dispositivo ${dispositivo.nombre} a la cola de sincronización`);
+      cronQueue.push({
+        dispositivo: dispositivo,
+        timestamp: new Date().toISOString(),
+        priority: 1 // Prioridad normal
+      });
+      
+      // Procesar cola si no está en proceso
+      if (!isProcessingCron) {
+        processCronQueue();
       }
     }, {
       scheduled: true,
@@ -568,23 +704,89 @@ function stopCronForDevice(dispositivoId) {
   }
 }
 
-// Función para inicializar todos los CRON al arrancar el servidor
+// Función para ejecutar sincronización global
+async function executeGlobalSync() {
+  try {
+    console.log('🔄 [GLOBAL SYNC] Iniciando sincronización global...');
+    
+    // Obtener todos los dispositivos con credenciales completas
+    const dispositivos = await Dispositivo.findAll({
+      where: { 
+        ip_remota: { [Op.ne]: null },
+        usuario: { [Op.ne]: null },
+        clave: { [Op.ne]: null }
+      },
+      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'marcaje_inicio', 'marcaje_fin']
+    });
+    
+    console.log(`📱 [GLOBAL SYNC] Encontrados ${dispositivos.length} dispositivos para sincronizar`);
+    
+    if (dispositivos.length === 0) {
+      console.log('⚠️ [GLOBAL SYNC] No hay dispositivos para sincronizar');
+      return;
+    }
+    
+    // Agregar SOLO el dispositivo actual del ciclo rotativo
+    const currentDevice = dispositivos[currentDeviceIndex];
+    console.log(`📋 [GLOBAL SYNC] Agregando dispositivo ${currentDevice.nombre} (índice ${currentDeviceIndex}) a la cola`);
+    
+    cronQueue.push({
+      dispositivo: currentDevice,
+      timestamp: new Date().toISOString(),
+      priority: 1
+    });
+    
+    // Avanzar al siguiente dispositivo para la próxima ejecución
+    currentDeviceIndex = (currentDeviceIndex + 1) % dispositivos.length;
+    console.log(`🔄 [GLOBAL SYNC] Próximo dispositivo será el índice ${currentDeviceIndex}`);
+    
+    // Procesar cola si no está en proceso
+    if (!isProcessingCron) {
+      processCronQueue();
+    }
+    
+  } catch (error) {
+    console.error('❌ [GLOBAL SYNC] Error en sincronización global:', error);
+  }
+}
+
+// Función para inicializar el CRON global
 async function initializeAllCronJobs() {
   try {
-    console.log('🔄 Inicializando trabajos CRON...');
+    console.log('🔄 Inicializando CRON global...');
     
-    const dispositivos = await Dispositivo.findAll({
-      where: { cron_activo: 1 },
-      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'cron_activo', 'cron_tiempo', 'marcaje_inicio', 'marcaje_fin']
-    });
-
-    for (const dispositivo of dispositivos) {
-      startCronForDevice(dispositivo);
+    // Obtener configuración de CRON
+    const cronConfig = await Cron.findOne();
+    const cronValue = cronConfig ? cronConfig.value : 'Desactivado';
+    
+    console.log(`⏰ Configuración de CRON: ${cronValue}`);
+    
+    if (cronValue === 'Desactivado') {
+      console.log('⚠️ CRON global desactivado');
+      return;
     }
-
-    console.log(`✅ ${dispositivos.length} trabajos CRON inicializados`);
+    
+    // Limpiar trabajos CRON existentes
+    for (const [jobId, job] of activeCronJobs) {
+      job.destroy();
+    }
+    activeCronJobs.clear();
+    
+    // Crear CRON global
+    const cronExpression = timeToCronExpression(cronValue);
+    const globalCronJob = cron.schedule(cronExpression, () => {
+      console.log('🔄 [CRON GLOBAL] Ejecutando sincronización global...');
+      executeGlobalSync();
+    }, {
+      scheduled: true,
+      timezone: "America/Caracas"
+    });
+    
+    activeCronJobs.set('global', globalCronJob);
+    console.log(`✅ CRON global inicializado con expresión: ${cronExpression}`);
+    
   } catch (error) {
-    console.error('❌ Error inicializando trabajos CRON:', error);
+    console.error('❌ Error inicializando CRON global:', error);
   }
 }
 
@@ -782,7 +984,8 @@ app.post('/api/users', authenticateToken, authorizeLevel('ADMINISTRADOR'), async
       for (const modulePermission of modulePermissions) {
         const { moduleId, permissions } = modulePermission;
         
-        // Verificar que el módulo exista y esté const module = await Module.findOne({ where: { id: moduleId} });
+        // Verificar que el módulo exista
+        const module = await Module.findOne({ where: { id: moduleId} });
         if (!module) continue;
 
         // Asignar el módulo al usuario
@@ -902,7 +1105,8 @@ app.put('/api/users/:id/assignments', authenticateToken, authorizeLevel('ADMINIS
       for (const modulePermission of modulePermissions) {
         const { moduleId, permissions } = modulePermission;
         
-        // Verificar que el módulo exista y esté const module = await Module.findOne({ where: { id: moduleId} });
+        // Verificar que el módulo exista
+        const module = await Module.findOne({ where: { id: moduleId} });
         if (!module) {
           continue;
         }
@@ -928,7 +1132,6 @@ app.put('/api/users/:id/assignments', authenticateToken, authorizeLevel('ADMINIS
               module_id: moduleId,
               permission_id: permissionId
             });
-          } else {
           }
         }
         
@@ -1005,7 +1208,8 @@ app.put('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'), as
     await user.update({
       nombre_apellido,
       usuario,
-      nivel});
+      nivel
+    });
 
     res.json({ message: 'Usuario actualizado exitosamente' });
   } catch (error) {
@@ -3744,6 +3948,24 @@ app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
 // Obtener cargos
 app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
   try {
+    // Obtener las salas del usuario logueado
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Salas',
+          attributes: ['id']
+        }
+      ]
+    });
+
+    // Si el usuario no tiene salas asignadas, devolver array vacío
+    if (!user || !user.Salas || user.Salas.length === 0) {
+      return res.json([]);
+    }
+
+    const userSalaIds = user.Salas.map(sala => sala.id);
+
     const cargos = await Cargo.findAll({
       include: [{
         model: Departamento,
@@ -3753,10 +3975,16 @@ app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
           attributes: ['id', 'nombre'],
         include: [{
           model: Sala,
-          attributes: ['id', 'nombre']
+          attributes: ['id', 'nombre'],
+          required: false
           }]
         }]
       }],
+      where: {
+        '$Departamento.Area.Sala.id$': {
+          [Op.in]: userSalaIds
+        }
+      },
       order: [['nombre', 'ASC']]
     });
     
@@ -3803,13 +4031,66 @@ app.get('/api/empleados/tareas/:userId', authenticateToken, async (req, res) => 
 // Obtener horarios
 app.get('/api/empleados/horarios', authenticateToken, async (req, res) => {
   try {
-    const horarios = await Horario.findAll({
-        include: [{
+    const { cargoId } = req.query;
+    
+    if (!cargoId) {
+      return res.status(400).json({ message: 'cargoId es requerido' });
+    }
+
+    // Obtener el cargo con su sala
+    const cargo = await Cargo.findByPk(cargoId, {
+      include: [
+        {
+          model: Departamento,
+          include: [
+            {
+              model: Area,
+              include: [
+                {
+                  model: Sala,
+                  attributes: ['id']
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!cargo) {
+      return res.status(404).json({ message: 'Cargo no encontrado' });
+    }
+
+    // Obtener la sala del cargo
+    const salaId = cargo.Departamento.Area.Sala.id;
+
+    // Obtener las salas del usuario logueado
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
           model: Sala,
-          attributes: ['id', 'nombre']
-        }],
+          as: 'Salas',
+          attributes: ['id']
+        }
+      ]
+    });
+
+    // Verificar que el usuario tenga acceso a la sala del cargo
+    const userSalaIds = user.Salas.map(sala => sala.id);
+    if (!userSalaIds.includes(salaId)) {
+      return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+    }
+
+    const horarios = await Horario.findAll({
+      where: {
+        sala_id: salaId
+      },
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }],
       order: [['nombre', 'ASC']]
-      });
+    });
     
     res.json(horarios);
   } catch (error) {
@@ -3821,7 +4102,30 @@ app.get('/api/empleados/horarios', authenticateToken, async (req, res) => {
 // Obtener dispositivos
 app.get('/api/empleados/dispositivos', authenticateToken, async (req, res) => {
   try {
+    // Obtener las salas del usuario logueado
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Salas',
+          attributes: ['id']
+        }
+      ]
+    });
+
+    // Si el usuario no tiene salas asignadas, devolver array vacío
+    if (!user || !user.Salas || user.Salas.length === 0) {
+      return res.json([]);
+    }
+
+    const userSalaIds = user.Salas.map(sala => sala.id);
+
     const dispositivos = await Dispositivo.findAll({
+      where: {
+        sala_id: {
+          [Op.in]: userSalaIds
+        }
+      },
       include: [{
         model: Sala,
         attributes: ['id', 'nombre']
@@ -3832,6 +4136,100 @@ app.get('/api/empleados/dispositivos', authenticateToken, async (req, res) => {
     res.json(dispositivos);
   } catch (error) {
     console.error('Error obteniendo dispositivos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint de debug para verificar filtrado de empleados
+app.get('/api/empleados/debug-filter', authenticateToken, async (req, res) => {
+  try {
+    // Obtener las salas del usuario logueado
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Salas',
+          attributes: ['id', 'nombre']
+        }
+      ]
+    });
+
+    const userSalaIds = user.Salas.map(sala => sala.id);
+
+    // Obtener todos los empleados sin filtro para comparar
+    const allEmpleados = await Empleado.findAll({
+      include: [
+        {
+          model: Cargo,
+          as: 'Cargo',
+          include: [
+            {
+              model: Departamento,
+              as: 'Departamento',
+              include: [
+                {
+                  model: Area,
+                  as: 'Area',
+                  include: [
+                    {
+                      model: Sala,
+                      as: 'Sala',
+                      attributes: ['id', 'nombre']
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    res.json({
+      userSalas: user.Salas,
+      userSalaIds,
+      totalEmpleados: allEmpleados.length,
+      empleados: allEmpleados.map(emp => ({
+        id: emp.id,
+        nombre: emp.nombre,
+        cargo: emp.Cargo?.nombre,
+        sala: emp.Cargo?.Departamento?.Area?.Sala?.nombre,
+        salaId: emp.Cargo?.Departamento?.Area?.Sala?.id
+      }))
+    });
+  } catch (error) {
+    console.error('Error en debug filtro:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint de debug para verificar relaciones
+app.get('/api/empleados/debug-cargo/:cargoId', authenticateToken, async (req, res) => {
+  try {
+    const { cargoId } = req.params;
+    
+    const cargo = await Cargo.findByPk(cargoId, {
+      include: [
+        {
+          model: Departamento,
+          include: [
+            {
+              model: Area,
+              include: [
+                {
+                  model: Sala,
+                  attributes: ['id', 'nombre']
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+    
+    res.json(cargo);
+  } catch (error) {
+    console.error('Error en debug cargo:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4652,8 +5050,25 @@ app.delete('/api/incidencias-generales/:id', authenticateToken, async (req, res)
 // GET /api/empleados - Obtener todos los empleados
 app.get('/api/empleados', authenticateToken, async (req, res) => {
   try {
+    // Obtener las salas del usuario logueado
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Salas',
+          attributes: ['id']
+        }
+      ]
+    });
+
+    // Si el usuario no tiene salas asignadas, devolver array vacío
+    if (!user || !user.Salas || user.Salas.length === 0) {
+      return res.json([]);
+    }
+
+    const userSalaIds = user.Salas.map(sala => sala.id);
+
     const empleados = await Empleado.findAll({
-      where: {},
       include: [
         {
           model: Cargo,
@@ -4669,7 +5084,8 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
                   include: [
                     {
                       model: Sala,
-                      as: 'Sala'
+                      as: 'Sala',
+                      required: false
                     }
                   ]
                 }
@@ -4683,20 +5099,26 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
           include: [
             {
               model: Sala,
-              as: 'Sala'
+              as: 'Sala',
+              required: false
             }
           ]
         }
       ],
+      where: {
+        '$Cargo.Departamento.Area.Sala.id$': {
+          [Op.in]: userSalaIds
+        }
+      },
       order: [['created_at', 'DESC']]
     });
 
     // Agregar dispositivos a cada empleado
     for (let empleado of empleados) {
       const dispositivos = await sequelize.query(
-        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?)',
         {
-          replacements: [empleado.id],
+          replacements: [empleado.id, userSalaIds],
           type: sequelize.QueryTypes.SELECT
         }
       );
@@ -5847,7 +6269,7 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials)
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      timeout: 30000, // 30 segundos
+      timeout: 10000, // 10 segundos para health check
       validateStatus: (status) => status === 401
     });
     
@@ -7934,4 +8356,175 @@ app.listen(PORT, () => {
     await initializeAllCronJobs();
     console.log('✅ [INIT] Trabajos CRON inicializados');
   }, 2000); // Esperar 2 segundos para que la base de datos esté lista
+});
+
+// Ruta para verificar salud de un dispositivo específico
+app.get('/api/dispositivos/:id/health', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const dispositivo = await Dispositivo.findByPk(id);
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+    
+    const isHealthy = await checkDeviceHealth(dispositivo);
+    
+    res.json({
+      device: dispositivo.nombre,
+      ip: dispositivo.ip_remota,
+      healthy: isHealthy,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error verificando salud del dispositivo:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para deshabilitar dispositivos problemáticos automáticamente
+app.post('/api/dispositivos/:id/disable-problematic', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const dispositivo = await Dispositivo.findByPk(id);
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+    }
+    
+    // Deshabilitar CRON
+    await dispositivo.update({ 
+      cron_activo: false
+    });
+    
+    // Detener el job de CRON si existe
+    if (cronJobs[id]) {
+      cronJobs[id].destroy();
+      delete cronJobs[id];
+      console.log(`🚫 Dispositivo problemático deshabilitado: ${dispositivo.nombre} - Razón: ${reason || 'Timeout/Connectivity'}`);
+    }
+    
+    res.json({ 
+      message: 'Dispositivo problemático deshabilitado exitosamente',
+      reason: reason || 'Timeout/Connectivity issues'
+    });
+  } catch (error) {
+    console.error('Error deshabilitando dispositivo problemático:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para monitorear el estado de la cola de CRON
+app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
+  try {
+    // Obtener configuración actual del CRON para mostrar el delay dinámico
+    const cronConfig = await Cron.findOne();
+    const cronValue = cronConfig ? cronConfig.value : '1m';
+    const delayMs = timeToMs(cronValue);
+    
+    res.json({
+      queueLength: cronQueue.length,
+      isProcessing: isProcessingCron,
+      currentProcessingDevice: currentProcessingDevice ? {
+        id: currentProcessingDevice.id,
+        nombre: currentProcessingDevice.nombre,
+        ip_remota: currentProcessingDevice.ip_remota
+      } : null,
+      maxConcurrentDevices: MAX_CONCURRENT_DEVICES,
+      delayBetweenDevices: cronValue,
+      delayMs: delayMs,
+      timeoutPerDevice: CRON_TIMEOUT,
+      queue: cronQueue.map(item => ({
+        device: item.dispositivo.nombre,
+        timestamp: item.timestamp,
+        priority: item.priority
+      })),
+      activeCronJobs: activeCronJobs.size
+    });
+  } catch (error) {
+    console.error('Error obteniendo estado de la cola:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para limpiar la cola de CRON
+app.post('/api/cron/clear-queue', authenticateToken, async (req, res) => {
+  try {
+    const clearedCount = cronQueue.length;
+    cronQueue = [];
+    isProcessingCron = false;
+    
+    console.log(`🧹 Cola de CRON limpiada: ${clearedCount} elementos removidos`);
+    
+    res.json({ 
+      message: 'Cola de CRON limpiada exitosamente',
+      clearedCount: clearedCount
+    });
+  } catch (error) {
+    console.error('Error limpiando cola de CRON:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para obtener configuración de CRON global
+app.get('/api/cron/config', authenticateToken, async (req, res) => {
+  try {
+    const cronConfig = await Cron.findOne();
+    const currentValue = cronConfig ? cronConfig.value : 'Desactivado';
+    
+    const options = [
+      'Desactivado',
+      '1m',
+      '5m', 
+      '10m',
+      '30m',
+      '1h',
+      '6h',
+      '12h',
+      '24h'
+    ];
+    
+    res.json({
+      currentValue: currentValue,
+      options: options,
+      isActive: currentValue !== 'Desactivado'
+    });
+  } catch (error) {
+    console.error('Error obteniendo configuración de CRON:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para actualizar configuración de CRON global
+app.put('/api/cron/config', authenticateToken, async (req, res) => {
+  try {
+    const { value } = req.body;
+    
+    const validValues = ['Desactivado', '10s', '30s', '1m', '5m', '10m', '30m', '1h', '6h', '12h', '24h'];
+    if (!validValues.includes(value)) {
+      return res.status(400).json({ message: 'Valor de CRON inválido' });
+    }
+    
+    // Actualizar o crear configuración
+    let cronConfig = await Cron.findOne();
+    if (cronConfig) {
+      await cronConfig.update({ value });
+    } else {
+      cronConfig = await Cron.create({ value });
+    }
+    
+    // Reinicializar CRON global
+    await initializeAllCronJobs();
+    
+    console.log(`⏰ Configuración de CRON actualizada: ${value}`);
+    
+    res.json({ 
+      message: 'Configuración de CRON actualizada exitosamente',
+      value: value
+    });
+  } catch (error) {
+    console.error('Error actualizando configuración de CRON:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
 });
