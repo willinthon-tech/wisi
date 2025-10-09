@@ -71,6 +71,14 @@
     box-sizing: inherit;
     position: relative;
   }
+  
+  /* Permitir scroll cuando esté en marcaje personal */
+  main:has(.marcaje-personal-container) {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    align-items: flex-start !important;
+  }
 
   .angular-logo {
     max-width: 9.2rem;

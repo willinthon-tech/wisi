@@ -185,6 +185,52 @@ import { Subscription } from 'rxjs';
                           </div>
                         </div>
                       </div>
+                      
+                      <!-- Campos de Descanso -->
+                      <div class="row mt-3">
+                        <div class="col-md-4">
+                          <div class="form-group">
+                            <label>Entrada Descanso:</label>
+                            <input 
+                              type="time" 
+                              [(ngModel)]="bloque.hora_entrada_descanso"
+                              name="hora_entrada_descanso_{{i}}"
+                              class="form-control"
+                              [disabled]="isDescansoDisabled(bloque)"
+                              [required]="bloque.tiene_descanso === 'true'"
+                            />
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="form-group">
+                            <label>Salida Descanso:</label>
+                            <input 
+                              type="time" 
+                              [(ngModel)]="bloque.hora_salida_descanso"
+                              name="hora_salida_descanso_{{i}}"
+                              class="form-control"
+                              [disabled]="isDescansoDisabled(bloque)"
+                              [required]="bloque.tiene_descanso === 'true'"
+                            />
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="form-group">
+                            <label>Descanso:</label>
+                            <select 
+                              [(ngModel)]="bloque.tiene_descanso"
+                              name="tiene_descanso_{{i}}"
+                              class="form-control"
+                              [disabled]="bloque.turno === 'LIBRE'"
+                              (change)="onDescansoChange(bloque)"
+                            >
+                              <option value="">Seleccione una opción</option>
+                              <option value="false">No</option>
+                              <option value="true">Sí</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -516,6 +562,42 @@ import { Subscription } from 'rxjs';
       padding: 0;
     }
 
+    .form-control {
+      display: block;
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #495057;
+      background-color: #fff;
+      background-clip: padding-box;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-control:focus {
+      color: #495057;
+      background-color: #fff;
+      border-color: #80bdff;
+      outline: 0;
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    select.form-control {
+      appearance: auto;
+      -webkit-appearance: menulist;
+      -moz-appearance: menulist;
+      background-image: none;
+      padding-right: 12px;
+    }
+
+    select.form-control:disabled {
+      background-color: #e9ecef;
+      opacity: 1;
+    }
+
+
     .bloque-header {
       background: #e9ecef;
       padding: 10px 15px;
@@ -742,7 +824,10 @@ export class HorariosListComponent implements OnInit, OnDestroy {
       this.bloques.push({
         hora_entrada: '',
         hora_salida: '',
-        turno: ''
+        turno: '',
+        hora_entrada_descanso: '',
+        hora_salida_descanso: '',
+        tiene_descanso: ''
       });
     }
     
@@ -763,8 +848,33 @@ export class HorariosListComponent implements OnInit, OnDestroy {
       // Limpiar las horas cuando es libre
       bloque.hora_entrada = '';
       bloque.hora_salida = '';
+      bloque.hora_entrada_descanso = '';
+      bloque.hora_salida_descanso = '';
+      bloque.tiene_descanso = '';
     }
   }
+
+  onDescansoChange(bloque: any): void {
+    console.log('onDescansoChange - tiene_descanso:', bloque.tiene_descanso, typeof bloque.tiene_descanso);
+    if (bloque.tiene_descanso !== 'true') {
+      // Limpiar las horas de descanso cuando se desactiva
+      console.log('Limpiando campos de descanso');
+      bloque.hora_entrada_descanso = '';
+      bloque.hora_salida_descanso = '';
+    } else {
+      console.log('Descanso activado - campos deberían estar habilitados');
+    }
+    // Forzar detección de cambios
+    this.cdr.detectChanges();
+  }
+
+  // Función helper para verificar si los campos de descanso deben estar deshabilitados
+  isDescansoDisabled(bloque: any): boolean {
+    const isDisabled = bloque.turno === 'LIBRE' || bloque.tiene_descanso !== 'true';
+    console.log('isDescansoDisabled - turno:', bloque.turno, 'tiene_descanso:', bloque.tiene_descanso, 'disabled:', isDisabled);
+    return isDisabled;
+  }
+
 
   createHorario(): void {
     if (!this.nuevoHorario.nombre || !this.nuevoHorario.sala_id || this.bloques.length === 0) {
@@ -777,7 +887,13 @@ export class HorariosListComponent implements OnInit, OnDestroy {
       if (!bloque.turno) return true;
       // Si no es libre, debe tener horas
       if (bloque.turno !== 'LIBRE') {
-        return !bloque.hora_entrada || !bloque.hora_salida;
+        const tieneHorasBasicas = !bloque.hora_entrada || !bloque.hora_salida;
+        // Si tiene descanso activado, debe tener horas de descanso
+        if (bloque.tiene_descanso === 'true') {
+          const tieneHorasDescanso = !bloque.hora_entrada_descanso || !bloque.hora_salida_descanso;
+          return tieneHorasBasicas || tieneHorasDescanso;
+        }
+        return tieneHorasBasicas;
       }
       return false;
     });
@@ -826,8 +942,14 @@ export class HorariosListComponent implements OnInit, OnDestroy {
       sala_id: horario.sala_id
     };
     
-    // Cargar bloques existentes
+    // Cargar bloques existentes y convertir boolean a string para el select
     this.bloques = horario.bloques ? [...horario.bloques] : [];
+    this.bloques.forEach(bloque => {
+      // Convertir boolean a string para el select de descanso
+      if (typeof bloque.tiene_descanso === 'boolean') {
+        bloque.tiene_descanso = bloque.tiene_descanso ? 'true' : 'false';
+      }
+    });
     this.cantidadBloques = this.bloques.length;
     
     this.showSalaModal = true;

@@ -57,6 +57,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'marcaje-personal',
+    loadComponent: () => import('./components/marcajes/marcaje-personal/marcaje-personal.component').then(m => m.MarcajePersonalComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'horarios',
     loadComponent: () => import('./components/horarios/horarios-list/horarios-list.component').then(m => m.HorariosListComponent),
     canActivate: [AuthGuard]

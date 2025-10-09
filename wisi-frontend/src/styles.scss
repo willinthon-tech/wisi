@@ -13,6 +13,38 @@ body {
   overflow-x: hidden;
 }
 
+/* Permitir scroll en vista de marcaje personal */
+.marcaje-personal-container {
+  overflow: visible !important;
+  height: auto !important;
+  min-height: auto !important;
+  max-height: none !important;
+}
+
+/* Forzar scroll en el body cuando esté en marcaje personal */
+body:has(.marcaje-personal-container) {
+  overflow-y: auto !important;
+  height: auto !important;
+}
+
+/* Asegurar que el router outlet permita scroll */
+router-outlet + * {
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Forzar scroll en el body y html */
+html, body {
+  height: auto !important;
+  overflow-y: auto !important;
+}
+
+/* Asegurar que el contenedor principal permita scroll */
+app-root {
+  height: auto !important;
+  overflow: visible !important;
+}
+
 html, body {
   height: auto;
   min-height: 100%;

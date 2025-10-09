@@ -36,6 +36,25 @@ import { UserService } from '../../../../services/user.service';
           </div>
 
           <div class="form-group">
+            <label for="ruta">Ruta del Módulo *</label>
+            <input 
+              type="text" 
+              id="ruta"
+              [(ngModel)]="module.ruta" 
+              name="ruta"
+              class="form-input"
+              placeholder="Ej: /marcajes, /empleados, etc."
+              required
+              #rutaInput="ngModel">
+            <div class="error-message" *ngIf="rutaInput.invalid && rutaInput.touched">
+              La ruta del módulo es requerida
+            </div>
+            <small class="help-text">
+              Ruta donde se accederá al módulo (debe empezar con /)
+            </small>
+          </div>
+
+          <div class="form-group">
             <label for="page_id">Página Asignada</label>
             <select 
               id="page_id"
@@ -329,6 +348,7 @@ import { UserService } from '../../../../services/user.service';
 export class ModuloCreateComponent implements OnInit {
   module = {
     nombre: '',
+    ruta: '',
     page_id: ''
   };
   availablePages: any[] = [];
@@ -367,7 +387,7 @@ export class ModuloCreateComponent implements OnInit {
     const moduleData = {
       nombre: this.module.nombre.trim(),
       icono: 'settings',
-      ruta: `/${this.module.nombre.toLowerCase().replace(/\s+/g, '-')}`,
+      ruta: this.module.ruta.trim(),
       page_id: this.module.page_id || null
     };
 

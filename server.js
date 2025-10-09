@@ -3163,8 +3163,7 @@ app.get('/api/horarios', authenticateToken, async (req, res) => {
     for (let horario of horarios) {
       const bloques = await Bloque.findAll({
         where: { horario_id: horario.id },
-        order: [['orden', 'ASC']],
-        raw: true
+        order: [['orden', 'ASC']]
       });
       horario.bloques = bloques;
     }
@@ -3204,7 +3203,10 @@ app.post('/api/horarios', authenticateToken, async (req, res) => {
         hora_entrada: bloque.hora_entrada,
         hora_salida: bloque.hora_salida,
         turno: bloque.turno,
-        orden: i + 1
+        orden: i + 1,
+        hora_entrada_descanso: bloque.hora_entrada_descanso || null,
+        hora_salida_descanso: bloque.hora_salida_descanso || null,
+        tiene_descanso: bloque.tiene_descanso === 'true' ? true : false
       });
     }
 
@@ -3258,7 +3260,10 @@ app.put('/api/horarios/:id', authenticateToken, async (req, res) => {
           hora_entrada: bloque.hora_entrada,
           hora_salida: bloque.hora_salida,
           turno: bloque.turno,
-          orden: i + 1
+          orden: i + 1,
+          hora_entrada_descanso: bloque.hora_entrada_descanso || null,
+          hora_salida_descanso: bloque.hora_salida_descanso || null,
+          tiene_descanso: bloque.tiene_descanso === 'true' ? true : false
         });
       }
     }
@@ -5062,6 +5067,52 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
       ]
     });
 
+    // Si es el usuario creador (nivel TODO), devolver todos los empleados
+    if (user.nivel === 'TODO') {
+      const empleados = await Empleado.findAll({
+        include: [
+          {
+            model: Cargo,
+            as: 'Cargo',
+            include: [
+              {
+                model: Departamento,
+                as: 'Departamento',
+                include: [
+                  {
+                    model: Area,
+                    as: 'Area',
+                    include: [
+                      {
+                        model: Sala,
+                        as: 'Sala',
+                        attributes: ['id', 'nombre']
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            model: Horario,
+            as: 'Horario',
+            attributes: ['id', 'nombre'],
+            include: [
+              {
+                model: Bloque,
+                as: 'bloques',
+                attributes: ['id', 'hora_entrada', 'hora_salida', 'turno', 'orden', 'hora_entrada_descanso', 'hora_salida_descanso', 'tiene_descanso']
+              }
+            ]
+          }
+        ],
+        order: [['nombre', 'ASC']]
+      });
+
+      return res.json(empleados);
+    }
+
     // Si el usuario no tiene salas asignadas, devolver array vacío
     if (!user || !user.Salas || user.Salas.length === 0) {
       return res.json([]);
@@ -5102,6 +5153,11 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
               model: Sala,
               as: 'Sala',
               required: false
+            },
+            {
+              model: Bloque,
+              as: 'bloques',
+              attributes: ['id', 'hora_entrada', 'hora_salida', 'turno', 'orden', 'hora_entrada_descanso', 'hora_salida_descanso', 'tiene_descanso']
             }
           ]
         }

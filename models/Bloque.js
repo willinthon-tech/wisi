@@ -35,6 +35,22 @@ module.exports = (sequelize) => {
       type: DataTypes.INTEGER,
       allowNull: false,
       comment: 'Orden del bloque en la secuencia (1, 2, 3, etc.)'
+    },
+    hora_entrada_descanso: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Hora de entrada del descanso (Formato HH:MM)'
+    },
+    hora_salida_descanso: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      comment: 'Hora de salida del descanso (Formato HH:MM)'
+    },
+    tiene_descanso: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'Indica si el bloque tiene descanso'
     }
   }, {
     tableName: 'bloques',
