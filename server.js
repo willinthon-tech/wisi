@@ -633,6 +633,7 @@ const activeCronJobs = new Map(); // Almacena los trabajos CRON activos
 function timeToCronExpression(timeString) {
   switch (timeString) {
     case '10s': return '*/10 * * * * *'; // Cada 10 segundos
+    case '30s': return '*/30 * * * * *'; // Cada 30 segundos
     case '1m': return '*/1 * * * *';    // Cada minuto
     case '5m': return '*/5 * * * *';    // Cada 5 minutos
     case '10m': return '*/10 * * * *';  // Cada 10 minutos
@@ -640,8 +641,8 @@ function timeToCronExpression(timeString) {
     case '1h': return '0 */1 * * *';     // Cada hora
     case '6h': return '0 */6 * * *';     // Cada 6 horas
     case '12h': return '0 */12 * * *';   // Cada 12 horas
-    case '24h': return '0 0 */1 * *';   // Cada 24 horas
-    default: return '0 0 */1 * *';      // Por defecto cada 24 horas
+    case '24h': return '0 0 * * *';   // Cada 24 horas (diario a medianoche)
+    default: return '0 0 * * *';      // Por defecto cada 24 horas (diario a medianoche)
   }
 }
 
