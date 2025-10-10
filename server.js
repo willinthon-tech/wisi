@@ -5102,7 +5102,8 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
               {
                 model: Bloque,
                 as: 'bloques',
-                attributes: ['id', 'hora_entrada', 'hora_salida', 'turno', 'orden', 'hora_entrada_descanso', 'hora_salida_descanso', 'tiene_descanso']
+                attributes: ['id', 'hora_entrada', 'hora_salida', 'turno', 'orden', 'hora_entrada_descanso', 'hora_salida_descanso', 'tiene_descanso'],
+                order: [['orden', 'ASC']]
               }
             ]
           }
@@ -5157,7 +5158,8 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
             {
               model: Bloque,
               as: 'bloques',
-              attributes: ['id', 'hora_entrada', 'hora_salida', 'turno', 'orden', 'hora_entrada_descanso', 'hora_salida_descanso', 'tiene_descanso']
+              attributes: ['id', 'hora_entrada', 'hora_salida', 'turno', 'orden', 'hora_entrada_descanso', 'hora_salida_descanso', 'tiene_descanso'],
+              order: [['orden', 'ASC']]
             }
           ]
         }

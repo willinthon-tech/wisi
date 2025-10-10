@@ -111,47 +111,54 @@ import { AuthService } from '../../../services/auth.service';
                       </td>
                       <td class="horario-cell">
                         <div class="horario-info">
-                          Entrada
+                          Horario
                         </div>
                       </td>
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
                           [class.month-divider]="isMonthDivider(dia, i)"
-                          [class]="getTurnoClass(empleado, dia)">
-                        <div class="horario-data">
-                          {{ getHorarioInfo(empleado, dia, 'Entrada') }}
+                          [class]="getTurnoClass(empleado, dia)"
+                          [attr.rowspan]="getTurnoClass(empleado, dia) === 'turno-libre' ? 3 : 1">
+                        <div class="horario-data" 
+                             [class.libre-vertical]="getTurnoClass(empleado, dia) === 'turno-libre'">
+                          <span *ngIf="getTurnoClass(empleado, dia) === 'turno-libre'">LIBRE</span>
+                          <span *ngIf="getTurnoClass(empleado, dia) !== 'turno-libre'">
+                            {{ getHorarioInfo(empleado, dia, 'Entrada') }}
+                          </span>
                         </div>
                       </td>
                     </tr>
                     
-                    <!-- Fila de Descanso -->
+                    <!-- Fila de Marcaje -->
                     <tr>
                       <td class="horario-cell">
                         <div class="horario-info">
-                          Descanso
+                          Marcaje
                         </div>
                       </td>
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
                           [class.month-divider]="isMonthDivider(dia, i)"
-                          [class]="getTurnoClass(empleado, dia)">
+                          [class]="getTurnoClass(empleado, dia)"
+                          [style.display]="getTurnoClass(empleado, dia) === 'turno-libre' ? 'none' : 'table-cell'">
                         <div class="horario-data">
                           {{ getHorarioInfo(empleado, dia, 'Descanso') }}
                         </div>
                       </td>
                     </tr>
                     
-                    <!-- Fila de Salida -->
+                    <!-- Fila de Calculo -->
                     <tr>
                       <td class="horario-cell">
                         <div class="horario-info">
-                          Salida
+                          Calculo
                         </div>
                       </td>
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
                           [class.month-divider]="isMonthDivider(dia, i)"
-                          [class]="getTurnoClass(empleado, dia)">
+                          [class]="getTurnoClass(empleado, dia)"
+                          [style.display]="getTurnoClass(empleado, dia) === 'turno-libre' ? 'none' : 'table-cell'">
                         <div class="horario-data">
                           {{ getHorarioInfo(empleado, dia, 'Salida') }}
                         </div>
@@ -482,8 +489,8 @@ import { AuthService } from '../../../services/auth.service';
     }
 
     .dia-col, .dia-cell {
-      width: 40px;
-      min-width: 40px;
+      width: 150px;
+      min-width: 150px;
     }
 
     .dia-cell {
@@ -492,11 +499,6 @@ import { AuthService } from '../../../services/auth.service';
 
     .dia-cell:last-child {
       border-right: none;
-    }
-
-    /* Línea divisora especial entre meses */
-    .dia-cell.month-divider {
-      border-right: 3px solid #4CAF50;
     }
 
     .mes-header {
@@ -611,17 +613,42 @@ import { AuthService } from '../../../services/auth.service';
     /* Estilos para turnos */
     .turno-diurno {
       background-color: #fff3cd !important;
-      border-left: 3px solid #ffc107;
     }
 
     .turno-nocturno {
       background-color: #ffeaa7 !important;
-      border-left: 3px solid #e17055;
     }
 
     .turno-libre {
       background-color: #f8f9fa !important;
-      border-left: 3px solid #6c757d;
+    }
+
+    .sin-horario {
+      background-color: #f8f9fa !important;
+      color: #6c757d !important;
+      font-style: italic;
+    }
+
+    /* Estilo para texto LIBRE en vertical */
+    .libre-vertical {
+      writing-mode: vertical-rl;
+      text-orientation: upright;
+      text-align: center;
+      font-weight: bold;
+      font-size: 14px;
+      color: #dc3545;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      min-height: 90px;
+      max-height: 90px;
+    }
+
+    /* Asegurar que las celdas LIBRE tengan la altura correcta */
+    .turno-libre {
+      height: 90px;
+      vertical-align: middle;
     }
 
     .loading-state {
@@ -1051,42 +1078,101 @@ export class MarcajePersonalComponent implements OnInit {
       return null;
     }
 
-    const bloques = empleado.Horario.bloques;
+    // Asegurar que los bloques estén ordenados por 'orden'
+    const bloques = empleado.Horario.bloques.sort((a: any, b: any) => a.orden - b.orden);
     const diasDesdeInicio = this.calcularDiasDesdeInicio(dia, empleado);
+    
+    // Si el día es anterior a la fecha de inicio, retornar null (sin horario)
+    if (diasDesdeInicio < 0) {
+      console.log(`Empleado: ${empleado.nombre}, Día: ${dia.toISOString().split('T')[0]} - ANTERIOR A FECHA INICIO (Sin horario)`);
+      return null;
+    }
+    
     const indiceBloque = diasDesdeInicio % bloques.length;
+    
+    // Debug: mostrar información del cálculo
+    console.log(`=== DEBUG BLOQUE HORARIO ===`);
+    console.log(`Empleado: ${empleado.nombre}, Día: ${dia.toISOString().split('T')[0]}, Días desde inicio: ${diasDesdeInicio}, Índice bloque: ${indiceBloque}, Total bloques: ${bloques.length}`);
+    console.log('Bloques orden:', bloques.map((b: any, i: number) => `${i}: ${b.turno} (orden: ${b.orden})`).join(', '));
+    console.log(`Bloque seleccionado: ${bloques[indiceBloque]?.turno} (orden: ${bloques[indiceBloque]?.orden})`);
+    console.log(`=== FIN DEBUG ===`);
     
     return bloques[indiceBloque];
   }
 
   // Calcular días desde la fecha de inicio del horario
   calcularDiasDesdeInicio(dia: Date, empleado?: any): number {
-    // Si el empleado tiene primer_dia_trabajo, usarlo como fecha de inicio
-    if (empleado?.primer_dia_trabajo) {
-      const fechaInicio = new Date(empleado.primer_dia_trabajo);
-      const diffTime = dia.getTime() - fechaInicio.getTime();
-      const dias = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      console.log(`Empleado ${empleado.nombre}: primer_dia_trabajo=${empleado.primer_dia_trabajo}, dia=${dia.toISOString().split('T')[0]}, diasDesdeInicio=${dias}`);
-      return dias;
+    let fechaInicioCiclo: Date | null = null;
+
+    console.log(`=== DEBUG CALCULAR DIAS DESDE INICIO ===`);
+    console.log(`Empleado: ${empleado?.nombre}`);
+    console.log(`primer_dia_horario: ${empleado?.primer_dia_horario}`);
+    console.log(`Horario.fecha_inicio: ${empleado?.Horario?.fecha_inicio}`);
+    console.log(`this.fechaDesde: ${this.fechaDesde}`);
+
+    // Prioridad 1: primer_dia_horario del empleado
+    if (empleado?.primer_dia_horario) {
+      // Crear fecha sin problemas de zona horaria
+      const fechaStr = empleado.primer_dia_horario.split('T')[0]; // Solo la parte de fecha
+      const [año, mes, dia] = fechaStr.split('-').map(Number);
+      fechaInicioCiclo = new Date(año, mes - 1, dia); // mes - 1 porque Date usa 0-indexado
+      console.log(`Usando primer_dia_horario: ${fechaInicioCiclo.toISOString().split('T')[0]}`);
+    }
+    // Prioridad 2: fecha_inicio del horario del empleado
+    else if (empleado?.Horario?.fecha_inicio) {
+      const fechaStr = empleado.Horario.fecha_inicio.split('T')[0];
+      const [año, mes, dia] = fechaStr.split('-').map(Number);
+      fechaInicioCiclo = new Date(año, mes - 1, dia);
+      console.log(`Usando Horario.fecha_inicio: ${fechaInicioCiclo.toISOString().split('T')[0]}`);
+    }
+    // Prioridad 3: fechaDesde del componente (inicio del rango de visualización)
+    else {
+      fechaInicioCiclo = new Date(this.fechaDesde);
+      console.log(`Usando this.fechaDesde: ${fechaInicioCiclo.toISOString().split('T')[0]}`);
     }
 
-    // Si el empleado tiene horario con fecha de inicio específica, usarla
-    if (empleado?.Horario?.fecha_inicio) {
-      const fechaInicio = new Date(empleado.Horario.fecha_inicio);
-      const diffTime = dia.getTime() - fechaInicio.getTime();
-      return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // Si no se pudo determinar una fecha de inicio del ciclo, retornar un valor que indique "fuera de ciclo"
+    if (!fechaInicioCiclo) {
+      console.log(`No se pudo determinar fecha de inicio del ciclo`);
+      return -1; // O algún otro valor que indique que no hay un punto de inicio válido
+    }
+
+    // Asegurarse de que la fecha de inicio del ciclo no tenga componentes de tiempo para una comparación precisa
+    fechaInicioCiclo.setHours(0, 0, 0, 0);
+    dia.setHours(0, 0, 0, 0);
+
+    const diffTime = dia.getTime() - fechaInicioCiclo.getTime();
+    const dias = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    console.log(`Fecha inicio ciclo: ${fechaInicioCiclo.toISOString().split('T')[0]}, Día: ${dia.toISOString().split('T')[0]}, Días desde inicio: ${dias}`);
+    console.log(`=== FIN DEBUG CALCULAR DIAS ===`);
+
+    return dias;
+  }
+
+  // Formatear hora a formato militar (24 horas) sin segundos
+  formatearHora(hora: string): string {
+    if (!hora) return '';
+    
+    // Si ya tiene formato HH:MM, usar directamente
+    if (hora.includes(':')) {
+      const [horas, minutos] = hora.split(':');
+      const horaNum = parseInt(horas);
+      const min = minutos || '00';
+      
+      // Asegurar formato HH:MM
+      return `${horaNum.toString().padStart(2, '0')}:${min}`;
     }
     
-    // Si no hay fecha específica, usar la fecha de inicio del rango seleccionado
-    const fechaInicio = new Date(this.fechaDesde);
-    const diffTime = dia.getTime() - fechaInicio.getTime();
-    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return hora;
   }
 
   // Obtener información de horario para mostrar en la celda
   getHorarioInfo(empleado: any, dia: Date, tipoHorario: string): string {
     const bloque = this.getBloqueHorario(empleado, dia);
     if (!bloque) {
-      return '';
+      // Si no hay bloque (fechas anteriores a la fecha de inicio), mostrar "Sin horario"
+      return 'Sin horario';
     }
 
     let resultado = '';
@@ -1095,17 +1181,29 @@ export class MarcajePersonalComponent implements OnInit {
         resultado = bloque.turno || '';
         break;
       case 'Entrada':
-        resultado = bloque.hora_entrada || '';
+        // Mostrar horario completo: entrada - entrada almuerzo - salida almuerzo - salida
+        const horaEntrada = this.formatearHora(bloque.hora_entrada || '');
+        const horaSalida = this.formatearHora(bloque.hora_salida || '');
+        
+        if (bloque.tiene_descanso && bloque.hora_entrada_descanso && bloque.hora_salida_descanso) {
+          const entradaDescanso = this.formatearHora(bloque.hora_entrada_descanso);
+          const salidaDescanso = this.formatearHora(bloque.hora_salida_descanso);
+          resultado = `${horaEntrada} - ${entradaDescanso} - ${salidaDescanso} - ${horaSalida}`;
+        } else {
+          resultado = `${horaEntrada} - Sin descanso - ${horaSalida}`;
+        }
         break;
       case 'Descanso':
-        if (bloque.tiene_descanso) {
-          resultado = `${bloque.hora_entrada_descanso || ''} - ${bloque.hora_salida_descanso || ''}`;
+        if (bloque.tiene_descanso && bloque.hora_entrada_descanso && bloque.hora_salida_descanso) {
+          const entradaDescanso = this.formatearHora(bloque.hora_entrada_descanso);
+          const salidaDescanso = this.formatearHora(bloque.hora_salida_descanso);
+          resultado = `${entradaDescanso} - ${salidaDescanso}`;
         } else {
           resultado = 'Sin descanso';
         }
         break;
       case 'Salida':
-        resultado = bloque.hora_salida || '';
+        resultado = this.formatearHora(bloque.hora_salida || '');
         break;
       default:
         resultado = '';
@@ -1117,7 +1215,10 @@ export class MarcajePersonalComponent implements OnInit {
   // Obtener clase CSS para el turno
   getTurnoClass(empleado: any, dia: Date): string {
     const bloque = this.getBloqueHorario(empleado, dia);
-    if (!bloque) return '';
+    if (!bloque) {
+      // Si no hay bloque (fechas anteriores a la fecha de inicio), no aplicar clase especial
+      return 'sin-horario';
+    }
 
     switch (bloque.turno) {
       case 'DIURNO':
