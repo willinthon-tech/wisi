@@ -34,4 +34,9 @@ export class HorariosService {
   deleteHorario(id: number): Observable<any> {
     return this.http.delete<any>(`${this.apiUrl}/${id}`);
   }
+
+  // Obtener horarios por sala
+  getHorariosBySala(salaId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/sala/${salaId}`);
+  }
 }

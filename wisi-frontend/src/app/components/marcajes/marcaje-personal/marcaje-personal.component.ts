@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { EmpleadosService } from '../../../services/empleados.service';
 import { AuthService } from '../../../services/auth.service';
 import { MarcajesService } from '../../../services/marcajes.service';
+import { HorariosService } from '../../../services/horarios.service';
 
 @Component({
   selector: 'app-marcaje-personal',
@@ -98,8 +99,13 @@ import { MarcajesService } from '../../../services/marcajes.service';
                             <img *ngIf="empleado.foto" 
                                  [src]="getFotoUrl(empleado.foto)" 
                                  [alt]="empleado.nombre"
-                                 class="foto-real">
-                            <div *ngIf="!empleado.foto" class="foto-placeholder">
+                                 class="foto-real clickeable"
+                                 (click)="abrirModalEmpleado(empleado)"
+                                 title="Click para ver detalles">
+                            <div *ngIf="!empleado.foto" 
+                                 class="foto-placeholder clickeable"
+                                 (click)="abrirModalEmpleado(empleado)"
+                                 title="Click para ver detalles">
                               <i class="fas fa-user"></i>
                             </div>
                           </div>
@@ -189,6 +195,115 @@ import { MarcajesService } from '../../../services/marcajes.service';
       <div class="empty-state" *ngIf="!loading && grupos.length === 0">
         <i class="fas fa-users"></i>
         <p>No hay empleados asignados a tu sede</p>
+      </div>
+    </div>
+
+    <!-- Modal de Asignación de Horarios -->
+    <div class="modal-overlay" *ngIf="mostrarModal" (click)="cerrarModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Asignar Horarios - {{ empleadoSeleccionado?.nombre }}</h3>
+          <button class="modal-close" (click)="cerrarModal()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body" *ngIf="empleadoSeleccionado">
+          <!-- Información del empleado -->
+          <div class="empleado-info-header">
+            <div class="foto-modal-container">
+              <img *ngIf="empleadoSeleccionado.foto" 
+                   [src]="getFotoUrl(empleadoSeleccionado.foto)" 
+                   [alt]="empleadoSeleccionado.nombre"
+                   class="foto-modal">
+              <div *ngIf="!empleadoSeleccionado.foto" class="foto-modal-placeholder">
+                <i class="fas fa-user"></i>
+              </div>
+            </div>
+            <div class="info-basica">
+              <h4>{{ empleadoSeleccionado.nombre }}</h4>
+              <p><strong>Cédula:</strong> {{ empleadoSeleccionado.cedula }}</p>
+              <p><strong>Cargo:</strong> {{ empleadoSeleccionado.Cargo?.nombre || 'Sin cargo' }}</p>
+            </div>
+          </div>
+
+          <!-- Formulario para asignar horario -->
+          <div class="formulario-horario">
+            <h5>Asignar Nuevo Horario</h5>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="primerDia">Primer Día de Trabajo:</label>
+                <input type="date" 
+                       id="primerDia"
+                       [(ngModel)]="nuevoHorario.primer_dia"
+                       class="form-control">
+              </div>
+              <div class="form-group">
+                <label for="horarioSelect">Horario:</label>
+                <select id="horarioSelect"
+                        [(ngModel)]="nuevoHorario.horario_id"
+                        class="form-control"
+                        (change)="cargarHorariosPorSala()">
+                  <option value="">Seleccionar horario...</option>
+                  <option *ngFor="let horario of horariosDisponibles" 
+                          [value]="horario.id">
+                    {{ horario.nombre }}
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <button class="btn btn-primary" 
+                        (click)="guardarHorarioEmpleado()"
+                        [disabled]="!nuevoHorario.primer_dia || !nuevoHorario.horario_id">
+                  <i class="fas fa-save"></i> Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabla de horarios asignados -->
+          <div class="horarios-asignados" *ngIf="horariosEmpleado.length > 0">
+            <h5>Horarios Asignados</h5>
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Fecha de Inicio</th>
+                    <th>Horario</th>
+                    <th>Bloques</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let horarioEmp of horariosEmpleado">
+                    <td>{{ horarioEmp.primer_dia | date:'dd/MM/yyyy' }}</td>
+                    <td>{{ horarioEmp.Horario?.nombre }}</td>
+                    <td>
+                      <div class="patron-preview" *ngIf="horarioEmp.Horario?.bloques">
+                        <span *ngFor="let bloque of getBloquesOrdenados(horarioEmp.Horario.bloques); let j = index" 
+                              class="badge me-1" 
+                              [ngClass]="getBloqueBadgeClass(bloque.turno)">
+                          {{ getBloqueText(bloque.turno) }}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <button class="btn btn-sm btn-danger" 
+                              (click)="eliminarHorarioEmpleado(horarioEmp.id)">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Mensaje cuando no hay horarios -->
+          <div class="no-horarios" *ngIf="horariosEmpleado.length === 0">
+            <i class="fas fa-clock"></i>
+            <p>No hay horarios asignados para este empleado</p>
+          </div>
+        </div>
       </div>
     </div>
   `,
@@ -442,6 +557,17 @@ import { MarcajesService } from '../../../services/marcajes.service';
       border-radius: 50%;
       object-fit: cover;
       border: 2px solid #e9ecef;
+      transition: all 0.3s ease;
+    }
+
+    .foto-real.clickeable {
+      cursor: pointer;
+    }
+
+    .foto-real.clickeable:hover {
+      transform: scale(1.1);
+      border-color: #007bff;
+      box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
     }
 
     .foto-placeholder {
@@ -454,6 +580,18 @@ import { MarcajesService } from '../../../services/marcajes.service';
       justify-content: center;
       color: #6c757d;
       font-size: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .foto-placeholder.clickeable {
+      cursor: pointer;
+    }
+
+    .foto-placeholder.clickeable:hover {
+      transform: scale(1.1);
+      background: #007bff;
+      color: white;
+      box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
     }
 
     .empleado-info {
@@ -836,6 +974,335 @@ import { MarcajesService } from '../../../services/marcajes.service';
         padding: 8px 4px;
       }
     }
+
+    /* Estilos del Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      max-width: 800px;
+      width: 95%;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      color: #333;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: #6c757d;
+      padding: 5px;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .modal-close:hover {
+      background-color: #f8f9fa;
+      color: #333;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    .empleado-info-header {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    .info-basica h4 {
+      margin: 0 0 10px 0;
+      color: #333;
+      font-size: 20px;
+    }
+
+    .info-basica p {
+      margin: 5px 0;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .formulario-horario {
+      margin-bottom: 25px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    .formulario-horario h5 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 16px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 15px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+
+    .form-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .btn-primary {
+      background-color: #007bff;
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background-color: #0056b3;
+    }
+
+    .btn-primary:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    .btn-danger {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background-color: #c82333;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    .horarios-asignados {
+      margin-top: 20px;
+    }
+
+    .horarios-asignados h5 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 16px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 0;
+    }
+
+    .table th,
+    .table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: rgba(0,0,0,.05);
+    }
+
+    .bloques-container {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .bloque-item {
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      border: 1px solid #ddd;
+    }
+
+    .bloque-item.turno-diurno {
+      background-color: #e3f2fd;
+      border-color: #2196f3;
+    }
+
+    .bloque-item.turno-nocturno {
+      background-color: #f3e5f5;
+      border-color: #9c27b0;
+    }
+
+    .bloque-horas {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .bloque-descanso {
+      font-size: 11px;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    .no-horarios {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6c757d;
+    }
+
+    .no-horarios i {
+      font-size: 48px;
+      margin-bottom: 15px;
+      display: block;
+    }
+
+    .no-horarios p {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .foto-modal-container {
+      flex-shrink: 0;
+    }
+
+    .foto-modal {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #e9ecef;
+    }
+
+    .foto-modal-placeholder {
+      width: 100px;
+      height: 100px;
+      background: #e9ecef;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6c757d;
+      font-size: 40px;
+    }
+
+    .info-detalles {
+      flex: 1;
+    }
+
+    .info-detalles h4 {
+      margin: 0 0 15px 0;
+      color: #333;
+      font-size: 24px;
+    }
+
+    .info-detalles p {
+      margin: 8px 0;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .info-detalles strong {
+      color: #333;
+      font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+      .empleado-modal-info {
+        flex-direction: column;
+        text-align: center;
+      }
+      
+      .foto-modal-container {
+        align-self: center;
+      }
+    }
+
+    /* Estilos para el patrón de bloques */
+    .patron-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+
+    .badge-diurno {
+      background-color: #ffc107 !important;
+      color: #000 !important;
+      font-weight: bold;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+    }
+
+    .badge-nocturno {
+      background-color: #6f42c1 !important;
+      color: #fff !important;
+      font-weight: bold;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+    }
+
+    .badge-libre {
+      background-color: #28a745 !important;
+      color: #fff !important;
+      font-weight: bold;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+    }
   `]
 })
 export class MarcajePersonalComponent implements OnInit {
@@ -848,10 +1315,23 @@ export class MarcajePersonalComponent implements OnInit {
   grupoSeleccionado: string = 'salas';
   loading = false;
   marcajesPorEmpleado: Map<string, any[]> = new Map();
+  
+  // Propiedades para el modal
+  mostrarModal = false;
+  empleadoSeleccionado: any = null;
+  
+  // Propiedades para horarios
+  horariosDisponibles: any[] = [];
+  horariosEmpleado: any[] = [];
+  nuevoHorario = {
+    primer_dia: '',
+    horario_id: ''
+  };
 
   constructor(
     private empleadosService: EmpleadosService,
-    private marcajesService: MarcajesService
+    private marcajesService: MarcajesService,
+    private horariosService: HorariosService
   ) {}
 
   ngOnInit() {
@@ -1212,20 +1692,13 @@ export class MarcajePersonalComponent implements OnInit {
   calcularDiasDesdeInicio(dia: Date, empleado?: any): number {
     let fechaInicioCiclo: Date | null = null;
 
-    // Prioridad 1: primer_dia_horario del empleado
-    if (empleado?.primer_dia_horario) {
-      // Crear fecha sin problemas de zona horaria
-      const fechaStr = empleado.primer_dia_horario.split('T')[0]; // Solo la parte de fecha
-      const [año, mes, dia] = fechaStr.split('-').map(Number);
-      fechaInicioCiclo = new Date(año, mes - 1, dia); // mes - 1 porque Date usa 0-indexado
-    }
-    // Prioridad 2: fecha_inicio del horario del empleado
-    else if (empleado?.Horario?.fecha_inicio) {
+    // Prioridad 1: fecha_inicio del horario del empleado
+    if (empleado?.Horario?.fecha_inicio) {
       const fechaStr = empleado.Horario.fecha_inicio.split('T')[0];
       const [año, mes, dia] = fechaStr.split('-').map(Number);
       fechaInicioCiclo = new Date(año, mes - 1, dia);
     }
-    // Prioridad 3: fechaDesde del componente (inicio del rango de visualización)
+    // Prioridad 2: fechaDesde del componente (inicio del rango de visualización)
     else {
       fechaInicioCiclo = new Date(this.fechaDesde);
     }
@@ -1857,5 +2330,160 @@ export class MarcajePersonalComponent implements OnInit {
       default:
         return '';
     }
+  }
+
+  // Métodos para el modal
+  abrirModalEmpleado(empleado: any) {
+    console.log('Empleado seleccionado:', empleado);
+    console.log('Estructura del empleado:', JSON.stringify(empleado, null, 2));
+    
+    this.empleadoSeleccionado = empleado;
+    this.mostrarModal = true;
+    this.resetearFormulario();
+    this.cargarHorariosPorSala();
+    this.cargarHorariosEmpleado();
+  }
+
+  cerrarModal() {
+    this.mostrarModal = false;
+    this.empleadoSeleccionado = null;
+    this.horariosDisponibles = [];
+    this.horariosEmpleado = [];
+    this.resetearFormulario();
+  }
+
+  resetearFormulario() {
+    this.nuevoHorario = {
+      primer_dia: '',
+      horario_id: ''
+    };
+  }
+
+  cargarHorariosPorSala() {
+    if (!this.empleadoSeleccionado?.Cargo?.Departamento?.Area?.Sala?.id) {
+      this.horariosDisponibles = [];
+      console.log('No se encontró sala para el empleado');
+      return;
+    }
+
+    const salaId = this.empleadoSeleccionado.Cargo.Departamento.Area.Sala.id;
+    console.log('Cargando horarios para sala:', salaId);
+
+    this.horariosService.getHorariosBySala(salaId).subscribe({
+      next: (horarios) => {
+        this.horariosDisponibles = horarios;
+        console.log('Horarios cargados:', horarios);
+      },
+      error: (error) => {
+        console.error('Error cargando horarios:', error);
+        this.horariosDisponibles = [];
+      }
+    });
+  }
+
+  cargarHorariosEmpleado() {
+    if (!this.empleadoSeleccionado?.id) return;
+
+    console.log('Cargando horarios del empleado:', this.empleadoSeleccionado.id);
+
+    this.empleadosService.getHorariosEmpleado(this.empleadoSeleccionado.id).subscribe({
+      next: (horarios) => {
+        this.horariosEmpleado = horarios;
+        console.log('Horarios del empleado cargados:', horarios);
+      },
+      error: (error) => {
+        console.error('Error cargando horarios del empleado:', error);
+        this.horariosEmpleado = [];
+      }
+    });
+  }
+
+  guardarHorarioEmpleado() {
+    if (!this.nuevoHorario.primer_dia || !this.nuevoHorario.horario_id) {
+      alert('Por favor complete todos los campos');
+      return;
+    }
+
+    if (!this.empleadoSeleccionado?.id) {
+      alert('Error: No se ha seleccionado un empleado');
+      return;
+    }
+
+    console.log('Guardando horario:', this.nuevoHorario);
+
+    const horarioData = {
+      primer_dia: this.nuevoHorario.primer_dia,
+      horario_id: parseInt(this.nuevoHorario.horario_id)
+    };
+
+    this.empleadosService.asignarHorarioEmpleado(this.empleadoSeleccionado.id, horarioData).subscribe({
+      next: (response) => {
+        console.log('Horario asignado correctamente:', response);
+        alert('Horario asignado correctamente');
+        this.resetearFormulario();
+        this.cargarHorariosEmpleado(); // Recargar la lista
+      },
+      error: (error) => {
+        console.error('Error asignando horario:', error);
+        alert('Error asignando horario: ' + (error.error?.message || 'Error desconocido'));
+      }
+    });
+  }
+
+  eliminarHorarioEmpleado(horarioEmpleadoId: number) {
+    if (!confirm('¿Está seguro de que desea eliminar este horario?')) {
+      return;
+    }
+
+    if (!this.empleadoSeleccionado?.id) {
+      alert('Error: No se ha seleccionado un empleado');
+      return;
+    }
+
+    console.log('Eliminando horario:', horarioEmpleadoId);
+
+    this.empleadosService.eliminarHorarioEmpleado(this.empleadoSeleccionado.id, horarioEmpleadoId).subscribe({
+      next: (response) => {
+        console.log('Horario eliminado correctamente:', response);
+        alert('Horario eliminado correctamente');
+        this.cargarHorariosEmpleado(); // Recargar la lista
+      },
+      error: (error) => {
+        console.error('Error eliminando horario:', error);
+        alert('Error eliminando horario: ' + (error.error?.message || 'Error desconocido'));
+      }
+    });
+  }
+
+  // Métodos para mostrar el patrón de bloques
+  getBloqueText(turno: string): string {
+    const turnos: { [key: string]: string } = {
+      'DIURNO': 'D',
+      'NOCTURNO': 'N',
+      'LIBRE': 'L'
+    };
+    return turnos[turno] || turno;
+  }
+
+  getBloqueBadgeClass(turno: string): string {
+    const clases: { [key: string]: string } = {
+      'DIURNO': 'badge-diurno',
+      'NOCTURNO': 'badge-nocturno',
+      'LIBRE': 'badge-libre'
+    };
+    return clases[turno] || 'badge-secondary';
+  }
+
+  // Método para ordenar los bloques según el campo 'orden'
+  getBloquesOrdenados(bloques: any[]): any[] {
+    if (!bloques || !Array.isArray(bloques)) {
+      return [];
+    }
+    
+    return [...bloques].sort((a, b) => {
+      const ordenA = a.orden || 0;
+      const ordenB = b.orden || 0;
+      return ordenA - ordenB;
+    });
   }
 }

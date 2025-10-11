@@ -60,6 +60,7 @@ const {
   Empleado,
   Horario,
   Bloque,
+  HorarioEmpleado,
   Dispositivo,
   Attlog,
   Cron,
@@ -3355,6 +3356,129 @@ app.get('/api/horarios/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Obtener horarios por sala
+app.get('/api/horarios/sala/:salaId', authenticateToken, async (req, res) => {
+  try {
+    const { salaId } = req.params;
+    
+    const horarios = await Horario.findAll({
+      where: { sala_id: salaId },
+      include: [{
+        model: Bloque,
+        as: 'bloques',
+        order: [['orden', 'ASC']]
+      }],
+      order: [['nombre', 'ASC']]
+    });
+
+    res.json(horarios);
+  } catch (error) {
+    console.error('Error obteniendo horarios por sala:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener horarios asignados a un empleado
+app.get('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, res) => {
+  try {
+    const { empleadoId } = req.params;
+    
+    const horariosEmpleado = await HorarioEmpleado.findAll({
+      where: { empleado_id: empleadoId },
+      include: [{
+        model: Horario,
+        as: 'Horario',
+        include: [{
+          model: Bloque,
+          as: 'bloques',
+          order: [['orden', 'ASC']]
+        }]
+      }],
+      order: [['primer_dia', 'DESC']]
+    });
+
+    res.json(horariosEmpleado);
+  } catch (error) {
+    console.error('Error obteniendo horarios del empleado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Asignar horario a un empleado
+app.post('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, res) => {
+  try {
+    const { empleadoId } = req.params;
+    const { primer_dia, horario_id } = req.body;
+    
+    if (!primer_dia || !horario_id) {
+      return res.status(400).json({ message: 'primer_dia y horario_id son requeridos' });
+    }
+
+    // Verificar que el empleado existe
+    const empleado = await Empleado.findByPk(empleadoId);
+    if (!empleado) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+
+    // Verificar que el horario existe
+    const horario = await Horario.findByPk(horario_id);
+    if (!horario) {
+      return res.status(404).json({ message: 'Horario no encontrado' });
+    }
+
+    // Crear la asignación
+    const horarioEmpleado = await HorarioEmpleado.create({
+      empleado_id: parseInt(empleadoId),
+      horario_id: parseInt(horario_id),
+      primer_dia: primer_dia
+    });
+
+    // Obtener el horario con sus bloques para la respuesta
+    const horarioCompleto = await Horario.findByPk(horario_id, {
+      include: [{
+        model: Bloque,
+        as: 'bloques',
+        order: [['orden', 'ASC']]
+      }]
+    });
+
+    res.json({
+      id: horarioEmpleado.id,
+      empleado_id: horarioEmpleado.empleado_id,
+      horario_id: horarioEmpleado.horario_id,
+      primer_dia: horarioEmpleado.primer_dia,
+      Horario: horarioCompleto
+    });
+  } catch (error) {
+    console.error('Error asignando horario al empleado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar horario asignado a un empleado
+app.delete('/api/empleados/:empleadoId/horarios/:horarioEmpleadoId', authenticateToken, async (req, res) => {
+  try {
+    const { empleadoId, horarioEmpleadoId } = req.params;
+    
+    const horarioEmpleado = await HorarioEmpleado.findOne({
+      where: {
+        id: horarioEmpleadoId,
+        empleado_id: empleadoId
+      }
+    });
+
+    if (!horarioEmpleado) {
+      return res.status(404).json({ message: 'Asignación de horario no encontrada' });
+    }
+
+    await horarioEmpleado.destroy();
+    res.json({ message: 'Horario eliminado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando horario del empleado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // =============================================
 // RUTAS PARA MESAS
 // =============================================
@@ -5093,19 +5217,6 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
                 ]
               }
             ]
-          },
-          {
-            model: Horario,
-            as: 'Horario',
-            attributes: ['id', 'nombre'],
-            include: [
-              {
-                model: Bloque,
-                as: 'bloques',
-                attributes: ['id', 'hora_entrada', 'hora_salida', 'turno', 'orden', 'hora_entrada_descanso', 'hora_salida_descanso', 'tiene_descanso'],
-                order: [['orden', 'ASC']]
-              }
-            ]
           }
         ],
         order: [['nombre', 'ASC']]
@@ -5143,23 +5254,6 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
                   ]
                 }
               ]
-            }
-          ]
-        },
-        {
-          model: Horario,
-          as: 'Horario',
-          include: [
-            {
-              model: Sala,
-              as: 'Sala',
-              required: false
-            },
-            {
-              model: Bloque,
-              as: 'bloques',
-              attributes: ['id', 'hora_entrada', 'hora_salida', 'turno', 'orden', 'hora_entrada_descanso', 'hora_salida_descanso', 'tiene_descanso'],
-              order: [['orden', 'ASC']]
             }
           ]
         }
@@ -5220,16 +5314,6 @@ app.get('/api/empleados/:id', authenticateToken, async (req, res) => {
               ]
             }
           ]
-        },
-        {
-          model: Horario,
-          as: 'Horario',
-          include: [
-            {
-              model: Sala,
-              as: 'Sala'
-            }
-          ]
         }
       ]
     });
@@ -5248,7 +5332,7 @@ app.get('/api/empleados/:id', authenticateToken, async (req, res) => {
 // POST /api/empleados - Crear nuevo empleado
 app.post('/api/empleados', authenticateToken, async (req, res) => {
   try {
-    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, primer_dia_horario, horario_id, dispositivos } = req.body;
+    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, dispositivos } = req.body;
     
     if (!nombre || !cedula || !fecha_ingreso || !fecha_cumpleanos || !sexo || !cargo_id) {
       return res.status(400).json({ message: 'Todos los campos son requeridos' });
@@ -5273,9 +5357,7 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
       fecha_ingreso,
       fecha_cumpleanos,
       sexo,
-      cargo_id,
-      primer_dia_horario: primer_dia_horario || null,
-      horario_id: horario_id || null});
+      cargo_id});
 
     // Manejar dispositivos si se proporcionan
     if (dispositivos && dispositivos.length > 0) {
@@ -5311,16 +5393,6 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
               ]
             }
           ]
-        },
-        {
-          model: Horario,
-          as: 'Horario',
-          include: [
-            {
-              model: Sala,
-              as: 'Sala'
-            }
-          ]
         }
       ]
     });
@@ -5336,7 +5408,7 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
 app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, primer_dia_horario, horario_id, dispositivos } = req.body;
+    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, dispositivos } = req.body;
     
     const empleado = await Empleado.findByPk(id);
     if (!empleado) {
@@ -5369,8 +5441,6 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
       fecha_cumpleanos: fecha_cumpleanos || empleado.fecha_cumpleanos,
       sexo: sexo || empleado.sexo,
       cargo_id: cargo_id || empleado.cargo_id,
-      primer_dia_horario: primer_dia_horario !== undefined ? primer_dia_horario : empleado.primer_dia_horario,
-      horario_id: horario_id !== undefined ? horario_id : empleado.horario_id
     });
 
     // Manejar dispositivos si se proporcionan
@@ -5413,16 +5483,6 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
                   ]
                 }
               ]
-            }
-          ]
-        },
-        {
-          model: Horario,
-          as: 'Horario',
-          include: [
-            {
-              model: Sala,
-              as: 'Sala'
             }
           ]
         }

@@ -48,21 +48,6 @@ module.exports = (sequelize) => {
       onDelete: 'RESTRICT',
       comment: 'ID del cargo al que pertenece el empleado'
     },
-    primer_dia_horario: {
-      type: DataTypes.DATEONLY,
-      allowNull: true,
-      comment: 'Primer día de horario del empleado'
-    },
-    horario_id: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'horarios',
-        key: 'id'
-      },
-      onDelete: 'RESTRICT',
-      comment: 'ID del horario asignado al empleado'
-    },
   }, {
     tableName: 'empleados',
     timestamps: true,

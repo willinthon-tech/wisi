@@ -12,8 +12,6 @@ interface EmpleadoForm {
   fecha_cumpleanos: string;
   sexo: string;
   cargo_id: number | null;
-  primer_dia_horario: string;
-  horario_id: number | null;
   dispositivos: number[];
 }
 import { BiometricImageService } from '../../../services/biometric-image.service';
@@ -58,8 +56,6 @@ import { Subscription } from 'rxjs';
               <th>Nombre</th>
               <th>Cédula</th>
               <th>Cargo</th>
-              <th>Primer Día Horario</th>
-              <th>Horario</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -78,8 +74,6 @@ import { Subscription } from 'rxjs';
               <td>{{ empleado.nombre }}</td>
               <td>{{ empleado.cedula }}</td>
               <td>{{ empleado.Cargo?.nombre || 'Sin asignar' }}</td>
-              <td>{{ formatDate(empleado.primer_dia_horario) || 'Sin asignar' }}</td>
-              <td>{{ empleado.Horario?.nombre || 'Sin asignar' }}</td>
               <td>
                 <button 
                   class="btn btn-info btn-sm me-1" 
@@ -324,40 +318,6 @@ import { Subscription } from 'rxjs';
               </div>
               
 
-              <div class="form-group">
-                <label for="horarioSelect">Horario:</label>
-                <select 
-                  id="horarioSelect" 
-                  name="horarioSelect"
-                  [(ngModel)]="nuevoEmpleado.horario_id"
-                  (ngModelChange)="detectChanges()"
-                  class="form-control"
-                  [disabled]="!nuevoEmpleado.cargo_id || userHorarios.length === 0"
-                  required
-                >
-                  <option value="">
-                    {{ !nuevoEmpleado.cargo_id ? 'Seleccione un cargo primero' : 
-                       userHorarios.length === 0 ? 'No hay horarios disponibles' : 
-                       'Seleccione un horario' }}
-                  </option>
-                  <option *ngFor="let horario of userHorarios" [value]="horario.id">
-                    {{ horario.nombre }} ({{ horario.Sala?.nombre || 'Sin sala' }})
-                  </option>
-                </select>
-              </div>
-
-
-              <div class="form-group">
-                <label for="primerDiaHorario">Primer Día del Horario:</label>
-                <input 
-                  type="date" 
-                  id="primerDiaHorario" 
-                  name="primerDiaHorario"
-                  [(ngModel)]="nuevoEmpleado.primer_dia_horario"
-                  class="form-control"
-                  required
-                />
-              </div>
               
               
               
@@ -1211,7 +1171,6 @@ import { Subscription } from 'rxjs';
 export class EmpleadosListComponent implements OnInit, OnDestroy {
   empleados: any[] = [];
   userCargos: any[] = [];
-  userHorarios: any[] = [];
   userDispositivos: any[] = [];
   tareasCount: number = 0;
   dispositivosAnteriores: number[] = [];
@@ -1227,8 +1186,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     fecha_cumpleanos: '',
     sexo: '',
     cargo_id: null,
-    primer_dia_horario: '',
-    horario_id: null,
     dispositivos: [] as number[]
   };
   
@@ -1323,8 +1280,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       fecha_cumpleanos: form.fecha_cumpleanos,
       sexo: form.sexo,
       cargo_id: form.cargo_id || undefined,
-      primer_dia_horario: form.primer_dia_horario,
-      horario_id: form.horario_id || undefined,
       dispositivos: form.dispositivos || []
     };
   }
@@ -1375,8 +1330,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   showCargoSelector(): void {
     this.loadUserCargos();
-    // No cargar horarios inicialmente, se cargarán cuando se seleccione un cargo
-    this.userHorarios = [];
     // No cargar dispositivos inicialmente, se cargarán cuando se seleccione un cargo
     this.userDispositivos = [];
     this.resetForm();
@@ -1400,17 +1353,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadUserHorarios(cargoId?: number): void {
-    this.empleadosService.getUserHorarios(cargoId).subscribe({
-      next: (horarios: any[]) => {
-        this.userHorarios = horarios;
-      },
-      error: (error: any) => {
-        console.error('Error cargando horarios:', error);
-        this.userHorarios = [];
-      }
-    });
-  }
 
   loadUserDispositivos(): void {
     // Solo cargar dispositivos si hay un cargo seleccionado
@@ -1465,12 +1407,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   onCargoChange(): void {
-    // Cargar horarios cuando se seleccione un cargo
-    if (this.nuevoEmpleado.cargo_id) {
-      this.loadUserHorarios(this.nuevoEmpleado.cargo_id);
-    } else {
-      this.userHorarios = [];
-    }
     
     // Guardar dispositivos actuales antes de cambiar
     const dispositivosActuales = [...(this.nuevoEmpleado.dispositivos || [])];
@@ -1559,8 +1495,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       fecha_cumpleanos: todayString,
       sexo: '',
       cargo_id: null,
-      primer_dia_horario: todayString,
-      horario_id: null,
       dispositivos: []
     };
     
@@ -2338,9 +2272,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       original.fecha_ingreso !== current.fecha_ingreso ||
       original.fecha_cumpleanos !== current.fecha_cumpleanos ||
       original.sexo !== current.sexo ||
-      cargoChanged ||
-      original.primer_dia_horario !== current.primer_dia_horario ||
-      original.horario_id !== current.horario_id;
+      cargoChanged;
     
     // Comparar foto (solo si se cambió)
     const fotoChanged = current.foto && current.foto !== original.foto;
@@ -2484,8 +2416,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       fecha_cumpleanos: empleado.fecha_cumpleanos,
       sexo: empleado.sexo,
       cargo_id: empleado.cargo_id,
-      primer_dia_horario: empleado.primer_dia_horario || '',
-      horario_id: empleado.horario_id || null,
       dispositivos: empleado.dispositivos ? empleado.dispositivos.map((d: any) => d.id) : []
     };
     
@@ -2500,12 +2430,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     // Cargar cargos primero, luego los demás datos
     this.loadUserCargos();
     
-    // Cargar horarios basados en el cargo del empleado que se está editando
-    if (empleado.cargo_id) {
-      this.loadUserHorarios(empleado.cargo_id);
-    } else {
-      this.userHorarios = [];
-    }
     
     // Esperar a que se carguen los cargos antes de cargar dispositivos
     setTimeout(() => {

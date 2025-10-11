@@ -109,6 +109,7 @@ const Horario = require('./Horario')(sequelize);
 const Bloque = require('./Bloque')(sequelize);
 const Dispositivo = require('./Dispositivo')(sequelize);
 const Cron = require('./Cron')(sequelize);
+const HorarioEmpleado = require('./HorarioEmpleado')(sequelize);
 
 // Asociaciones para NovedadMaquinaRegistro
 NovedadMaquinaRegistro.belongsTo(Libro, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
@@ -149,8 +150,11 @@ Departamento.hasMany(Cargo, { foreignKey: 'departamento_id', onDelete: 'RESTRICT
 Empleado.belongsTo(Cargo, { foreignKey: 'cargo_id', onDelete: 'RESTRICT' });
 Cargo.hasMany(Empleado, { foreignKey: 'cargo_id', onDelete: 'RESTRICT' });
 
-Empleado.belongsTo(Horario, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
-Horario.hasMany(Empleado, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
+// Asociaciones para HorarioEmpleado
+HorarioEmpleado.belongsTo(Empleado, { foreignKey: 'empleado_id', onDelete: 'RESTRICT' });
+HorarioEmpleado.belongsTo(Horario, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
+Empleado.hasMany(HorarioEmpleado, { foreignKey: 'empleado_id', onDelete: 'RESTRICT' });
+Horario.hasMany(HorarioEmpleado, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Horario
 Horario.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
@@ -324,6 +328,7 @@ module.exports = {
   Dispositivo,
   Attlog,
   Cron,
+  HorarioEmpleado,
   syncDatabase
 };
 

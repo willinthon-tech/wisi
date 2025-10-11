@@ -12,8 +12,6 @@ export interface Empleado {
   fecha_ingreso?: string;
   fecha_cumpleanos?: string;
   sexo?: string;
-  primer_dia_horario?: string;
-  horario_id?: number;
   dispositivos?: number[];
   Cargo?: {
     id: number;
@@ -94,5 +92,20 @@ export class EmpleadosService {
 
   verificarCedula(cedula: string): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/verificar-cedula/${cedula}`);
+  }
+
+  // Obtener horarios asignados a un empleado
+  getHorariosEmpleado(empleadoId: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/${empleadoId}/horarios`);
+  }
+
+  // Asignar horario a un empleado
+  asignarHorarioEmpleado(empleadoId: number, horarioData: { primer_dia: string, horario_id: number }): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${empleadoId}/horarios`, horarioData);
+  }
+
+  // Eliminar horario asignado a un empleado
+  eliminarHorarioEmpleado(empleadoId: number, horarioEmpleadoId: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/${empleadoId}/horarios/${horarioEmpleadoId}`);
   }
 }
