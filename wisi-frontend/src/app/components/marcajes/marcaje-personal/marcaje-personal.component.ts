@@ -1612,9 +1612,9 @@ export class MarcajePersonalComponent implements OnInit {
     // Verificar si hay marcajes reales
     const tieneMarcajes = marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje';
     
-    // Si no hay marcajes, mostrar información programada
+    // Si no hay marcajes, mostrar: HorasATrabajar - 00:00 - HorasDeDescanso - 00:00
     if (!tieneMarcajes) {
-      const texto = `${this.formatearMinutosAHora(horasATrabajar)} - ${this.formatearMinutosAHora(horasATrabajar)} - ${this.formatearMinutosAHora(horasDeDescanso)} - ${this.formatearMinutosAHora(horasDeDescanso)}`;
+      const texto = `${this.formatearMinutosAHora(horasATrabajar)} - 00:00 - ${this.formatearMinutosAHora(horasDeDescanso)} - 00:00`;
       return { texto, claseColor: '' };
     }
     
@@ -1816,17 +1816,8 @@ export class MarcajePersonalComponent implements OnInit {
           // Solo entrada real
           resultado = marcajesDescanso.entrada;
         } else {
-          // No hay marcajes reales, mostrar horario programado como referencia
-          const horaEntrada = this.formatearHora(bloque.hora_entrada || '');
-          const horaSalida = this.formatearHora(bloque.hora_salida || '');
-          
-          if (bloque.tiene_descanso && bloque.hora_entrada_descanso && bloque.hora_salida_descanso) {
-            const entradaDescanso = this.formatearHora(bloque.hora_entrada_descanso);
-            const salidaDescanso = this.formatearHora(bloque.hora_salida_descanso);
-            resultado = `${horaEntrada} - ${entradaDescanso} - ${salidaDescanso} - ${horaSalida}`;
-          } else {
-            resultado = `${horaEntrada} - Sin descanso - ${horaSalida}`;
-          }
+          // No hay marcajes reales, mostrar "Sin Registros"
+          resultado = 'Sin Registros';
         }
         console.log(`Resultado final para Descanso: ${resultado}`);
         break;
