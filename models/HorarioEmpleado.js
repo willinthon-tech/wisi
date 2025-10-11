@@ -40,11 +40,6 @@ module.exports = (sequelize) => {
     updatedAt: 'updated_at',
     indexes: [
       {
-        unique: true,
-        fields: ['empleado_id', 'horario_id'],
-        name: 'unique_empleado_horario'
-      },
-      {
         fields: ['empleado_id'],
         name: 'idx_horarios_empleados_empleado_id'
       },

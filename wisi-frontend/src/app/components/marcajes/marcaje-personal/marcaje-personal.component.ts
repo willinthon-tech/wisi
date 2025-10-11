@@ -199,63 +199,82 @@ import { HorariosService } from '../../../services/horarios.service';
     </div>
 
     <!-- Modal de Asignación de Horarios -->
-    <div class="modal-overlay" *ngIf="mostrarModal" (click)="cerrarModal()">
-      <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-overlay" *ngIf="mostrarModal">
+      <div class="modal-content">
         <div class="modal-header">
-          <h3>Asignar Horarios - {{ empleadoSeleccionado?.nombre }}</h3>
+          <h3>Asignación de Horarios</h3>
           <button class="modal-close" (click)="cerrarModal()">
             <i class="fas fa-times"></i>
+            <span class="close-text">×</span>
           </button>
         </div>
         <div class="modal-body" *ngIf="empleadoSeleccionado">
-          <!-- Información del empleado -->
-          <div class="empleado-info-header">
-            <div class="foto-modal-container">
-              <img *ngIf="empleadoSeleccionado.foto" 
-                   [src]="getFotoUrl(empleadoSeleccionado.foto)" 
-                   [alt]="empleadoSeleccionado.nombre"
-                   class="foto-modal">
-              <div *ngIf="!empleadoSeleccionado.foto" class="foto-modal-placeholder">
-                <i class="fas fa-user"></i>
+          <!-- Layout de 2 columnas -->
+          <div class="row">
+            <!-- Columna 1: Información del empleado -->
+            <div class="col-md-6">
+              <div class="empleado-info-section">
+                <h5>{{ empleadoSeleccionado.Cargo?.Departamento?.Area?.Sala?.nombre || 'Sin sala asignada' }}</h5>
+                <div class="row">
+                  <!-- Columna de la foto -->
+                  <div class="col-md-4">
+                    <div class="foto-modal-container">
+                      <img *ngIf="empleadoSeleccionado.foto" 
+                           [src]="getFotoUrl(empleadoSeleccionado.foto)" 
+                           [alt]="empleadoSeleccionado.nombre"
+                           class="foto-modal">
+                      <div *ngIf="!empleadoSeleccionado.foto" class="foto-modal-placeholder">
+                        <i class="fas fa-user"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Columna de la información -->
+                  <div class="col-md-8">
+                    <div class="info-basica">
+                      <h4>{{ empleadoSeleccionado.nombre }}</h4>
+                      <p><strong>Cédula:</strong> {{ empleadoSeleccionado.cedula }}</p>
+                      <p><strong>Área:</strong> {{ empleadoSeleccionado.Cargo?.Departamento?.Area?.nombre || 'Sin área' }}</p>
+                      <p><strong>Departamento:</strong> {{ empleadoSeleccionado.Cargo?.Departamento?.nombre || 'Sin departamento' }}</p>
+                      <p><strong>Cargo:</strong> {{ empleadoSeleccionado.Cargo?.nombre || 'Sin cargo' }}</p>
+                      <p><strong>Sexo:</strong> {{ empleadoSeleccionado.sexo || 'No especificado' }}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="info-basica">
-              <h4>{{ empleadoSeleccionado.nombre }}</h4>
-              <p><strong>Cédula:</strong> {{ empleadoSeleccionado.cedula }}</p>
-              <p><strong>Cargo:</strong> {{ empleadoSeleccionado.Cargo?.nombre || 'Sin cargo' }}</p>
-            </div>
-          </div>
 
-          <!-- Formulario para asignar horario -->
-          <div class="formulario-horario">
-            <h5>Asignar Nuevo Horario</h5>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="primerDia">Primer Día de Trabajo:</label>
-                <input type="date" 
-                       id="primerDia"
-                       [(ngModel)]="nuevoHorario.primer_dia"
-                       class="form-control">
-              </div>
-              <div class="form-group">
-                <label for="horarioSelect">Horario:</label>
-                <select id="horarioSelect"
-                        [(ngModel)]="nuevoHorario.horario_id"
-                        class="form-control"
-                        (change)="cargarHorariosPorSala()">
-                  <option value="">Seleccionar horario...</option>
-                  <option *ngFor="let horario of horariosDisponibles" 
-                          [value]="horario.id">
-                    {{ horario.nombre }}
-                  </option>
-                </select>
-              </div>
-              <div class="form-group">
-                <button class="btn btn-primary" 
-                        (click)="guardarHorarioEmpleado()"
-                        [disabled]="!nuevoHorario.primer_dia || !nuevoHorario.horario_id">
-                  <i class="fas fa-save"></i> Guardar
-                </button>
+            <!-- Columna 2: Formulario para asignar horario -->
+            <div class="col-md-6">
+              <div class="formulario-horario">
+                <h5>Asignar Nuevo Horario</h5>
+                <div class="form-group">
+                  <label for="primerDia">Primer Día de Trabajo:</label>
+                  <input type="date" 
+                         id="primerDia"
+                         [(ngModel)]="nuevoHorario.primer_dia"
+                         [min]="fechaMinimaPermitida"
+                         class="form-control">
+                </div>
+                <div class="form-group">
+                  <label for="horarioSelect">Horario:</label>
+                  <select id="horarioSelect"
+                          [(ngModel)]="nuevoHorario.horario_id"
+                          class="form-control"
+                          (change)="cargarHorariosPorSala()">
+                    <option value="">Seleccionar horario...</option>
+                    <option *ngFor="let horario of horariosDisponibles" 
+                            [value]="horario.id">
+                      {{ horario.nombre }}
+                    </option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <button class="btn btn-primary" 
+                          (click)="guardarHorarioEmpleado()"
+                          [disabled]="!nuevoHorario.primer_dia || !nuevoHorario.horario_id">
+                    <i class="fas fa-save"></i> Guardar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -287,9 +306,12 @@ import { HorariosService } from '../../../services/horarios.service';
                       </div>
                     </td>
                     <td>
-                      <button class="btn btn-sm btn-danger" 
+                      <button class="btn btn-sm" 
+                              [class.btn-danger]="esHorarioMasReciente(horarioEmp.id)"
+                              [class.btn-secondary]="!esHorarioMasReciente(horarioEmp.id)"
+                              [disabled]="!esHorarioMasReciente(horarioEmp.id)"
                               (click)="eliminarHorarioEmpleado(horarioEmp.id)">
-                        <i class="fas fa-trash"></i>
+                        Cerrar
                       </button>
                     </td>
                   </tr>
@@ -302,6 +324,13 @@ import { HorariosService } from '../../../services/horarios.service';
           <div class="no-horarios" *ngIf="horariosEmpleado.length === 0">
             <i class="fas fa-clock"></i>
             <p>No hay horarios asignados para este empleado</p>
+          </div>
+
+          <!-- Botón Cerrar -->
+          <div class="modal-footer">
+            <button class="btn btn-secondary btn-lg" (click)="cerrarModal()">
+              <i class="fas fa-times"></i> Cerrar
+            </button>
           </div>
         </div>
       </div>
@@ -993,9 +1022,9 @@ import { HorariosService } from '../../../services/horarios.service';
       background: white;
       border-radius: 8px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-      max-width: 800px;
-      width: 95%;
-      max-height: 85vh;
+      max-width: 1200px;
+      width: 99%;
+      max-height: 95vh;
       overflow-y: auto;
     }
 
@@ -1005,6 +1034,47 @@ import { HorariosService } from '../../../services/horarios.service';
       align-items: center;
       padding: 20px;
       border-bottom: 1px solid #e9ecef;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 35px;
+      height: 35px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+
+    .modal-close:hover {
+      background: #c82333;
+    }
+
+    .modal-close i {
+      color: white !important;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .close-text {
+      color: white !important;
+      font-size: 20px;
+      font-weight: bold;
+      line-height: 1;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
     }
 
     .modal-header h3 {
@@ -1012,24 +1082,22 @@ import { HorariosService } from '../../../services/horarios.service';
       color: #333;
     }
 
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 20px;
-      cursor: pointer;
-      color: #6c757d;
-      padding: 5px;
-      border-radius: 4px;
-      transition: all 0.2s ease;
-    }
-
-    .modal-close:hover {
-      background-color: #f8f9fa;
-      color: #333;
-    }
 
     .modal-body {
       padding: 20px;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #e9ecef;
+      text-align: center;
+      background: #f8f9fa;
+    }
+
+    .modal-footer .btn {
+      padding: 12px 30px;
+      font-size: 16px;
+      font-weight: 500;
     }
 
     .empleado-info-header {
@@ -1128,6 +1196,21 @@ import { HorariosService } from '../../../services/horarios.service';
       background-color: #c82333;
     }
 
+    .btn-secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background-color: #5a6268;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
     .btn-sm {
       padding: 4px 8px;
       font-size: 12px;
@@ -1222,23 +1305,23 @@ import { HorariosService } from '../../../services/horarios.service';
     }
 
     .foto-modal {
-      width: 100px;
-      height: 100px;
+      width: 150px;
+      height: 150px;
       border-radius: 50%;
       object-fit: cover;
       border: 3px solid #e9ecef;
     }
 
     .foto-modal-placeholder {
-      width: 100px;
-      height: 100px;
+      width: 150px;
+      height: 150px;
       background: #e9ecef;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #6c757d;
-      font-size: 40px;
+      font-size: 60px;
     }
 
     .info-detalles {
@@ -1303,6 +1386,107 @@ import { HorariosService } from '../../../services/horarios.service';
       padding: 0.5rem 0.75rem;
       border-radius: 0.375rem;
     }
+
+    /* Estilos para el layout de 2 columnas */
+    .empleado-info-section {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid #e9ecef;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .empleado-info-section h5 {
+      color: #495057;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+
+    .formulario-horario {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid #e9ecef;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .formulario-horario h5 {
+      color: #495057;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+
+    .formulario-horario .form-group {
+      margin-bottom: 15px;
+    }
+
+    .formulario-horario .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .formulario-horario label {
+      font-weight: 500;
+      color: #495057;
+      margin-bottom: 5px;
+    }
+
+    .formulario-horario .form-control {
+      border-radius: 6px;
+      border: 1px solid #ced4da;
+      padding: 8px 12px;
+    }
+
+    .formulario-horario .form-control:focus {
+      border-color: #007bff;
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .formulario-horario .btn {
+      width: 100%;
+      padding: 10px;
+      font-weight: 500;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Asegurar que el contenido se distribuya bien */
+    .empleado-info-section .row {
+      flex: 1;
+      align-items: center;
+    }
+
+    .foto-modal-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+    }
+
+    .info-basica {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+    }
+
+    .formulario-horario .form-group:last-child {
+      margin-top: auto;
+    }
+
+    /* Responsive para pantallas pequeñas */
+    @media (max-width: 768px) {
+      .col-md-6 {
+        margin-bottom: 20px;
+      }
+    }
   `]
 })
 export class MarcajePersonalComponent implements OnInit {
@@ -1327,6 +1511,7 @@ export class MarcajePersonalComponent implements OnInit {
     primer_dia: '',
     horario_id: ''
   };
+  fechaMinimaPermitida: string = '';
 
   constructor(
     private empleadosService: EmpleadosService,
@@ -2357,6 +2542,7 @@ export class MarcajePersonalComponent implements OnInit {
       primer_dia: '',
       horario_id: ''
     };
+    this.fechaMinimaPermitida = '';
   }
 
   cargarHorariosPorSala() {
@@ -2390,12 +2576,37 @@ export class MarcajePersonalComponent implements OnInit {
       next: (horarios) => {
         this.horariosEmpleado = horarios;
         console.log('Horarios del empleado cargados:', horarios);
+        
+        // Calcular la fecha mínima permitida
+        this.calcularFechaMinimaPermitida();
       },
       error: (error) => {
         console.error('Error cargando horarios del empleado:', error);
         this.horariosEmpleado = [];
+        this.fechaMinimaPermitida = '';
       }
     });
+  }
+
+  calcularFechaMinimaPermitida() {
+    if (this.horariosEmpleado.length === 0) {
+      // Si no hay horarios asignados, permitir cualquier fecha
+      this.fechaMinimaPermitida = '';
+      return;
+    }
+
+    // Encontrar la fecha más reciente de los horarios asignados
+    const fechas = this.horariosEmpleado.map(h => h.primer_dia).sort();
+    const fechaMasReciente = fechas[fechas.length - 1];
+    
+    // La fecha mínima será el día siguiente a la fecha más reciente
+    const fechaMinima = new Date(fechaMasReciente);
+    fechaMinima.setDate(fechaMinima.getDate() + 1);
+    
+    // Formatear como YYYY-MM-DD para el input de fecha
+    this.fechaMinimaPermitida = fechaMinima.toISOString().split('T')[0];
+    
+    console.log('Fecha mínima permitida:', this.fechaMinimaPermitida);
   }
 
   guardarHorarioEmpleado() {
@@ -2406,6 +2617,12 @@ export class MarcajePersonalComponent implements OnInit {
 
     if (!this.empleadoSeleccionado?.id) {
       alert('Error: No se ha seleccionado un empleado');
+      return;
+    }
+
+    // Validar que la fecha no sea menor o igual a horarios existentes
+    if (this.fechaMinimaPermitida && this.nuevoHorario.primer_dia < this.fechaMinimaPermitida) {
+      alert(`La fecha debe ser posterior a ${this.fechaMinimaPermitida}. Ya existe un horario asignado con fecha anterior.`);
       return;
     }
 
@@ -2485,5 +2702,20 @@ export class MarcajePersonalComponent implements OnInit {
       const ordenB = b.orden || 0;
       return ordenA - ordenB;
     });
+  }
+
+  // Verificar si un horario es el más reciente (el único que se puede eliminar)
+  esHorarioMasReciente(horarioId: number): boolean {
+    if (!this.horariosEmpleado || this.horariosEmpleado.length === 0) {
+      return false;
+    }
+
+    // Ordenar por fecha de inicio (más reciente primero)
+    const horariosOrdenados = [...this.horariosEmpleado].sort((a, b) => {
+      return new Date(b.primer_dia).getTime() - new Date(a.primer_dia).getTime();
+    });
+
+    // El más reciente es el primero en la lista ordenada
+    return horariosOrdenados[0]?.id === horarioId;
   }
 }

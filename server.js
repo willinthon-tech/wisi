@@ -3426,6 +3426,21 @@ app.post('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, r
       return res.status(404).json({ message: 'Horario no encontrado' });
     }
 
+    // Validar que la fecha no sea menor o igual a horarios existentes
+    const horariosExistentes = await HorarioEmpleado.findAll({
+      where: { empleado_id: empleadoId },
+      order: [['primer_dia', 'DESC']]
+    });
+
+    if (horariosExistentes.length > 0) {
+      const fechaMasReciente = horariosExistentes[0].primer_dia;
+      if (primer_dia <= fechaMasReciente) {
+        return res.status(400).json({ 
+          message: `La fecha debe ser posterior a ${fechaMasReciente}. Ya existe un horario asignado con fecha anterior o igual.` 
+        });
+      }
+    }
+
     // Crear la asignación
     const horarioEmpleado = await HorarioEmpleado.create({
       empleado_id: parseInt(empleadoId),
