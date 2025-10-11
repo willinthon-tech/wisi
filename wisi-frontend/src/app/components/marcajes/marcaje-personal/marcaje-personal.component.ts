@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EmpleadosService } from '../../../services/empleados.service';
 import { AuthService } from '../../../services/auth.service';
+import { MarcajesService } from '../../../services/marcajes.service';
 
 @Component({
   selector: 'app-marcaje-personal',
@@ -148,7 +149,7 @@ import { AuthService } from '../../../services/auth.service';
                     </tr>
                     
                     <!-- Fila de Calculo -->
-                    <tr>
+                    <tr class="fila-calculo" >
                       <td class="horario-cell">
                         <div class="horario-info">
                           Calculo
@@ -159,12 +160,20 @@ import { AuthService } from '../../../services/auth.service';
                           [class.month-divider]="isMonthDivider(dia, i)"
                           [class]="getTurnoClass(empleado, dia)"
                           [style.display]="getTurnoClass(empleado, dia) === 'turno-libre' ? 'none' : 'table-cell'">
-                        <div class="horario-data">
-                          {{ getHorarioInfo(empleado, dia, 'Salida') }}
+                        <div class="horario-data" [innerHTML]="getHorarioInfo(empleado, dia, 'Salida')">
                         </div>
+                        
                       </td>
                     </tr>
+                    <tr class="separador-verde">
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                      <td *ngFor="let dia of diasDelMes"  style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                    </tr>
                   </ng-container>
+                  
+                  
+                  
                 </tbody>
               </table>
             </div>
@@ -314,6 +323,14 @@ import { AuthService } from '../../../services/auth.service';
       border-spacing: 0;
       min-width: 800px;
     }
+    
+    .horario-table tbody {
+      width: 100% !important;
+    }
+    
+    .horario-table tr {
+      width: 100% !important;
+    }
 
     /* Fijar la columna "Empleado" (información del empleado) */
     .empleado-completo-cell {
@@ -328,7 +345,7 @@ import { AuthService } from '../../../services/auth.service';
       position: sticky !important;
       left: 200px !important; /* Ancho de la columna empleado */
       z-index: 9 !important;
-      background-color: #f0f8f0 !important;
+      background-color: #4CAF50 !important;
     }
 
     /* Fijar el encabezado "Empleado" */
@@ -374,15 +391,24 @@ import { AuthService } from '../../../services/auth.service';
     }
 
     .horario-table td {
-      padding: 12px 8px;
+      padding: 2px 4px !important;
       text-align: center;
       border-bottom: 1px solid #eee;
       font-size: 12px;
+      height: 40px !important;
+      min-height: 40px !important;
+      max-height: 40px !important;
+      vertical-align: middle !important;
     }
 
     .horario-table tr:hover {
       background: #f8f9fa;
     }
+
+    
+   
+     
+ 
 
 
     .empleado-completo-col, .empleado-completo-cell {
@@ -411,23 +437,23 @@ import { AuthService } from '../../../services/auth.service';
     }
 
     .foto-real {
-      width: 80px;
-      height: 80px;
+      width: 60px;
+      height: 60px;
       border-radius: 50%;
       object-fit: cover;
       border: 2px solid #e9ecef;
     }
 
     .foto-placeholder {
-      width: 80px;
-      height: 80px;
+      width: 60px;
+      height: 60px;
       background: #e9ecef;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #6c757d;
-      font-size: 24px;
+      font-size: 20px;
     }
 
     .empleado-info {
@@ -560,19 +586,19 @@ import { AuthService } from '../../../services/auth.service';
     .horario-info {
       font-size: 11px;
       font-weight: 500;
-      color: #333;
+      color: white !important;
       padding: 6px;
       line-height: 1.3;
       text-align: left;
     }
 
-    /* Fondo verde muy claro para las filas de horarios */
+    /* Fondo verde oscuro para las filas de horarios */
     .horario-cell {
-      background-color: #f0f8f0 !important;
+      background-color: #4CAF50 !important;
     }
 
     .horario-cell:hover {
-      background-color: #e8f5e8 !important;
+      background-color: #45a049 !important;
     }
 
 
@@ -603,24 +629,31 @@ import { AuthService } from '../../../services/auth.service';
 
     /* Estilos para datos de horario */
     .horario-data {
-      font-size: 10px;
-      text-align: center;
-      padding: 2px;
-      line-height: 1.2;
-      color: #333;
+      font-size: 10px !important;
+      text-align: center !important;
+      padding: 2px 1px !important;
+      line-height: 1.2 !important;
+      color: #333 !important;
+      height: 40px !important;
+      min-height: 40px !important;
+      max-height: 40px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
     }
 
     /* Estilos para turnos */
     .turno-diurno {
-      background-color: #fff3cd !important;
+      background-color: #b3d9ff !important;
     }
 
     .turno-nocturno {
-      background-color: #ffeaa7 !important;
+      background-color: #c7a2ff !important;
     }
 
     .turno-libre {
-      background-color: #f8f9fa !important;
+      background-color: #a8d5a8 !important;
     }
 
     .sin-horario {
@@ -629,20 +662,20 @@ import { AuthService } from '../../../services/auth.service';
       font-style: italic;
     }
 
-    /* Estilo para texto LIBRE en vertical */
+    /* Estilo para texto LIBRE en diagonal */
     .libre-vertical {
-      writing-mode: vertical-rl;
-      text-orientation: upright;
       text-align: center;
       font-weight: bold;
-      font-size: 14px;
-      color: #dc3545;
+      font-size: 36px;
+      color: white !important;
       display: flex;
       align-items: center;
       justify-content: center;
       height: 100%;
       min-height: 90px;
       max-height: 90px;
+      transform: rotate(-45deg);
+      transform-origin: center;
     }
 
     /* Asegurar que las celdas LIBRE tengan la altura correcta */
@@ -814,19 +847,21 @@ export class MarcajePersonalComponent implements OnInit {
   fechaHasta: string = '';
   grupoSeleccionado: string = 'salas';
   loading = false;
+  marcajesPorEmpleado: Map<string, any[]> = new Map();
 
   constructor(
-    private empleadosService: EmpleadosService
+    private empleadosService: EmpleadosService,
+    private marcajesService: MarcajesService
   ) {}
 
   ngOnInit() {
-    // Establecer fechas por defecto (último mes)
+    // Establecer fechas por defecto (hoy hasta un mes adelante)
     const hoy = new Date();
-    const haceUnMes = new Date();
-    haceUnMes.setMonth(hoy.getMonth() - 1);
+    const enUnMes = new Date();
+    enUnMes.setMonth(hoy.getMonth() + 1);
     
-    this.fechaHasta = hoy.toISOString().split('T')[0];
-    this.fechaDesde = haceUnMes.toISOString().split('T')[0];
+    this.fechaDesde = hoy.toISOString().split('T')[0];
+    this.fechaHasta = enUnMes.toISOString().split('T')[0];
     
     this.generarDiasDelMes();
     this.cargarDatos();
@@ -846,12 +881,7 @@ export class MarcajePersonalComponent implements OnInit {
       const diffTime = Math.abs(fin.getTime() - inicio.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-      if (diffDays > 60) {
-        alert('El rango de fechas es demasiado grande. Por favor, selecciona un período de hasta 60 días.');
-        this.empleados = [];
-        this.loading = false;
-        return;
-      }
+      // Removida la limitación de 60 días - ahora permite cualquier rango
       
       // Empezar exactamente desde la fecha de inicio
       const fechaActual = new Date(inicio);
@@ -879,14 +909,92 @@ export class MarcajePersonalComponent implements OnInit {
       next: (response) => {
         this.empleados = response || [];
         
-        
-        this.agruparEmpleados();
-        this.loading = false;
+        // Cargar marcajes para todos los empleados y esperar a que se completen
+        this.cargarMarcajesYAgrupar();
       },
       error: (error) => {
         console.error('Error cargando empleados:', error);
         alert('Error cargando empleados: ' + (error.error?.message || 'Error desconocido'));
         this.loading = false;
+      }
+    });
+  }
+
+  cargarMarcajesYAgrupar() {
+    this.marcajesPorEmpleado.clear();
+    
+    if (this.empleados.length === 0) {
+      this.agruparEmpleados();
+      this.loading = false;
+      return;
+    }
+
+    // Contador para saber cuándo terminar
+    let empleadosProcesados = 0;
+    const totalEmpleados = this.empleados.filter(e => e.cedula).length;
+
+    if (totalEmpleados === 0) {
+      this.agruparEmpleados();
+      this.loading = false;
+      return;
+    }
+
+    // Obtener marcajes para cada empleado
+    this.empleados.forEach(empleado => {
+      if (empleado.cedula) {
+        this.marcajesService.getMarcajes({
+          employee_no: empleado.cedula,
+          fecha_inicio: this.fechaDesde,
+          fecha_fin: this.fechaHasta
+        }).subscribe({
+          next: (response) => {
+            console.log(`Marcajes cargados para ${empleado.cedula}:`, response.attlogs?.length || 0, 'marcajes');
+            this.marcajesPorEmpleado.set(empleado.cedula, response.attlogs || []);
+            empleadosProcesados++;
+            
+            // Cuando todos los empleados estén procesados, agrupar
+            if (empleadosProcesados === totalEmpleados) {
+              console.log('Todos los marcajes cargados, agrupando empleados...');
+              console.log('Total marcajes cargados:', this.marcajesPorEmpleado.size);
+              this.agruparEmpleados();
+              this.loading = false;
+            }
+          },
+          error: (error) => {
+            console.error(`Error cargando marcajes para ${empleado.cedula}:`, error);
+            this.marcajesPorEmpleado.set(empleado.cedula, []);
+            empleadosProcesados++;
+            
+            // Cuando todos los empleados estén procesados, agrupar
+            if (empleadosProcesados === totalEmpleados) {
+              this.agruparEmpleados();
+              this.loading = false;
+            }
+          }
+        });
+      }
+    });
+  }
+
+  cargarMarcajes() {
+    this.marcajesPorEmpleado.clear();
+    
+    // Obtener marcajes para cada empleado
+    this.empleados.forEach(empleado => {
+      if (empleado.cedula) {
+        this.marcajesService.getMarcajes({
+          employee_no: empleado.cedula,
+          fecha_inicio: this.fechaDesde,
+          fecha_fin: this.fechaHasta
+        }).subscribe({
+          next: (response) => {
+            this.marcajesPorEmpleado.set(empleado.cedula, response.attlogs || []);
+          },
+          error: (error) => {
+            console.error(`Error cargando marcajes para ${empleado.cedula}:`, error);
+            this.marcajesPorEmpleado.set(empleado.cedula, []);
+          }
+        });
       }
     });
   }
@@ -1084,18 +1192,18 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Si el día es anterior a la fecha de inicio, retornar null (sin horario)
     if (diasDesdeInicio < 0) {
-      console.log(`Empleado: ${empleado.nombre}, Día: ${dia.toISOString().split('T')[0]} - ANTERIOR A FECHA INICIO (Sin horario)`);
       return null;
     }
     
     const indiceBloque = diasDesdeInicio % bloques.length;
     
-    // Debug: mostrar información del cálculo
-    console.log(`=== DEBUG BLOQUE HORARIO ===`);
-    console.log(`Empleado: ${empleado.nombre}, Día: ${dia.toISOString().split('T')[0]}, Días desde inicio: ${diasDesdeInicio}, Índice bloque: ${indiceBloque}, Total bloques: ${bloques.length}`);
-    console.log('Bloques orden:', bloques.map((b: any, i: number) => `${i}: ${b.turno} (orden: ${b.orden})`).join(', '));
-    console.log(`Bloque seleccionado: ${bloques[indiceBloque]?.turno} (orden: ${bloques[indiceBloque]?.orden})`);
-    console.log(`=== FIN DEBUG ===`);
+    // Debug solo para casos problemáticos
+    if (indiceBloque >= bloques.length || indiceBloque < 0) {
+      console.log(`=== DEBUG BLOQUE HORARIO ===`);
+      console.log(`Empleado: ${empleado.nombre}, Día: ${dia.toISOString().split('T')[0]}, Días desde inicio: ${diasDesdeInicio}, Índice bloque: ${indiceBloque}, Total bloques: ${bloques.length}`);
+      console.log('Bloques orden:', bloques.map((b: any, i: number) => `${i}: ${b.turno} (orden: ${b.orden})`).join(', '));
+      console.log(`=== FIN DEBUG ===`);
+    }
     
     return bloques[indiceBloque];
   }
@@ -1104,36 +1212,26 @@ export class MarcajePersonalComponent implements OnInit {
   calcularDiasDesdeInicio(dia: Date, empleado?: any): number {
     let fechaInicioCiclo: Date | null = null;
 
-    console.log(`=== DEBUG CALCULAR DIAS DESDE INICIO ===`);
-    console.log(`Empleado: ${empleado?.nombre}`);
-    console.log(`primer_dia_horario: ${empleado?.primer_dia_horario}`);
-    console.log(`Horario.fecha_inicio: ${empleado?.Horario?.fecha_inicio}`);
-    console.log(`this.fechaDesde: ${this.fechaDesde}`);
-
     // Prioridad 1: primer_dia_horario del empleado
     if (empleado?.primer_dia_horario) {
       // Crear fecha sin problemas de zona horaria
       const fechaStr = empleado.primer_dia_horario.split('T')[0]; // Solo la parte de fecha
       const [año, mes, dia] = fechaStr.split('-').map(Number);
       fechaInicioCiclo = new Date(año, mes - 1, dia); // mes - 1 porque Date usa 0-indexado
-      console.log(`Usando primer_dia_horario: ${fechaInicioCiclo.toISOString().split('T')[0]}`);
     }
     // Prioridad 2: fecha_inicio del horario del empleado
     else if (empleado?.Horario?.fecha_inicio) {
       const fechaStr = empleado.Horario.fecha_inicio.split('T')[0];
       const [año, mes, dia] = fechaStr.split('-').map(Number);
       fechaInicioCiclo = new Date(año, mes - 1, dia);
-      console.log(`Usando Horario.fecha_inicio: ${fechaInicioCiclo.toISOString().split('T')[0]}`);
     }
     // Prioridad 3: fechaDesde del componente (inicio del rango de visualización)
     else {
       fechaInicioCiclo = new Date(this.fechaDesde);
-      console.log(`Usando this.fechaDesde: ${fechaInicioCiclo.toISOString().split('T')[0]}`);
     }
 
     // Si no se pudo determinar una fecha de inicio del ciclo, retornar un valor que indique "fuera de ciclo"
     if (!fechaInicioCiclo) {
-      console.log(`No se pudo determinar fecha de inicio del ciclo`);
       return -1; // O algún otro valor que indique que no hay un punto de inicio válido
     }
 
@@ -1143,9 +1241,6 @@ export class MarcajePersonalComponent implements OnInit {
 
     const diffTime = dia.getTime() - fechaInicioCiclo.getTime();
     const dias = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    console.log(`Fecha inicio ciclo: ${fechaInicioCiclo.toISOString().split('T')[0]}, Día: ${dia.toISOString().split('T')[0]}, Días desde inicio: ${dias}`);
-    console.log(`=== FIN DEBUG CALCULAR DIAS ===`);
 
     return dias;
   }
@@ -1167,8 +1262,504 @@ export class MarcajePersonalComponent implements OnInit {
     return hora;
   }
 
+  // Obtener marcajes del día para un empleado
+  getMarcajesDelDia(empleado: any, dia: Date): any[] {
+    const marcajes = this.marcajesPorEmpleado.get(empleado.cedula) || [];
+    const fechaStr = dia.toISOString().split('T')[0];
+    
+    console.log(`Buscando marcajes para ${empleado.cedula} en ${fechaStr}. Total marcajes disponibles: ${marcajes.length}`);
+    
+    const marcajesDelDia = marcajes.filter(marcaje => {
+      const marcajeFecha = new Date(marcaje.event_time).toISOString().split('T')[0];
+      return marcajeFecha === fechaStr;
+    }).sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
+    
+    if (marcajesDelDia.length > 0) {
+      console.log(`Marcajes encontrados para ${fechaStr}:`, marcajesDelDia.length);
+    } else {
+      console.log(`No se encontraron marcajes para ${fechaStr}`);
+    }
+    
+    return marcajesDelDia;
+  }
+
+  // Calcular marcajes según el turno con lógica inteligente
+  calcularMarcajesDelDia(empleado: any, dia: Date, bloque: any): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
+    const marcajes = this.getMarcajesDelDia(empleado, dia);
+    
+    console.log(`Calculando marcajes para ${empleado.cedula} en ${dia.toISOString().split('T')[0]}. Marcajes encontrados: ${marcajes.length}`);
+    
+    if (marcajes.length === 0) {
+      console.log(`No hay marcajes para ${empleado.cedula} en ${dia.toISOString().split('T')[0]}`);
+      return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
+    }
+
+    let marcajesAnalizados;
+
+    if (bloque.turno === 'NOCTURNO') {
+      // Turno nocturno: manejar marcajes que cruzan medianoche
+      const diaSiguiente = new Date(dia);
+      diaSiguiente.setDate(diaSiguiente.getDate() + 1);
+      const marcajesSiguiente = this.getMarcajesDelDia(empleado, diaSiguiente);
+      
+      // Combinar marcajes del día actual y siguiente para turno nocturno
+      const todosMarcajes = [...marcajes, ...marcajesSiguiente];
+      
+      if (todosMarcajes.length > 0) {
+        marcajesAnalizados = this.analizarMarcajesInteligente(todosMarcajes, bloque, 'NOCTURNO');
+      } else {
+        marcajesAnalizados = { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
+      }
+    } else {
+      // Turno diurno: análisis inteligente
+      marcajesAnalizados = this.analizarMarcajesInteligente(marcajes, bloque, 'DIURNO');
+    }
+
+    // Aplicar validaciones de diferencias de tiempo
+    const marcajesConValidacion = this.validarDiferenciasTiempo(marcajesAnalizados, bloque);
+    
+    return marcajesConValidacion;
+  }
+
+  // Asignar marcajes de manera inteligente basándose en las horas programadas
+  asignarMarcajesInteligente(marcajes: any[], bloque: any): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
+    const horasProgramadas = {
+      entrada: this.convertirHoraAMinutos(bloque.hora_entrada),
+      entradaDescanso: this.convertirHoraAMinutos(bloque.hora_entrada_descanso),
+      salidaDescanso: this.convertirHoraAMinutos(bloque.hora_salida_descanso),
+      salida: this.convertirHoraAMinutos(bloque.hora_salida)
+    };
+
+    const marcajesConHoras = marcajes.map(marcaje => ({
+      marcaje,
+      hora: this.convertirHoraAMinutos(this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0]))
+    }));
+
+    // Asignar cada marcaje al horario programado más cercano
+    const asignaciones = {
+      entrada: '',
+      entradaDescanso: '',
+      salidaDescanso: '',
+      salida: ''
+    };
+
+    const marcajesUsados = new Set();
+
+    // Asignar entrada (más cercano a hora_entrada)
+    const entradaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entrada, marcajesUsados);
+    asignaciones.entrada = entradaAsignada;
+
+    // Asignar entrada descanso (más cercano a hora_entrada_descanso)
+    const entradaDescansoAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entradaDescanso, marcajesUsados);
+    asignaciones.entradaDescanso = entradaDescansoAsignada;
+
+    // Asignar salida descanso (más cercano a hora_salida_descanso)
+    const salidaDescansoAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salidaDescanso, marcajesUsados);
+    asignaciones.salidaDescanso = salidaDescansoAsignada;
+
+    // Asignar salida (más cercano a hora_salida)
+    const salidaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salida, marcajesUsados);
+    asignaciones.salida = salidaAsignada;
+
+    // Aplicar validaciones de diferencias de tiempo
+    const asignacionesConValidacion = this.validarDiferenciasTiempo(asignaciones, bloque);
+    
+    return asignacionesConValidacion;
+  }
+
+  // Convertir hora HH:MM a minutos para comparación
+  convertirHoraAMinutos(hora: string): number {
+    if (!hora) return 0;
+    const [horas, minutos] = hora.split(':').map(Number);
+    return horas * 60 + minutos;
+  }
+
+  // Formatear minutos a HH:MM
+  formatearMinutosAHora(minutos: number): string {
+    // Si es NaN o negativo, mostrar 00:00
+    if (isNaN(minutos) || minutos < 0) {
+      return '00:00';
+    }
+    const horas = Math.floor(minutos / 60);
+    const mins = minutos % 60;
+    return `${horas.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  }
+
+  // Análisis inteligente de marcajes únicos
+  analizarMarcajeUnico(marcaje: any, bloque: any, turno: string): string {
+    const horaMarcaje = this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0]);
+    const horaMarcajeMinutos = this.convertirHoraAMinutos(horaMarcaje);
+    
+    if (turno === 'NOCTURNO') {
+      // Para nocturno: si es antes de medianoche, probablemente es entrada
+      // si es después de medianoche, probablemente es salida
+      const horaMedianoche = 24 * 60; // 1440 minutos
+      if (horaMarcajeMinutos < horaMedianoche / 2) { // Antes de medianoche
+        return horaMarcaje; // Entrada
+      } else {
+        return horaMarcaje; // Salida (pero necesitamos más lógica)
+      }
+    } else {
+      // Para diurno: analizar proximidad a horas programadas
+      const horaEntradaProgramada = this.convertirHoraAMinutos(bloque.hora_entrada);
+      const horaSalidaProgramada = this.convertirHoraAMinutos(bloque.hora_salida);
+      
+      // Calcular la mitad del turno
+      const mitadTurno = horaEntradaProgramada + ((horaSalidaProgramada - horaEntradaProgramada) / 2);
+      
+      // Si el marcaje está más cerca de la entrada programada
+      const distanciaEntrada = Math.abs(horaMarcajeMinutos - horaEntradaProgramada);
+      const distanciaSalida = Math.abs(horaMarcajeMinutos - horaSalidaProgramada);
+      
+      if (distanciaEntrada < distanciaSalida) {
+        return horaMarcaje; // Es entrada
+      } else if (horaMarcajeMinutos > mitadTurno) {
+        return horaMarcaje; // Es salida (está después de la mitad del turno)
+      } else {
+        return horaMarcaje; // Por defecto, entrada
+      }
+    }
+  }
+
+  // Análisis inteligente de múltiples marcajes
+  analizarMarcajesInteligente(marcajes: any[], bloque: any, turno: string): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
+    const resultado = {
+      entrada: 'Sin marcaje',
+      entradaDescanso: 'Sin marcaje', 
+      salidaDescanso: 'Sin marcaje',
+      salida: 'Sin marcaje'
+    };
+
+    if (marcajes.length === 0) {
+      return resultado;
+    }
+
+    // Ordenar marcajes por hora
+    const marcajesOrdenados = marcajes.sort((a, b) => 
+      new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
+    );
+
+    if (turno === 'NOCTURNO') {
+      // Lógica para turno nocturno
+      if (marcajesOrdenados.length === 1) {
+        // Un solo marcaje en nocturno: determinar si es entrada o salida
+        const marcaje = marcajesOrdenados[0];
+        const horaMarcaje = this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0]);
+        const horaMarcajeMinutos = this.convertirHoraAMinutos(horaMarcaje);
+        
+        // Si es antes de medianoche, probablemente es entrada
+        if (horaMarcajeMinutos < 720) { // Antes de 12:00 PM
+          resultado.entrada = horaMarcaje;
+        } else {
+          resultado.salida = horaMarcaje;
+        }
+      } else {
+        // Múltiples marcajes en nocturno
+        resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
+        resultado.salida = this.formatearHora(new Date(marcajesOrdenados[marcajesOrdenados.length - 1].event_time).toTimeString().split(' ')[0]);
+        
+        // Si hay descanso y suficientes marcajes
+        if (bloque.tiene_descanso && marcajesOrdenados.length >= 4) {
+          resultado.entradaDescanso = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
+          resultado.salidaDescanso = this.formatearHora(new Date(marcajesOrdenados[2].event_time).toTimeString().split(' ')[0]);
+        }
+      }
+    } else {
+      // Lógica para turno diurno
+      if (marcajesOrdenados.length === 1) {
+        // Un solo marcaje en diurno: análisis inteligente basado en proximidad
+        const marcaje = marcajesOrdenados[0];
+        const horaMarcaje = this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0]);
+        const horaMarcajeMinutos = this.convertirHoraAMinutos(horaMarcaje);
+        
+        const horaEntradaProgramada = this.convertirHoraAMinutos(bloque.hora_entrada);
+        const horaSalidaProgramada = this.convertirHoraAMinutos(bloque.hora_salida);
+        
+        // Calcular distancias a las horas programadas
+        const distanciaEntrada = Math.abs(horaMarcajeMinutos - horaEntradaProgramada);
+        const distanciaSalida = Math.abs(horaMarcajeMinutos - horaSalidaProgramada);
+        
+        // Calcular la mitad del turno para análisis adicional
+        const mitadTurno = horaEntradaProgramada + ((horaSalidaProgramada - horaEntradaProgramada) / 2);
+        
+        console.log(`Análisis inteligente - Marcaje: ${horaMarcaje}, Entrada programada: ${bloque.hora_entrada}, Salida programada: ${bloque.hora_salida}`);
+        console.log(`Distancias - Entrada: ${distanciaEntrada}, Salida: ${distanciaSalida}, Mitad turno: ${mitadTurno}`);
+        
+        if (distanciaEntrada < distanciaSalida) {
+          // Más cerca de la entrada programada
+          resultado.entrada = horaMarcaje;
+          console.log(`Asignado como ENTRADA: ${horaMarcaje}`);
+        } else if (horaMarcajeMinutos > mitadTurno) {
+          // Está después de la mitad del turno, probablemente es salida
+          resultado.salida = horaMarcaje;
+          console.log(`Asignado como SALIDA (después de mitad): ${horaMarcaje}`);
+        } else {
+          // Por defecto, si está más cerca de salida, es salida
+          resultado.salida = horaMarcaje;
+          console.log(`Asignado como SALIDA (más cerca de salida): ${horaMarcaje}`);
+        }
+      } else if (marcajesOrdenados.length === 2) {
+        // Dos marcajes: entrada y salida
+        resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
+        resultado.salida = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
+        console.log(`Dos marcajes - Entrada: ${resultado.entrada}, Salida: ${resultado.salida}`);
+      } else if (marcajesOrdenados.length >= 4 && bloque.tiene_descanso) {
+        // Cuatro o más marcajes con descanso: asignación inteligente
+        const marcajesAsignados = this.asignarMarcajesInteligente(marcajesOrdenados, bloque);
+        return marcajesAsignados;
+      } else {
+        // Tres marcajes o más sin descanso: entrada, salida
+        resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
+        resultado.salida = this.formatearHora(new Date(marcajesOrdenados[marcajesOrdenados.length - 1].event_time).toTimeString().split(' ')[0]);
+        console.log(`Múltiples marcajes sin descanso - Entrada: ${resultado.entrada}, Salida: ${resultado.salida}`);
+      }
+    }
+
+    return resultado;
+  }
+
+  // Calcular resumen de horas trabajadas
+  calcularResumenHoras(marcajes: { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string }, bloque: any): { texto: string, claseColor: string } {
+    // Calcular horas programadas
+    const horaEntradaProgramada = this.convertirHoraAMinutos(bloque.hora_entrada);
+    const horaSalidaProgramada = this.convertirHoraAMinutos(bloque.hora_salida);
+    
+    let horasATrabajar;
+    if (bloque.turno === 'NOCTURNO') {
+      // Para turno nocturno: la salida es al día siguiente
+      // Si la salida es menor que la entrada, significa que cruza medianoche
+      if (horaSalidaProgramada < horaEntradaProgramada) {
+        // Calcular horas hasta medianoche + horas desde medianoche hasta salida
+        horasATrabajar = (24 * 60 - horaEntradaProgramada) + horaSalidaProgramada;
+      } else {
+        horasATrabajar = horaSalidaProgramada - horaEntradaProgramada;
+      }
+      console.log(`Turno nocturno: Entrada=${bloque.hora_entrada}, Salida=${bloque.hora_salida}, Horas a trabajar=${horasATrabajar}min`);
+    } else {
+      // Turno diurno normal
+      horasATrabajar = horaSalidaProgramada - horaEntradaProgramada;
+    }
+    
+    // Calcular horas de descanso programadas
+    let horasDeDescanso = 0;
+    if (bloque.tiene_descanso) {
+      const entradaDescansoProgramada = this.convertirHoraAMinutos(bloque.hora_entrada_descanso);
+      const salidaDescansoProgramada = this.convertirHoraAMinutos(bloque.hora_salida_descanso);
+      horasDeDescanso = salidaDescansoProgramada - entradaDescansoProgramada;
+      console.log(`Descanso programado: ${bloque.hora_entrada_descanso} - ${bloque.hora_salida_descanso} = ${horasDeDescanso} minutos`);
+    }
+    
+    // Calcular horas reales trabajadas
+    let horasTrabajadas = 0;
+    let horasDescansadas = 0;
+    
+    if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+      const horaEntradaReal = this.convertirHoraAMinutos(marcajes.entrada);
+      const horaSalidaReal = this.convertirHoraAMinutos(marcajes.salida);
+      
+      // Calcular horas totales trabajadas (incluyendo descanso)
+      let horasTotales;
+      if (bloque.turno === 'NOCTURNO') {
+        // Para turno nocturno: manejar cruce de medianoche
+        if (horaSalidaReal < horaEntradaReal) {
+          // La salida es al día siguiente
+          horasTotales = (24 * 60 - horaEntradaReal) + horaSalidaReal;
+        } else {
+          horasTotales = horaSalidaReal - horaEntradaReal;
+        }
+        console.log(`Turno nocturno real: Entrada=${marcajes.entrada}, Salida=${marcajes.salida}, Horas totales=${horasTotales}min`);
+      } else {
+        // Turno diurno normal
+        horasTotales = horaSalidaReal - horaEntradaReal;
+      }
+      
+      if (bloque.tiene_descanso && marcajes.entradaDescanso !== 'Sin marcaje' && marcajes.salidaDescanso !== 'Sin marcaje') {
+        // Con descanso real: horas trabajadas = totalidad - horas descansadas
+        const entradaDescansoReal = this.convertirHoraAMinutos(marcajes.entradaDescanso);
+        const salidaDescansoReal = this.convertirHoraAMinutos(marcajes.salidaDescanso);
+        
+        // Calcular horas de descanso considerando cruce de medianoche para turnos nocturnos
+        if (bloque.turno === 'NOCTURNO' && salidaDescansoReal < entradaDescansoReal) {
+          // El descanso cruza medianoche
+          horasDescansadas = (24 * 60 - entradaDescansoReal) + salidaDescansoReal;
+          console.log(`Descanso nocturno cruza medianoche: ${marcajes.entradaDescanso} - ${marcajes.salidaDescanso} = ${horasDescansadas}min`);
+        } else {
+          // Descanso normal (diurno o nocturno sin cruce)
+          horasDescansadas = salidaDescansoReal - entradaDescansoReal;
+        }
+        
+        horasTrabajadas = horasTotales - horasDescansadas;
+        console.log(`Con descanso real: Total=${horasTotales}min, Descansadas=${horasDescansadas}min, Trabajadas=${horasTrabajadas}min`);
+      } else if (bloque.tiene_descanso) {
+        // Sin descanso real pero con descanso programado: asumir que tomó el descanso programado
+        horasDescansadas = horasDeDescanso; // Asumir que tomó el descanso programado
+        horasTrabajadas = horasTotales - horasDescansadas;
+        console.log(`Sin descanso real: Total=${horasTotales}min, Descanso programado=${horasDeDescanso}min, Trabajadas=${horasTrabajadas}min`);
+      } else {
+        // Sin descanso: todas las horas son trabajadas
+        horasTrabajadas = horasTotales;
+        horasDescansadas = 0;
+        console.log(`Sin descanso: Total=${horasTotales}min, Trabajadas=${horasTrabajadas}min`);
+      }
+    }
+    
+    // Formatear horas a HH:MM
+    const horasATrabajarFormateadas = this.formatearMinutosAHora(horasATrabajar);
+    const horasTrabajadasFormateadas = this.formatearMinutosAHora(horasTrabajadas);
+    const horasDeDescansoFormateadas = this.formatearMinutosAHora(horasDeDescanso);
+    const horasDescansadasFormateadas = this.formatearMinutosAHora(horasDescansadas);
+    
+    // Verificar si hay marcajes reales
+    const tieneMarcajes = marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje';
+    
+    // Si no hay marcajes, mostrar información programada
+    if (!tieneMarcajes) {
+      const texto = `${this.formatearMinutosAHora(horasATrabajar)} - ${this.formatearMinutosAHora(horasATrabajar)} - ${this.formatearMinutosAHora(horasDeDescanso)} - ${this.formatearMinutosAHora(horasDeDescanso)}`;
+      return { texto, claseColor: '' };
+    }
+    
+    // Determinar colores individuales para cada grupo
+    let claseColorTrabajadas = '';
+    let claseColorDescansadas = '';
+    
+    if (tieneMarcajes) {
+      // Color para horas trabajadas (segundo grupo)
+      if (horasTrabajadas < horasATrabajar) {
+        claseColorTrabajadas = 'text-danger';
+        console.log(`Aplicando ROJO a horas trabajadas: ${horasTrabajadas} < ${horasATrabajar}`);
+      } else if (horasTrabajadas > horasATrabajar) {
+        claseColorTrabajadas = 'text-success';
+        console.log(`Aplicando VERDE a horas trabajadas: ${horasTrabajadas} > ${horasATrabajar}`);
+      }
+      
+      // Color para horas descansadas (cuarto grupo) - solo si hay descanso programado
+      if (horasDeDescanso > 0) {
+        if (horasDescansadas > horasDeDescanso) {
+          claseColorDescansadas = 'text-danger';
+          console.log(`Aplicando ROJO a horas descansadas: ${horasDescansadas} > ${horasDeDescanso}`);
+        } else if (horasDescansadas < horasDeDescanso) {
+          claseColorDescansadas = 'text-success';
+          console.log(`Aplicando VERDE a horas descansadas: ${horasDescansadas} < ${horasDeDescanso}`);
+        }
+      }
+    }
+    
+    // Solo mostrar logs cuando hay marcajes reales
+    if (tieneMarcajes) {
+      console.log(`Cálculo final: ATrabajar=${horasATrabajar}min, Trabajadas=${horasTrabajadas}min, DeDescanso=${horasDeDescanso}min, Descansadas=${horasDescansadas}min`);
+      console.log(`Formateado: ${horasATrabajarFormateadas} - ${horasTrabajadasFormateadas} - ${horasDeDescansoFormateadas} - ${horasDescansadasFormateadas}`);
+      console.log(`Colores aplicados: Trabajadas=${claseColorTrabajadas}, Descansadas=${claseColorDescansadas}`);
+    }
+    
+    // Construir texto con colores individuales y espacios consistentes usando &nbsp;
+    const separador = '&nbsp;-&nbsp;';
+    const texto = `${horasATrabajarFormateadas}${separador}` +
+                 `${claseColorTrabajadas ? `<span class="${claseColorTrabajadas}">${horasTrabajadasFormateadas}</span>` : horasTrabajadasFormateadas}${separador}` +
+                 `${horasDeDescansoFormateadas}${separador}` +
+                 `${claseColorDescansadas ? `<span class="${claseColorDescansadas}">${horasDescansadasFormateadas}</span>` : horasDescansadasFormateadas}`;
+    
+    return { texto, claseColor: '' };
+  }
+
+  // Validar diferencias de tiempo entre marcajes
+  validarDiferenciasTiempo(marcajes: { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string }, bloque: any): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
+    const resultado = { ...marcajes };
+
+    // Validar que salida tenga al menos 1 hora de diferencia de entrada
+    if (resultado.entrada !== 'Sin marcaje' && resultado.salida !== 'Sin marcaje') {
+      const entradaMinutos = this.convertirHoraAMinutos(resultado.entrada);
+      const salidaMinutos = this.convertirHoraAMinutos(resultado.salida);
+      
+      let diferenciaSalida;
+      if (bloque.turno === 'NOCTURNO' && salidaMinutos < entradaMinutos) {
+        // Turno nocturno: la salida es al día siguiente
+        diferenciaSalida = (24 * 60 - entradaMinutos) + salidaMinutos;
+      } else {
+        // Turno diurno o nocturno sin cruce
+        diferenciaSalida = salidaMinutos - entradaMinutos;
+      }
+      
+      if (diferenciaSalida < 60) { // Menos de 1 hora
+        resultado.salida = 'SNM';
+        console.log(`SNM aplicado: diferencia=${diferenciaSalida}min < 60min (${bloque.turno})`);
+      }
+    }
+
+    // Si hay descanso definido, validar diferencias de descanso
+    if (bloque.tiene_descanso) {
+      // Validar entrada de descanso: al menos 10 min de diferencia de entrada
+      if (resultado.entrada !== 'Sin marcaje' && resultado.entradaDescanso !== 'Sin marcaje') {
+        const entradaMinutos = this.convertirHoraAMinutos(resultado.entrada);
+        const entradaDescansoMinutos = this.convertirHoraAMinutos(resultado.entradaDescanso);
+        
+        let diferenciaEntradaDescanso;
+        if (bloque.turno === 'NOCTURNO' && entradaDescansoMinutos < entradaMinutos) {
+          // Turno nocturno: el descanso puede ser al día siguiente
+          diferenciaEntradaDescanso = (24 * 60 - entradaMinutos) + entradaDescansoMinutos;
+        } else {
+          // Turno diurno o nocturno sin cruce
+          diferenciaEntradaDescanso = entradaDescansoMinutos - entradaMinutos;
+        }
+        
+        if (diferenciaEntradaDescanso < 10) { // Menos de 10 minutos
+          resultado.entradaDescanso = 'DNM';
+          resultado.salidaDescanso = 'DNM';
+          console.log(`DNM aplicado: diferencia entrada-descanso=${diferenciaEntradaDescanso}min < 10min (${bloque.turno})`);
+        }
+      }
+
+      // Validar salida de descanso: al menos 10 min de diferencia
+      if (resultado.entradaDescanso !== 'Sin marcaje' && resultado.entradaDescanso !== 'DNM' && 
+          resultado.salidaDescanso !== 'Sin marcaje') {
+        const entradaDescansoMinutos = this.convertirHoraAMinutos(resultado.entradaDescanso);
+        const salidaDescansoMinutos = this.convertirHoraAMinutos(resultado.salidaDescanso);
+        
+        let diferenciaSalidaDescanso;
+        if (bloque.turno === 'NOCTURNO' && salidaDescansoMinutos < entradaDescansoMinutos) {
+          // Turno nocturno: la salida de descanso puede ser al día siguiente
+          diferenciaSalidaDescanso = (24 * 60 - entradaDescansoMinutos) + salidaDescansoMinutos;
+        } else {
+          // Turno diurno o nocturno sin cruce
+          diferenciaSalidaDescanso = salidaDescansoMinutos - entradaDescansoMinutos;
+        }
+        
+        if (diferenciaSalidaDescanso < 10) { // Menos de 10 minutos
+          resultado.salidaDescanso = 'SDNM';
+          console.log(`SDNM aplicado: diferencia descanso=${diferenciaSalidaDescanso}min < 10min (${bloque.turno})`);
+        }
+      }
+    }
+
+    return resultado;
+  }
+
+  // Encontrar el marcaje más cercano a una hora programada
+  encontrarMarcajeMasCercano(marcajesConHoras: any[], horaProgramada: number, marcajesUsados: Set<any>): string {
+    let marcajeMasCercano = null;
+    let menorDiferencia = Infinity;
+
+    for (const marcajeConHora of marcajesConHoras) {
+      if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
+      
+      const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
+      if (diferencia < menorDiferencia) {
+        menorDiferencia = diferencia;
+        marcajeMasCercano = marcajeConHora;
+      }
+    }
+
+    if (marcajeMasCercano) {
+      marcajesUsados.add(marcajeMasCercano.marcaje);
+      return this.formatearHora(new Date(marcajeMasCercano.marcaje.event_time).toTimeString().split(' ')[0]);
+    }
+
+    return 'Sin marcaje';
+  }
+
   // Obtener información de horario para mostrar en la celda
   getHorarioInfo(empleado: any, dia: Date, tipoHorario: string): string {
+    console.log(`getHorarioInfo llamado para ${empleado.cedula} en ${dia.toISOString().split('T')[0]} tipo: ${tipoHorario}`);
+    
     const bloque = this.getBloqueHorario(empleado, dia);
     if (!bloque) {
       // Si no hay bloque (fechas anteriores a la fecha de inicio), mostrar "Sin horario"
@@ -1194,16 +1785,61 @@ export class MarcajePersonalComponent implements OnInit {
         }
         break;
       case 'Descanso':
-        if (bloque.tiene_descanso && bloque.hora_entrada_descanso && bloque.hora_salida_descanso) {
-          const entradaDescanso = this.formatearHora(bloque.hora_entrada_descanso);
-          const salidaDescanso = this.formatearHora(bloque.hora_salida_descanso);
-          resultado = `${entradaDescanso} - ${salidaDescanso}`;
+        // Mostrar marcajes reales o "Sin Registros" si no hay marcajes
+        console.log(`Procesando Descanso para ${empleado.cedula} en ${dia.toISOString().split('T')[0]}`);
+        const marcajesDescanso = this.calcularMarcajesDelDia(empleado, dia, bloque);
+        console.log(`Marcajes calculados:`, marcajesDescanso);
+        
+        if (marcajesDescanso.entrada !== 'Sin marcaje' && marcajesDescanso.salida !== 'Sin marcaje') {
+          // Mostrar marcajes reales con formato según si hay descanso programado
+          if (bloque.tiene_descanso) {
+            // Si hay descanso programado, verificar si hay códigos de error
+            if (marcajesDescanso.entradaDescanso === 'DNM' || marcajesDescanso.salidaDescanso === 'DNM') {
+              resultado = `${marcajesDescanso.entrada} - DNM - ${marcajesDescanso.salida}`;
+            } else if (marcajesDescanso.salidaDescanso === 'SDNM') {
+              resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - SDNM - ${marcajesDescanso.salida}`;
+            } else if (marcajesDescanso.entradaDescanso === 'Sin marcaje' && marcajesDescanso.salidaDescanso === 'Sin marcaje') {
+              // No hay marcajes de descanso, mostrar DNM
+              resultado = `${marcajesDescanso.entrada} - DNM - ${marcajesDescanso.salida}`;
+            } else {
+              resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
+            }
+          } else {
+            // Si no hay descanso programado, mostrar entrada - Sin descanso - salida
+            if (marcajesDescanso.salida === 'SNM') {
+              resultado = `${marcajesDescanso.entrada} - Sin descanso - SNM`;
+            } else {
+              resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
+            }
+          }
+        } else if (marcajesDescanso.entrada !== 'Sin marcaje') {
+          // Solo entrada real
+          resultado = marcajesDescanso.entrada;
         } else {
-          resultado = 'Sin descanso';
+          // No hay marcajes reales, mostrar horario programado como referencia
+          const horaEntrada = this.formatearHora(bloque.hora_entrada || '');
+          const horaSalida = this.formatearHora(bloque.hora_salida || '');
+          
+          if (bloque.tiene_descanso && bloque.hora_entrada_descanso && bloque.hora_salida_descanso) {
+            const entradaDescanso = this.formatearHora(bloque.hora_entrada_descanso);
+            const salidaDescanso = this.formatearHora(bloque.hora_salida_descanso);
+            resultado = `${horaEntrada} - ${entradaDescanso} - ${salidaDescanso} - ${horaSalida}`;
+          } else {
+            resultado = `${horaEntrada} - Sin descanso - ${horaSalida}`;
+          }
         }
+        console.log(`Resultado final para Descanso: ${resultado}`);
         break;
       case 'Salida':
-        resultado = this.formatearHora(bloque.hora_salida || '');
+        // Mostrar cálculo detallado de horas trabajadas
+        console.log(`Procesando Cálculo para ${empleado.cedula} en ${dia.toISOString().split('T')[0]}`);
+        const marcajesCalculo = this.calcularMarcajesDelDia(empleado, dia, bloque);
+        const resumenCalculo = this.calcularResumenHoras(marcajesCalculo, bloque);
+        
+        // El texto ya incluye los colores individuales
+        resultado = resumenCalculo.texto;
+        
+        console.log(`Resultado final para Cálculo: ${resultado}`);
         break;
       default:
         resultado = '';
