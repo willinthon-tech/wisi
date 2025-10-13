@@ -38,32 +38,8 @@ import { UserService } from '../../../../services/user.service';
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input 
-                type="checkbox" 
-                 
-                >
-              <span class="checkmark"></span>
-              Permiso
-            </label>
-            <small class="help-text">
-              
-            </small>
-          </div>
 
 
-          <div class="current-info">
-            <h3>Información Actual</h3>
-            <div class="info-grid">
-              <div class="info-item">
-                <strong>Creado:</strong> {{ formatDate(permission.created_at) }}
-              </div>
-              <div class="info-item">
-                <strong>Actualizado:</strong> {{ formatDate(permission.updated_at) }}
-              </div>
-            </div>
-          </div>
 
 
           <div class="form-actions">

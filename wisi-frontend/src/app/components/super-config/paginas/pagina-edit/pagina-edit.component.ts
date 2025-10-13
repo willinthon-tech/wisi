@@ -35,31 +35,7 @@ import { UserService } from '../../../../services/user.service';
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input 
-                type="checkbox" 
-                 
-                >
-              <span class="checkmark"></span>
-              Página
-            </label>
-            <small class="help-text">
-              Las páginas inactivas no aparecerán en el menú de usuarios
-            </small>
-          </div>
 
-          <div class="current-info">
-            <h3>Información de la Página</h3>
-            <div class="info-grid">
-              <div class="info-item">
-                <strong>Creada:</strong> {{ formatDate(page.created_at) }}
-              </div>
-              <div class="info-item">
-                <strong>Actualizada:</strong> {{ formatDate(page.updated_at) }}
-              </div>
-            </div>
-          </div>
 
 
           <div class="form-actions">
