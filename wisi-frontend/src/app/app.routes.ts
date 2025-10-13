@@ -62,6 +62,16 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'llaves',
+    loadComponent: () => import('./components/llaves/llaves-list/llaves-list.component').then(m => m.LlavesListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'llaves-borradas',
+    loadComponent: () => import('./components/llaves/llaves-borradas/llaves-borradas.component').then(m => m.LlavesBorradasComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'empleados/user/:id/tareas',
     loadComponent: () => import('./components/tareas/tareas-list/tareas-list.component').then(m => m.TareasListComponent),
     canActivate: [AuthGuard]
@@ -102,8 +112,18 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
     {
+      path: 'novedades-mesas/:libroId/:salaId',
+      loadComponent: () => import('./components/libros/novedades-mesas/novedades-mesas.component').then(m => m.NovedadesMesasComponent),
+      canActivate: [AuthGuard]
+    },
+    {
       path: 'novedades-maquinas/:libroId/:salaId',
       loadComponent: () => import('./components/libros/novedades-maquinas/novedades-maquinas.component').then(m => m.NovedadesMaquinasComponent),
+      canActivate: [AuthGuard]
+    },
+    {
+      path: 'control-llaves/:libroId/:salaId',
+      loadComponent: () => import('./components/libros/control-llaves/control-llaves.component').then(m => m.ControlLlavesComponent),
       canActivate: [AuthGuard]
     },
     {

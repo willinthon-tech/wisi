@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+// const rateLimit = require('express-rate-limit'); // DESHABILITADO
 const axios = require('axios');
 const cron = require('node-cron');
 
@@ -64,6 +64,8 @@ const {
   Dispositivo,
   Attlog,
   Cron,
+  Llave,
+  ControlLlaveRegistro,
   syncDatabase 
 } = require('./models');
 const { Op } = require('sequelize');
@@ -801,14 +803,25 @@ app.use(cors());
 app.use(express.json());
 
 
-// Rate limiting - Configuración más permisiva para desarrollo
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs (aumentado para desarrollo)
-  message: 'Demasiadas peticiones desde esta IP, intenta de nuevo más tarde.',
-  standardHeaders: true,
-  legacyHeaders: false});
-app.use(limiter);
+// Rate limiting DESHABILITADO para desarrollo
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 1000, // limit each IP to 1000 requests per windowMs (aumentado para desarrollo)
+//   message: 'Demasiadas peticiones desde esta IP, intenta de nuevo más tarde.',
+//   standardHeaders: true,
+//   legacyHeaders: false});
+
+// Rate limiting DESHABILITADO para desarrollo
+// const loginLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 50, // 50 intentos de login por IP cada 15 minutos
+//   message: 'Demasiados intentos de login, intenta de nuevo más tarde.',
+//   standardHeaders: true,
+//   legacyHeaders: false,
+//   skipSuccessfulRequests: true // No contar requests exitosos
+// });
+
+// app.use(limiter); // DESHABILITADO
 
 // Inicializar base de datos SQLite
 syncDatabase();
@@ -4379,6 +4392,588 @@ app.put('/api/mesas/:id/activar', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error activando mesa:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// RUTAS PARA LLAVES
+// =============================================
+
+// Obtener todas las llaves
+app.get('/api/llaves', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let llaves;
+    
+    if (userLevel === 'TODO') {
+      // Superusuario ve todas las llaves
+      llaves = await Llave.findAll({
+        where: { activo: 1 },
+        include: [
+          {
+            model: Sala,
+            as: 'Sala',
+            attributes: ['id', 'nombre']
+          }
+        ],
+        order: [['nombre', 'ASC']]
+      });
+    } else {
+      // Usuario normal ve solo llaves de sus salas
+      const userSalas = await UserSala.findAll({
+        where: { user_id: userId },
+        include: [{ model: Sala, as: 'Sala' }]
+      });
+      
+      const salaIds = userSalas.map(us => us.sala_id);
+      
+      llaves = await Llave.findAll({
+        where: { 
+          activo: 1,
+          sala_id: salaIds
+        },
+        include: [
+          {
+            model: Sala,
+            as: 'Sala',
+            attributes: ['id', 'nombre']
+          }
+        ],
+        order: [['nombre', 'ASC']]
+      });
+    }
+    
+    res.json(llaves);
+  } catch (error) {
+    console.error('Error obteniendo llaves:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear una nueva llave
+app.post('/api/llaves', authenticateToken, async (req, res) => {
+  try {
+    const { nombre, sala_id } = req.body;
+    
+    if (!nombre || !sala_id) {
+      return res.status(400).json({ message: 'Nombre y sala_id son requeridos' });
+    }
+    
+    // Verificar que la sala existe
+    const sala = await Sala.findByPk(sala_id);
+    if (!sala) {
+      return res.status(404).json({ message: 'Sala no encontrada' });
+    }
+    
+    // Verificar que el usuario tiene acceso a la sala
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+      }
+    }
+    
+    // Verificar que no existe una llave con el mismo nombre en la misma sala
+    const existingLlave = await Llave.findOne({
+      where: { 
+        nombre: nombre,
+        sala_id: sala_id,
+        activo: 1
+      }
+    });
+    
+    if (existingLlave) {
+      return res.status(400).json({ message: 'Ya existe una llave con este nombre en esta sala' });
+    }
+    
+    const llave = await Llave.create({
+      nombre,
+      sala_id,
+      activo: 1
+    });
+    
+    // Obtener la llave con la sala
+    const llaveWithSala = await Llave.findByPk(llave.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Sala',
+          attributes: ['id', 'nombre']
+        }
+      ]
+    });
+    
+    res.status(201).json(llaveWithSala);
+  } catch (error) {
+    console.error('Error creando llave:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar una llave
+app.put('/api/llaves/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, sala_id } = req.body;
+    
+    const llave = await Llave.findByPk(id);
+    if (!llave) {
+      return res.status(404).json({ message: 'Llave no encontrada' });
+    }
+    
+    // Verificar que el usuario tiene acceso a la sala
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: llave.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a esta llave' });
+      }
+    }
+    
+    // Verificar que la nueva sala existe
+    if (sala_id && sala_id !== llave.sala_id) {
+      const sala = await Sala.findByPk(sala_id);
+      if (!sala) {
+        return res.status(404).json({ message: 'Sala no encontrada' });
+      }
+      
+      // Verificar acceso a la nueva sala
+      if (userLevel !== 'TODO') {
+        const userSala = await UserSala.findOne({
+          where: { user_id: userId, sala_id: sala_id }
+        });
+        
+        if (!userSala) {
+          return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+        }
+      }
+    }
+    
+    // Verificar que no existe otra llave con el mismo nombre en la misma sala
+    if (nombre && nombre !== llave.nombre) {
+      const existingLlave = await Llave.findOne({
+        where: { 
+          nombre: nombre,
+          sala_id: sala_id || llave.sala_id,
+          activo: 1,
+          id: { [Op.ne]: id }
+        }
+      });
+      
+      if (existingLlave) {
+        return res.status(400).json({ message: 'Ya existe una llave con este nombre en esta sala' });
+      }
+    }
+    
+    await llave.update({
+      nombre: nombre || llave.nombre,
+      sala_id: sala_id || llave.sala_id
+    });
+    
+    // Obtener la llave actualizada con la sala
+    const updatedLlave = await Llave.findByPk(llave.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Sala',
+          attributes: ['id', 'nombre']
+        }
+      ]
+    });
+    
+    res.json(updatedLlave);
+  } catch (error) {
+    console.error('Error actualizando llave:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar una llave (soft delete)
+app.delete('/api/llaves/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const llave = await Llave.findByPk(id);
+    
+    if (!llave) {
+      return res.status(404).json({ message: 'Llave no encontrada' });
+    }
+    
+    // Verificar que el usuario tiene acceso a la llave
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: llave.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a esta llave' });
+      }
+    }
+    
+    // Verificar si la llave tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para llave:', {
+      id: id,
+      nombre: llave.nombre
+    });
+    
+    // Por ahora no hay relaciones, pero se puede agregar en el futuro
+    // const relations = await sequelize.query(`
+    //   SELECT table_name, count FROM (
+    //     SELECT 'Control de Llaves' as table_name, COUNT(*) as count FROM control_llaves_registros WHERE llave_id = ?
+    //   ) as relations WHERE count > 0
+    // `, {
+    //   replacements: [id],
+    //   type: sequelize.QueryTypes.SELECT
+    // });
+    
+    // if (relations.length > 0) {
+    //   return res.status(400).json({
+    //     message: 'No se puede eliminar la llave porque tiene relaciones',
+    //     relations: relations
+    //   });
+    // }
+    
+    // Si no hay relaciones, marcar llave como borrada (soft delete)
+    await llave.update({ activo: 0 });
+    res.json({ message: 'Llave marcada como borrada correctamente' });
+  } catch (error) {
+    console.error('Error eliminando llave:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/llaves/borradas - Obtener llaves borradas (activo = 0)
+app.get('/api/llaves/borradas', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let llaves;
+    
+    if (userLevel === 'TODO') {
+      // Superusuario ve todas las llaves borradas
+      llaves = await Llave.findAll({
+        where: { activo: 0 },
+        include: [
+          {
+            model: Sala,
+            as: 'Sala',
+            attributes: ['id', 'nombre']
+          }
+        ],
+        order: [['nombre', 'ASC']]
+      });
+    } else {
+      // Usuario normal ve solo llaves borradas de sus salas
+      const userSalas = await UserSala.findAll({
+        where: { user_id: userId },
+        include: [{ model: Sala, as: 'Sala' }]
+      });
+      
+      const salaIds = userSalas.map(us => us.sala_id);
+      
+      llaves = await Llave.findAll({
+        where: { 
+          activo: 0,
+          sala_id: salaIds
+        },
+        include: [
+          {
+            model: Sala,
+            as: 'Sala',
+            attributes: ['id', 'nombre']
+          }
+        ],
+        order: [['nombre', 'ASC']]
+      });
+    }
+    
+    res.json(llaves);
+  } catch (error) {
+    console.error('Error obteniendo llaves borradas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/llaves/:id/borrar - Borrar llave (cambiar activo a 0)
+app.put('/api/llaves/:id/borrar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const llave = await Llave.findByPk(id);
+    if (!llave) {
+      return res.status(404).json({ message: 'Llave no encontrada' });
+    }
+    
+    // Verificar que el usuario tiene acceso a la llave
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: llave.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a esta llave' });
+      }
+    }
+    
+    // Verificar que la llave esté activa (activo = 1)
+    if (llave.activo !== 1) {
+      return res.status(400).json({ message: 'La llave ya está borrada' });
+    }
+    
+    // Borrar la llave
+    await llave.update({ activo: 0 });
+    
+    res.json({ 
+      message: 'Llave borrada exitosamente',
+      llave: {
+        id: llave.id,
+        nombre: llave.nombre,
+        activo: llave.activo
+      }
+    });
+  } catch (error) {
+    console.error('Error borrando llave:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/llaves/:id/activar - Activar llave (cambiar activo de 0 a 1)
+app.put('/api/llaves/:id/activar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const llave = await Llave.findByPk(id);
+    if (!llave) {
+      return res.status(404).json({ message: 'Llave no encontrada' });
+    }
+    
+    // Verificar que el usuario tiene acceso a la llave
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: llave.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a esta llave' });
+      }
+    }
+    
+    // Verificar que la llave esté borrada (activo = 0)
+    if (llave.activo !== 0) {
+      return res.status(400).json({ message: 'La llave ya está activa' });
+    }
+    
+    // Activar la llave
+    await llave.update({ activo: 1 });
+    
+    res.json({ 
+      message: 'Llave activada exitosamente',
+      llave: {
+        id: llave.id,
+        nombre: llave.nombre,
+        activo: llave.activo
+      }
+    });
+  } catch (error) {
+    console.error('Error activando llave:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// RUTAS PARA CONTROL DE LLAVES
+// =============================================
+
+// Obtener registros de control de llaves por libro
+app.get('/api/control-llaves-registros/:libroId', authenticateToken, async (req, res) => {
+  try {
+    const { libroId } = req.params;
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    // Verificar que el usuario tiene acceso al libro
+    const libro = await Libro.findByPk(libroId, {
+      include: [{ model: Sala, as: 'Sala' }]
+    });
+    
+    if (!libro) {
+      return res.status(404).json({ message: 'Libro no encontrado' });
+    }
+    
+    // Verificar acceso a la sala del libro
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: libro.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a este libro' });
+      }
+    }
+    
+    // Obtener registros de control de llaves con relaciones
+    const registros = await ControlLlaveRegistro.findAll({
+      where: { libro_id: libroId },
+      include: [
+        {
+          model: Llave,
+          as: 'Llave',
+          include: [
+            {
+              model: Sala,
+              as: 'Sala',
+              attributes: ['id', 'nombre']
+            }
+          ]
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula']
+        }
+      ],
+      order: [['hora', 'ASC']]
+    });
+    
+    res.json(registros);
+  } catch (error) {
+    console.error('Error obteniendo registros de control de llaves:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear registro de control de llave
+app.post('/api/control-llaves-registros', authenticateToken, async (req, res) => {
+  try {
+    const { libro_id, llave_id, empleado_id, hora } = req.body;
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+
+    // Verificar que el libro existe
+    const libro = await Libro.findByPk(libro_id);
+    if (!libro) {
+      return res.status(404).json({ message: 'Libro no encontrado' });
+    }
+
+    // Verificar acceso a la sala del libro
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: libro.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a este libro' });
+      }
+    }
+
+    // Verificar que la llave existe y está activa
+    const llave = await Llave.findByPk(llave_id);
+    if (!llave || llave.activo !== 1) {
+      return res.status(404).json({ message: 'Llave no encontrada o inactiva' });
+    }
+
+    // Verificar que el empleado existe y está activo
+    const empleado = await Empleado.findByPk(empleado_id);
+    if (!empleado || empleado.activo !== 1) {
+      return res.status(404).json({ message: 'Empleado no encontrado o inactivo' });
+    }
+
+    // Crear el registro
+    const registro = await ControlLlaveRegistro.create({
+      libro_id,
+      llave_id,
+      empleado_id,
+      hora
+    });
+
+    // Obtener el registro con relaciones
+    const registroCompleto = await ControlLlaveRegistro.findByPk(registro.id, {
+      include: [
+        {
+          model: Llave,
+          as: 'Llave',
+          include: [
+            {
+              model: Sala,
+              as: 'Sala',
+              attributes: ['id', 'nombre']
+            }
+          ]
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula']
+        }
+      ]
+    });
+
+    res.status(201).json(registroCompleto);
+  } catch (error) {
+    console.error('Error creando registro de control de llave:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar registro de control de llave
+app.delete('/api/control-llaves-registros/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    const registro = await ControlLlaveRegistro.findByPk(id, {
+      include: [
+        {
+          model: Libro,
+          as: 'Libro',
+          include: [{ model: Sala, as: 'Sala' }]
+        }
+      ]
+    });
+    
+    if (!registro) {
+      return res.status(404).json({ message: 'Registro no encontrado' });
+    }
+    
+    // Verificar acceso a la sala del libro
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: registro.Libro.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a este registro' });
+      }
+    }
+    
+    await registro.destroy();
+    res.json({ message: 'Registro eliminado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando registro de control de llave:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

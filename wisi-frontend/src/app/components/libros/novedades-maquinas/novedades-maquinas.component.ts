@@ -183,7 +183,7 @@ interface NovedadData {
                 <td class="text-center">{{ evento.empleado?.nombre }}</td>
                 <td class="text-center">{{ evento.hora }}</td>
                 <td class="text-center">
-                  <button class="btn btn-danger btn-sm" (click)="deleteNovedad(evento.ids[0])">
+                  <button class="btn btn-danger btn-sm" (click)="deleteNovedad(evento)">
                     Eliminar
                   </button>
                 </td>
@@ -964,27 +964,33 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     });
   }
 
-  deleteNovedad(id: number) {
+  deleteNovedad(evento: any) {
+    const isGroup = evento.esLote;
+    const novedadIds = evento.ids;
+    const count = novedadIds.length;
     
+    // Eliminar directamente sin confirmación
+    this.ejecutarEliminacionGrupoNovedades(novedadIds, isGroup);
+  }
 
-    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
-    this.confirmModalService.showConfirmModal({
-      title: 'Confirmar Eliminación',
-      message: '¿Está seguro de que desea eliminar esta novedad?',
-      entity: {
-        id: id,
-        nombre: 'Novedad',
-        tipo: 'Novedad'
-      },
-      warningText: 'Esta acción eliminará permanentemente la novedad.',
-      onConfirm: () => {
-        // Ejecutar la eliminación real
-        this.ejecutarEliminacionNovedad(id);
-      }
+  // Método auxiliar para ejecutar la eliminación de grupo
+  private ejecutarEliminacionGrupoNovedades(novedadIds: number[], isGroup: boolean) {
+    novedadIds.forEach((novedadId: number) => {
+      this.novedadesRegistrosService.deleteNovedadMaquinaRegistro(novedadId).subscribe({
+        next: () => {
+          // Solo recargar la lista sin mostrar modales
+          this.loadNovedades();
+        },
+        error: (error: any) => {
+          console.error('Error eliminando novedad:', error);
+          // Solo recargar la lista sin mostrar modales
+          this.loadNovedades();
+        }
+      });
     });
   }
 
-  // Método auxiliar para ejecutar la eliminación real
+  // Método auxiliar para ejecutar la eliminación real (mantener para compatibilidad)
   private ejecutarEliminacionNovedad(id: number) {
     
     

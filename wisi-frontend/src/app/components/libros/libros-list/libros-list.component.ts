@@ -45,9 +45,19 @@ import { Subscription } from 'rxjs';
                          Drop de Mesas
                        </button>
                        <button
+                         class="btn btn-primary btn-sm me-1 mb-1"
+                         (click)="operacionNovedadesMesas(libro.id)">
+                         Novedades de Mesas
+                       </button>
+                       <button
                          class="btn btn-secondary btn-sm me-1 mb-1"
                          (click)="operacionIncidenciasMaquinas(libro.id)">
                          Novedades de Máquinas
+                       </button>
+                       <button
+                         class="btn btn-success btn-sm me-1 mb-1"
+                         (click)="operacionControlLlaves(libro.id)">
+                         Control de Llaves
                        </button>
                        <button
                          class="btn btn-warning btn-sm me-1 mb-1"
@@ -579,6 +589,24 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     }
   }
 
+  operacionNovedadesMesas(libroId: number): void {
+    // Buscar el libro para obtener su salaId
+    const libro = this.libros.find(l => l.id === libroId);
+    if (libro && libro.Sala) {
+      this.router.navigate(['/novedades-mesas', libroId, libro.Sala.id]);
+    } else {
+    }
+  }
+
+  operacionControlLlaves(libroId: number): void {
+    // Buscar el libro para obtener su salaId
+    const libro = this.libros.find(l => l.id === libroId);
+    if (libro && libro.Sala) {
+      this.router.navigate(['/control-llaves', libroId, libro.Sala.id]);
+    } else {
+    }
+  }
+
   operacionIncidenciasGenerales(libroId: number): void {
     // Buscar el libro para obtener su salaId
     const libro = this.libros.find(l => l.id === libroId);
@@ -587,7 +615,6 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     } else {
     }
   }
-
 
   openReport(libroId: number): void {
     // Abrir el reporte en una nueva pestaña

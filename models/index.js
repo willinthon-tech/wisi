@@ -27,6 +27,7 @@ const Juego = require('./Juego')(sequelize);
 const Maquina = require('./Maquina')(sequelize);
 const Drop = require('./Drop')(sequelize);
 const Attlog = require('./Attlog')(sequelize);
+const ControlLlaveRegistro = require('./ControlLlaveRegistro')(sequelize);
 
 // Definir asociaciones
 User.belongsToMany(Sala, { through: UserSala, foreignKey: 'user_id' });
@@ -110,6 +111,7 @@ const Bloque = require('./Bloque')(sequelize);
 const Dispositivo = require('./Dispositivo')(sequelize);
 const Cron = require('./Cron')(sequelize);
 const HorarioEmpleado = require('./HorarioEmpleado')(sequelize);
+const Llave = require('./Llave')(sequelize);
 
 // Asociaciones para NovedadMaquinaRegistro
 NovedadMaquinaRegistro.belongsTo(Libro, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
@@ -171,6 +173,18 @@ Dispositivo.hasMany(Attlog, { foreignKey: 'dispositivo_id', onDelete: 'RESTRICT'
 // Asociaciones para Bloque
 Bloque.belongsTo(Horario, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
 Horario.hasMany(Bloque, { foreignKey: 'horario_id', as: 'bloques', onDelete: 'RESTRICT' });
+
+// Asociaciones para Llave
+Llave.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(Llave, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+
+// Asociaciones para ControlLlaveRegistro
+ControlLlaveRegistro.belongsTo(Libro, { foreignKey: 'libro_id', as: 'Libro', onDelete: 'CASCADE' });
+ControlLlaveRegistro.belongsTo(Llave, { foreignKey: 'llave_id', as: 'Llave', onDelete: 'CASCADE' });
+ControlLlaveRegistro.belongsTo(Empleado, { foreignKey: 'empleado_id', as: 'Empleado', onDelete: 'CASCADE' });
+Libro.hasMany(ControlLlaveRegistro, { foreignKey: 'libro_id', as: 'ControlLlaveRegistros', onDelete: 'CASCADE' });
+Llave.hasMany(ControlLlaveRegistro, { foreignKey: 'llave_id', as: 'ControlLlaveRegistros', onDelete: 'CASCADE' });
+Empleado.hasMany(ControlLlaveRegistro, { foreignKey: 'empleado_id', as: 'ControlLlaveRegistros', onDelete: 'CASCADE' });
 
 
 // Sincronizar base de datos
@@ -329,6 +343,8 @@ module.exports = {
   Attlog,
   Cron,
   HorarioEmpleado,
+  Llave,
+  ControlLlaveRegistro,
   syncDatabase
 };
 
