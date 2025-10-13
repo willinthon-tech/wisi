@@ -5258,9 +5258,10 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
       ]
     });
 
-    // Si es el usuario creador (nivel TODO), devolver todos los empleados
+    // Si es el usuario creador (nivel TODO), devolver todos los empleados activos
     if (user.nivel === 'TODO') {
       const empleados = await Empleado.findAll({
+        where: { activo: 1 },
         include: [
           {
             model: Cargo,
@@ -5341,7 +5342,8 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
       where: {
         '$Cargo.Departamento.Area.Sala.id$': {
           [Op.in]: userSalaIds
-        }
+        },
+        activo: 1
       },
       order: [['created_at', 'DESC']]
     });
@@ -5362,6 +5364,130 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
     res.json(empleados);
   } catch (error) {
     
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/empleados/borrados - Obtener empleados borrados (activo = 0)
+app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
+  try {
+    // Obtener las salas del usuario logueado
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Salas',
+          attributes: ['id']
+        }
+      ]
+    });
+
+    // Si es el usuario creador (nivel TODO), devolver todos los empleados borrados
+    if (user.nivel === 'TODO') {
+      const empleados = await Empleado.findAll({
+        where: { activo: 0 },
+        include: [
+          {
+            model: Cargo,
+            as: 'Cargo',
+            include: [
+              {
+                model: Departamento,
+                as: 'Departamento',
+                include: [
+                  {
+                    model: Area,
+                    as: 'Area',
+                    include: [
+                      {
+                        model: Sala,
+                        as: 'Sala',
+                        attributes: ['id', 'nombre']
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        order: [['updated_at', 'DESC']]
+      });
+
+      // Agregar dispositivos a cada empleado para usuarios TODO
+      for (let empleado of empleados) {
+        const dispositivos = await sequelize.query(
+          'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+          {
+            replacements: [empleado.id],
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+        
+        empleado.dataValues.dispositivos = dispositivos;
+      }
+
+      return res.json(empleados);
+    }
+
+    // Si el usuario no tiene salas asignadas, devolver array vacío
+    if (!user || !user.Salas || user.Salas.length === 0) {
+      return res.json([]);
+    }
+
+    const userSalaIds = user.Salas.map(sala => sala.id);
+
+    const empleados = await Empleado.findAll({
+      include: [
+        {
+          model: Cargo,
+          as: 'Cargo',
+          include: [
+            {
+              model: Departamento,
+              as: 'Departamento',
+              include: [
+                {
+                  model: Area,
+                  as: 'Area',
+                  include: [
+                    {
+                      model: Sala,
+                      as: 'Sala',
+                      required: false
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      where: {
+        activo: 0,
+        '$Cargo.Departamento.Area.Sala.id$': {
+          [Op.in]: userSalaIds
+        }
+      },
+      order: [['updated_at', 'DESC']]
+    });
+
+    // Agregar dispositivos a cada empleado
+    for (let empleado of empleados) {
+      const dispositivos = await sequelize.query(
+        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?)',
+        {
+          replacements: [empleado.id, userSalaIds],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      
+      empleado.dataValues.dispositivos = dispositivos;
+    }
+
+    res.json(empleados);
+  } catch (error) {
+    console.error('Error obteniendo empleados borrados:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5437,7 +5563,9 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
       fecha_ingreso,
       fecha_cumpleanos,
       sexo,
-      cargo_id});
+      cargo_id,
+      activo: 1
+    });
 
     // Manejar dispositivos si se proporcionan
     if (dispositivos && dispositivos.length > 0) {
@@ -5484,6 +5612,38 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT /api/empleados/:id/borrar - Borrar empleado (cambiar activo de 1 a 0 - soft delete)
+app.put('/api/empleados/:id/borrar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const empleado = await Empleado.findByPk(id);
+    if (!empleado) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+
+    // Verificar que el empleado esté activo (activo = 1)
+    if (empleado.activo !== 1) {
+      return res.status(400).json({ message: 'El empleado ya está borrado' });
+    }
+
+    // Borrar el empleado (soft delete) - NO verificar relaciones porque solo cambia activo
+    await empleado.update({ activo: 0 });
+
+    res.json({ 
+      message: 'Empleado borrado exitosamente',
+      empleado: {
+        id: empleado.id,
+        nombre: empleado.nombre,
+        activo: empleado.activo
+      }
+    });
+  } catch (error) {
+    console.error('Error borrando empleado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // PUT /api/empleados/:id - Actualizar empleado
 app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
   try {
@@ -5521,6 +5681,7 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
       fecha_cumpleanos: fecha_cumpleanos || empleado.fecha_cumpleanos,
       sexo: sexo || empleado.sexo,
       cargo_id: cargo_id || empleado.cargo_id,
+      activo: 1
     });
 
     // Manejar dispositivos si se proporcionan
@@ -5576,6 +5737,38 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// PUT /api/empleados/:id/activar - Activar empleado (cambiar activo de 0 a 1)
+app.put('/api/empleados/:id/activar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const empleado = await Empleado.findByPk(id);
+    if (!empleado) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+
+    // Verificar que el empleado esté borrado (activo = 0)
+    if (empleado.activo !== 0) {
+      return res.status(400).json({ message: 'El empleado ya está activo' });
+    }
+
+    // Activar el empleado
+    await empleado.update({ activo: 1 });
+
+    res.json({ 
+      message: 'Empleado activado exitosamente',
+      empleado: {
+        id: empleado.id,
+        nombre: empleado.nombre,
+        activo: empleado.activo
+      }
+    });
+  } catch (error) {
+    console.error('Error activando empleado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // DELETE /api/empleados/:id - Eliminar empleado
 app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -5624,8 +5817,9 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    await empleado.destroy();
-    res.json({ message: 'Empleado eliminado correctamente' });
+    // Marcar empleado como borrado (activo = 0) en lugar de eliminar físicamente
+    await empleado.update({ activo: 0 });
+    res.json({ message: 'Empleado marcado como borrado correctamente' });
   } catch (error) {
     
     console.error('❌ Detalles del error:', {

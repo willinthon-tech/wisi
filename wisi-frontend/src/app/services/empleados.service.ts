@@ -108,4 +108,19 @@ export class EmpleadosService {
   eliminarHorarioEmpleado(empleadoId: number, horarioEmpleadoId: number): Observable<any> {
     return this.http.delete<any>(`${this.apiUrl}/${empleadoId}/horarios/${horarioEmpleadoId}`);
   }
+
+  // Obtener empleados borrados (activo = 0)
+  getEmpleadosBorrados(): Observable<Empleado[]> {
+    return this.http.get<Empleado[]>(`${this.apiUrl}/borrados`);
+  }
+
+  // Activar empleado (cambiar activo de 0 a 1)
+  activarEmpleado(empleadoId: number): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/${empleadoId}/activar`, {});
+  }
+
+  // Borrar empleado (cambiar activo de 1 a 0 - soft delete)
+  borrarEmpleado(empleadoId: number): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/${empleadoId}/borrar`, {});
+  }
 }

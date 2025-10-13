@@ -48,6 +48,12 @@ module.exports = (sequelize) => {
       onDelete: 'RESTRICT',
       comment: 'ID del cargo al que pertenece el empleado'
     },
+    activo: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      comment: 'Estado del empleado: 1 = activo, 0 = borrado'
+    },
   }, {
     tableName: 'empleados',
     timestamps: true,

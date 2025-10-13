@@ -47,6 +47,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'empleados-borrados',
+    loadComponent: () => import('./components/empleados/empleados-borrados/empleados-borrados.component').then(m => m.EmpleadosBorradosComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'empleados/user/:id/tareas',
     loadComponent: () => import('./components/tareas/tareas-list/tareas-list.component').then(m => m.TareasListComponent),
     canActivate: [AuthGuard]
