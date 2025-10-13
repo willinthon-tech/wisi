@@ -26,7 +26,7 @@ import { ConfirmModalService, ConfirmModalData } from '../../../services/confirm
         </div>
         <div class="modal-footer">
           <button class="btn-cancel" (click)="closeModal()">Cancelar</button>
-          <button class="btn-confirm" (click)="confirmAction()">Sí, Eliminar</button>
+          <button class="btn-confirm" (click)="confirmAction()">{{ getConfirmButtonText() }}</button>
         </div>
       </div>
     </div>
@@ -207,5 +207,21 @@ export class ConfirmModalComponent implements OnInit, OnDestroy {
       this.modalData.onConfirm();
     }
     this.closeModal();
+  }
+
+  getConfirmButtonText(): string {
+    if (!this.modalData?.title) return 'Sí, Eliminar';
+    
+    const title = this.modalData.title.toLowerCase();
+    
+    if (title.includes('activar')) {
+      return 'Sí, Activar';
+    } else if (title.includes('borrar')) {
+      return 'Sí, Borrar';
+    } else if (title.includes('eliminar')) {
+      return 'Sí, Eliminar';
+    } else {
+      return 'Sí, Confirmar';
+    }
   }
 }

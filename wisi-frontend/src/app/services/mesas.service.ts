@@ -44,4 +44,19 @@ export class MesasService {
   getUserJuegos(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/user/juegos`);
   }
+
+  // Obtener mesas borradas (activo = 0)
+  getMesasBorradas(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/mesas/borradas`);
+  }
+
+  // Borrar mesa (cambiar activo de 1 a 0 - soft delete)
+  borrarMesa(mesaId: number): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/mesas/${mesaId}/borrar`, {});
+  }
+
+  // Activar mesa (cambiar activo de 0 a 1)
+  activarMesa(mesaId: number): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/mesas/${mesaId}/activar`, {});
+  }
 }

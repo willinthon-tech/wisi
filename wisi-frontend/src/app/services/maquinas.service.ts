@@ -44,4 +44,19 @@ export class MaquinasService {
   getUserRangos(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/user/rangos`);
   }
+
+  // Obtener máquinas borradas (activo = 0)
+  getMaquinasBorradas(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/maquinas/borradas`);
+  }
+
+  // Borrar máquina (cambiar activo de 1 a 0 - soft delete)
+  borrarMaquina(maquinaId: number): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/maquinas/${maquinaId}/borrar`, {});
+  }
+
+  // Activar máquina (cambiar activo de 0 a 1)
+  activarMaquina(maquinaId: number): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/maquinas/${maquinaId}/activar`, {});
+  }
 }

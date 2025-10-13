@@ -49,6 +49,13 @@ import { Subscription } from 'rxjs';
                   Editar
                 </button>
                 <button 
+                  class="btn btn-warning btn-sm me-1" 
+                  [class.disabled]="!canDelete()"
+                  [disabled]="!canDelete()"
+                  (click)="canDelete() ? borrarMaquina(maquina.id) : null">
+                  Borrar máquina
+                </button>
+                <button 
                   class="btn btn-danger btn-sm" 
                   [class.disabled]="!canDelete()"
                   [disabled]="!canDelete()"
@@ -572,6 +579,46 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
     this.nuevaMaquina.rango_id = maquina.rango_id;
     this.showSalaModal = true;
     this.loadUserRangos();
+  }
+
+  borrarMaquina(id: number): void {
+    const maquina = this.maquinas.find(m => m.id === id);
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Borrado',
+      message: '¿Está seguro de que desea borrar esta máquina?',
+      entity: {
+        id: id,
+        nombre: maquina?.nombre || 'Máquina',
+        tipo: 'Máquina'
+      },
+      warningText: 'Esta acción marcará la máquina como borrada pero conservará sus datos.',
+      onConfirm: () => {
+        this.ejecutarBorradoMaquina(id, maquina);
+      }
+    });
+  }
+
+  private ejecutarBorradoMaquina(id: number, maquina: any) {
+    this.maquinasService.borrarMaquina(id).subscribe({
+      next: () => {
+        this.maquinas = this.maquinas.filter(maquina => maquina.id !== id);
+      },
+      error: (error) => {
+        console.error('Error borrando máquina:', error);
+        if (error.status === 400 && error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'Error de Borrado',
+            message: 'No se puede borrar esta máquina porque tiene las siguientes relaciones:',
+            relations: error.error.relations
+          });
+        } else {
+          this.errorModalService.showErrorModal({
+            title: 'Error',
+            message: 'No se pudo borrar la máquina'
+          });
+        }
+      }
+    });
   }
 
   deleteMaquina(id: number): void {

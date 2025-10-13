@@ -52,6 +52,16 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'maquinas-borradas',
+    loadComponent: () => import('./components/maquinas/maquinas-borradas/maquinas-borradas.component').then(m => m.MaquinasBorradasComponent),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'mesas-borradas',
+    loadComponent: () => import('./components/mesas/mesas-borradas/mesas-borradas.component').then(m => m.MesasBorradasComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'empleados/user/:id/tareas',
     loadComponent: () => import('./components/tareas/tareas-list/tareas-list.component').then(m => m.TareasListComponent),
     canActivate: [AuthGuard]

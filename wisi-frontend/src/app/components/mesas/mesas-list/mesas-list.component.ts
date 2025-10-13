@@ -49,6 +49,13 @@ import { Subscription } from 'rxjs';
                   Editar
                 </button>
                 <button 
+                  class="btn btn-warning btn-sm me-1" 
+                  [class.disabled]="!canDelete()"
+                  [disabled]="!canDelete()"
+                  (click)="canDelete() ? borrarMesa(mesa.id) : null">
+                  Borrar mesa
+                </button>
+                <button 
                   class="btn btn-danger btn-sm" 
                   [class.disabled]="!canDelete()"
                   [disabled]="!canDelete()"
@@ -576,6 +583,46 @@ export class MesasListComponent implements OnInit, OnDestroy {
     this.nuevaMesa.juego_id = mesa.juego_id;
     this.showSalaModal = true;
     this.loadUserJuegos();
+  }
+
+  borrarMesa(id: number): void {
+    const mesa = this.mesas.find(m => m.id === id);
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Borrado',
+      message: '¿Está seguro de que desea borrar esta mesa?',
+      entity: {
+        id: id,
+        nombre: mesa?.nombre || 'Mesa',
+        tipo: 'Mesa'
+      },
+      warningText: 'Esta acción marcará la mesa como borrada pero conservará sus datos.',
+      onConfirm: () => {
+        this.ejecutarBorradoMesa(id, mesa);
+      }
+    });
+  }
+
+  private ejecutarBorradoMesa(id: number, mesa: any) {
+    this.mesasService.borrarMesa(id).subscribe({
+      next: () => {
+        this.mesas = this.mesas.filter(mesa => mesa.id !== id);
+      },
+      error: (error) => {
+        console.error('Error borrando mesa:', error);
+        if (error.status === 400 && error.error && error.error.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'Error de Borrado',
+            message: 'No se puede borrar esta mesa porque tiene las siguientes relaciones:',
+            relations: error.error.relations
+          });
+        } else {
+          this.errorModalService.showErrorModal({
+            title: 'Error',
+            message: 'No se pudo borrar la mesa'
+          });
+        }
+      }
+    });
   }
 
   deleteMesa(id: number): void {

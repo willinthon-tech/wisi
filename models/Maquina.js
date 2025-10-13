@@ -28,6 +28,12 @@ module.exports = (sequelize) => {
         key: 'id'
       },
       onDelete: 'RESTRICT'
+    },
+    activo: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 1,
+      comment: 'Estado de la máquina: 1 = activa, 0 = borrada'
     }
   }, {
     tableName: 'maquinas',

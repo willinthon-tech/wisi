@@ -3560,7 +3560,7 @@ app.get('/api/mesas', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       mesas = await Mesa.findAll({
-        where: {},
+        where: { activo: 1 },
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
@@ -3585,7 +3585,9 @@ app.get('/api/mesas', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       mesas = await Mesa.findAll({
-        where: {sala_id: userSalaIds
+        where: {
+          sala_id: userSalaIds,
+          activo: 1
         },
         include: [{
           model: Sala,
@@ -3742,9 +3744,9 @@ app.delete('/api/mesas/:id', authenticateToken, async (req, res) => {
       });
     }
     
-    // Si no hay relaciones, eliminar la mesa
-    await mesa.destroy();
-    res.json({ message: 'Mesa eliminada exitosamente' });
+    // Si no hay relaciones, marcar mesa como borrada (soft delete)
+    await mesa.update({ activo: 0 });
+    res.json({ message: 'Mesa marcada como borrada correctamente' });
   } catch (error) {
     
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -3946,7 +3948,7 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       maquinas = await Maquina.findAll({
-        where: {},
+        where: { activo: 1 },
         include: [{
           model: Rango,
           attributes: ['id', 'nombre']
@@ -3971,7 +3973,9 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       maquinas = await Maquina.findAll({
-        where: {sala_id: userSalaIds
+        where: {
+          sala_id: userSalaIds,
+          activo: 1
         },
         include: [{
           model: Rango,
@@ -4128,11 +4132,253 @@ app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
       });
     }
     
-    // Si no hay relaciones, eliminar la máquina
-    await maquina.destroy();
-    res.json({ message: 'Máquina eliminada exitosamente' });
+    // Si no hay relaciones, marcar máquina como borrada (soft delete)
+    await maquina.update({ activo: 0 });
+    res.json({ message: 'Máquina marcada como borrada correctamente' });
   } catch (error) {
     
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/maquinas/borradas - Obtener máquinas borradas (activo = 0)
+app.get('/api/maquinas/borradas', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let maquinas;
+    
+    if (userLevel === 'TODO') {
+      maquinas = await Maquina.findAll({
+        where: { activo: 0 },
+        include: [{
+          model: Rango,
+          attributes: ['id', 'nombre']
+        }, {
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['updated_at', 'DESC']]
+      });
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: { attributes: [] },
+          where: {}
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      maquinas = await Maquina.findAll({
+        where: {
+          sala_id: userSalaIds,
+          activo: 0
+        },
+        include: [{
+          model: Rango,
+          attributes: ['id', 'nombre']
+        }, {
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['updated_at', 'DESC']]
+      });
+    }
+    
+    res.json(maquinas);
+  } catch (error) {
+    console.error('Error obteniendo máquinas borradas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/maquinas/:id/borrar - Borrar máquina (cambiar activo de 1 a 0 - soft delete)
+app.put('/api/maquinas/:id/borrar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const maquina = await Maquina.findByPk(id);
+    if (!maquina) {
+      return res.status(404).json({ message: 'Máquina no encontrada' });
+    }
+
+    // Verificar que la máquina esté activa (activo = 1)
+    if (maquina.activo !== 1) {
+      return res.status(400).json({ message: 'La máquina ya está borrada' });
+    }
+
+    // Borrar la máquina (soft delete) - NO verificar relaciones porque solo cambia activo
+    await maquina.update({ activo: 0 });
+
+    res.json({ 
+      message: 'Máquina borrada exitosamente',
+      maquina: {
+        id: maquina.id,
+        nombre: maquina.nombre,
+        activo: maquina.activo
+      }
+    });
+  } catch (error) {
+    console.error('Error borrando máquina:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/maquinas/:id/activar - Activar máquina (cambiar activo de 0 a 1)
+app.put('/api/maquinas/:id/activar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const maquina = await Maquina.findByPk(id);
+    if (!maquina) {
+      return res.status(404).json({ message: 'Máquina no encontrada' });
+    }
+
+    // Verificar que la máquina esté borrada (activo = 0)
+    if (maquina.activo !== 0) {
+      return res.status(400).json({ message: 'La máquina ya está activa' });
+    }
+
+    // Activar la máquina
+    await maquina.update({ activo: 1 });
+
+    res.json({ 
+      message: 'Máquina activada exitosamente',
+      maquina: {
+        id: maquina.id,
+        nombre: maquina.nombre,
+        activo: maquina.activo
+      }
+    });
+  } catch (error) {
+    console.error('Error activando máquina:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /api/mesas/borradas - Obtener mesas borradas (activo = 0)
+app.get('/api/mesas/borradas', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let mesas;
+    
+    if (userLevel === 'TODO') {
+      mesas = await Mesa.findAll({
+        where: { activo: 0 },
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }, {
+          model: Juego,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['updated_at', 'DESC']]
+      });
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: { attributes: [] },
+          where: {}
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      mesas = await Mesa.findAll({
+        where: {
+          sala_id: userSalaIds,
+          activo: 0
+        },
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }, {
+          model: Juego,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['updated_at', 'DESC']]
+      });
+    }
+    
+    res.json(mesas);
+  } catch (error) {
+    console.error('Error obteniendo mesas borradas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/mesas/:id/borrar - Borrar mesa (cambiar activo de 1 a 0 - soft delete)
+app.put('/api/mesas/:id/borrar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const mesa = await Mesa.findByPk(id);
+    if (!mesa) {
+      return res.status(404).json({ message: 'Mesa no encontrada' });
+    }
+
+    // Verificar que la mesa esté activa (activo = 1)
+    if (mesa.activo !== 1) {
+      return res.status(400).json({ message: 'La mesa ya está borrada' });
+    }
+
+    // Borrar la mesa (soft delete) - NO verificar relaciones porque solo cambia activo
+    await mesa.update({ activo: 0 });
+
+    res.json({ 
+      message: 'Mesa borrada exitosamente',
+      mesa: {
+        id: mesa.id,
+        nombre: mesa.nombre,
+        activo: mesa.activo
+      }
+    });
+  } catch (error) {
+    console.error('Error borrando mesa:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /api/mesas/:id/activar - Activar mesa (cambiar activo de 0 a 1)
+app.put('/api/mesas/:id/activar', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const mesa = await Mesa.findByPk(id);
+    if (!mesa) {
+      return res.status(404).json({ message: 'Mesa no encontrada' });
+    }
+
+    // Verificar que la mesa esté borrada (activo = 0)
+    if (mesa.activo !== 0) {
+      return res.status(400).json({ message: 'La mesa ya está activa' });
+    }
+
+    // Activar la mesa
+    await mesa.update({ activo: 1 });
+
+    res.json({ 
+      message: 'Mesa activada exitosamente',
+      mesa: {
+        id: mesa.id,
+        nombre: mesa.nombre,
+        activo: mesa.activo
+      }
+    });
+  } catch (error) {
+    console.error('Error activando mesa:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4493,6 +4739,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     }
     
     const empleados = await Empleado.findAll({
+      where: { activo: 1 },
       include: [{
         model: Cargo,
         attributes: ['id', 'nombre'],
@@ -4739,7 +4986,7 @@ app.get('/api/user/mesas', authenticateToken, async (req, res) => {
     
     if (userLevel === 'TODO') {
       mesas = await Mesa.findAll({
-        where: {},
+        where: { activo: 1 },
         include: [{
           model: Juego,
           attributes: ['id', 'nombre'],
@@ -4765,7 +5012,9 @@ app.get('/api/user/mesas', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       mesas = await Mesa.findAll({
-        where: {'$Juego.Sala.id$': userSalaIds
+        where: {
+          '$Juego.Sala.id$': userSalaIds,
+          activo: 1
         },
         include: [{
           model: Juego,
