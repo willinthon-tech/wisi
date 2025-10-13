@@ -5,6 +5,7 @@ import { EmpleadosService } from '../../../services/empleados.service';
 import { AuthService } from '../../../services/auth.service';
 import { MarcajesService } from '../../../services/marcajes.service';
 import { HorariosService } from '../../../services/horarios.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
 
 @Component({
   selector: 'app-marcaje-personal',
@@ -1555,7 +1556,8 @@ export class MarcajePersonalComponent implements OnInit {
   constructor(
     private empleadosService: EmpleadosService,
     private marcajesService: MarcajesService,
-    private horariosService: HorariosService
+    private horariosService: HorariosService,
+    private errorModalService: ErrorModalService
   ) {}
 
   ngOnInit() {
@@ -2863,7 +2865,27 @@ export class MarcajePersonalComponent implements OnInit {
       },
       error: (error) => {
         console.error('Error eliminando horario:', error);
-        alert('Error eliminando horario: ' + (error.error?.message || 'Error desconocido'));
+        console.error('Error status:', error.status);
+        console.error('Error error:', error.error);
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          console.log('Mostrando modal global de error con relaciones');
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el horario',
+            message: error.error.message,
+            entity: {
+              id: error.error.horarioEmpleado?.id || horarioEmpleadoId,
+              nombre: error.error.horarioEmpleado?.nombre || 'Horario',
+              tipo: 'Horario de Empleado'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este horario, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
+          console.log('Mostrando alert básico');
+          alert('Error eliminando horario: ' + (error.error?.message || 'Error desconocido'));
+        }
       }
     });
   }

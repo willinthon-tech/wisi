@@ -3302,7 +3302,7 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
     // Verificar si el horario tiene relaciones que impidan su eliminación
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
-        SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE horario_id = ?
+        SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?
         UNION ALL
         SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE horario_id = ?
       ) as relations WHERE count > 0
@@ -3484,6 +3484,58 @@ app.delete('/api/empleados/:empleadoId/horarios/:horarioEmpleadoId', authenticat
 
     if (!horarioEmpleado) {
       return res.status(404).json({ message: 'Asignación de horario no encontrada' });
+    }
+
+    // Verificar si el horario del empleado tiene relaciones que impidan su eliminación
+    console.log('🔍 Verificando relaciones para horario de empleado:', {
+      horarioEmpleadoId: horarioEmpleadoId,
+      empleadoId: empleadoId,
+      horarioId: horarioEmpleado.horario_id
+    });
+    
+    // Obtener el empleado para usar su cédula en la consulta
+    const empleado = await Empleado.findByPk(empleadoId);
+    if (!empleado) {
+      return res.status(404).json({ message: 'Empleado no encontrado' });
+    }
+
+    // Verificar relaciones de forma más simple
+    const relations = [];
+    
+    try {
+      // Verificar marcajes
+      const marcajesCount = await Attlog.count({
+        where: { employee_no: empleado.cedula }
+      });
+      if (marcajesCount > 0) {
+        relations.push({ table_name: 'Marcajes', count: marcajesCount });
+      }
+      
+      // Verificar novedades de máquinas
+      const novedadesCount = await NovedadMaquinaRegistro.count({
+        where: { empleado_id: empleadoId }
+      });
+      if (novedadesCount > 0) {
+        relations.push({ table_name: 'Novedades de Máquinas', count: novedadesCount });
+      }
+    } catch (relationError) {
+      console.error('Error verificando relaciones:', relationError);
+      // Si hay error en la verificación, continuar con la eliminación
+    }
+    
+    console.log('🔍 Resultado de verificación de relaciones para horario de empleado:', relations);
+
+    if (relations.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar el horario porque tiene elementos asociados.',
+        relations: relations,
+        horarioEmpleado: {
+          id: horarioEmpleado.id,
+          empleado_id: horarioEmpleado.empleado_id,
+          horario_id: horarioEmpleado.horario_id,
+          primer_dia: horarioEmpleado.primer_dia
+        }
+      });
     }
 
     await horarioEmpleado.destroy();
@@ -5513,9 +5565,9 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
 
 // DELETE /api/empleados/:id - Eliminar empleado
 app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  
   try {
-    const { id } = req.params;
-    
     const empleado = await Empleado.findByPk(id);
     if (!empleado) {
       return res.status(404).json({ message: 'Empleado no encontrado' });
@@ -5535,9 +5587,13 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
         SELECT 'Empleado Dispositivos' as table_name, COUNT(*) as count FROM empleado_dispositivos WHERE empleado_id = ?
         UNION ALL
         SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE empleado_id = ?
+        UNION ALL
+        SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE empleado_id = ?
+        UNION ALL
+        SELECT 'Marcajes' as table_name, COUNT(*) as count FROM attlogs WHERE employee_no = ?
       ) as relations WHERE count > 0
     `, {
-      replacements: [empleado.cedula, id, id],
+      replacements: [empleado.cedula, id, id, id, empleado.cedula],
       type: sequelize.QueryTypes.SELECT
     });
     
@@ -5570,7 +5626,7 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({
         message: 'No se puede eliminar el empleado porque tiene relaciones que impiden su eliminación',
         relations: [
-          { table_name: 'Novedades de Máquinas', count: 'Tiene registros asociados' }
+          { table_name: 'Relaciones de Base de Datos', count: 'Tiene registros asociados' }
         ],
         empleado: {
           id: id,
