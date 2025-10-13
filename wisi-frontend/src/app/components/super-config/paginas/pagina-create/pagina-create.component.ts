@@ -401,7 +401,7 @@ export class PaginaCreateComponent implements OnInit {
     if (this.loading) return;
 
     if (!this.page.nombre.trim()) {
-      alert('Nombre es requerido');
+      
       return;
     }
 
@@ -415,11 +415,11 @@ export class PaginaCreateComponent implements OnInit {
 
     this.userService.createPage(pageData).subscribe({
       next: (response) => {
-        alert('Página creada exitosamente');
+        
         this.router.navigate(['/super-config/paginas']);
       },
       error: (error) => {
-        alert('Error creando página: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });

@@ -22,18 +22,18 @@ const DEVICE_CONFIG = {
 };
 
 async function testDeviceDirect() {
-  console.log('🔍 Probando conexión directa con dispositivo');
-  console.log('============================================\n');
-  console.log(`📱 Device ID: ${DEVICE_CONFIG.deviceId}`);
-  console.log(`👤 Usuario: ${DEVICE_CONFIG.credentials.username}`);
-  console.log(`🔐 Clave: ${DEVICE_CONFIG.credentials.password}\n`);
+  
+  
+  
+  
+  
 
   // Función para probar una IP y puerto
   async function testConnection(ip, port) {
     const protocol = port === 443 || port === 8443 ? 'https' : 'http';
     const baseUrl = `${protocol}://${ip}:${port}`;
     
-    console.log(`🔄 Probando ${baseUrl}...`);
+    
     
     try {
       // Probar endpoint básico de información del dispositivo
@@ -46,9 +46,9 @@ async function testDeviceDirect() {
       });
 
       if (response.data && response.data.includes('deviceName')) {
-        console.log('✅ ¡CONEXIÓN EXITOSA!');
-        console.log(`🌐 URL: ${baseUrl}`);
-        console.log(`📊 Respuesta: ${response.data.substring(0, 200)}...`);
+        
+        
+        
         
         // Probar más endpoints
         await testAdditionalEndpoints(baseUrl);
@@ -58,13 +58,13 @@ async function testDeviceDirect() {
       
     } catch (error) {
       if (error.code === 'ECONNREFUSED') {
-        console.log(`❌ Conexión rechazada`);
+        
       } else if (error.code === 'ETIMEDOUT') {
-        console.log(`❌ Timeout`);
+        
       } else if (error.response) {
-        console.log(`❌ Error ${error.response.status}: ${error.response.statusText}`);
+        
       } else {
-        console.log(`❌ Error: ${error.message}`);
+        
       }
     }
     
@@ -73,7 +73,7 @@ async function testDeviceDirect() {
 
   // Función para probar endpoints adicionales
   async function testAdditionalEndpoints(baseUrl) {
-    console.log('\n🔍 Probando endpoints adicionales...');
+    
     
     const endpoints = [
       '/ISAPI/System/capabilities',
@@ -93,18 +93,18 @@ async function testDeviceDirect() {
           timeout: 3000
         });
 
-        console.log(`✅ ${endpoint} - OK (${response.status})`);
+        
         
         // Si es el endpoint de usuarios, mostrar información
         if (endpoint.includes('UserInfo/Search')) {
-          console.log(`   📊 Datos de usuarios disponibles`);
+          
         }
         
       } catch (error) {
         if (error.response) {
-          console.log(`❌ ${endpoint} - Error ${error.response.status}`);
+          
         } else {
-          console.log(`❌ ${endpoint} - ${error.message}`);
+          
         }
       }
     }
@@ -133,7 +133,7 @@ PORT=3000
 NODE_ENV=development`;
 
         require('fs').writeFileSync('device-config.env', configContent);
-        console.log('\n✅ Archivo device-config.env creado');
+        
         
         break;
       }
@@ -143,16 +143,16 @@ NODE_ENV=development`;
   }
 
   if (!foundDevice) {
-    console.log('\n❌ No se encontró el dispositivo en ninguna IP');
-    console.log('\n💡 Sugerencias:');
-    console.log('   1. Verifica que el dispositivo esté conectado a la red');
-    console.log('   2. Confirma la IP del dispositivo en Hik-Connect');
-    console.log('   3. Verifica que el puerto esté abierto');
-    console.log('   4. Asegúrate de que las credenciales sean correctas');
-    console.log('\n🔧 Alternativas:');
-    console.log('   - Usar la IP que ya tienes configurada: 186.167.73.66');
-    console.log('   - Verificar en Hik-Connect la IP real del dispositivo');
-    console.log('   - Probar con diferentes puertos (80, 8080, 443)');
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
   }
 }
 

@@ -6,16 +6,16 @@ const axios = require('axios');
  */
 
 async function testOneHikIDActive() {
-  console.log('🎉 Probando OneHikID activo');
-  console.log('============================\n');
+  
+  
   
   const oneHikID = 'hik_86679035846912';
   const email = 'hikcasinoval@gmail.com';
   const password = 'S0p0rt3S0p0rt3';
   
-  console.log(`🔑 OneHikID: ${oneHikID}`);
-  console.log(`📧 Email: ${email}`);
-  console.log(`🔐 Password: ${password}\n`);
+  
+  
+  
 
   // URLs a probar con OneHikID activo
   const testUrls = [
@@ -42,8 +42,8 @@ async function testOneHikIDActive() {
   ];
 
   for (const test of testUrls) {
-    console.log(`🔄 Probando ${test.name}...`);
-    console.log(`   URL: ${test.url}`);
+    
+    
     
     try {
       // Probar con autenticación básica
@@ -62,26 +62,26 @@ async function testOneHikIDActive() {
         timeout: 10000
       });
 
-      console.log(`✅ ${test.name} - Status: ${response.status}`);
+      
       if (response.data) {
-        console.log(`📊 Datos: ${JSON.stringify(response.data).substring(0, 100)}...`);
+        
       }
       
     } catch (error) {
       if (error.response) {
-        console.log(`❌ ${test.name} - Status: ${error.response.status}`);
-        console.log(`   Error: ${error.response.data?.message || 'Error desconocido'}`);
+        
+        
       } else {
-        console.log(`❌ ${test.name} - Error: ${error.message}`);
+        
       }
     }
     
-    console.log(''); // Línea en blanco
+     // Línea en blanco
   }
 
   // Probar endpoints específicos de TPP
-  console.log('🏢 Probando endpoints específicos de TPP...');
-  console.log('==========================================\n');
+  
+  
   
   const tppEndpoints = [
     '/api/v1/devices',
@@ -94,7 +94,7 @@ async function testOneHikIDActive() {
 
   for (const endpoint of tppEndpoints) {
     try {
-      console.log(`🔄 Probando TPP endpoint: ${endpoint}`);
+      
       
       const response = await axios.get(`https://tpp.hikvision.com${endpoint}`, {
         auth: {
@@ -110,32 +110,32 @@ async function testOneHikIDActive() {
         timeout: 10000
       });
 
-      console.log(`✅ TPP ${endpoint} - Status: ${response.status}`);
+      
       if (response.data) {
-        console.log(`📊 Datos: ${JSON.stringify(response.data).substring(0, 150)}...`);
+        
       }
       
     } catch (error) {
       if (error.response) {
-        console.log(`❌ TPP ${endpoint} - Status: ${error.response.status}`);
+        
         if (error.response.data) {
-          console.log(`   Error: ${JSON.stringify(error.response.data).substring(0, 100)}...`);
+          
         }
       } else {
-        console.log(`❌ TPP ${endpoint} - Error: ${error.message}`);
+        
       }
     }
     
-    console.log(''); // Línea en blanco
+     // Línea en blanco
   }
 
-  console.log('🎯 Resumen de pruebas completado');
-  console.log('================================');
-  console.log('✅ OneHikID activo y funcionando');
-  console.log('🔑 ID: hik_86679035846912');
-  console.log('📧 Email: hikcasinoval@gmail.com');
-  console.log('🏢 TPP: Pendiente de activación (1-3 días)');
-  console.log('🔧 ISAPI: Funcionando (186.167.73.66:8027)');
+  
+  
+  
+  
+  
+  
+  
 }
 
 // Ejecutar prueba

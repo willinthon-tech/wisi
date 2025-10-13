@@ -330,7 +330,7 @@ export class PermisoCreateComponent implements OnInit {
     if (this.loading) return;
 
     if (!this.permission.nombre.trim()) {
-      alert('Nombre es requerido');
+      
       return;
     }
 
@@ -342,11 +342,11 @@ export class PermisoCreateComponent implements OnInit {
 
     this.userService.createPermission(permissionData).subscribe({
       next: (response) => {
-        alert('Permiso creado exitosamente');
+        
         this.router.navigate(['/super-config/permisos']);
       },
       error: (error) => {
-        alert('Error creando permiso: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });

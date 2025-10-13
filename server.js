@@ -110,7 +110,7 @@ async function processCronQueue() {
   }
   
   isProcessingCron = true;
-  console.log(`🔄 [COLA] Procesando cola de CRON: ${cronQueue.length} dispositivos pendientes`);
+  
   
   while (cronQueue.length > 0) {
     const { dispositivo, timestamp } = cronQueue.shift();
@@ -119,12 +119,12 @@ async function processCronQueue() {
     currentProcessingDevice = dispositivo;
     
     try {
-      console.log(`🔄 [COLA] Procesando dispositivo: ${dispositivo.nombre} (en cola desde: ${timestamp})`);
+      
       
       // Verificar salud del dispositivo antes de proceder
       const isHealthy = await checkDeviceHealth(dispositivo);
       if (!isHealthy) {
-        console.log(`⚠️ [COLA] Dispositivo ${dispositivo.nombre} no disponible, saltando sincronización`);
+        
         currentProcessingDevice = null;
         continue;
       }
@@ -138,17 +138,17 @@ async function processCronQueue() {
       ]);
       
       if (result.error) {
-        console.log(`⚠️ [COLA] Sincronización con errores para ${dispositivo.nombre}: ${result.error}`);
+        
       } else {
-        console.log(`✅ [COLA] Sincronización completada para dispositivo: ${dispositivo.nombre}`);
-        console.log(`📊 [COLA] Resultado: ${result.savedCount} guardados, ${result.skippedCount} omitidos, ${result.errorCount} errores`);
+        
+        
       }
     } catch (error) {
-      console.error(`❌ [COLA] Error en sincronización para ${dispositivo.nombre}:`, error.message);
+      
       
       // Si es un error de timeout, marcar el dispositivo como problemático
       if (error.message === 'Timeout' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
-        console.log(`🚫 [COLA] Dispositivo ${dispositivo.nombre} marcado como problemático por timeout`);
+        
       }
     }
     
@@ -158,7 +158,7 @@ async function processCronQueue() {
       const cronValue = cronConfig ? cronConfig.value : '1m';
       const delayMs = timeToMs(cronValue);
       
-      console.log(`⏳ [COLA] Esperando ${cronValue} antes del siguiente dispositivo...`);
+      
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
@@ -166,13 +166,13 @@ async function processCronQueue() {
   // Limpiar dispositivo actual
   currentProcessingDevice = null;
   isProcessingCron = false;
-  console.log(`✅ [COLA] Cola de CRON procesada completamente`);
+  
 }
 
 // Función para verificar la salud del dispositivo
 async function checkDeviceHealth(dispositivo) {
   try {
-    console.log(`🏥 Verificando salud del dispositivo: ${dispositivo.nombre} (${dispositivo.ip_remota})`);
+    
     
     // Crear objeto de autenticación
     const authObject = {
@@ -190,14 +190,14 @@ async function checkDeviceHealth(dispositivo) {
     );
     
     if (healthResponse && healthResponse.status === 200) {
-      console.log(`✅ Dispositivo ${dispositivo.nombre} está disponible`);
+      
       return true;
     } else {
-      console.log(`⚠️ Dispositivo ${dispositivo.nombre} respondió con status: ${healthResponse?.status}`);
+      
       return false;
     }
   } catch (error) {
-    console.log(`❌ Dispositivo ${dispositivo.nombre} no está disponible: ${error.message}`);
+    
     return false;
   }
 }
@@ -211,7 +211,7 @@ async function syncAttendanceFromDevice(dispositivo) {
     // Verificar salud del dispositivo antes de proceder
     const isDeviceHealthy = await checkDeviceHealth(dispositivo);
     if (!isDeviceHealthy) {
-      console.log(`⚠️ Dispositivo ${dispositivo.nombre} no está disponible, saltando sincronización`);
+      
       return {
         totalEvents: 0,
         savedCount: 0,
@@ -237,22 +237,22 @@ async function syncAttendanceFromDevice(dispositivo) {
     });
 
     const lastEventTime = lastEvent ? lastEvent.event_time : null;
-    console.log(`📅 Último evento sincronizado: ${lastEventTime || 'Ninguno - sincronizando todos los eventos'}`);
+    
     
     // Función para formatear fechas al formato correcto de Hikvision
     function formatDateForHikvision(dateInput) {
-      console.log(`🔍 formatDateForHikvision - Input: ${dateInput}, Tipo: ${typeof dateInput}`);
+      
       
       if (!dateInput) {
-        console.log(`⚠️ dateInput es null/undefined`);
+        
         return null;
       }
       
       const date = new Date(dateInput);
-      console.log(`🔍 Date creado: ${date}, isValid: ${!isNaN(date.getTime())}`);
+      
       
       if (isNaN(date.getTime())) {
-        console.log(`⚠️ Fecha inválida: ${dateInput}`);
+        
         return null;
       }
       
@@ -265,7 +265,7 @@ async function syncAttendanceFromDevice(dispositivo) {
       const seconds = String(date.getSeconds()).padStart(2, '0');
       
       const result = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-07:00`;
-      console.log(`🔍 Resultado formateado: ${result}`);
+      
       return result;
     }
     
@@ -275,19 +275,19 @@ async function syncAttendanceFromDevice(dispositivo) {
     startTimeForQuery = formatDateForHikvision(startTimeForQuery);
     
     // Convertir marcaje_fin al formato correcto
-    console.log(`🔍 marcaje_fin original: ${dispositivo.marcaje_fin}`);
-    console.log(`🔍 Tipo de marcaje_fin: ${typeof dispositivo.marcaje_fin}`);
+    
+    
     
     let endTimeForQuery = formatDateForHikvision(dispositivo.marcaje_fin);
-    console.log(`🔍 endTimeForQuery después del formateo: ${endTimeForQuery}`);
     
-    console.log(`🔍 Fechas que se envían al dispositivo:`);
-    console.log(`   startTime: ${startTimeForQuery}`);
-    console.log(`   endTime: ${endTimeForQuery}`);
+    
+    
+    
+    
     
     // Validar que las fechas sean válidas
     if (!startTimeForQuery || !endTimeForQuery) {
-      console.log(`❌ Error: Fechas inválidas - startTime: ${startTimeForQuery}, endTime: ${endTimeForQuery}`);
+      
       return {
         totalEvents: 0,
         savedCount: 0,
@@ -305,10 +305,10 @@ async function syncAttendanceFromDevice(dispositivo) {
     let hasMoreData = true;
     let totalProcessed = 0;
 
-    console.log(`🔄 Iniciando sincronización para dispositivo: ${dispositivo.nombre} (${dispositivo.ip_remota})`);
+    
 
     // Primera consulta: obtener información general (sin eventos, solo para saber cuántos hay)
-    console.log(`🔍 Consulta inicial: verificando eventos disponibles...`);
+    
     const initialEndpoint = `/ISAPI/AccessControl/AcsEvent?format=json`;
     const initialBody = {
       "AcsEventCond": {
@@ -328,20 +328,20 @@ async function syncAttendanceFromDevice(dispositivo) {
       clave_login_dispositivo: dispositivo.clave
     };
     
-    console.log(`🔐 Credenciales para autenticación:`);
-    console.log(`👤 Usuario: ${authObject.usuario_login_dispositivo}`);
-    console.log(`🔑 Clave: ${authObject.clave_login_dispositivo ? '***' + authObject.clave_login_dispositivo.slice(-3) : 'undefined'}`);
-    console.log(`🌐 URL dispositivo: http://${dispositivo.ip_remota}`);
+    
+    
+    
+    
     
     const initialResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, initialEndpoint, 'POST', initialBody, authObject);
     
     if (!initialResponse) {
-      console.log(`❌ Error: makeDigestRequest devolvió undefined/null en consulta inicial`);
+      
       return { totalEvents: 0, savedCount: 0, skippedCount: 0, errorCount: 1, dispositivo: dispositivo.nombre };
     }
     
     if (!initialResponse || initialResponse.status !== 200) {
-      console.log(`❌ Error en consulta inicial: ${initialResponse.status}`);
+      
       return { totalEvents: 0, savedCount: 0, skippedCount: 0, errorCount: 1, dispositivo: dispositivo.nombre };
     }
 
@@ -361,14 +361,14 @@ async function syncAttendanceFromDevice(dispositivo) {
         }
       };
       
-      console.log(`📡 Consultando página ${Math.floor(startIndex/30) + 1} - Índice: ${startIndex}`);
-      console.log(`🌐 URL completa: http://${dispositivo.ip_remota}${endpoint}`);
-      console.log(`📦 Body: ${JSON.stringify(requestBody)}`);
+      
+      
+      
       
       const response = await makeDigestRequest(`http://${dispositivo.ip_remota}`, endpoint, 'POST', requestBody, authObject);
       
       if (!response) {
-        console.log(`❌ Error: makeDigestRequest devolvió undefined/null`);
+        
         hasMoreData = false;
         continue;
       }
@@ -411,30 +411,30 @@ async function syncAttendanceFromDevice(dispositivo) {
         
         if (events.length === 0) {
           hasMoreData = false;
-          console.log(`✅ No hay más eventos. Total procesados: ${totalProcessed}`);
+          
         } else {
           allEvents = allEvents.concat(events);
           totalProcessed += events.length;
           startIndex += 30;
           
-          console.log(`📊 Página procesada: ${events.length} eventos. Total acumulado: ${totalProcessed}`);
+          
           
           // Si recibimos menos de 30 eventos, es la última página
           if (events.length < 30) {
             hasMoreData = false;
-            console.log(`✅ Última página detectada. Total final: ${totalProcessed}`);
+            
           }
           
         }
       } else {
-        console.log(`❌ Error en página ${Math.floor(startIndex/30) + 1}: ${response.status}`);
-        console.log(`🔍 Respuesta de error:`, JSON.stringify(response.data, null, 2));
+        
+        
         hasMoreData = false;
       }
     }
     
 
-    console.log(`📋 Total de eventos obtenidos: ${allEvents.length}`);
+    
 
     // Procesar cada evento
     let savedCount = 0;
@@ -449,7 +449,7 @@ async function syncAttendanceFromDevice(dispositivo) {
         
         // Verificar si el evento ya existe y validar datos
         if (!event.employeeNoString) {
-          console.log(`⚠️ Evento sin employeeNoString, saltando...`);
+          
           skippedCount++;
           continue;
         }
@@ -463,7 +463,7 @@ async function syncAttendanceFromDevice(dispositivo) {
             event.employeeNoString.includes('X-Frame-Options:') ||
             event.employeeNoString.includes('Cache-Control:') ||
             event.employeeNoString.includes('Pragma:')) {
-          console.log(`⚠️ Evento con datos corruptos (headers HTTP), saltando: ${event.employeeNoString}`);
+          
           skippedCount++;
           continue;
         }
@@ -477,7 +477,7 @@ async function syncAttendanceFromDevice(dispositivo) {
             event.name.includes('X-Frame-Options:') ||
             event.name.includes('Cache-Control:') ||
             event.name.includes('Pragma:'))) {
-          console.log(`⚠️ Evento con nombre corrupto (headers HTTP), saltando: ${event.name}`);
+          
           skippedCount++;
           continue;
         }
@@ -496,41 +496,41 @@ async function syncAttendanceFromDevice(dispositivo) {
         }
 
         // Crear nuevo registro
-        console.log(`💾 Guardando evento: ${event.employeeNoString} - ${event.name} - ${event.time}`);
+        
         const attlog = await Attlog.create({
           dispositivo_id: dispositivo.id,
           employee_no: event.employeeNoString,
           event_time: event.time,
           nombre: event.name
         });
-        console.log(`✅ Evento guardado con ID: ${attlog.id}`);
+        
 
         // Verificar si el evento tiene campo de imagen antes de procesar
-        console.log(`🔍 Evento ${attlog.id} - Verificando campo pictureURL...`);
+        
         
         if (!event.pictureURL || event.pictureURL === '' || event.pictureURL === null || event.pictureURL === undefined) {
-          console.log(`⚠️ Evento ${attlog.id} NO tiene campo pictureURL - Omitiendo descarga de imagen`);
+          
           eventsWithoutImage++;
           // Continuar con el siguiente evento sin procesar imagen
         } else {
-          console.log(`📸 Evento ${attlog.id} SÍ tiene imagen: ${event.pictureURL}`);
+          
           
           // Procesar imagen de forma síncrona para mejor control
           try {
               // Usar la URL completa de la imagen para autenticación
               const fullImageUrl = event.pictureURL.split('@')[0];
-              console.log(`🔍 URL completa de imagen: ${fullImageUrl}`);
+              
               
               // Extraer solo la ruta para makeDigestRequest
               const imagePath = event.pictureURL.split('@')[0].replace(`http://${dispositivo.ip_remota}`, '');
-              console.log(`🔍 Ruta de imagen: ${imagePath}`);
+              
               
               // Descargar imagen usando Digest Authentication con headers específicos para imagen
               const imageResponse = await makeDigestRequestForImage(`http://${dispositivo.ip_remota}`, imagePath, authObject);
               
-              console.log(`🔍 Respuesta de imagen - Status: ${imageResponse.status}`);
-              console.log(`🔍 Respuesta de imagen - Data type: ${typeof imageResponse.data}`);
-              console.log(`🔍 Respuesta de imagen - Data length: ${imageResponse.data ? imageResponse.data.length : 'undefined'}`);
+              
+              
+              
               
               if (imageResponse.status === 200 && imageResponse.data) {
                 let imageBuffer;
@@ -539,24 +539,24 @@ async function syncAttendanceFromDevice(dispositivo) {
                 if (Buffer.isBuffer(imageResponse.data)) {
                   // Si ya es un buffer (imagen binaria)
                   imageBuffer = imageResponse.data;
-                  console.log(`🔍 Imagen recibida como buffer de ${imageBuffer.length} bytes`);
+                  
                 } else if (typeof imageResponse.data === 'string') {
                   // Si es string, limpiar el prefijo data:image/jpeg;base64, si existe
                   let base64Data = imageResponse.data;
                   if (base64Data.startsWith('data:image/')) {
                     base64Data = base64Data.split(',')[1]; // Remover prefijo data:image/jpeg;base64,
-                    console.log(`🔍 Removido prefijo data:image/ del string base64`);
+                    
                   }
                   imageBuffer = Buffer.from(base64Data, 'base64');
-                  console.log(`🔍 Imagen recibida como string base64, convertida a buffer de ${imageBuffer.length} bytes`);
+                  
                 } else if (imageResponse.data.pictureInfo && imageResponse.data.pictureInfo.picData) {
                   // Si es objeto con pictureInfo.picData
                   imageBuffer = Buffer.from(imageResponse.data.pictureInfo.picData, 'base64');
-                  console.log(`🔍 Imagen recibida en pictureInfo.picData, convertida a buffer de ${imageBuffer.length} bytes`);
+                  
                 } else {
-                  console.log(`❌ Formato de imagen no reconocido para evento ${attlog.id}`);
-                  console.log(`🔍 Tipo de data: ${typeof imageResponse.data}`);
-                  console.log(`🔍 Estructura:`, JSON.stringify(imageResponse.data, null, 2));
+                  
+                  
+                  
                   return; // Salir sin error para no detener el CRON
                 }
                 
@@ -564,35 +564,35 @@ async function syncAttendanceFromDevice(dispositivo) {
                 if (imageBuffer && imageBuffer.length > 0) {
                   const filePath = path.join(attlogsDir, `${attlog.id}.jpg`);
                   fs.writeFileSync(filePath, imageBuffer);
-                  console.log(`✅ Imagen guardada: ${filePath} (${imageBuffer.length} bytes)`);
+                  
                   imagesDownloaded++;
                 } else {
-                  console.log(`❌ Buffer de imagen vacío para evento ${attlog.id}`);
+                  
                   imagesErrors++;
                 }
               } else {
-                console.log(`❌ Error descargando imagen para evento ${attlog.id}: ${imageResponse.status}`);
-                console.log(`🔍 Respuesta de error:`, imageResponse.data);
+                
+                
                 imagesErrors++;
               }
             } catch (imageError) {
-              console.log(`❌ Error procesando imagen para evento ${attlog.id}:`, imageError.message);
-              console.log(`⚠️ Continuando con el CRON a pesar del error de imagen`);
+              
+              
               imagesErrors++;
             }
         }
 
         savedCount++;
-        console.log(`✅ Evento guardado: ${event.employeeNoString} - ${event.time}`);
+        
 
       } catch (eventError) {
         errorCount++;
-        console.log(`❌ Error procesando evento:`, eventError.message);
+        
       }
     }
 
     // Descargar imágenes para eventos que tienen pictureInfo
-    console.log(`📸 Procesamiento de imágenes completado: ${imagesDownloaded} descargadas, ${imagesErrors} errores, ${eventsWithoutImage} sin imagen`);
+    
 
     return {
       totalEvents: allEvents.length,
@@ -606,11 +606,11 @@ async function syncAttendanceFromDevice(dispositivo) {
     };
 
   } catch (error) {
-    console.error('❌ Error en syncAttendanceFromDevice:', error);
+    
     
     // Manejo específico para socket hang up
     if (error.code === 'ECONNRESET' || error.message.includes('socket hang up')) {
-      console.log('⚠️ Dispositivo cerró la conexión - reintentando en el siguiente ciclo');
+      
     }
     
     // Devolver un resultado de error en lugar de lanzar la excepción
@@ -672,7 +672,7 @@ function startCronForDevice(dispositivo) {
     
     const job = cron.schedule(cronExpression, () => {
       // Agregar a la cola en lugar de ejecutar directamente
-      console.log(`📋 [CRON] Agregando dispositivo ${dispositivo.nombre} a la cola de sincronización`);
+      
       cronQueue.push({
         dispositivo: dispositivo,
         timestamp: new Date().toISOString(),
@@ -688,10 +688,10 @@ function startCronForDevice(dispositivo) {
       timezone: "America/Caracas"
     });
     
-    console.log(`⏰ [CRON] Trabajo programado para ${dispositivo.nombre} con expresión: ${cronExpression}`);
+    
 
     activeCronJobs.set(jobId, job);
-    console.log(`⏰ CRON iniciado para dispositivo ${dispositivo.nombre} (${dispositivo.cron_tiempo})`);
+    
   }
 }
 
@@ -702,14 +702,14 @@ function stopCronForDevice(dispositivoId) {
   if (activeCronJobs.has(jobId)) {
     activeCronJobs.get(jobId).destroy();
     activeCronJobs.delete(jobId);
-    console.log(`⏹️ CRON detenido para dispositivo ID: ${dispositivoId}`);
+    
   }
 }
 
 // Función para ejecutar sincronización global
 async function executeGlobalSync() {
   try {
-    console.log('🔄 [GLOBAL SYNC] Iniciando sincronización global...');
+    
     
     // Obtener todos los dispositivos con credenciales completas
     const dispositivos = await Dispositivo.findAll({
@@ -721,16 +721,16 @@ async function executeGlobalSync() {
       attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'marcaje_inicio', 'marcaje_fin']
     });
     
-    console.log(`📱 [GLOBAL SYNC] Encontrados ${dispositivos.length} dispositivos para sincronizar`);
+    
     
     if (dispositivos.length === 0) {
-      console.log('⚠️ [GLOBAL SYNC] No hay dispositivos para sincronizar');
+      
       return;
     }
     
     // Agregar SOLO el dispositivo actual del ciclo rotativo
     const currentDevice = dispositivos[currentDeviceIndex];
-    console.log(`📋 [GLOBAL SYNC] Agregando dispositivo ${currentDevice.nombre} (índice ${currentDeviceIndex}) a la cola`);
+    
     
     cronQueue.push({
       dispositivo: currentDevice,
@@ -740,7 +740,7 @@ async function executeGlobalSync() {
     
     // Avanzar al siguiente dispositivo para la próxima ejecución
     currentDeviceIndex = (currentDeviceIndex + 1) % dispositivos.length;
-    console.log(`🔄 [GLOBAL SYNC] Próximo dispositivo será el índice ${currentDeviceIndex}`);
+    
     
     // Procesar cola si no está en proceso
     if (!isProcessingCron) {
@@ -748,23 +748,23 @@ async function executeGlobalSync() {
     }
     
   } catch (error) {
-    console.error('❌ [GLOBAL SYNC] Error en sincronización global:', error);
+    
   }
 }
 
 // Función para inicializar el CRON global
 async function initializeAllCronJobs() {
   try {
-    console.log('🔄 Inicializando CRON global...');
+    
     
     // Obtener configuración de CRON
     const cronConfig = await Cron.findOne();
     const cronValue = cronConfig ? cronConfig.value : 'Desactivado';
     
-    console.log(`⏰ Configuración de CRON: ${cronValue}`);
+    
     
     if (cronValue === 'Desactivado') {
-      console.log('⚠️ CRON global desactivado');
+      
       return;
     }
     
@@ -777,7 +777,7 @@ async function initializeAllCronJobs() {
     // Crear CRON global
     const cronExpression = timeToCronExpression(cronValue);
     const globalCronJob = cron.schedule(cronExpression, () => {
-      console.log('🔄 [CRON GLOBAL] Ejecutando sincronización global...');
+      
       executeGlobalSync();
     }, {
       scheduled: true,
@@ -785,10 +785,10 @@ async function initializeAllCronJobs() {
     });
     
     activeCronJobs.set('global', globalCronJob);
-    console.log(`✅ CRON global inicializado con expresión: ${cronExpression}`);
+    
     
   } catch (error) {
-    console.error('❌ Error inicializando CRON global:', error);
+    
   }
 }
 
@@ -1020,7 +1020,7 @@ app.post('/api/users', authenticateToken, authorizeLevel('ADMINISTRADOR'), async
 
     res.status(201).json({ message: 'Usuario creado exitosamente', id: user.id });
   } catch (error) {
-    console.error('Error creando usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1052,7 +1052,7 @@ app.put('/api/users/:id/salas', authenticateToken, authorizeLevel('ADMINISTRADOR
 
     res.json({ message: 'Salas actualizadas exitosamente' });
   } catch (error) {
-    console.error('Error actualizando salas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1150,7 +1150,7 @@ app.put('/api/users/:id/assignments', authenticateToken, authorizeLevel('ADMINIS
 
     res.json({ message: 'Asignaciones actualizadas exitosamente' });
   } catch (error) {
-    console.error('Error actualizando asignaciones:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1185,7 +1185,7 @@ app.get('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'), as
     
     res.json(user);
   } catch (error) {
-    console.error('Error obteniendo usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1215,7 +1215,7 @@ app.put('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'), as
 
     res.json({ message: 'Usuario actualizado exitosamente' });
   } catch (error) {
-    console.error('Error actualizando usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1246,7 +1246,7 @@ app.delete('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'),
 
     res.json({ message: 'Usuario eliminado exitosamente' });
   } catch (error) {
-    console.error('Error eliminando usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1260,7 +1260,7 @@ app.get('/api/salas', authenticateToken, async (req, res) => {
     const salas = await Sala.findAll({ where: {} });
     res.json(salas);
   } catch (error) {
-    console.error('Error obteniendo salas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1288,7 +1288,7 @@ app.post('/api/salas', authenticateToken, authorizeLevel('TODO'), async (req, re
 
     res.status(201).json({ message: 'Sala creada exitosamente', id: sala.id });
   } catch (error) {
-    console.error('Error creando sala:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1308,7 +1308,7 @@ app.put('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (req,
 
     res.json({ message: 'Sala actualizada exitosamente' });
   } catch (error) {
-    console.error('Error actualizando sala:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1358,7 +1358,7 @@ app.delete('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (r
       type: sequelize.QueryTypes.SELECT
     });
     
-    console.log('🔍 Resultado de verificación de relaciones para sala:', relations);
+    
 
     if (relations.length > 0) {
       return res.status(400).json({ 
@@ -1375,7 +1375,7 @@ app.delete('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (r
 
     res.json({ message: 'Sala eliminada exitosamente' });
   } catch (error) {
-    console.error('❌ Error eliminando sala:', error);
+    
     console.error('❌ Detalles del error:', {
       message: error.message,
       stack: error.stack,
@@ -1400,7 +1400,7 @@ app.get('/api/modules', authenticateToken, async (req, res) => {
     });
     res.json(modules);
   } catch (error) {
-    console.error('Error obteniendo módulos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1416,7 +1416,7 @@ app.get('/api/modules/all', authenticateToken, authorizeLevel('TODO'), async (re
     });
     res.json(modules);
   } catch (error) {
-    console.error('Error obteniendo todos los módulos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1448,7 +1448,7 @@ app.post('/api/modules', authenticateToken, authorizeLevel('TODO'), async (req, 
 
     res.status(201).json({ message: 'Módulo creado exitosamente', id: module.id });
   } catch (error) {
-    console.error('Error creando módulo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1467,7 +1467,7 @@ app.put('/api/modules/:id', authenticateToken, authorizeLevel('TODO'), async (re
 
     res.json({ message: 'Módulo actualizado exitosamente' });
   } catch (error) {
-    console.error('Error actualizando módulo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1486,7 +1486,7 @@ app.delete('/api/modules/:id', authenticateToken, authorizeLevel('TODO'), async 
 
     res.json({ message: 'Módulo eliminado exitosamente' });
   } catch (error) {
-    console.error('Error eliminando módulo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1508,7 +1508,7 @@ app.get('/api/pages', authenticateToken, async (req, res) => {
     });
     res.json(pages);
   } catch (error) {
-    console.error('Error obteniendo páginas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1525,7 +1525,7 @@ app.get('/api/pages/all', authenticateToken, authorizeLevel('TODO'), async (req,
     });
     res.json(pages);
   } catch (error) {
-    console.error('Error obteniendo todas las páginas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1556,7 +1556,7 @@ app.post('/api/pages', authenticateToken, authorizeLevel('TODO'), async (req, re
 
     res.status(201).json({ message: 'Página creada exitosamente', id: page.id });
   } catch (error) {
-    console.error('Error creando página:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1575,7 +1575,7 @@ app.put('/api/pages/:id', authenticateToken, authorizeLevel('TODO'), async (req,
 
     res.json({ message: 'Página actualizada exitosamente' });
   } catch (error) {
-    console.error('Error actualizando página:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1594,7 +1594,7 @@ app.delete('/api/pages/:id', authenticateToken, authorizeLevel('TODO'), async (r
 
     res.json({ message: 'Página eliminada exitosamente' });
   } catch (error) {
-    console.error('Error eliminando página:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1653,7 +1653,7 @@ app.get('/api/user/permissions', authenticateToken, async (req, res) => {
 
     res.json(permissions);
   } catch (error) {
-    console.error('❌ Error obteniendo permisos del usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1688,7 +1688,7 @@ app.post('/api/admin/assign-permissions', authenticateToken, async (req, res) =>
     
     res.json({ message: 'Permisos asignados correctamente', count: userPermissions.length });
   } catch (error) {
-    console.error('❌ Error asignando permisos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1750,8 +1750,8 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
 
     res.json(pages);
   } catch (error) {
-    console.error('❌ Error obteniendo menú del usuario:', error);
-    console.error('❌ Stack trace:', error.stack);
+    
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1776,7 +1776,7 @@ app.get('/api/user/modules', authenticateToken, async (req, res) => {
     
     res.json(modules);
   } catch (error) {
-    console.error('❌ Error obteniendo módulos del usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1801,7 +1801,7 @@ app.get('/api/user/salas', authenticateToken, async (req, res) => {
     
     res.json(salas);
   } catch (error) {
-    console.error('❌ Error obteniendo salas del usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1849,7 +1849,7 @@ app.get('/api/user/juegos', authenticateToken, async (req, res) => {
     
     res.json(juegos);
   } catch (error) {
-    console.error('❌ Error obteniendo juegos del usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1897,7 +1897,7 @@ app.get('/api/user/rangos', authenticateToken, async (req, res) => {
     
     res.json(rangos);
   } catch (error) {
-    console.error('❌ Error obteniendo rangos del usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1911,7 +1911,7 @@ app.get('/api/permissions', authenticateToken, async (req, res) => {
     const permissions = await Permission.findAll();
     res.json(permissions);
   } catch (error) {
-    console.error('Error obteniendo permisos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1942,7 +1942,7 @@ app.post('/api/permissions', authenticateToken, authorizeLevel('TODO'), async (r
 
     res.status(201).json({ message: 'Permiso creado exitosamente', id: permission.id });
   } catch (error) {
-    console.error('Error creando permiso:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1961,7 +1961,7 @@ app.put('/api/permissions/:id', authenticateToken, authorizeLevel('TODO'), async
 
     res.json({ message: 'Permiso actualizado exitosamente' });
   } catch (error) {
-    console.error('Error actualizando permiso:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -1979,7 +1979,7 @@ app.delete('/api/permissions/:id', authenticateToken, authorizeLevel('TODO'), as
 
     res.json({ message: 'Permiso eliminado exitosamente' });
   } catch (error) {
-    console.error('Error eliminando permiso:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2020,7 +2020,7 @@ app.get('/api/user/salas', authenticateToken, async (req, res) => {
 
     res.json(salas);
   } catch (error) {
-    console.error('❌ Error obteniendo salas del usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2072,7 +2072,7 @@ app.get('/api/libros', authenticateToken, async (req, res) => {
     
     res.json(libros);
   } catch (error) {
-    console.error('❌ Error obteniendo libros:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2089,7 +2089,7 @@ app.get('/api/libros/:id', authenticateToken, async (req, res) => {
     
     res.json(libro);
   } catch (error) {
-    console.error('Error obteniendo libro:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2141,7 +2141,7 @@ app.post('/api/libros', authenticateToken, async (req, res) => {
 
     res.status(201).json(libroConSala);
   } catch (error) {
-    console.error('Error creando libro:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2162,7 +2162,7 @@ app.put('/api/libros/:id', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Libro actualizado exitosamente', libro });
   } catch (error) {
-    console.error('Error actualizando libro:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2194,7 +2194,7 @@ app.delete('/api/libros/:id', authenticateToken, async (req, res) => {
       replacements: [id, id, id],
       type: sequelize.QueryTypes.SELECT
     });
-    console.log('🔍 Resultado de verificación de relaciones para libro:', relations);
+    
     
     if (relations.length > 0) {
       return res.status(400).json({
@@ -2208,7 +2208,7 @@ app.delete('/api/libros/:id', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Libro eliminado exitosamente' });
   } catch (error) {
-    console.error('Error eliminando libro:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2261,7 +2261,7 @@ app.get('/api/rangos', authenticateToken, async (req, res) => {
     
     res.json(rangos);
   } catch (error) {
-    console.error('❌ Error obteniendo rangos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2308,7 +2308,7 @@ app.post('/api/rangos', authenticateToken, async (req, res) => {
 
     res.status(201).json(rangoConSala);
   } catch (error) {
-    console.error('Error creando rango:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2348,7 +2348,7 @@ app.put('/api/rangos/:id', authenticateToken, async (req, res) => {
     
     res.json({ message: 'Rango actualizado correctamente', rango });
   } catch (error) {
-    console.error('Error actualizando rango:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2376,7 +2376,7 @@ app.delete('/api/rangos/:id', authenticateToken, async (req, res) => {
       replacements: [id],
       type: sequelize.QueryTypes.SELECT
     });
-    console.log('🔍 Resultado de verificación de relaciones para rango:', relations);
+    
     
     if (relations.length > 0) {
       return res.status(400).json({
@@ -2389,7 +2389,7 @@ app.delete('/api/rangos/:id', authenticateToken, async (req, res) => {
     await rango.destroy();
     res.json({ message: 'Rango eliminado exitosamente' });
   } catch (error) {
-    console.error('Error eliminando rango:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2442,7 +2442,7 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
     
     res.json(areas);
   } catch (error) {
-    console.error('❌ Error obteniendo áreas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2489,7 +2489,7 @@ app.post('/api/areas', authenticateToken, async (req, res) => {
 
     res.status(201).json(areaConSala);
   } catch (error) {
-    console.error('Error creando área:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2526,7 +2526,7 @@ app.put('/api/areas/:id', authenticateToken, async (req, res) => {
 
     res.json(areaActualizada);
   } catch (error) {
-    console.error('Error actualizando área:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2566,7 +2566,7 @@ app.delete('/api/areas/:id', authenticateToken, async (req, res) => {
     await area.destroy();
     res.json({ message: 'Área eliminada exitosamente' });
   } catch (error) {
-    console.error('Error eliminando área:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2619,7 +2619,7 @@ app.get('/api/user/areas', authenticateToken, async (req, res) => {
     
     res.json(areas);
   } catch (error) {
-    console.error('❌ Error obteniendo áreas del usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2677,7 +2677,7 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
     
     res.json(departamentos);
   } catch (error) {
-    console.error('❌ Error obteniendo departamentos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2728,7 +2728,7 @@ app.post('/api/departamentos', authenticateToken, async (req, res) => {
 
     res.status(201).json(departamentoConArea);
   } catch (error) {
-    console.error('Error creando departamento:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2769,7 +2769,7 @@ app.put('/api/departamentos/:id', authenticateToken, async (req, res) => {
 
     res.json(departamentoActualizado);
   } catch (error) {
-    console.error('Error actualizando departamento:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2811,7 +2811,7 @@ app.delete('/api/departamentos/:id', authenticateToken, async (req, res) => {
     await departamento.destroy();
     res.json({ message: 'Departamento eliminado exitosamente' });
   } catch (error) {
-    console.error('Error eliminando departamento:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2873,7 +2873,7 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
     
     res.json(departamentos);
   } catch (error) {
-    console.error('❌ Error obteniendo departamentos del usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2940,7 +2940,7 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
     
     res.json(cargos);
   } catch (error) {
-    console.error('❌ Error obteniendo cargos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2995,7 +2995,7 @@ app.post('/api/cargos', authenticateToken, async (req, res) => {
 
     res.status(201).json(cargoConDepartamento);
   } catch (error) {
-    console.error('Error creando cargo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3040,7 +3040,7 @@ app.put('/api/cargos/:id', authenticateToken, async (req, res) => {
 
     res.json(cargoActualizado);
   } catch (error) {
-    console.error('Error actualizando cargo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3080,7 +3080,7 @@ app.delete('/api/cargos/:id', authenticateToken, async (req, res) => {
     await cargo.destroy();
     res.json({ message: 'Cargo eliminado exitosamente' });
   } catch (error) {
-    console.error('Error eliminando cargo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3171,7 +3171,7 @@ app.get('/api/horarios', authenticateToken, async (req, res) => {
     
     res.json(horarios);
   } catch (error) {
-    console.error('Error obteniendo horarios:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3226,7 +3226,7 @@ app.post('/api/horarios', authenticateToken, async (req, res) => {
 
     res.status(201).json(horarioCompleto);
   } catch (error) {
-    console.error('Error creando horario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3284,7 +3284,7 @@ app.put('/api/horarios/:id', authenticateToken, async (req, res) => {
 
     res.json(horarioActualizado);
   } catch (error) {
-    console.error('Error actualizando horario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3327,7 +3327,7 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Horario eliminado correctamente' });
   } catch (error) {
-    console.error('Error eliminando horario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3351,7 +3351,7 @@ app.get('/api/horarios/:id', authenticateToken, async (req, res) => {
 
     res.json(horario);
   } catch (error) {
-    console.error('Error obteniendo horario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3373,7 +3373,7 @@ app.get('/api/horarios/sala/:salaId', authenticateToken, async (req, res) => {
 
     res.json(horarios);
   } catch (error) {
-    console.error('Error obteniendo horarios por sala:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3399,7 +3399,7 @@ app.get('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, re
 
     res.json(horariosEmpleado);
   } catch (error) {
-    console.error('Error obteniendo horarios del empleado:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3465,7 +3465,7 @@ app.post('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, r
       Horario: horarioCompleto
     });
   } catch (error) {
-    console.error('Error asignando horario al empleado:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3519,11 +3519,11 @@ app.delete('/api/empleados/:empleadoId/horarios/:horarioEmpleadoId', authenticat
         relations.push({ table_name: 'Novedades de Máquinas', count: novedadesCount });
       }
     } catch (relationError) {
-      console.error('Error verificando relaciones:', relationError);
+      
       // Si hay error en la verificación, continuar con la eliminación
     }
     
-    console.log('🔍 Resultado de verificación de relaciones para horario de empleado:', relations);
+    
 
     if (relations.length > 0) {
       return res.status(400).json({ 
@@ -3541,7 +3541,7 @@ app.delete('/api/empleados/:empleadoId/horarios/:horarioEmpleadoId', authenticat
     await horarioEmpleado.destroy();
     res.json({ message: 'Horario eliminado correctamente' });
   } catch (error) {
-    console.error('Error eliminando horario del empleado:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3600,7 +3600,7 @@ app.get('/api/mesas', authenticateToken, async (req, res) => {
     
     res.json(mesas);
   } catch (error) {
-    console.error('❌ Error obteniendo mesas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3657,7 +3657,7 @@ app.post('/api/mesas', authenticateToken, async (req, res) => {
 
     res.status(201).json(mesaConRelaciones);
   } catch (error) {
-    console.error('Error creando mesa:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3705,7 +3705,7 @@ app.put('/api/mesas/:id', authenticateToken, async (req, res) => {
     
     res.json({ message: 'Mesa actualizada correctamente', mesa });
   } catch (error) {
-    console.error('Error actualizando mesa:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3733,7 +3733,7 @@ app.delete('/api/mesas/:id', authenticateToken, async (req, res) => {
       replacements: [id],
       type: sequelize.QueryTypes.SELECT
     });
-    console.log('🔍 Resultado de verificación de relaciones para mesa:', relations);
+    
     
     if (relations.length > 0) {
       return res.status(400).json({
@@ -3746,7 +3746,7 @@ app.delete('/api/mesas/:id', authenticateToken, async (req, res) => {
     await mesa.destroy();
     res.json({ message: 'Mesa eliminada exitosamente' });
   } catch (error) {
-    console.error('Error eliminando mesa:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3799,7 +3799,7 @@ app.get('/api/juegos', authenticateToken, async (req, res) => {
     
     res.json(juegos);
   } catch (error) {
-    console.error('❌ Error obteniendo juegos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3846,7 +3846,7 @@ app.post('/api/juegos', authenticateToken, async (req, res) => {
 
     res.status(201).json(juegoConSala);
   } catch (error) {
-    console.error('Error creando juego:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3886,7 +3886,7 @@ app.put('/api/juegos/:id', authenticateToken, async (req, res) => {
     
     res.json({ message: 'Juego actualizado correctamente', juego });
   } catch (error) {
-    console.error('Error actualizando juego:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3914,7 +3914,7 @@ app.delete('/api/juegos/:id', authenticateToken, async (req, res) => {
       replacements: [id],
       type: sequelize.QueryTypes.SELECT
     });
-    console.log('🔍 Resultado de verificación de relaciones para juego:', relations);
+    
     
     if (relations.length > 0) {
       return res.status(400).json({
@@ -3927,7 +3927,7 @@ app.delete('/api/juegos/:id', authenticateToken, async (req, res) => {
     await juego.destroy();
     res.json({ message: 'Juego eliminado exitosamente' });
   } catch (error) {
-    console.error('Error eliminando juego:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3986,7 +3986,7 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
     
     res.json(maquinas);
   } catch (error) {
-    console.error('❌ Error obteniendo máquinas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4043,7 +4043,7 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
 
     res.status(201).json(maquinaConRelaciones);
   } catch (error) {
-    console.error('Error creando máquina:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4091,7 +4091,7 @@ app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
     
     res.json({ message: 'Máquina actualizada correctamente', maquina });
   } catch (error) {
-    console.error('Error actualizando máquina:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4119,7 +4119,7 @@ app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
       replacements: [id],
       type: sequelize.QueryTypes.SELECT
     });
-    console.log('🔍 Resultado de verificación de relaciones para máquina:', relations);
+    
     
     if (relations.length > 0) {
       return res.status(400).json({
@@ -4132,7 +4132,7 @@ app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
     await maquina.destroy();
     res.json({ message: 'Máquina eliminada exitosamente' });
   } catch (error) {
-    console.error('Error eliminando máquina:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4187,7 +4187,7 @@ app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
     
     res.json(cargos);
   } catch (error) {
-    console.error('Error obteniendo cargos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4220,7 +4220,7 @@ app.get('/api/empleados/tareas/:userId', authenticateToken, async (req, res) => 
     
     res.json(tareas);
   } catch (error) {
-    console.error('Error obteniendo tareas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4291,7 +4291,7 @@ app.get('/api/empleados/horarios', authenticateToken, async (req, res) => {
     
     res.json(horarios);
   } catch (error) {
-    console.error('Error obteniendo horarios:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4332,7 +4332,7 @@ app.get('/api/empleados/dispositivos', authenticateToken, async (req, res) => {
     
     res.json(dispositivos);
   } catch (error) {
-    console.error('Error obteniendo dispositivos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4395,7 +4395,7 @@ app.get('/api/empleados/debug-filter', authenticateToken, async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Error en debug filtro:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4426,7 +4426,7 @@ app.get('/api/empleados/debug-cargo/:cargoId', authenticateToken, async (req, re
     
     res.json(cargo);
   } catch (error) {
-    console.error('Error en debug cargo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4449,7 +4449,7 @@ app.get('/api/empleados/current-user', authenticateToken, async (req, res) => {
     
     res.json(user);
   } catch (error) {
-    console.error('Error obteniendo usuario actual:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4465,7 +4465,7 @@ app.get('/api/empleados/verificar-cedula/:cedula', authenticateToken, async (req
     
     res.json({ existe: !!empleado });
   } catch (error) {
-    console.error('Error verificando cédula:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4515,7 +4515,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     
     res.json(empleados);
   } catch (error) {
-    console.error('Error obteniendo empleados por sala:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4541,7 +4541,7 @@ app.get('/api/public/libros/:id', async (req, res) => {
     
     res.json(libro);
   } catch (error) {
-    console.error('Error obteniendo libro para reporte:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4561,7 +4561,7 @@ app.get('/api/public/drops/:libroId', async (req, res) => {
     
     res.json(drops);
   } catch (error) {
-    console.error('Error obteniendo drops para reporte:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4591,7 +4591,7 @@ app.get('/api/public/novedades/:libroId', async (req, res) => {
     
     res.json(novedades);
   } catch (error) {
-    console.error('Error obteniendo novedades para reporte:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4607,7 +4607,7 @@ app.get('/api/public/incidencias/:libroId', async (req, res) => {
     
     res.json(incidencias);
   } catch (error) {
-    console.error('Error obteniendo incidencias para reporte:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4637,7 +4637,7 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error al verificar token:', error);
+    
     res.status(500).json({ valid: false, message: 'Error interno del servidor' });
   }
 });
@@ -4724,7 +4724,7 @@ app.get('/api/drops/:libroId', authenticateToken, async (req, res) => {
     
     res.json(drops);
   } catch (error) {
-    console.error('❌ Error obteniendo drops:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4781,7 +4781,7 @@ app.get('/api/user/mesas', authenticateToken, async (req, res) => {
     
     res.json(mesas);
   } catch (error) {
-    console.error('❌ Error obteniendo mesas del usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4867,7 +4867,7 @@ app.post('/api/drops', authenticateToken, async (req, res) => {
 
     res.status(201).json(dropConMesa);
   } catch (error) {
-    console.error('❌ Error creando/actualizando drop:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4890,12 +4890,12 @@ app.delete('/api/drops/:id', authenticateToken, async (req, res) => {
     
     // No hay relaciones que verificar para drops ya que novedades_maquinas_registros no tiene drop_id
     const relations = [];
-    console.log('🔍 Resultado de verificación de relaciones para drop:', relations);
+    
 
     await drop.destroy();
     res.json({ message: 'Drop eliminado correctamente' });
   } catch (error) {
-    console.error('❌ Error eliminando drop:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4911,18 +4911,18 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
     const userId = req.user.id;
     const userLevel = req.user.nivel;
     
-    console.log('🔍 Obteniendo registros para libro:', libroId);
+    
     
     let registros;
     
     if (userLevel === 'TODO') {
-      console.log('🔍 Ejecutando consulta para usuario TODO');
+      
       
       // Verificar la estructura de la tabla primero
       const tableInfo = await sequelize.query("PRAGMA table_info(novedades_maquinas_registros)", {
         type: sequelize.QueryTypes.SELECT
       });
-      console.log('🔍 Estructura de la tabla:', tableInfo);
+      
       
       registros = await NovedadMaquinaRegistro.findAll({
         where: {libro_id: libroId},
@@ -5029,7 +5029,7 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
     
     res.json(registros);
   } catch (error) {
-    console.error('❌ Error obteniendo registros de novedades de máquinas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5112,7 +5112,7 @@ app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res
 
     res.status(201).json(registroCompleto);
   } catch (error) {
-    console.error('❌ Error creando/actualizando registro de novedad de máquina:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5130,7 +5130,7 @@ app.delete('/api/novedades-maquinas-registros/:id', authenticateToken, async (re
     await registro.destroy();
     res.json({ message: 'Registro de novedad de máquina eliminado correctamente' });
   } catch (error) {
-    console.error('❌ Error eliminando registro de novedad de máquina:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5187,7 +5187,7 @@ app.get('/api/incidencias-generales/:libroId', authenticateToken, async (req, re
     
     res.json(incidencias);
   } catch (error) {
-    console.error('❌ Error obteniendo incidencias generales:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5208,7 +5208,7 @@ app.post('/api/incidencias-generales', authenticateToken, async (req, res) => {
 
     res.status(201).json(incidencia);
   } catch (error) {
-    console.error('❌ Error creando incidencia general:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5232,12 +5232,12 @@ app.delete('/api/incidencias-generales/:id', authenticateToken, async (req, res)
     // Por ahora no hay tablas relacionadas con incidencias_generales
     // Si en el futuro se agregan relaciones, se puede verificar aquí
     const relations = [];
-    console.log('🔍 Resultado de verificación de relaciones para incidencia general:', relations);
+    
 
     await incidencia.destroy();
     res.json({ message: 'Incidencia eliminada correctamente' });
   } catch (error) {
-    console.error('❌ Error eliminando incidencia general:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5342,13 +5342,13 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
           type: sequelize.QueryTypes.SELECT
         }
       );
-      console.log(`🔍 Empleado ${empleado.nombre} (ID: ${empleado.id}) - Dispositivos encontrados:`, dispositivos);
+      
       empleado.dataValues.dispositivos = dispositivos;
     }
 
     res.json(empleados);
   } catch (error) {
-    console.error('❌ Error obteniendo empleados:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5391,7 +5391,7 @@ app.get('/api/empleados/:id', authenticateToken, async (req, res) => {
 
     res.json(empleado);
   } catch (error) {
-    console.error('❌ Error obteniendo empleado:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5466,7 +5466,7 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
 
     res.status(201).json(empleadoCompleto);
   } catch (error) {
-    console.error('❌ Error creando empleado:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5558,7 +5558,7 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
 
     res.json(empleadoActualizado);
   } catch (error) {
-    console.error('❌ Error actualizando empleado:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5597,7 +5597,7 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
       type: sequelize.QueryTypes.SELECT
     });
     
-    console.log('🔍 Resultado de verificación de relaciones:', relations);
+    
 
     if (relations.length > 0) {
       return res.status(400).json({ 
@@ -5614,7 +5614,7 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
     await empleado.destroy();
     res.json({ message: 'Empleado eliminado correctamente' });
   } catch (error) {
-    console.error('❌ Error eliminando empleado:', error);
+    
     console.error('❌ Detalles del error:', {
       message: error.message,
       stack: error.stack,
@@ -5656,7 +5656,7 @@ app.get('/api/empleados/verificar-cedula/:cedula', authenticateToken, async (req
       empleado: empleadoExistente
     });
   } catch (error) {
-    console.error('❌ Error verificando cédula:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5685,7 +5685,7 @@ app.get('/api/tareas-dispositivo-usuarios/user/:userId', authenticateToken, asyn
 
     res.json(tareas);
   } catch (error) {
-    console.error('❌ Error obteniendo tareas por usuario:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5709,7 +5709,7 @@ app.get('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res) 
 
     res.json(tareas);
   } catch (error) {
-    console.error('❌ Error obteniendo tareas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5790,11 +5790,11 @@ app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res)
       id: result.id
     });
   } catch (error) {
-    console.error('❌ Error creando tarea:', error);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error stack:', error.stack);
-    console.error('❌ Error code:', error.code);
-    console.error('❌ Error errno:', error.errno);
+    
+    
+    
+    
+    
     res.status(500).json({ 
       message: 'Error interno del servidor',
       error: error.message,
@@ -5806,7 +5806,7 @@ app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res)
 // GET /api/test-tarea - Endpoint de prueba simple (sin autenticación)
 app.get('/api/test-tarea', async (req, res) => {
   try {
-    console.log('🧪 Probando creación de tarea simple...');
+    
     
     const result = await sequelize.query(
       `INSERT INTO tareas_dispositivo_usuarios (
@@ -5825,15 +5825,15 @@ app.get('/api/test-tarea', async (req, res) => {
       }
     );
 
-    console.log('✅ Tarea de prueba creada exitosamente:', result);
+    
     res.status(201).json({ 
       message: 'Tarea de prueba creada correctamente',
       id: result[0]
     });
   } catch (error) {
-    console.error('❌ Error en tarea de prueba:', error);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error code:', error.code);
+    
+    
+    
     res.status(500).json({ 
       message: 'Error en tarea de prueba',
       error: error.message,
@@ -5885,7 +5885,7 @@ app.put('/api/tareas-dispositivo-usuarios/:id', authenticateToken, async (req, r
 
     res.json({ message: 'Tarea actualizada correctamente' });
   } catch (error) {
-    console.error('❌ Error actualizando tarea:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5904,7 +5904,7 @@ app.delete('/api/tareas-dispositivo-usuarios/:id', authenticateToken, async (req
 
     res.json({ message: 'Tarea eliminada correctamente' });
   } catch (error) {
-    console.error('❌ Error eliminando tarea:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5913,15 +5913,15 @@ app.delete('/api/tareas-dispositivo-usuarios/:id', authenticateToken, async (req
 
 // POST /api/tareas/dispositivo/borrar-usuario
 app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req, res) => {
-  console.log('🚀 ENDPOINT BORRAR USUARIO LLAMADO!');
+  
   try {
     const { tarea } = req.body;
     
-    console.log('🗑️ ========== BORRAR USUARIO ==========');
-    console.log('👤 Empleado:', tarea.numero_cedula_empleado);
-    console.log('📱 Dispositivo:', tarea.ip_publica_dispositivo);
-    console.log('🔐 Usuario login:', tarea.usuario_login_dispositivo);
-    console.log('🗑️ ======================================');
+    
+    
+    
+    
+    
     
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     const endpoint = '/ISAPI/AccessControl/UserInfo/Delete?format=json';
@@ -5941,16 +5941,16 @@ app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req
     
     // Verificar si la respuesta del dispositivo fue exitosa
     if (response.status >= 200 && response.status < 300) {
-      console.log('✅ Dispositivo respondió exitosamente');
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.json({
         success: true,
         message: 'Usuario eliminado correctamente del dispositivo',
         deviceResponse: response.data
       });
     } else {
-      console.log('❌ Dispositivo respondió con error:', response.status);
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.status(500).json({
         success: false,
         message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
@@ -5959,7 +5959,7 @@ app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req
     }
     
   } catch (error) {
-    console.log('❌ Error borrando usuario:', error.message);
+    
     res.status(500).json({
       success: false,
       message: error.message
@@ -5969,17 +5969,17 @@ app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req
 
 // POST /api/tareas/dispositivo/agregar-usuario
 app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (req, res) => {
-  console.log('🚀 ENDPOINT AGREGAR USUARIO LLAMADO!');
+  
   try {
     const { tarea } = req.body;
     
-    console.log('➕ ========== AGREGAR USUARIO ==========');
-    console.log('👤 Empleado:', tarea.numero_cedula_empleado);
-    console.log('📝 Nombre:', tarea.nombre_empleado);
-    console.log('⚧ Género:', tarea.nombre_genero);
-    console.log('📱 Dispositivo:', tarea.ip_publica_dispositivo);
-    console.log('🔐 Usuario login:', tarea.usuario_login_dispositivo);
-    console.log('➕ ======================================');
+    
+    
+    
+    
+    
+    
+    
     
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
@@ -6012,16 +6012,16 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
     
     // Verificar si la respuesta del dispositivo fue exitosa
     if (response.status >= 200 && response.status < 300) {
-      console.log('✅ Dispositivo respondió exitosamente');
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.json({
         success: true,
         message: 'Usuario agregado correctamente al dispositivo',
         deviceResponse: response.data
       });
     } else {
-      console.log('❌ Dispositivo respondió con error:', response.status);
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.status(500).json({
         success: false,
         message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
@@ -6030,7 +6030,7 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
     }
     
   } catch (error) {
-    console.log('❌ Error agregando usuario:', error.message);
+    
     res.status(500).json({
       success: false,
       message: error.message
@@ -6072,16 +6072,16 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
     
     // Verificar si la respuesta del dispositivo fue exitosa
     if (response.status >= 200 && response.status < 300) {
-      console.log('✅ Dispositivo respondió exitosamente');
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.json({
         success: true,
         message: 'Usuario editado correctamente en el dispositivo',
         deviceResponse: response.data
       });
     } else {
-      console.log('❌ Dispositivo respondió con error:', response.status);
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.status(500).json({
         success: false,
         message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
@@ -6090,7 +6090,7 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
     }
     
   } catch (error) {
-    console.log('❌ Error editando usuario:', error.message);
+    
     res.status(500).json({
       success: false,
       message: error.message
@@ -6118,16 +6118,16 @@ app.post('/api/tareas/dispositivo/borrar-foto', authenticateToken, async (req, r
     
     // Verificar si la respuesta del dispositivo fue exitosa
     if (response.status >= 200 && response.status < 300) {
-      console.log('✅ Dispositivo respondió exitosamente');
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.json({
         success: true,
         message: 'Foto eliminada correctamente del dispositivo',
         deviceResponse: response.data
       });
     } else {
-      console.log('❌ Dispositivo respondió con error:', response.status);
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.status(500).json({
         success: false,
         message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
@@ -6136,7 +6136,7 @@ app.post('/api/tareas/dispositivo/borrar-foto', authenticateToken, async (req, r
     }
     
   } catch (error) {
-    console.log('❌ Error borrando foto:', error.message);
+    
     res.status(500).json({
       success: false,
       message: error.message
@@ -6192,16 +6192,16 @@ app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, 
     
     // Verificar si la respuesta del dispositivo fue exitosa
     if (response.status >= 200 && response.status < 300) {
-      console.log('✅ Dispositivo respondió exitosamente');
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.json({
         success: true,
         message: 'Foto agregada correctamente al dispositivo',
         deviceResponse: response.data
       });
     } else {
-      console.log('❌ Dispositivo respondió con error:', response.status);
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.status(500).json({
         success: false,
         message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
@@ -6210,7 +6210,7 @@ app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, 
     }
     
   } catch (error) {
-    console.log('❌ Error agregando foto:', error.message);
+    
     res.status(500).json({
       success: false,
       message: error.message
@@ -6237,7 +6237,7 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
       
       await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
     } catch (deleteError) {
-      console.log('⚠️ Error borrando foto existente (continuando):', deleteError.message);
+      
     }
     
     // Luego agregar la nueva foto
@@ -6266,16 +6266,16 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
     
     // Verificar si la respuesta del dispositivo fue exitosa
     if (response.status >= 200 && response.status < 300) {
-      console.log('✅ Dispositivo respondió exitosamente');
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.json({
         success: true,
         message: 'Foto editada correctamente en el dispositivo',
         deviceResponse: response.data
       });
     } else {
-      console.log('❌ Dispositivo respondió con error:', response.status);
-      console.log('📦 Respuesta del dispositivo:', JSON.stringify(response.data, null, 2));
+      
+      
       res.status(500).json({
         success: false,
         message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
@@ -6284,7 +6284,7 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
     }
     
   } catch (error) {
-    console.log('❌ Error editando foto:', error.message);
+    
     res.status(500).json({
       success: false,
       message: error.message
@@ -6333,13 +6333,13 @@ async function makeDigestRequestForImage(deviceUrl, endpoint, credentials) {
   const password = credentials.clave_login_dispositivo;
   const fullUrl = `${deviceUrl}${endpoint}`;
   
-  console.log(`🔍 makeDigestRequestForImage - URL: ${fullUrl}`);
-  console.log(`🔍 makeDigestRequestForImage - Username: ${username}`);
-  console.log(`🔍 makeDigestRequestForImage - Password: ${password ? '***' + password.slice(-3) : 'undefined'}`);
+  
+  
+  
   
   try {
     // Primera petición para obtener challenge digest
-    console.log(`🔄 Realizando primera petición para obtener challenge digest...`);
+    
     
     const firstResponse = await axios({
       method: 'GET',
@@ -6351,7 +6351,7 @@ async function makeDigestRequestForImage(deviceUrl, endpoint, credentials) {
       validateStatus: (status) => status === 401
     });
     
-    console.log(`⚠️ No se recibió challenge 401, intentando sin autenticación...`);
+    
     const directResponse = await axios({
       method: 'GET',
       url: fullUrl,
@@ -6362,14 +6362,14 @@ async function makeDigestRequestForImage(deviceUrl, endpoint, credentials) {
       responseType: 'arraybuffer' // Importante para imágenes binarias
     });
     
-    console.log(`🔍 makeDigestRequestForImage - Respuesta sin auth:`, directResponse.status);
+    
     return directResponse;
     
   } catch (error) {
     if (error.response && error.response.status === 401) {
-      console.log('✅ Challenge digest recibido (401)');
-      console.log(`🔍 Status: ${error.response.status}`);
-      console.log(`🔍 Headers: ${JSON.stringify(error.response.headers, null, 2)}`);
+      
+      
+      
       
       // Extraer información del challenge digest
       const wwwAuthenticate = error.response.headers['www-authenticate'];
@@ -6379,9 +6379,9 @@ async function makeDigestRequestForImage(deviceUrl, endpoint, credentials) {
         const challenge = parseDigestChallenge(wwwAuthenticate);
         
         // Generar respuesta digest
-        console.log(`🔐 Challenge parseado:`, challenge);
+        
         const digestResponse = generateDigestResponse(challenge, username, password, fullUrl, 'GET');
-        console.log(`🔑 Respuesta digest generada: ${digestResponse}`);
+        
         
         // Segunda petición con la respuesta digest
         try {
@@ -6396,23 +6396,23 @@ async function makeDigestRequestForImage(deviceUrl, endpoint, credentials) {
             responseType: 'arraybuffer' // Importante para imágenes binarias
           });
           
-          console.log(`🔍 makeDigestRequestForImage - Respuesta final: ${secondResponse.status}`);
-          console.log(`🔍 makeDigestRequestForImage - Data: ${secondResponse.data ? 'Presente' : 'Ausente'}`);
+          
+          
           return secondResponse;
           
         } catch (secondError) {
-          console.log(`❌ Error en segunda petición: ${secondError.response?.status}`);
+          
           if (secondError.response?.data) {
-            console.log(`📦 Respuesta del dispositivo:`, secondError.response.data);
+            
           }
           throw secondError;
         }
       } else {
-        console.log(`❌ No se encontró challenge digest válido`);
+        
         throw error;
       }
     } else {
-      console.log(`❌ Error en primera petición:`, error.message);
+      
       throw error;
     }
   }
@@ -6441,14 +6441,14 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials)
   
   const fullUrl = `${deviceUrl}${endpoint}`;
   
-  console.log(`🔍 makeDigestRequest - URL: ${fullUrl}`);
-  console.log(`🔍 makeDigestRequest - Method: ${method}`);
-  console.log(`🔍 makeDigestRequest - Username: ${username}`);
-  console.log(`🔍 makeDigestRequest - Password: ${password ? '***' + password.slice(-3) : 'undefined'}`);
-  console.log(`🔍 makeDigestRequest - RequestBody: ${requestBody ? JSON.stringify(requestBody).substring(0, 100) + '...' : 'null'}`);
+  
+  
+  
+  
+  
   
   // Primera petición para obtener challenge digest
-  console.log(`🔄 Realizando primera petición para obtener challenge digest...`);
+  
   
   try {
     const firstResponse = await axios({
@@ -6464,7 +6464,7 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials)
     });
     
     // Si llegamos aquí, no hubo error 401, intentar sin autenticación
-    console.log(`⚠️ No se recibió challenge 401, intentando sin autenticación...`);
+    
     const directResponse = await axios({
       method: method,
       url: fullUrl,
@@ -6476,14 +6476,14 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials)
       timeout: 30000 // 30 segundos
     });
     
-    console.log(`🔍 makeDigestRequest - Respuesta sin auth:`, directResponse.status);
+    
     return directResponse;
     
   } catch (error) {
     if (error.response && error.response.status === 401) {
-      console.log('✅ Challenge digest recibido (401)');
-      console.log(`🔍 Status: ${error.response.status}`);
-      console.log(`🔍 Headers: ${JSON.stringify(error.response.headers, null, 2)}`);
+      
+      
+      
       
       // Extraer información del challenge digest
       const wwwAuthenticate = error.response.headers['www-authenticate'];
@@ -6493,9 +6493,9 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials)
         const challenge = parseDigestChallenge(wwwAuthenticate);
         
         // Generar respuesta digest
-        console.log(`🔐 Challenge parseado:`, challenge);
+        
         const digestResponse = generateDigestResponse(challenge, username, password, fullUrl, method);
-        console.log(`🔑 Respuesta digest generada: ${digestResponse}`);
+        
         
         // Segunda petición con la respuesta digest
         try {
@@ -6511,18 +6511,18 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials)
             timeout: 30000 // 30 segundos
           });
           
-          console.log(`🔍 makeDigestRequest - Respuesta final:`, secondResponse.status);
-          console.log(`🔍 makeDigestRequest - Data:`, secondResponse.data ? 'Presente' : 'Ausente');
+          
+          
           return secondResponse;
         } catch (secondError) {
           // Devolver la respuesta del error para que el frontend pueda manejarla
-          console.log(`❌ Error en segunda petición: ${secondError.response ? secondError.response.status : 'Sin respuesta'}`);
+          
           if (secondError.response) {
-            console.log(`📦 Respuesta del dispositivo:`, JSON.stringify(secondError.response.data, null, 2));
+            
             return secondError.response;
           } else {
             // Si no hay respuesta, crear una respuesta de error
-            console.log(`❌ Sin respuesta del dispositivo`);
+            
             return {
               status: 500,
               data: { error: 'Error en autenticación Digest' }
@@ -6607,7 +6607,7 @@ function parseDeviceInfo(xmlData) {
       protocol: 'ISAPI'
     };
   } catch (error) {
-    console.error('Error parsing device info:', error);
+    
     return {
       model: 'N/A',
       version: 'N/A',
@@ -6667,7 +6667,7 @@ function parseUsers(data) {
     
     return users;
   } catch (error) {
-    console.error('Error parsing users:', error);
+    
     return [];
   }
 }
@@ -6696,7 +6696,7 @@ function parseEvents(xmlData) {
     
     return events;
   } catch (error) {
-    console.error('Error parsing events:', error);
+    
     return [];
   }
 }
@@ -6706,10 +6706,10 @@ app.post('/api/hikvision/test-connection', authenticateToken, async (req, res) =
   try {
     const { ip, usuario, clave } = req.body;
     
-    console.log('🔍 Credenciales recibidas:');
-    console.log('🔍 IP:', ip);
-    console.log('🔍 Usuario:', usuario);
-    console.log('🔍 Clave:', clave ? '[SET]' : '[NOT SET]');
+    
+    
+    
+    
     
     // Probar credenciales comunes de Hikvision si las actuales fallan
     const commonCredentials = [
@@ -6729,22 +6729,22 @@ app.post('/api/hikvision/test-connection', authenticateToken, async (req, res) =
     let result = await hikvision.getDeviceInfo();
     
     if (!result.success) {
-      console.log('❌ Credenciales originales fallaron, probando credenciales comunes...');
+      
       
       // Probar credenciales comunes
       for (const cred of commonCredentials) {
-        console.log(`🔍 Probando: ${cred.user} / ${cred.pass}`);
+        
         hikvision = new HikvisionISAPI(ip, cred.user, cred.pass);
         result = await hikvision.getDeviceInfo();
         
         if (result.success) {
-          console.log(`✅ ¡Credenciales encontradas! ${cred.user} / ${cred.pass}`);
+          
           break;
         }
       }
       
       if (!result.success) {
-        console.log('❌ Todas las credenciales comunes fallaron');
+        
         result = { success: false, error: 'Todas las credenciales probadas fallaron' };
       }
     }
@@ -6764,7 +6764,7 @@ app.post('/api/hikvision/test-connection', authenticateToken, async (req, res) =
     }
     
   } catch (error) {
-    console.error('Error testing connection:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -6795,7 +6795,7 @@ app.post('/api/hikvision/device-info', authenticateToken, async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Error getting device info:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -6805,10 +6805,10 @@ app.post('/api/hikvision/users', authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave } = req.body;
     
-    console.log('👥 Obteniendo usuarios - Credenciales:');
-    console.log('👥 IP:', ip);
-    console.log('👥 Usuario:', usuario);
-    console.log('👥 Clave:', clave ? '[SET]' : '[NOT SET]');
+    
+    
+    
+    
     
     if (!ip || !usuario || !clave) {
       return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
@@ -6817,7 +6817,7 @@ app.post('/api/hikvision/users', authenticateToken, async (req, res) => {
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.getUsers();
     
-    console.log('👥 Resultado de getUsers:', result);
+    
     
     if (result.success) {
       // result.data ya es el objeto JSON parseado, no necesita parseUsers()
@@ -6833,7 +6833,7 @@ app.post('/api/hikvision/users', authenticateToken, async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Error getting users:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -6864,7 +6864,7 @@ app.post('/api/hikvision/events', authenticateToken, async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Error getting events:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -6895,7 +6895,7 @@ app.post('/api/hikvision/photos', authenticateToken, async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Error getting photos:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -6925,7 +6925,7 @@ app.post('/api/hikvision/sync', authenticateToken, async (req, res) => {
     }
     
   } catch (error) {
-    console.error('Error syncing data:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -6948,7 +6948,7 @@ app.get('/api/dispositivos', authenticateToken, async (req, res) => {
 
     res.json(dispositivos);
   } catch (error) {
-    console.error('❌ Error obteniendo dispositivos:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -6975,7 +6975,7 @@ app.post('/api/dispositivos/by-ids', authenticateToken, async (req, res) => {
 
     res.json(dispositivos);
   } catch (error) {
-    console.error('❌ Error obteniendo dispositivos por IDs:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7000,7 +7000,7 @@ app.get('/api/dispositivos/:id', authenticateToken, async (req, res) => {
 
     res.json(dispositivo);
   } catch (error) {
-    console.error('❌ Error obteniendo dispositivo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7042,7 +7042,7 @@ app.post('/api/dispositivos', authenticateToken, async (req, res) => {
 
     res.status(201).json(dispositivoCompleto);
   } catch (error) {
-    console.error('❌ Error creando dispositivo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7089,7 +7089,7 @@ app.put('/api/dispositivos/:id', authenticateToken, async (req, res) => {
 
     res.json(dispositivoActualizado);
   } catch (error) {
-    console.error('❌ Error actualizando dispositivo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7139,11 +7139,11 @@ app.put('/api/dispositivos/:id/cron', authenticateToken, async (req, res) => {
       if (newCronActivo === 1) {
         // Activar o actualizar CRON
         startCronForDevice(dispositivoActualizado);
-        console.log(`✅ CRON activado/actualizado para dispositivo: ${dispositivoActualizado.nombre}`);
+        
       } else {
         // Desactivar CRON
         stopCronForDevice(id);
-        console.log(`⏹️ CRON desactivado para dispositivo: ${dispositivoActualizado.nombre}`);
+        
       }
     }
 
@@ -7153,7 +7153,7 @@ app.put('/api/dispositivos/:id/cron', authenticateToken, async (req, res) => {
       dispositivo: dispositivoActualizado
     });
   } catch (error) {
-    console.error('❌ Error actualizando configuración CRON:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7181,7 +7181,7 @@ app.post('/api/dispositivos/:id/sync-attendance', authenticateToken, async (req,
       data: result
     });
   } catch (error) {
-    console.error('❌ Error sincronizando marcajes:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7191,7 +7191,7 @@ app.post('/api/test-sync/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    console.log(`🧪 TEST: Sincronización manual iniciada para dispositivo ${id}`);
+    
     
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
@@ -7211,7 +7211,7 @@ app.post('/api/test-sync/:id', async (req, res) => {
       data: result
     });
   } catch (error) {
-    console.error('❌ Error en test de sincronización:', error);
+    
     res.status(500).json({ 
       success: false,
       message: 'Error en test de sincronización',
@@ -7225,7 +7225,7 @@ app.get('/api/verify-img-device/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
-    console.log(`🔍 VERIFY: Verificando descarga de imagen del dispositivo ${id}`);
+    
     
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
@@ -7244,36 +7244,36 @@ app.get('/api/verify-img-device/:id', async (req, res) => {
 
     // URL completa de imagen de prueba (como llega del evento)
     const fullImageUrl = `http://${dispositivo.ip_remota}/LOCALS/pic/acsLinkCap/202509_00/21_003420_30075_0.jpeg@WEB000000001502`;
-    console.log(`🔍 URL completa de imagen: ${fullImageUrl}`);
+    
     
     // Extraer solo la ruta para makeDigestRequest
     const imagePath = fullImageUrl.replace(`http://${dispositivo.ip_remota}`, '').split('@')[0];
-    console.log(`🔍 Ruta de imagen: ${imagePath}`);
+    
     
     // Descargar imagen usando Digest Authentication
     const imageResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imagePath, 'GET', null, authObject);
     
-    console.log(`🔍 Respuesta - Status: ${imageResponse.status}`);
-    console.log(`🔍 Respuesta - Data type: ${typeof imageResponse.data}`);
-    console.log(`🔍 Respuesta - Data length: ${imageResponse.data ? imageResponse.data.length : 'undefined'}`);
+    
+    
+    
     
     if (imageResponse.status === 200 && imageResponse.data) {
       let imageBuffer;
       
       if (Buffer.isBuffer(imageResponse.data)) {
         imageBuffer = imageResponse.data;
-        console.log(`🔍 Imagen recibida como buffer de ${imageBuffer.length} bytes`);
+        
       } else if (typeof imageResponse.data === 'string') {
         // Limpiar el prefijo data:image/jpeg;base64, si existe
         let base64Data = imageResponse.data;
         if (base64Data.startsWith('data:image/')) {
           base64Data = base64Data.split(',')[1]; // Remover prefijo data:image/jpeg;base64,
-          console.log(`🔍 Removido prefijo data:image/ del string base64`);
+          
         }
         imageBuffer = Buffer.from(base64Data, 'base64');
-        console.log(`🔍 Imagen recibida como string base64, convertida a buffer de ${imageBuffer.length} bytes`);
+        
       } else {
-        console.log(`❌ Formato no reconocido:`, JSON.stringify(imageResponse.data, null, 2));
+        
         return res.json({
           success: false,
           message: 'Formato de respuesta no reconocido',
@@ -7312,7 +7312,7 @@ app.get('/api/verify-img-device/:id', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error verificando imagen:', error);
+    
     res.status(500).json({ 
       success: false,
       message: 'Error verificando imagen',
@@ -7345,7 +7345,7 @@ app.get('/api/attlogs/:id', authenticateToken, async (req, res) => {
       data: attlog
     });
   } catch (error) {
-    console.error('❌ Error obteniendo marcaje:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7406,7 +7406,7 @@ app.get('/api/attlogs/:id/image', authenticateToken, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error obteniendo imagen del marcaje:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7416,7 +7416,7 @@ app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, asyn
   try {
     const { id, imageId } = req.params;
     
-    console.log(`📸 Solicitando descarga de imagen ${imageId} del dispositivo ${id}`);
+    
     
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
@@ -7434,7 +7434,7 @@ app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, asyn
     const localImagePath = path.join(attlogsDir, `${imageId}.jpg`);
     
     if (fs.existsSync(localImagePath)) {
-      console.log(`✅ Imagen ya existe localmente: ${imageId}.jpg`);
+      
       return res.json({
         success: true,
         message: 'Imagen ya existe localmente',
@@ -7447,8 +7447,8 @@ app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, asyn
     // Construir URL para descargar imagen del dispositivo
     const imageUrl = `/ISAPI/Intelligent/FDLib/FDSearch/DownloadPicture?format=json&FDID=1&faceLibType=blackFD&faceID=${imageId}`;
     
-    console.log(`📸 Descargando imagen ${imageId} del dispositivo ${dispositivo.nombre}`);
-    console.log(`🌐 URL imagen: http://${dispositivo.ip_remota}${imageUrl}`);
+    
+    
     
     // Crear objeto similar a tarea para la autenticación
     const authObject = {
@@ -7458,8 +7458,8 @@ app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, asyn
     
     const response = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imageUrl, 'GET', null, authObject);
     
-    console.log(`🔍 Respuesta del dispositivo - Status: ${response.status}`);
-    console.log(`🔍 Respuesta del dispositivo - Data type: ${typeof response.data}`);
+    
+    
     
     if (response.status === 200 && response.data) {
       // La respuesta debería contener la imagen en base64
@@ -7468,13 +7468,13 @@ app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, asyn
       // Intentar diferentes formatos de respuesta
       if (response.data.pictureInfo?.picData) {
         imageData = response.data.pictureInfo.picData;
-        console.log(`🔍 Imagen encontrada en pictureInfo.picData`);
+        
       } else if (typeof response.data === 'string') {
         imageData = response.data;
-        console.log(`🔍 Imagen encontrada como string directo`);
+        
       } else if (response.data.picData) {
         imageData = response.data.picData;
-        console.log(`🔍 Imagen encontrada en picData`);
+        
       }
       
       if (imageData) {
@@ -7489,7 +7489,7 @@ app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, asyn
         // Guardar imagen
         fs.writeFileSync(localImagePath, imageBuffer);
         
-        console.log(`✅ Imagen guardada: ${imageId}.jpg`);
+        
         
         res.json({
           success: true,
@@ -7499,19 +7499,19 @@ app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, asyn
           local: false
         });
       } else {
-        console.log(`❌ No se encontró imagen en la respuesta del dispositivo`);
-        console.log(`🔍 Estructura de respuesta:`, JSON.stringify(response.data, null, 2));
+        
+        
         res.status(404).json({ message: 'No se encontró imagen en la respuesta del dispositivo' });
       }
     } else {
-      console.log(`❌ Error en respuesta del dispositivo: ${response.status}`);
+      
       res.status(response.status || 500).json({ 
         message: 'Error descargando imagen del dispositivo',
         status: response.status
       });
     }
   } catch (error) {
-    console.error('❌ Error descargando imagen:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7553,7 +7553,7 @@ app.delete('/api/dispositivos/:id', authenticateToken, async (req, res) => {
     await dispositivo.destroy();
     res.json({ message: 'Dispositivo eliminado correctamente' });
   } catch (error) {
-    console.error('❌ Error eliminando dispositivo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7573,7 +7573,7 @@ app.post('/api/hikvision/discover', authenticateToken, async (req, res) => {
     
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/discover:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7592,7 +7592,7 @@ app.post('/api/hikvision/user-capabilities', authenticateToken, async (req, res)
     
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/user-capabilities:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7611,7 +7611,7 @@ app.post('/api/hikvision/device-capabilities', authenticateToken, async (req, re
     
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/device-capabilities:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7630,7 +7630,7 @@ app.post('/api/hikvision/camera-stream', authenticateToken, async (req, res) => 
     
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/camera-stream:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7644,16 +7644,16 @@ app.post('/api/hikvision/user-photo', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'IP, usuario, clave y FPID son requeridos' });
     }
 
-    console.log(`📸 Obteniendo foto para FPID: ${fpid}`);
-    console.log(`📸 Dispositivo: ${ip}, Usuario: ${usuario}`);
+    
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.getUserPhoto(fpid);
     
-    console.log(`📸 Resultado de getUserPhoto:`, result);
+    
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/user-photo:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7667,16 +7667,16 @@ app.post('/api/hikvision/get-user-info', authenticateToken, async (req, res) => 
       return res.status(400).json({ success: false, error: 'IP, usuario, clave y employeeNo son requeridos' });
     }
 
-    console.log(`👤 Obteniendo información del usuario: ${employeeNo}`);
-    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
+    
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.getUserInfo(employeeNo);
     
-    console.log(`👤 Resultado de getUserInfo:`, result);
+    
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/get-user-info:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7690,16 +7690,16 @@ app.post('/api/hikvision/delete-user-face', authenticateToken, async (req, res) 
       return res.status(400).json({ success: false, error: 'IP, usuario, clave y employeeNo son requeridos' });
     }
 
-    console.log(`🗑️ Eliminando rostro del usuario: ${employeeNo}`);
-    console.log(`🗑️ Dispositivo: ${ip}, Usuario: ${usuario}`);
+    
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.deleteUserFace(employeeNo);
     
-    console.log(`🗑️ Resultado de deleteUserFace:`, result);
+    
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/delete-user-face:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7709,24 +7709,24 @@ app.post('/api/hikvision/delete-user', authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave, employeeNo } = req.body;
     
-    console.log(`🗑️ Recibiendo solicitud de eliminación de usuario:`, { ip, usuario, clave, employeeNo });
+    
     
     if (!ip || !usuario || !clave || !employeeNo) {
-      console.log(`❌ Faltan parámetros requeridos`);
+      
       return res.status(400).json({ success: false, error: 'IP, usuario, clave y employeeNo son requeridos' });
     }
     
-    console.log(`🗑️ Eliminando usuario completo: ${employeeNo}`);
-    console.log(`🗑️ Dispositivo: ${ip}, Usuario: ${usuario}`);
+    
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.deleteUser(employeeNo);
     
-    console.log(`🗑️ Resultado de deleteUser:`, result);
+    
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/delete-user:', error);
-    console.error('Error completo:', error);
+    
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7740,18 +7740,18 @@ app.post('/api/hikvision/delete-user-photo-only', authenticateToken, async (req,
       return res.status(400).json({ success: false, error: 'IP, usuario, clave y deletePhotoPayload son requeridos' });
     }
 
-    console.log(`🗑️ Eliminando solo la foto del usuario`);
-    console.log(`🗑️ Dispositivo: ${ip}, Usuario: ${usuario}`);
-    console.log(`🗑️ Payload:`, deletePhotoPayload);
+    
+    
+    
 
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.deleteUserPhotoOnly(deletePhotoPayload);
 
-    console.log(`🗑️ Resultado de deleteUserPhotoOnly:`, result);
+    
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/delete-user-photo-only:', error);
-    console.error('Error completo:', error);
+    
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7765,18 +7765,18 @@ app.post('/api/hikvision/register-user-face-payload', authenticateToken, async (
       return res.status(400).json({ success: false, error: 'IP, usuario, clave y facePayload son requeridos' });
     }
 
-    console.log(`📸 Registrando rostro del usuario`);
-    console.log(`📸 Dispositivo: ${ip}, Usuario: ${usuario}`);
-    console.log(`📸 Payload:`, facePayload);
+    
+    
+    
 
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.registerUserFaceWithPayload(facePayload);
 
-    console.log(`📸 Resultado de registerUserFaceWithPayload:`, result);
+    
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/register-user-face-payload:', error);
-    console.error('Error completo:', error);
+    
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7790,20 +7790,20 @@ app.post('/api/hikvision/register-user-face', authenticateToken, async (req, res
       return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name y faceDataBase64 son requeridos' });
     }
 
-    console.log(`👤 Registrando rostro del usuario: ${employeeNo}`);
-    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
-    console.log(`👤 Nombre: ${name}, Gender: ${gender}`);
-    console.log(`👤 Tamaño de imagen base64: ${faceDataBase64.length} caracteres`);
-    console.log(`👤 IMAGEN BASE64 COMPLETA:`);
-    console.log(faceDataBase64);
+    
+    
+    
+    
+    
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.registerUserFace(employeeNo, name, gender, faceDataBase64);
     
-    console.log(`👤 Resultado de registerUserFace:`, result);
+    
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/register-user-face:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7818,7 +7818,7 @@ app.post('/api/hikvision/test-faceurl-limit', authenticateToken, async (req, res
       return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
     }
 
-    console.log(`🔍 Probando límites del campo faceURL...`);
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     
@@ -7838,7 +7838,7 @@ app.post('/api/hikvision/test-faceurl-limit', authenticateToken, async (req, res
       // Generar base64 de prueba del tamaño especificado
       const testBase64 = 'data:image/jpeg;base64,' + 'A'.repeat(test.size);
       
-      console.log(`🔍 Probando con ${test.description} (${testBase64.length} caracteres)...`);
+      
       
       const testPayload = {
         "faceURL": testBase64,
@@ -7863,7 +7863,7 @@ app.post('/api/hikvision/test-faceurl-limit', authenticateToken, async (req, res
           errorMsg: result.data?.errorMsg
         });
         
-        console.log(`🔍 ${test.description}: ${result.success ? '✅ ÉXITO' : '❌ FALLO'} - ${result.data?.statusString || 'Sin respuesta'}`);
+        
         
       } catch (error) {
         results.push({
@@ -7874,7 +7874,7 @@ app.post('/api/hikvision/test-faceurl-limit', authenticateToken, async (req, res
           error: error.message
         });
         
-        console.log(`🔍 ${test.description}: ❌ ERROR - ${error.message}`);
+        
       }
     }
     
@@ -7887,7 +7887,7 @@ app.post('/api/hikvision/test-faceurl-limit', authenticateToken, async (req, res
     });
     
   } catch (error) {
-    console.error('Error en /api/hikvision/test-faceurl-limit:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -7898,7 +7898,7 @@ const tempImages = new Map();
 // Función para subir imagen a servidor PHP (eliminación automática en 5 minutos)
 async function uploadToPhpServer(base64Image) {
   try {
-    console.log('📤 Subiendo imagen a servidor PHP (eliminación automática en 5 minutos)...');
+    
     
     // Remover el prefijo data:image/...;base64, del base64
     const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
@@ -7906,7 +7906,7 @@ async function uploadToPhpServer(base64Image) {
     // Convertir base64 a Buffer
     const imageBuffer = Buffer.from(base64Data, 'base64');
     
-    console.log('📤 Tamaño del buffer:', imageBuffer.length, 'bytes');
+    
     
     // Crear FormData usando el módulo form-data
     const FormData = require('form-data');
@@ -7918,7 +7918,7 @@ async function uploadToPhpServer(base64Image) {
       contentType: 'image/jpeg'
     });
     
-    console.log('📤 Headers FormData:', formData.getHeaders());
+    
     
     // Usar axios en lugar de fetch para mejor compatibilidad
     const axios = require('axios');
@@ -7930,29 +7930,29 @@ async function uploadToPhpServer(base64Image) {
       timeout: 30000 // 30 segundos timeout
     });
     
-    console.log('📤 Status del servidor PHP:', response.status);
-    console.log('📤 Headers del servidor PHP:', response.headers);
-    console.log('📤 Respuesta del servidor PHP:', response.data);
+    
+    
+    
     
     if (response.data && response.data.success && response.data.url) {
-      console.log('✅ Imagen subida al servidor PHP exitosamente!');
-      console.log('📤 URL temporal:', response.data.url);
-      console.log('📤 Tamaño de URL:', response.data.url.length, 'caracteres');
-      console.log('📤 ¿Dentro del límite de 1024?:', response.data.url.length <= 1024 ? '✅ SÍ' : '❌ NO');
-      console.log('📤 Accesible desde cualquier dispositivo');
-      console.log('📤 ⏰ Eliminación automática en 5 minutos');
-      console.log('📤 Sin autenticación requerida');
+      
+      
+      
+      
+      
+      
+      
       return response.data.url;
     } else {
-      console.error('❌ Error subiendo al servidor PHP:', response.data);
+      
       return null;
     }
   } catch (error) {
-    console.error('❌ Error en uploadToPhpServer:', error.message);
+    
     if (error.response) {
-      console.error('❌ Status:', error.response.status);
-      console.error('❌ Headers:', error.response.headers);
-      console.error('❌ Data:', error.response.data);
+      
+      
+      
     }
     return null;
   }
@@ -7964,7 +7964,7 @@ setInterval(() => {
   for (const [id, imageData] of tempImages.entries()) {
     if (imageData.expires < now) {
       tempImages.delete(id);
-      console.log('🗑️ Imagen temporal eliminada:', id);
+      
     }
   }
 }, 5 * 60 * 1000); // 5 minutos
@@ -7996,10 +7996,10 @@ app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (re
       return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name e imageBase64 son requeridos' });
     }
 
-    console.log(`👤 Registrando rostro del usuario con servidor PHP: ${employeeNo}`);
-    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
-    console.log(`👤 Nombre: ${name}, Gender: ${gender}`);
-    console.log(`👤 Tamaño de base64: ${imageBase64.length} caracteres`);
+    
+    
+    
+    
     
     // Subir imagen a servidor PHP y obtener URL temporal
     const publicURL = await uploadToPhpServer(imageBase64);
@@ -8011,11 +8011,11 @@ app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (re
       });
     }
     
-    console.log(`👤 URL temporal generada por servidor PHP: ${publicURL}`);
-    console.log(`👤 Longitud de URL: ${publicURL.length} caracteres`);
-    console.log(`👤 ¿Dentro del límite de 1024?: ${publicURL.length <= 1024 ? '✅ SÍ' : '❌ NO'}`);
-    console.log(`👤 URL completa para probar en navegador: ${publicURL}`);
-    console.log(`👤 ⏰ Esta imagen se eliminará automáticamente en 5 minutos`);
+    
+    
+    
+    
+    
     
     // Crear el payload que se enviará al dispositivo
     const payloadToDevice = {
@@ -8028,22 +8028,22 @@ app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (re
       "featurePointType": "face"
     };
     
-    console.log(`👤 PAYLOAD COMPLETO QUE SE ENVÍA AL DISPOSITIVO:`);
-    console.log(`👤 faceURL (URL del servidor PHP): ${payloadToDevice.faceURL}`);
-    console.log(`👤 faceURL (primeros 100 chars): ${payloadToDevice.faceURL.substring(0, 100)}...`);
-    console.log(`👤 faceURL (últimos 50 chars): ...${payloadToDevice.faceURL.substring(payloadToDevice.faceURL.length - 50)}`);
-    console.log(`👤 Payload completo:`, JSON.stringify(payloadToDevice, null, 2));
+    
+    
+    
+    
+    
     
     // 🧪 CONSOLE PARA COPIAR Y PEGAR LA URL EN EL NAVEGADOR
-    console.log(`\n🧪 ===== COPIA Y PEGA ESTA URL EN EL NAVEGADOR =====`);
-    console.log(`📋 URL del servidor PHP para probar (expira en 5 minutos):`);
-    console.log(publicURL);
-    console.log(`🧪 ===== FIN DE LA URL PARA COPIAR =====\n`);
+    
+    
+    
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.registerUserFace(employeeNo, name, gender, publicURL);
     
-    console.log(`👤 Resultado de registerUserFace:`, result);
+    
     
     // Agregar el payload a la respuesta para verificación
     if (result.success) {
@@ -8058,7 +8058,7 @@ app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (re
     
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/register-user-face-imgbb:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8072,10 +8072,10 @@ app.post('/api/hikvision/register-user-face-url', authenticateToken, async (req,
       return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name e imageBase64 son requeridos' });
     }
 
-    console.log(`👤 Registrando rostro del usuario con URL externa: ${employeeNo}`);
-    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
-    console.log(`👤 Nombre: ${name}, Gender: ${gender}`);
-    console.log(`👤 Tamaño de base64: ${imageBase64.length} caracteres`);
+    
+    
+    
+    
     
     // Generar ID único para la imagen
     const imageId = `face_${employeeNo}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -8086,9 +8086,9 @@ app.post('/api/hikvision/register-user-face-url', authenticateToken, async (req,
     // Crear URL externa corta
     const faceURL = `http://${ip.split(':')[0]}:3000/img/${imageId}`;
     
-    console.log(`👤 URL generada: ${faceURL}`);
-    console.log(`👤 Longitud de URL: ${faceURL.length} caracteres`);
-    console.log(`👤 ¿Dentro del límite de 1024?: ${faceURL.length <= 1024 ? '✅ SÍ' : '❌ NO'}`);
+    
+    
+    
     
     // Crear el payload que se enviará al dispositivo
     const payloadToDevice = {
@@ -8101,20 +8101,20 @@ app.post('/api/hikvision/register-user-face-url', authenticateToken, async (req,
       "featurePointType": "face"
     };
     
-    console.log(`👤 PAYLOAD COMPLETO QUE SE ENVÍA AL DISPOSITIVO:`);
-    console.log(`👤 faceURL (primeros 200 chars): ${payloadToDevice.faceURL.substring(0, 200)}...`);
-    console.log(`👤 faceURL (últimos 50 chars): ...${payloadToDevice.faceURL.substring(payloadToDevice.faceURL.length - 50)}`);
-    console.log(`👤 Payload completo:`, JSON.stringify(payloadToDevice, null, 2));
+    
+    
+    
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.registerUserFace(employeeNo, name, gender, faceURL);
     
-    console.log(`👤 Resultado de registerUserFace:`, result);
+    
     
     // Limpiar imagen temporal después de 5 minutos
     setTimeout(() => {
       tempImages.delete(imageId);
-      console.log(`🧹 Imagen temporal eliminada: ${imageId}`);
+      
     }, 5 * 60 * 1000);
     
     // Agregar el payload a la respuesta para verificación
@@ -8130,7 +8130,7 @@ app.post('/api/hikvision/register-user-face-url', authenticateToken, async (req,
     
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/register-user-face-url:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8144,21 +8144,21 @@ app.post('/api/hikvision/register-user-face-compressed', authenticateToken, asyn
       return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name y compressedBase64 son requeridos' });
     }
 
-    console.log(`👤 Registrando rostro del usuario con base64 comprimido: ${employeeNo}`);
-    console.log(`👤 Dispositivo: ${ip}, Usuario: ${usuario}`);
-    console.log(`👤 Nombre: ${name}, Gender: ${gender}`);
-    console.log(`👤 Tamaño de base64 comprimido: ${compressedBase64.length} caracteres`);
+    
+    
+    
+    
     
     // Usar directamente el base64 optimizado que viene del frontend (WebP/PNG/JPEG)
     const faceURL = compressedBase64;
-    console.log(`👤 Base64 optimizado recibido del frontend:`);
-    console.log(`👤 Primeros 100 chars: ${faceURL.substring(0, 100)}...`);
-    console.log(`👤 Tamaño total: ${faceURL.length} caracteres`);
-    console.log(`👤 Tamaño en KB: ${(faceURL.length / 1024).toFixed(2)} KB`);
-    console.log(`👤 Prefijo detectado: ${faceURL.substring(0, 30)}`);
-    console.log(`👤 Formato: ${faceURL.includes('image/webp') ? 'WebP' : faceURL.includes('image/png') ? 'PNG' : 'JPEG'}`);
-    console.log(`👤 LÍMITE RECOMENDADO: < 7,000 caracteres para evitar beyondARGSRangeLimit`);
-    console.log(`👤 ¿Dentro del límite?: ${faceURL.length < 7000 ? '✅ SÍ' : '❌ NO'}`);
+    
+    
+    
+    
+    
+    
+    
+    
     
     // Crear el payload que se enviará al dispositivo
     const payloadToDevice = {
@@ -8171,15 +8171,15 @@ app.post('/api/hikvision/register-user-face-compressed', authenticateToken, asyn
       "featurePointType": "face"
     };
     
-    console.log(`👤 PAYLOAD COMPLETO QUE SE ENVÍA AL DISPOSITIVO:`);
-    console.log(`👤 faceURL (primeros 200 chars): ${payloadToDevice.faceURL.substring(0, 200)}...`);
-    console.log(`👤 faceURL (últimos 50 chars): ...${payloadToDevice.faceURL.substring(payloadToDevice.faceURL.length - 50)}`);
-    console.log(`👤 Payload completo:`, JSON.stringify(payloadToDevice, null, 2));
+    
+    
+    
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.registerUserFace(employeeNo, name, gender, faceURL);
     
-    console.log(`👤 Resultado de registerUserFace:`, result);
+    
     
     // Agregar el payload a la respuesta para verificación
     if (result.success) {
@@ -8192,7 +8192,7 @@ app.post('/api/hikvision/register-user-face-compressed', authenticateToken, asyn
     
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/register-user-face-compressed:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8206,17 +8206,17 @@ app.post('/api/hikvision/update-user', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, error: 'IP, usuario, clave y userData son requeridos' });
     }
 
-    console.log(`✏️ Actualizando usuario: ${userData.employeeNo}`);
-    console.log(`✏️ Dispositivo: ${ip}, Usuario: ${usuario}`);
-    console.log(`✏️ Datos del usuario:`, userData);
+    
+    
+    
     
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.updateUser(userData);
     
-    console.log(`✏️ Resultado de updateUser:`, result);
+    
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/update-user:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8230,8 +8230,8 @@ app.get('/api/hikvision/image-proxy', async (req, res) => {
       return res.status(400).json({ success: false, error: 'URL es requerida' });
     }
 
-    console.log(`🖼️ Proxying image: ${url}`);
-    console.log(`🖼️ Device: ${ip}, User: ${usuario}`);
+    
+    
     
     // Si tenemos credenciales del dispositivo, usar autenticación digest
     if (ip && usuario && clave) {
@@ -8285,7 +8285,7 @@ app.get('/api/hikvision/image-proxy', async (req, res) => {
           }
         }
       } catch (digestError) {
-        console.log('❌ Autenticación digest falló, intentando básica...');
+        
       }
     }
     
@@ -8319,13 +8319,13 @@ app.get('/api/hikvision/image-proxy', async (req, res) => {
       response.data.pipe(res);
       
     } catch (basicError) {
-      console.log('❌ Autenticación básica también falló');
+      
       throw basicError;
     }
     
   } catch (error) {
-    console.error('Error proxying image:', error.message);
-    console.error('Error details:', error.response?.status, error.response?.statusText);
+    
+    
     res.status(500).json({ 
       success: false, 
       error: 'Error cargando imagen',
@@ -8349,7 +8349,7 @@ app.post('/api/hikvision/discover-channels', authenticateToken, async (req, res)
     
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/hikvision/discover-channels:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8403,7 +8403,7 @@ app.get('/api/attlogs', authenticateToken, async (req, res) => {
       total: attlogs.length
     });
   } catch (error) {
-    console.error('❌ Error obteniendo attlogs:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -8429,7 +8429,7 @@ app.get('/api/attlogs/:id', authenticateToken, async (req, res) => {
     
     res.json(attlog);
   } catch (error) {
-    console.error('❌ Error obteniendo marcaje:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -8453,7 +8453,7 @@ app.post('/api/tpp/authenticate', authenticateToken, async (req, res) => {
     const result = await tppClient.authenticate();
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/tpp/authenticate:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8464,7 +8464,7 @@ app.get('/api/tpp/devices', authenticateToken, async (req, res) => {
     const result = await tppClient.getDevices();
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/tpp/devices:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8476,7 +8476,7 @@ app.get('/api/tpp/devices/:deviceId/users', authenticateToken, async (req, res) 
     const result = await tppClient.getDeviceUsers(deviceId);
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/tpp/devices/:deviceId/users:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8489,7 +8489,7 @@ app.get('/api/tpp/devices/:deviceId/events', authenticateToken, async (req, res)
     const result = await tppClient.getDeviceEvents(deviceId, startTime, endTime);
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/tpp/devices/:deviceId/events:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8501,7 +8501,7 @@ app.get('/api/tpp/devices/:deviceId/users/:userId/photo', authenticateToken, asy
     const result = await tppClient.getUserPhoto(deviceId, userId);
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/tpp/devices/:deviceId/users/:userId/photo:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -8522,29 +8522,29 @@ app.post('/api/tpp/sync/:deviceId', authenticateToken, async (req, res) => {
     const result = await tppClient.syncWithISAPI(deviceId, isapiClient);
     res.json(result);
   } catch (error) {
-    console.error('Error en /api/tpp/sync/:deviceId:', error);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor ejecutándose en puerto ${PORT}`);
-  console.log(`🌐 Hik-Connect API: http://localhost:${PORT}/api/hik-connect`);
-  console.log(`🔧 WISI-Hikvision Hybrid API: http://localhost:${PORT}/api/wisi-hikvision`);
-  console.log('📡 Endpoints de dispositivos disponibles:');
-  console.log('   POST /api/tareas/dispositivo/borrar-usuario');
-  console.log('   POST /api/tareas/dispositivo/agregar-usuario');
-  console.log('   POST /api/tareas/dispositivo/editar-usuario');
-  console.log('   POST /api/tareas/dispositivo/borrar-foto');
-  console.log('   POST /api/tareas/dispositivo/agregar-foto');
-  console.log('   POST /api/tareas/dispositivo/editar-foto');
-  console.log(`🚀 TPP Hikvision API: http://localhost:${PORT}/api/tpp`);
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   
   // Inicializar trabajos CRON después de que el servidor esté listo
   setTimeout(async () => {
-    console.log('🔄 [INIT] Iniciando trabajos CRON...');
+    
     await initializeAllCronJobs();
-    console.log('✅ [INIT] Trabajos CRON inicializados');
+    
   }, 2000); // Esperar 2 segundos para que la base de datos esté lista
 });
 
@@ -8567,7 +8567,7 @@ app.get('/api/dispositivos/:id/health', authenticateToken, async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Error verificando salud del dispositivo:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -8592,7 +8592,7 @@ app.post('/api/dispositivos/:id/disable-problematic', authenticateToken, async (
     if (cronJobs[id]) {
       cronJobs[id].destroy();
       delete cronJobs[id];
-      console.log(`🚫 Dispositivo problemático deshabilitado: ${dispositivo.nombre} - Razón: ${reason || 'Timeout/Connectivity'}`);
+      
     }
     
     res.json({ 
@@ -8600,7 +8600,7 @@ app.post('/api/dispositivos/:id/disable-problematic', authenticateToken, async (
       reason: reason || 'Timeout/Connectivity issues'
     });
   } catch (error) {
-    console.error('Error deshabilitando dispositivo problemático:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -8633,7 +8633,7 @@ app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
       activeCronJobs: activeCronJobs.size
     });
   } catch (error) {
-    console.error('Error obteniendo estado de la cola:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -8645,14 +8645,14 @@ app.post('/api/cron/clear-queue', authenticateToken, async (req, res) => {
     cronQueue = [];
     isProcessingCron = false;
     
-    console.log(`🧹 Cola de CRON limpiada: ${clearedCount} elementos removidos`);
+    
     
     res.json({ 
       message: 'Cola de CRON limpiada exitosamente',
       clearedCount: clearedCount
     });
   } catch (error) {
-    console.error('Error limpiando cola de CRON:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -8681,7 +8681,7 @@ app.get('/api/cron/config', authenticateToken, async (req, res) => {
       isActive: currentValue !== 'Desactivado'
     });
   } catch (error) {
-    console.error('Error obteniendo configuración de CRON:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -8707,14 +8707,14 @@ app.put('/api/cron/config', authenticateToken, async (req, res) => {
     // Reinicializar CRON global
     await initializeAllCronJobs();
     
-    console.log(`⏰ Configuración de CRON actualizada: ${value}`);
+    
     
     res.json({ 
       message: 'Configuración de CRON actualizada exitosamente',
       value: value
     });
   } catch (error) {
-    console.error('Error actualizando configuración de CRON:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

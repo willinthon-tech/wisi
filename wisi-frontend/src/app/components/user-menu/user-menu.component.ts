@@ -310,7 +310,7 @@ export class UserMenuComponent implements OnInit {
         this.loading = false;
       },
       error: (error) => {
-        alert('Error cargando menú: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });
@@ -327,7 +327,7 @@ export class UserMenuComponent implements OnInit {
     if (module.ruta) {
       this.router.navigate([module.ruta]);
     } else {
-      alert('Este módulo no tiene una ruta configurada');
+      
     }
   }
 

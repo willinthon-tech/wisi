@@ -596,7 +596,7 @@ export class LibrosListComponent implements OnInit, OnDestroy {
   }
 
   deleteLibro(id: number): void {
-    console.log('Mostrando modal de confirmación para libro:', id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -617,16 +617,16 @@ export class LibrosListComponent implements OnInit, OnDestroy {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionLibro(id: number) {
-    console.log('Ejecutando eliminación de libro:', id);
+    
     
     this.libroService.deleteLibro(id).subscribe({
       next: () => {
-        console.log('Libro eliminado correctamente');
+        
         this.loadLibros();
-        alert('Libro eliminado correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando libro:', error);
+        
         
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
@@ -641,7 +641,7 @@ export class LibrosListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar este libro, primero debe eliminar o reasignar los elementos relacionados.'
           });
         } else {
-          alert('Error eliminando libro: ' + (error.error?.message || 'Error desconocido'));
+          
         }
       }
     });

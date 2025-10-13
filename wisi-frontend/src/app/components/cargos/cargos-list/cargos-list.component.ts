@@ -472,7 +472,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
         this.cargos = cargos;
       },
       error: (error) => {
-        alert('Error cargando cargos');
+        
       }
     });
   }
@@ -495,7 +495,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
         this.userDepartamentos = departamentos;
       },
       error: (error) => {
-        alert('Error cargando departamentos');
+        
       }
     });
   }
@@ -519,7 +519,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
           this.closeDepartamentoSelector();
         },
         error: (error) => {
-          alert('Error actualizando cargo');
+          
         }
       });
     } else {
@@ -530,7 +530,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
           this.closeDepartamentoSelector();
         },
         error: (error) => {
-          alert('Error creando cargo');
+          
         }
       });
     }
@@ -547,7 +547,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
 
   deleteCargo(id: number): void {
     const cargo = this.cargos.find(c => c.id === id);
-    console.log('Mostrando modal de confirmación para cargo:', id);
+    
     this.confirmModalService.showConfirmModal({
       title: 'Confirmar Eliminación',
       message: '¿Está seguro de que desea eliminar este cargo?',
@@ -564,15 +564,15 @@ export class CargosListComponent implements OnInit, OnDestroy {
   }
 
   private ejecutarEliminacionCargo(id: number, cargo: any) {
-    console.log('Ejecutando eliminación de cargo:', id);
+    
     this.cargosService.deleteCargo(id).subscribe({
       next: () => {
-        console.log('Cargo eliminado correctamente');
+        
         this.cargos = this.cargos.filter(cargo => cargo.id !== id);
-        alert('Cargo eliminado correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando cargo:', error);
+        
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
           this.errorModalService.showErrorModal({
@@ -587,7 +587,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar este cargo, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando cargo: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });

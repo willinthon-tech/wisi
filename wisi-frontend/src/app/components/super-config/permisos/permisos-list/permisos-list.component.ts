@@ -336,7 +336,7 @@ export class PermisosListComponent implements OnInit {
         this.loading = false;
       },
       error: (error) => {
-        alert('Error cargando permisos: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });
@@ -362,7 +362,7 @@ export class PermisosListComponent implements OnInit {
   }
 
   deletePermission(permission: any) {
-    console.log('Mostrando modal de confirmación para permiso:', permission.id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -383,16 +383,16 @@ export class PermisosListComponent implements OnInit {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionPermiso(permission: any) {
-    console.log('Ejecutando eliminación de permiso:', permission.id);
+    
     
     this.userService.deletePermission(permission.id).subscribe({
       next: (response) => {
-        console.log('Permiso eliminado correctamente:', response);
-        alert('Permiso eliminado exitosamente');
+        
+        
         this.loadPermissions(); // Recargar la lista
       },
       error: (error) => {
-        console.error('Error eliminando permiso:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -408,7 +408,7 @@ export class PermisosListComponent implements OnInit {
             helpText: 'Para eliminar este permiso, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando permiso: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });

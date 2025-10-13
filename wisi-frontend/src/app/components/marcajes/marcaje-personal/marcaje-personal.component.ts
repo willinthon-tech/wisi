@@ -1599,13 +1599,13 @@ export class MarcajePersonalComponent implements OnInit {
         fechaActual.setDate(fechaActual.getDate() + 1);
       }
       
-      console.log('Fechas generadas:', this.diasDelMes.map(d => `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`));
+      
     }
   }
 
   cargarDatos() {
     if (!this.fechaDesde || !this.fechaHasta) {
-      alert('Por favor selecciona las fechas');
+      
       return;
     }
 
@@ -1621,8 +1621,8 @@ export class MarcajePersonalComponent implements OnInit {
         this.cargarHorariosYMarcajes();
       },
       error: (error) => {
-        console.error('Error cargando empleados:', error);
-        alert('Error cargando empleados: ' + (error.error?.message || 'Error desconocido'));
+        
+        
         this.loading = false;
       }
     });
@@ -1654,7 +1654,7 @@ export class MarcajePersonalComponent implements OnInit {
         this.empleadosService.getHorariosEmpleado(empleado.id).subscribe({
           next: (horarios) => {
             empleado.horariosEmpleado = horarios || [];
-            console.log(`Horarios cargados para ${empleado.nombre}:`, horarios?.length || 0, 'horarios');
+            
             
             // Cargar marcajes del empleado
             if (empleado.cedula) {
@@ -1664,19 +1664,19 @@ export class MarcajePersonalComponent implements OnInit {
                 fecha_fin: this.fechaHasta
               }).subscribe({
                 next: (response) => {
-                  console.log(`Marcajes cargados para ${empleado.cedula}:`, response.attlogs?.length || 0, 'marcajes');
+                  
                   this.marcajesPorEmpleado.set(empleado.cedula, response.attlogs || []);
                   empleadosProcesados++;
                   
                   // Cuando todos los empleados estén procesados, agrupar
                   if (empleadosProcesados === totalEmpleados) {
-                    console.log('Todos los datos cargados, agrupando empleados...');
+                    
                     this.agruparEmpleados();
                     this.loading = false;
                   }
                 },
                 error: (error) => {
-                  console.error(`Error cargando marcajes para ${empleado.cedula}:`, error);
+                  
                   this.marcajesPorEmpleado.set(empleado.cedula, []);
                   empleadosProcesados++;
                   
@@ -1696,7 +1696,7 @@ export class MarcajePersonalComponent implements OnInit {
             }
           },
           error: (error) => {
-            console.error(`Error cargando horarios para ${empleado.nombre}:`, error);
+            
             empleado.horariosEmpleado = [];
             empleadosProcesados++;
             
@@ -1738,20 +1738,20 @@ export class MarcajePersonalComponent implements OnInit {
           fecha_fin: this.fechaHasta
         }).subscribe({
           next: (response) => {
-            console.log(`Marcajes cargados para ${empleado.cedula}:`, response.attlogs?.length || 0, 'marcajes');
+            
             this.marcajesPorEmpleado.set(empleado.cedula, response.attlogs || []);
             empleadosProcesados++;
             
             // Cuando todos los empleados estén procesados, agrupar
             if (empleadosProcesados === totalEmpleados) {
-              console.log('Todos los marcajes cargados, agrupando empleados...');
-              console.log('Total marcajes cargados:', this.marcajesPorEmpleado.size);
+              
+              
               this.agruparEmpleados();
               this.loading = false;
             }
           },
           error: (error) => {
-            console.error(`Error cargando marcajes para ${empleado.cedula}:`, error);
+            
             this.marcajesPorEmpleado.set(empleado.cedula, []);
             empleadosProcesados++;
             
@@ -1781,7 +1781,7 @@ export class MarcajePersonalComponent implements OnInit {
             this.marcajesPorEmpleado.set(empleado.cedula, response.attlogs || []);
           },
           error: (error) => {
-            console.error(`Error cargando marcajes para ${empleado.cedula}:`, error);
+            
             this.marcajesPorEmpleado.set(empleado.cedula, []);
           }
         });
@@ -1992,10 +1992,10 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Debug solo para casos problemáticos
     if (indiceBloque >= bloques.length || indiceBloque < 0) {
-      console.log(`=== DEBUG BLOQUE HORARIO ===`);
-      console.log(`Empleado: ${empleado.nombre}, Día: ${dia.toISOString().split('T')[0]}, Días desde inicio: ${diasDesdeInicio}, Índice bloque: ${indiceBloque}, Total bloques: ${bloques.length}`);
-      console.log('Bloques orden:', bloques.map((b: any, i: number) => `${i}: ${b.turno} (orden: ${b.orden})`).join(', '));
-      console.log(`=== FIN DEBUG ===`);
+      
+      
+      
+      
     }
     
     return bloques[indiceBloque];
@@ -2091,7 +2091,7 @@ export class MarcajePersonalComponent implements OnInit {
     const marcajes = this.marcajesPorEmpleado.get(empleado.cedula) || [];
     const fechaStr = dia.toISOString().split('T')[0];
     
-    console.log(`Buscando marcajes para ${empleado.cedula} en ${fechaStr}. Total marcajes disponibles: ${marcajes.length}`);
+    
     
     const marcajesDelDia = marcajes.filter(marcaje => {
       const marcajeFecha = new Date(marcaje.event_time).toISOString().split('T')[0];
@@ -2099,9 +2099,9 @@ export class MarcajePersonalComponent implements OnInit {
     }).sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
     
     if (marcajesDelDia.length > 0) {
-      console.log(`Marcajes encontrados para ${fechaStr}:`, marcajesDelDia.length);
+      
     } else {
-      console.log(`No se encontraron marcajes para ${fechaStr}`);
+      
     }
     
     return marcajesDelDia;
@@ -2111,10 +2111,10 @@ export class MarcajePersonalComponent implements OnInit {
   calcularMarcajesDelDia(empleado: any, dia: Date, bloque: any): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
     const marcajes = this.getMarcajesDelDia(empleado, dia);
     
-    console.log(`Calculando marcajes para ${empleado.cedula} en ${dia.toISOString().split('T')[0]}. Marcajes encontrados: ${marcajes.length}`);
+    
     
     if (marcajes.length === 0) {
-      console.log(`No hay marcajes para ${empleado.cedula} en ${dia.toISOString().split('T')[0]}`);
+      
       return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
     }
 
@@ -2306,27 +2306,27 @@ export class MarcajePersonalComponent implements OnInit {
         // Calcular la mitad del turno para análisis adicional
         const mitadTurno = horaEntradaProgramada + ((horaSalidaProgramada - horaEntradaProgramada) / 2);
         
-        console.log(`Análisis inteligente - Marcaje: ${horaMarcaje}, Entrada programada: ${bloque.hora_entrada}, Salida programada: ${bloque.hora_salida}`);
-        console.log(`Distancias - Entrada: ${distanciaEntrada}, Salida: ${distanciaSalida}, Mitad turno: ${mitadTurno}`);
+        
+        
         
         if (distanciaEntrada < distanciaSalida) {
           // Más cerca de la entrada programada
           resultado.entrada = horaMarcaje;
-          console.log(`Asignado como ENTRADA: ${horaMarcaje}`);
+          
         } else if (horaMarcajeMinutos > mitadTurno) {
           // Está después de la mitad del turno, probablemente es salida
           resultado.salida = horaMarcaje;
-          console.log(`Asignado como SALIDA (después de mitad): ${horaMarcaje}`);
+          
         } else {
           // Por defecto, si está más cerca de salida, es salida
           resultado.salida = horaMarcaje;
-          console.log(`Asignado como SALIDA (más cerca de salida): ${horaMarcaje}`);
+          
         }
       } else if (marcajesOrdenados.length === 2) {
         // Dos marcajes: entrada y salida
         resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
         resultado.salida = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
-        console.log(`Dos marcajes - Entrada: ${resultado.entrada}, Salida: ${resultado.salida}`);
+        
       } else if (marcajesOrdenados.length >= 4 && bloque.tiene_descanso) {
         // Cuatro o más marcajes con descanso: asignación inteligente
         const marcajesAsignados = this.asignarMarcajesInteligente(marcajesOrdenados, bloque);
@@ -2335,7 +2335,7 @@ export class MarcajePersonalComponent implements OnInit {
         // Tres marcajes o más sin descanso: entrada, salida
         resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
         resultado.salida = this.formatearHora(new Date(marcajesOrdenados[marcajesOrdenados.length - 1].event_time).toTimeString().split(' ')[0]);
-        console.log(`Múltiples marcajes sin descanso - Entrada: ${resultado.entrada}, Salida: ${resultado.salida}`);
+        
       }
     }
 
@@ -2358,7 +2358,7 @@ export class MarcajePersonalComponent implements OnInit {
       } else {
         horasATrabajar = horaSalidaProgramada - horaEntradaProgramada;
       }
-      console.log(`Turno nocturno: Entrada=${bloque.hora_entrada}, Salida=${bloque.hora_salida}, Horas a trabajar=${horasATrabajar}min`);
+      
     } else {
       // Turno diurno normal
       horasATrabajar = horaSalidaProgramada - horaEntradaProgramada;
@@ -2370,7 +2370,7 @@ export class MarcajePersonalComponent implements OnInit {
       const entradaDescansoProgramada = this.convertirHoraAMinutos(bloque.hora_entrada_descanso);
       const salidaDescansoProgramada = this.convertirHoraAMinutos(bloque.hora_salida_descanso);
       horasDeDescanso = salidaDescansoProgramada - entradaDescansoProgramada;
-      console.log(`Descanso programado: ${bloque.hora_entrada_descanso} - ${bloque.hora_salida_descanso} = ${horasDeDescanso} minutos`);
+      
     }
     
     // Calcular horas reales trabajadas
@@ -2391,7 +2391,7 @@ export class MarcajePersonalComponent implements OnInit {
         } else {
           horasTotales = horaSalidaReal - horaEntradaReal;
         }
-        console.log(`Turno nocturno real: Entrada=${marcajes.entrada}, Salida=${marcajes.salida}, Horas totales=${horasTotales}min`);
+        
       } else {
         // Turno diurno normal
         horasTotales = horaSalidaReal - horaEntradaReal;
@@ -2406,24 +2406,24 @@ export class MarcajePersonalComponent implements OnInit {
         if (bloque.turno === 'NOCTURNO' && salidaDescansoReal < entradaDescansoReal) {
           // El descanso cruza medianoche
           horasDescansadas = (24 * 60 - entradaDescansoReal) + salidaDescansoReal;
-          console.log(`Descanso nocturno cruza medianoche: ${marcajes.entradaDescanso} - ${marcajes.salidaDescanso} = ${horasDescansadas}min`);
+          
         } else {
           // Descanso normal (diurno o nocturno sin cruce)
           horasDescansadas = salidaDescansoReal - entradaDescansoReal;
         }
         
         horasTrabajadas = horasTotales - horasDescansadas;
-        console.log(`Con descanso real: Total=${horasTotales}min, Descansadas=${horasDescansadas}min, Trabajadas=${horasTrabajadas}min`);
+        
       } else if (bloque.tiene_descanso) {
         // Sin descanso real pero con descanso programado: asumir que tomó el descanso programado
         horasDescansadas = horasDeDescanso; // Asumir que tomó el descanso programado
         horasTrabajadas = horasTotales - horasDescansadas;
-        console.log(`Sin descanso real: Total=${horasTotales}min, Descanso programado=${horasDeDescanso}min, Trabajadas=${horasTrabajadas}min`);
+        
       } else {
         // Sin descanso: todas las horas son trabajadas
         horasTrabajadas = horasTotales;
         horasDescansadas = 0;
-        console.log(`Sin descanso: Total=${horasTotales}min, Trabajadas=${horasTrabajadas}min`);
+        
       }
     }
     
@@ -2450,29 +2450,29 @@ export class MarcajePersonalComponent implements OnInit {
       // Color para horas trabajadas (segundo grupo)
       if (horasTrabajadas < horasATrabajar) {
         claseColorTrabajadas = 'text-danger';
-        console.log(`Aplicando ROJO a horas trabajadas: ${horasTrabajadas} < ${horasATrabajar}`);
+        
       } else if (horasTrabajadas > horasATrabajar) {
         claseColorTrabajadas = 'text-success';
-        console.log(`Aplicando VERDE a horas trabajadas: ${horasTrabajadas} > ${horasATrabajar}`);
+        
       }
       
       // Color para horas descansadas (cuarto grupo) - solo si hay descanso programado
       if (horasDeDescanso > 0) {
         if (horasDescansadas > horasDeDescanso) {
           claseColorDescansadas = 'text-danger';
-          console.log(`Aplicando ROJO a horas descansadas: ${horasDescansadas} > ${horasDeDescanso}`);
+          
         } else if (horasDescansadas < horasDeDescanso) {
           claseColorDescansadas = 'text-success';
-          console.log(`Aplicando VERDE a horas descansadas: ${horasDescansadas} < ${horasDeDescanso}`);
+          
         }
       }
     }
     
     // Solo mostrar logs cuando hay marcajes reales
     if (tieneMarcajes) {
-      console.log(`Cálculo final: ATrabajar=${horasATrabajar}min, Trabajadas=${horasTrabajadas}min, DeDescanso=${horasDeDescanso}min, Descansadas=${horasDescansadas}min`);
-      console.log(`Formateado: ${horasATrabajarFormateadas} - ${horasTrabajadasFormateadas} - ${horasDeDescansoFormateadas} - ${horasDescansadasFormateadas}`);
-      console.log(`Colores aplicados: Trabajadas=${claseColorTrabajadas}, Descansadas=${claseColorDescansadas}`);
+      
+      
+      
     }
     
     // Construir texto con colores individuales y espacios consistentes usando &nbsp;
@@ -2505,7 +2505,7 @@ export class MarcajePersonalComponent implements OnInit {
       
       if (diferenciaSalida < 60) { // Menos de 1 hora
         resultado.salida = 'SNM';
-        console.log(`SNM aplicado: diferencia=${diferenciaSalida}min < 60min (${bloque.turno})`);
+        
       }
     }
 
@@ -2528,7 +2528,7 @@ export class MarcajePersonalComponent implements OnInit {
         if (diferenciaEntradaDescanso < 10) { // Menos de 10 minutos
           resultado.entradaDescanso = 'DNM';
           resultado.salidaDescanso = 'DNM';
-          console.log(`DNM aplicado: diferencia entrada-descanso=${diferenciaEntradaDescanso}min < 10min (${bloque.turno})`);
+          
         }
       }
 
@@ -2549,7 +2549,7 @@ export class MarcajePersonalComponent implements OnInit {
         
         if (diferenciaSalidaDescanso < 10) { // Menos de 10 minutos
           resultado.salidaDescanso = 'SDNM';
-          console.log(`SDNM aplicado: diferencia descanso=${diferenciaSalidaDescanso}min < 10min (${bloque.turno})`);
+          
         }
       }
     }
@@ -2582,7 +2582,7 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Obtener información de horario para mostrar en la celda
   getHorarioInfo(empleado: any, dia: Date, tipoHorario: string): string {
-    console.log(`getHorarioInfo llamado para ${empleado.cedula} en ${dia.toISOString().split('T')[0]} tipo: ${tipoHorario}`);
+    
     
     const bloque = this.getBloqueHorario(empleado, dia);
     if (!bloque) {
@@ -2610,9 +2610,9 @@ export class MarcajePersonalComponent implements OnInit {
         break;
       case 'Descanso':
         // Mostrar marcajes reales o "Sin Registros" si no hay marcajes
-        console.log(`Procesando Descanso para ${empleado.cedula} en ${dia.toISOString().split('T')[0]}`);
+        
         const marcajesDescanso = this.calcularMarcajesDelDia(empleado, dia, bloque);
-        console.log(`Marcajes calculados:`, marcajesDescanso);
+        
         
         if (marcajesDescanso.entrada !== 'Sin marcaje' && marcajesDescanso.salida !== 'Sin marcaje') {
           // Mostrar marcajes reales con formato según si hay descanso programado
@@ -2643,18 +2643,18 @@ export class MarcajePersonalComponent implements OnInit {
           // No hay marcajes reales, mostrar "Sin Registros"
           resultado = 'Sin Registros';
         }
-        console.log(`Resultado final para Descanso: ${resultado}`);
+        
         break;
       case 'Salida':
         // Mostrar cálculo detallado de horas trabajadas
-        console.log(`Procesando Cálculo para ${empleado.cedula} en ${dia.toISOString().split('T')[0]}`);
+        
         const marcajesCalculo = this.calcularMarcajesDelDia(empleado, dia, bloque);
         const resumenCalculo = this.calcularResumenHoras(marcajesCalculo, bloque);
         
         // El texto ya incluye los colores individuales
         resultado = resumenCalculo.texto;
         
-        console.log(`Resultado final para Cálculo: ${resultado}`);
+        
         break;
       default:
         resultado = '';
@@ -2672,7 +2672,7 @@ export class MarcajePersonalComponent implements OnInit {
   isSinHorario(empleado: any, dia: Date): boolean {
     // Verificar si el empleado tiene horarios asignados
     if (!empleado.horariosEmpleado || empleado.horariosEmpleado.length === 0) {
-      console.log('SIN HORARIO - Empleado sin horarios asignados:', empleado.nombre, dia.toISOString().split('T')[0]);
+      
       return true;
     }
     
@@ -2681,7 +2681,7 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Debug: Log para verificar
     if (esSinHorario) {
-      console.log('SIN HORARIO detectado para:', empleado.nombre, dia.toISOString().split('T')[0]);
+      
     }
     
     return esSinHorario;
@@ -2713,8 +2713,8 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Métodos para el modal
   abrirModalEmpleado(empleado: any) {
-    console.log('Empleado seleccionado:', empleado);
-    console.log('Estructura del empleado:', JSON.stringify(empleado, null, 2));
+    
+    
     
     this.empleadoSeleccionado = empleado;
     this.mostrarModal = true;
@@ -2742,20 +2742,20 @@ export class MarcajePersonalComponent implements OnInit {
   cargarHorariosPorSala() {
     if (!this.empleadoSeleccionado?.Cargo?.Departamento?.Area?.Sala?.id) {
       this.horariosDisponibles = [];
-      console.log('No se encontró sala para el empleado');
+      
       return;
     }
 
     const salaId = this.empleadoSeleccionado.Cargo.Departamento.Area.Sala.id;
-    console.log('Cargando horarios para sala:', salaId);
+    
 
     this.horariosService.getHorariosBySala(salaId).subscribe({
       next: (horarios) => {
         this.horariosDisponibles = horarios;
-        console.log('Horarios cargados:', horarios);
+        
       },
       error: (error) => {
-        console.error('Error cargando horarios:', error);
+        
         this.horariosDisponibles = [];
       }
     });
@@ -2764,18 +2764,18 @@ export class MarcajePersonalComponent implements OnInit {
   cargarHorariosEmpleado() {
     if (!this.empleadoSeleccionado?.id) return;
 
-    console.log('Cargando horarios del empleado:', this.empleadoSeleccionado.id);
+    
 
     this.empleadosService.getHorariosEmpleado(this.empleadoSeleccionado.id).subscribe({
       next: (horarios) => {
         this.horariosEmpleado = horarios;
-        console.log('Horarios del empleado cargados:', horarios);
+        
         
         // Calcular la fecha mínima permitida
         this.calcularFechaMinimaPermitida();
       },
       error: (error) => {
-        console.error('Error cargando horarios del empleado:', error);
+        
         this.horariosEmpleado = [];
         this.fechaMinimaPermitida = '';
       }
@@ -2800,27 +2800,27 @@ export class MarcajePersonalComponent implements OnInit {
     // Formatear como YYYY-MM-DD para el input de fecha
     this.fechaMinimaPermitida = fechaMinima.toISOString().split('T')[0];
     
-    console.log('Fecha mínima permitida:', this.fechaMinimaPermitida);
+    
   }
 
   guardarHorarioEmpleado() {
     if (!this.nuevoHorario.primer_dia || !this.nuevoHorario.horario_id) {
-      alert('Por favor complete todos los campos');
+      
       return;
     }
 
     if (!this.empleadoSeleccionado?.id) {
-      alert('Error: No se ha seleccionado un empleado');
+      
       return;
     }
 
     // Validar que la fecha no sea menor o igual a horarios existentes
     if (this.fechaMinimaPermitida && this.nuevoHorario.primer_dia < this.fechaMinimaPermitida) {
-      alert(`La fecha debe ser posterior a ${this.fechaMinimaPermitida}. Ya existe un horario asignado con fecha anterior.`);
+      
       return;
     }
 
-    console.log('Guardando horario:', this.nuevoHorario);
+    
 
     const horarioData = {
       primer_dia: this.nuevoHorario.primer_dia,
@@ -2829,8 +2829,8 @@ export class MarcajePersonalComponent implements OnInit {
 
     this.empleadosService.asignarHorarioEmpleado(this.empleadoSeleccionado.id, horarioData).subscribe({
       next: (response) => {
-        console.log('Horario asignado correctamente:', response);
-        alert('Horario asignado correctamente');
+        
+        
         this.resetearFormulario();
         this.cargarHorariosEmpleado(); // Recargar la lista del modal
         
@@ -2838,19 +2838,19 @@ export class MarcajePersonalComponent implements OnInit {
         this.actualizarVistaPrincipal();
       },
       error: (error) => {
-        console.error('Error asignando horario:', error);
-        alert('Error asignando horario: ' + (error.error?.message || 'Error desconocido'));
+        
+        
       }
     });
   }
 
   eliminarHorarioEmpleado(horarioEmpleadoId: number) {
     if (!this.empleadoSeleccionado?.id) {
-      alert('Error: No se ha seleccionado un empleado');
+      
       return;
     }
 
-    console.log('Mostrando modal de confirmación para horario:', horarioEmpleadoId);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -2875,23 +2875,23 @@ export class MarcajePersonalComponent implements OnInit {
       return;
     }
 
-    console.log('Ejecutando eliminación de horario:', horarioEmpleadoId);
+    
 
     this.empleadosService.eliminarHorarioEmpleado(this.empleadoSeleccionado.id, horarioEmpleadoId).subscribe({
       next: (response) => {
-        console.log('Horario eliminado correctamente:', response);
-        alert('Horario eliminado correctamente');
+        
+        
         this.cargarHorariosEmpleado();
         this.actualizarVistaPrincipal();
       },
       error: (error) => {
-        console.error('Error eliminando horario:', error);
-        console.error('Error status:', error.status);
-        console.error('Error error:', error.error);
+        
+        
+        
         
         // Si es error 400 con relaciones, mostrar modal global de error
         if (error.status === 400 && error.error?.relations) {
-          console.log('Mostrando modal global de error con relaciones');
+          
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el horario',
             message: error.error.message,
@@ -2904,8 +2904,8 @@ export class MarcajePersonalComponent implements OnInit {
             helpText: 'Para eliminar este horario, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          console.log('Mostrando alert básico');
-          alert('Error eliminando horario: ' + (error.error?.message || 'Error desconocido'));
+          
+          
         }
       }
     });
@@ -2964,7 +2964,7 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Función para actualizar la vista principal después de modificar horarios
   actualizarVistaPrincipal() {
-    console.log('Actualizando vista principal...');
+    
     
     // Recargar todos los datos de la vista principal
     this.cargarDatos();

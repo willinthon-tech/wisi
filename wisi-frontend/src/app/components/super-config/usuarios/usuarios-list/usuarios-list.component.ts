@@ -454,7 +454,7 @@ export class UsuariosListComponent implements OnInit {
         this.checkLoadingComplete();
       },
       error: (error) => {
-        alert('Error cargando usuarios: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });
@@ -511,11 +511,11 @@ export class UsuariosListComponent implements OnInit {
 
   deleteUser(usuario: User) {
     if (usuario.nivel === 'TODO') {
-      alert('No se puede eliminar al usuario creador');
+      
       return;
     }
 
-    console.log('Mostrando modal de confirmación para usuario:', usuario.id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -536,16 +536,16 @@ export class UsuariosListComponent implements OnInit {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionUsuario(usuario: User) {
-    console.log('Ejecutando eliminación de usuario:', usuario.id);
+    
     
     this.userService.deleteUser(usuario.id).subscribe({
       next: (response) => {
-        console.log('Usuario eliminado correctamente:', response);
-        alert('Usuario eliminado exitosamente');
+        
+        
         this.loadData(); // Recargar la lista
       },
       error: (error) => {
-        console.error('Error eliminando usuario:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -561,7 +561,7 @@ export class UsuariosListComponent implements OnInit {
             helpText: 'Para eliminar este usuario, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando usuario: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });

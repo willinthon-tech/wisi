@@ -33,8 +33,8 @@ class HikvisionISAPI {
     this.qop = null;
     this.nc = 0;
     
-    console.log(`🏗️ Constructor HikvisionISAPI - IP: ${ip}, BaseURL: ${this.baseUrl}`);
-    console.log(`🏗️ Username: ${username}, Password: ${password ? '[SET]' : '[NOT SET]'}`);
+    
+    
   }
 
   // Método principal para hacer peticiones con autenticación digest
@@ -46,11 +46,11 @@ class HikvisionISAPI {
       }
       
       const fullUrl = `${this.baseUrl}${endpoint}`;
-      console.log(`🔗 Haciendo petición ${method} a: ${endpoint}`);
-      console.log(`🔗 URL completa: ${fullUrl}`);
-      console.log(`🔗 BaseURL: ${this.baseUrl}`);
-      console.log(`🔗 Data original:`, data);
-      console.log(`🔗 Data serializado:`, data ? JSON.stringify(data) : data);
+      
+      
+      
+      
+      
       
       // Validar que la URL sea válida
       try {
@@ -73,12 +73,12 @@ class HikvisionISAPI {
 
       // Parsear el header WWW-Authenticate
       const wwwAuthenticate = challengeResponse.headers['www-authenticate'];
-      console.log(`🔐 WWW-Authenticate header: ${wwwAuthenticate}`);
+      
       
       // Si el dispositivo devuelve 400, podría ser un problema con el payload
       if (challengeResponse.status === 400) {
-        console.log(`❌ Error 400 - Posible problema con el formato del payload`);
-        console.log(`📥 Respuesta del dispositivo:`, challengeResponse.data);
+        
+        
         return {
           success: false,
           error: 'Error 400: Formato de payload incorrecto',
@@ -88,7 +88,7 @@ class HikvisionISAPI {
       }
       
       if (!wwwAuthenticate || !wwwAuthenticate.includes('Digest')) {
-        console.log('❌ No se recibió challenge digest válido, intentando autenticación básica...');
+        
         // Si no hay challenge digest, intentar autenticación básica directamente
         const basicResponse = await axios({
           method: method,
@@ -106,13 +106,13 @@ class HikvisionISAPI {
           }
         });
         
-        console.log(`✅ Autenticación básica exitosa: ${basicResponse.status}`);
-        console.log(`📥 RESPUESTA CRUDA DEL DISPOSITIVO (BÁSICA):`);
-        console.log(`📥 Status HTTP:`, basicResponse.status);
-        console.log(`📥 Headers:`, basicResponse.headers);
-        console.log(`📥 Data cruda:`, basicResponse.data);
-        console.log(`📥 Data tipo:`, typeof basicResponse.data);
-        console.log(`📥 Data JSON stringificado:`, JSON.stringify(basicResponse.data, null, 2));
+        
+        
+        
+        
+        
+        
+        
         
         return {
           success: true,
@@ -128,7 +128,7 @@ class HikvisionISAPI {
       this.qop = this.extractParam(wwwAuthenticate, 'qop');
       this.uri = endpoint;
 
-      console.log(`🔐 Challenge recibido - Realm: ${this.realm}, Nonce: ${this.nonce}`);
+      
 
       // Generar respuesta digest
       const digestResponse = this.generateDigestResponse(method);
@@ -147,13 +147,13 @@ class HikvisionISAPI {
         }
       });
 
-      console.log(`✅ Petición exitosa: ${finalResponse.status}`);
-      console.log(`📥 RESPUESTA CRUDA DEL DISPOSITIVO:`);
-      console.log(`📥 Status HTTP:`, finalResponse.status);
-      console.log(`📥 Headers:`, finalResponse.headers);
-      console.log(`📥 Data cruda:`, finalResponse.data);
-      console.log(`📥 Data tipo:`, typeof finalResponse.data);
-      console.log(`📥 Data JSON stringificado:`, JSON.stringify(finalResponse.data, null, 2));
+      
+      
+      
+      
+      
+      
+      
       
       return {
         success: true,
@@ -165,7 +165,7 @@ class HikvisionISAPI {
     } catch (error) {
       if (error.response && error.response.status === 200) {
         // Si la respuesta es 200, es exitosa
-        console.log(`✅ Petición exitosa (200): ${endpoint}`);
+        
         return {
           success: true,
           data: error.response.data,
@@ -173,8 +173,8 @@ class HikvisionISAPI {
           headers: error.response.headers
         };
       } else {
-        console.log(`❌ Error en petición: ${error.message}`);
-        console.log(`❌ Status: ${error.response?.status}, StatusText: ${error.response?.statusText}`);
+        
+        
       return {
         success: false,
         error: error.message,
@@ -216,22 +216,22 @@ class HikvisionISAPI {
   // Obtener información del dispositivo
   async getDeviceInfo() {
     try {
-      console.log('🔍 Obteniendo información del dispositivo con autenticación digest...');
+      
       
       // Usar el método makeRequest que implementa digest correctamente
       const result = await this.makeRequest('/ISAPI/System/deviceInfo', 'GET');
       
       if (result.success) {
-        console.log(`✅ Información del dispositivo obtenida: ${result.status}`);
+        
         return result;
       }
       
       // Si falla, intentar con capacidades
-      console.log('🔍 Intentando con /ISAPI/System/capabilities...');
+      
       const capabilitiesResult = await this.makeRequest('/ISAPI/System/capabilities', 'GET');
       
       if (capabilitiesResult.success) {
-        console.log(`✅ Capacidades obtenidas: ${capabilitiesResult.status}`);
+        
         return capabilitiesResult;
       }
       
@@ -241,7 +241,7 @@ class HikvisionISAPI {
       };
       
     } catch (error) {
-      console.log('❌ Error obteniendo información del dispositivo:', error.message);
+      
       return {
         success: false,
         error: error.message
@@ -257,7 +257,7 @@ class HikvisionISAPI {
   // Obtener usuarios registrados
   async getUsers() {
     try {
-      console.log('👥 Obteniendo usuarios desde ISAPI...');
+      
       
       const allUsers = [];
       let searchID = "0";
@@ -269,7 +269,7 @@ class HikvisionISAPI {
       const maxPages = 1000; // Límite de seguridad alto
       
       while (hasMore && pageCount < maxPages) {
-        console.log(`📄 Página ${pageCount + 1}: Obteniendo usuarios desde posición ${searchResultPosition}...`);
+        
         
         const result = await this.makeRequest('/ISAPI/AccessControl/UserInfo/Search?format=json', 'POST', {
           "UserInfoSearchCond": {
@@ -283,10 +283,10 @@ class HikvisionISAPI {
           const userSearch = result.data.UserInfoSearch;
           totalUsers = userSearch.totalMatches || 0;
           
-          console.log(`📊 Respuesta página ${pageCount + 1}:`);
-          console.log(`📊 totalMatches: ${totalUsers}`);
-          console.log(`📊 UserInfo.length: ${userSearch.UserInfo?.length || 0}`);
-          console.log(`📊 Usuarios en esta página:`, userSearch.UserInfo?.length || 0);
+          
+          
+          
+          
           
           if (userSearch.UserInfo && userSearch.UserInfo.length > 0) {
             allUsers.push(...userSearch.UserInfo);
@@ -298,26 +298,26 @@ class HikvisionISAPI {
             const usersInThisPage = userSearch.UserInfo.length;
             hasMore = usersInThisPage === maxResults && allUsers.length < totalUsers;
             
-            console.log(`📊 Progreso: ${allUsers.length}/${totalUsers} usuarios obtenidos`);
-            console.log(`📊 Usuarios en esta página: ${usersInThisPage}/${maxResults}`);
-            console.log(`📊 hasMore: ${hasMore}, pageCount: ${pageCount}, maxPages: ${maxPages}`);
+            
+            
+            
             
             // Si no hay más usuarios en esta página, parar
             if (usersInThisPage < maxResults) {
-              console.log(`✅ Página incompleta (${usersInThisPage}/${maxResults}), no hay más usuarios`);
+              
               hasMore = false;
             }
           } else {
-            console.log(`❌ No hay más usuarios en esta página`);
+            
             hasMore = false;
           }
         } else {
-          console.log(`❌ Error en la respuesta de la página ${pageCount + 1}:`, result);
+          
           hasMore = false;
         }
       }
       
-      console.log(`✅ Usuarios obtenidos: ${allUsers.length} de ${totalUsers} totales`);
+      
       
       return {
         success: true,
@@ -327,7 +327,7 @@ class HikvisionISAPI {
         }
       };
     } catch (error) {
-      console.log('❌ Error obteniendo usuarios:', error.message);
+      
       return {
         success: false,
         error: error.message
@@ -338,7 +338,7 @@ class HikvisionISAPI {
   // Obtener eventos de acceso
   async getEvents(startTime, endTime) {
     try {
-      console.log('📅 Obteniendo eventos desde ISAPI...');
+      
       
       const allEvents = [];
       let searchID = "0";
@@ -350,7 +350,7 @@ class HikvisionISAPI {
       const maxPages = 100; // Límite de seguridad
       
       while (hasMore && pageCount < maxPages) {
-        console.log(`📄 Página ${pageCount + 1}: Obteniendo eventos desde posición ${searchResultPosition}...`);
+        
         
         const result = await this.makeRequest('/ISAPI/AccessControl/AcsEvent?format=json', 'POST', {
           "AcsEventCond": {
@@ -377,7 +377,7 @@ class HikvisionISAPI {
             
             // Verificar si hay más eventos
             hasMore = allEvents.length < totalEvents;
-            console.log(`📊 Progreso: ${allEvents.length}/${totalEvents} eventos obtenidos`);
+            
           } else {
             hasMore = false;
           }
@@ -386,7 +386,7 @@ class HikvisionISAPI {
         }
       }
       
-      console.log(`✅ Eventos obtenidos: ${allEvents.length} de ${totalEvents} totales`);
+      
 
       return {
         success: true,
@@ -396,7 +396,7 @@ class HikvisionISAPI {
         }
       };
     } catch (error) {
-      console.log('❌ Error obteniendo eventos:', error.message);
+      
       return {
         success: false,
         error: error.message
@@ -407,8 +407,8 @@ class HikvisionISAPI {
   // Obtener foto del usuario por FPID
   async getUserPhoto(fpid) {
     try {
-      console.log(`📸 Obteniendo foto del usuario: ${fpid}`);
-      console.log(`📸 Endpoint: /Intelligent/FDLib/FDSearch?format=json`);
+      
+      
       console.log(`📸 Body:`, {
         "searchResultPosition": 0,
         "maxResults": 100,
@@ -425,13 +425,13 @@ class HikvisionISAPI {
         "FPID": fpid
       });
       
-      console.log(`📸 Respuesta completa del endpoint:`, result);
-      console.log(`📸 result.success:`, result.success);
-      console.log(`📸 result.data:`, result.data);
-      console.log(`📸 MatchList existe?:`, !!result.data?.MatchList);
-      console.log(`📸 MatchList length:`, result.data?.MatchList?.length);
-      console.log(`📸 statusCode:`, result.data?.statusCode);
-      console.log(`📸 statusString:`, result.data?.statusString);
+      
+      
+      
+      
+      
+      
+      
       
       // La respuesta viene en result.data con MatchList
       // El éxito se indica con statusCode: 1
@@ -440,14 +440,14 @@ class HikvisionISAPI {
         let faceURL = match.faceURL;
         
         // Usar la URL completa tal como viene del dispositivo (funciona con @WEB)
-        console.log(`📸 URL original del dispositivo: ${faceURL}`);
         
-        console.log(`✅ Foto encontrada para ${fpid}: ${faceURL}`);
-        console.log(`✅ Match completo:`, match);
+        
+        
+        
         
         // Hacer GET con autenticación digest a la URL de la foto
         try {
-          console.log(`📸 Consultando URL de la foto con autenticación digest: ${faceURL}`);
+          
           
           // Primera petición para obtener el challenge digest
           const challengeResponse = await axios({
@@ -459,7 +459,7 @@ class HikvisionISAPI {
             }
           });
 
-          console.log(`🔐 Challenge digest recibido, status: ${challengeResponse.status}`);
+          
           
           // Parsear el header WWW-Authenticate
           const wwwAuthenticate = challengeResponse.headers['www-authenticate'];
@@ -472,7 +472,7 @@ class HikvisionISAPI {
           const nonce = wwwAuthenticate.match(/nonce="([^"]+)"/)?.[1];
           const qop = wwwAuthenticate.match(/qop="([^"]+)"/)?.[1];
           
-          console.log(`🔐 Realm: ${realm}, Nonce: ${nonce}, QOP: ${qop}`);
+          
           
           // Generar respuesta digest
           const cnonce = Math.random().toString(36).substring(2, 15);
@@ -493,7 +493,7 @@ class HikvisionISAPI {
           
           const digestResponse = `Digest username="${this.username}", realm="${realm}", nonce="${nonce}", uri="${uri}", qop=auth, nc=${nc}, cnonce="${cnonce}", response="${response}"`;
           
-          console.log(`🔐 Enviando autenticación digest...`);
+          
           
           // Segunda petición con autenticación digest
           const photoResponse = await axios({
@@ -507,16 +507,16 @@ class HikvisionISAPI {
             timeout: 15000
           });
           
-          console.log(`✅ Imagen obtenida exitosamente!`);
-          console.log(`📸 Status: ${photoResponse.status}`);
-          console.log(`📸 Content-Type: ${photoResponse.headers['content-type']}`);
-          console.log(`📸 Tamaño: ${photoResponse.data.length} bytes`);
+          
+          
+          
+          
           
           // Convertir a base64 para enviar al frontend
           const base64Image = Buffer.from(photoResponse.data).toString('base64');
           const dataUrl = `data:${photoResponse.headers['content-type']};base64,${base64Image}`;
           
-          console.log(`✅ Imagen convertida a base64, tamaño: ${dataUrl.length} caracteres`);
+          
           
           return {
             success: true,
@@ -529,7 +529,7 @@ class HikvisionISAPI {
           };
           
         } catch (photoError) {
-          console.log(`❌ Error obteniendo la imagen con digest: ${photoError.message}`);
+          
           // Si falla la consulta de la imagen, devolver solo la URL
           return {
             success: true,
@@ -541,19 +541,19 @@ class HikvisionISAPI {
           };
         }
       } else {
-        console.log(`❌ No se encontró foto en MatchList para el usuario: ${fpid}`);
-        console.log(`❌ Resultado completo:`, result);
+        
+        
         
         // Buscar en otras estructuras posibles
         if (result.data && typeof result.data === 'object') {
-          console.log(`🔍 Buscando foto en otras estructuras...`);
-          console.log(`🔍 Keys disponibles en result.data:`, Object.keys(result.data));
+          
+          
           
           // Buscar faceURL en diferentes niveles
           const possiblePhotoFields = ['faceURL', 'faceUrl', 'photo', 'image', 'avatar'];
           for (const field of possiblePhotoFields) {
             if (result.data[field]) {
-              console.log(`✅ Foto encontrada en ${field}:`, result.data[field]);
+              
               return {
                 success: true,
                 data: {
@@ -571,8 +571,8 @@ class HikvisionISAPI {
         };
       }
     } catch (error) {
-      console.log(`❌ Error obteniendo foto del usuario ${fpid}:`, error.message);
-      console.log(`❌ Error completo:`, error);
+      
+      
       return {
         success: false,
         error: error.message
@@ -583,7 +583,7 @@ class HikvisionISAPI {
   // Obtener información específica de un usuario por employeeNo
   async getUserInfo(employeeNo) {
     try {
-      console.log(`👤 Obteniendo información específica del usuario: ${employeeNo}`);
+      
       
       // Usar el formato correcto para buscar usuario específico
       const result = await this.makeRequest('/ISAPI/AccessControl/UserInfo/Search?format=json', 'POST', {
@@ -599,31 +599,31 @@ class HikvisionISAPI {
         }
       });
       
-      console.log(`👤 Resultado de getUserInfo:`, result);
-      console.log(`👤 result.success:`, result.success);
-      console.log(`👤 result.data:`, result.data);
+      
+      
+      
       
       if (result.success && result.data?.UserInfoSearch?.UserInfo) {
         const userInfo = Array.isArray(result.data.UserInfoSearch.UserInfo) 
           ? result.data.UserInfoSearch.UserInfo[0] 
           : result.data.UserInfoSearch.UserInfo;
         
-        console.log(`✅ Información del usuario obtenida:`, userInfo);
+        
         return {
           success: true,
           data: userInfo
         };
       } else {
-        console.log(`❌ No se encontró información para el usuario: ${employeeNo}`);
-        console.log(`❌ Estructura de respuesta:`, result.data);
+        
+        
         return {
           success: false,
           error: 'No se encontró información para este usuario'
         };
       }
     } catch (error) {
-      console.log(`❌ Error obteniendo información del usuario ${employeeNo}:`, error.message);
-      console.log(`❌ Error completo:`, error);
+      
+      
       return {
         success: false,
         error: error.message
@@ -634,25 +634,25 @@ class HikvisionISAPI {
   // Actualizar usuario
   async updateUser(userData) {
     try {
-      console.log(`✏️ Actualizando usuario: ${userData.UserInfo?.employeeNo}`);
-      console.log(`✏️ Datos a actualizar:`, userData);
-      console.log(`✏️ Dispositivo: ${this.baseURL}`);
-      console.log(`✏️ Usuario: ${this.username}`);
+      
+      
+      
+      
       
       // Usar directamente los datos que vienen del frontend
       const updateData = userData;
 
-      console.log(`✏️ JSON de actualización:`, JSON.stringify(updateData, null, 2));
-      console.log(`✏️ Endpoint: /ISAPI/AccessControl/UserInfo/SetUp?format=json`);
-      console.log(`✏️ Método: PUT`);
+      
+      
+      
       
       const result = await this.makeRequest('/ISAPI/AccessControl/UserInfo/SetUp?format=json', 'PUT', updateData);
       
-      console.log(`✏️ Resultado de actualización:`, result);
-      console.log(`✏️ result.success:`, result.success);
-      console.log(`✏️ result.data:`, result.data);
-      console.log(`✏️ result.statusCode:`, result.data?.statusCode);
-      console.log(`✏️ result.statusString:`, result.data?.statusString);
+      
+      
+      
+      
+      
       
       // Verificar si la respuesta indica éxito
       if (result.success && result.data && result.data.statusCode === 1) {
@@ -666,15 +666,15 @@ class HikvisionISAPI {
           }
         };
       } else {
-        console.log(`❌ Error en la respuesta del dispositivo:`, result.data);
+        
         return {
           success: false,
           error: result.data?.statusString || result.data?.errorMsg || 'Error actualizando usuario'
         };
       }
     } catch (error) {
-      console.log(`❌ Error actualizando usuario:`, error.message);
-      console.log(`❌ Error completo:`, error);
+      
+      
       return {
         success: false,
         error: error.message
@@ -685,7 +685,7 @@ class HikvisionISAPI {
   // Eliminar rostro de usuario
   async deleteUserFace(employeeNo) {
     try {
-      console.log(`🗑️ Eliminando rostro del usuario: ${employeeNo}`);
+      
       
       const result = await this.makeRequest('/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD', 'PUT', {
         "FPID": [
@@ -695,7 +695,7 @@ class HikvisionISAPI {
         ]
       });
       
-      console.log(`🗑️ Resultado de eliminación de rostro:`, result);
+      
       
       if (result.success && result.data?.statusCode === 1) {
         return {
@@ -712,7 +712,7 @@ class HikvisionISAPI {
         };
       }
     } catch (error) {
-      console.log(`❌ Error eliminando rostro del usuario ${employeeNo}:`, error.message);
+      
       return {
         success: false,
         error: error.message
@@ -723,7 +723,7 @@ class HikvisionISAPI {
   // Eliminar usuario completo
   async deleteUser(employeeNo) {
     try {
-      console.log(`🗑️ Eliminando usuario completo: ${employeeNo}`);
+      
       
       // Usar el formato correcto para eliminar usuario
       const result = await this.makeRequest('/ISAPI/AccessControl/UserInfo/Delete?format=json', 'PUT', {
@@ -736,9 +736,9 @@ class HikvisionISAPI {
         }
       });
       
-      console.log(`🗑️ Resultado de eliminación de usuario:`, result);
-      console.log(`🗑️ result.success:`, result.success);
-      console.log(`🗑️ result.data:`, result.data);
+      
+      
+      
       
       if (result.success && result.data?.statusCode === 1) {
         return {
@@ -749,15 +749,15 @@ class HikvisionISAPI {
           }
         };
       } else {
-        console.log(`❌ Error en la respuesta del dispositivo:`, result.data);
+        
         return {
           success: false,
           error: result.data?.statusString || result.data?.errorMsg || 'Error eliminando usuario'
         };
       }
     } catch (error) {
-      console.log(`❌ Error eliminando usuario ${employeeNo}:`, error.message);
-      console.log(`❌ Error completo:`, error);
+      
+      
       return {
         success: false,
         error: error.message
@@ -768,7 +768,7 @@ class HikvisionISAPI {
   // Registrar rostro de usuario
   async registerUserFace(employeeNo, name, gender, faceDataBase64) {
     try {
-      console.log(`👤 Registrando rostro del usuario: ${employeeNo}`);
+      
       
       // Usar directamente el base64 que viene del frontend (ya incluye el prefijo)
       const faceURL = faceDataBase64;
@@ -783,21 +783,21 @@ class HikvisionISAPI {
         "featurePointType": "face"
       };
       
-      console.log('👤 Datos que se envían al dispositivo:', JSON.stringify(requestData, null, 2));
+      
       
       const result = await this.makeRequest('/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json', 'POST', requestData);
       
-      console.log(`👤 RESPUESTA COMPLETA DEL DISPOSITIVO HIKVISION:`);
-      console.log(`👤 Status HTTP:`, result.status);
-      console.log(`👤 Headers:`, result.headers);
-      console.log(`👤 Data cruda:`, result.data);
-      console.log(`👤 Data tipo:`, typeof result.data);
-      console.log(`👤 Data JSON stringificado:`, JSON.stringify(result.data, null, 2));
       
-      console.log(`👤 Resultado de registro de rostro:`, result);
-      console.log(`👤 Status code:`, result.data?.statusCode);
-      console.log(`👤 Status string:`, result.data?.statusString);
-      console.log(`👤 Sub status code:`, result.data?.subStatusCode);
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       
       if (result.success && result.data?.statusCode === 1) {
         return {
@@ -809,9 +809,9 @@ class HikvisionISAPI {
           }
         };
       } else {
-        console.log(`❌ Error en registro - Status code: ${result.data?.statusCode}`);
-        console.log(`❌ Error en registro - Status string: ${result.data?.statusString}`);
-        console.log(`❌ Error en registro - Sub status: ${result.data?.subStatusCode}`);
+        
+        
+        
         
         return {
           success: false,
@@ -819,7 +819,7 @@ class HikvisionISAPI {
         };
       }
     } catch (error) {
-      console.log(`❌ Error registrando rostro del usuario ${employeeNo}:`, error.message);
+      
       return {
         success: false,
         error: error.message
@@ -830,8 +830,8 @@ class HikvisionISAPI {
   // Registrar rostro de usuario con URL de imagen
   async registerUserFaceWithUrl(employeeNo, name, gender, imageUrl) {
     try {
-      console.log(`👤 Registrando rostro del usuario con URL: ${employeeNo}`);
-      console.log(`👤 URL de imagen: ${imageUrl}`);
+      
+      
       
       const requestData = {
         "faceURL": imageUrl,
@@ -843,21 +843,21 @@ class HikvisionISAPI {
         "featurePointType": "face"
       };
       
-      console.log('👤 Datos que se envían al dispositivo:', JSON.stringify(requestData, null, 2));
+      
       
       const result = await this.makeRequest('/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json', 'POST', requestData);
       
-      console.log(`👤 RESPUESTA COMPLETA DEL DISPOSITIVO HIKVISION:`);
-      console.log(`👤 Status HTTP:`, result.status);
-      console.log(`👤 Headers:`, result.headers);
-      console.log(`👤 Data cruda:`, result.data);
-      console.log(`👤 Data tipo:`, typeof result.data);
-      console.log(`👤 Data JSON stringificado:`, JSON.stringify(result.data, null, 2));
       
-      console.log(`👤 Resultado de registro de rostro:`, result);
-      console.log(`👤 Status code:`, result.data?.statusCode);
-      console.log(`👤 Status string:`, result.data?.statusString);
-      console.log(`👤 Sub status code:`, result.data?.subStatusCode);
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       
       if (result.success && result.data?.statusCode === 1) {
         return {
@@ -870,9 +870,9 @@ class HikvisionISAPI {
           }
         };
       } else {
-        console.log(`❌ Error en registro - Status code: ${result.data?.statusCode}`);
-        console.log(`❌ Error en registro - Status string: ${result.data?.statusString}`);
-        console.log(`❌ Error en registro - Sub status: ${result.data?.subStatusCode}`);
+        
+        
+        
         
         return {
           success: false,
@@ -880,7 +880,7 @@ class HikvisionISAPI {
         };
       }
     } catch (error) {
-      console.log(`❌ Error registrando rostro del usuario ${employeeNo}:`, error.message);
+      
       return {
         success: false,
         error: error.message
@@ -914,15 +914,15 @@ class HikvisionISAPI {
   // Eliminar solo la foto del usuario
   async deleteUserPhotoOnly(deletePhotoPayload) {
     try {
-      console.log(`🗑️ Eliminando solo la foto del usuario`);
-      console.log(`🗑️ Payload:`, deletePhotoPayload);
+      
+      
 
       // Usar el endpoint correcto para eliminar solo la foto con parámetros adicionales
       const result = await this.makeRequest('/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD', 'PUT', deletePhotoPayload);
 
-      console.log(`🗑️ Resultado de deleteUserPhotoOnly:`, result);
-      console.log(`🗑️ result.success:`, result.success);
-      console.log(`🗑️ result.data:`, result.data);
+      
+      
+      
 
       // Verificar si la petición fue exitosa (status 200)
       if (result.success && (result.status === 200 || result.data?.statusCode === 1)) {
@@ -935,9 +935,9 @@ class HikvisionISAPI {
           }
         };
       } else {
-        console.log(`❌ Error en la respuesta del dispositivo:`, result.data);
-        console.log(`❌ Status:`, result.status);
-        console.log(`❌ Error message:`, result.error);
+        
+        
+        
         
         // Si hay un error 400, podría ser un problema con el formato del payload
         if (result.status === 400) {
@@ -955,8 +955,8 @@ class HikvisionISAPI {
         };
       }
     } catch (error) {
-      console.log(`❌ Error eliminando foto:`, error.message);
-      console.log(`❌ Error completo:`, error);
+      
+      
       return {
         success: false,
         error: error.message
@@ -967,15 +967,15 @@ class HikvisionISAPI {
   // Registrar rostro de usuario con payload completo
   async registerUserFaceWithPayload(facePayload) {
     try {
-      console.log(`📸 Registrando rostro del usuario`);
-      console.log(`📸 Payload:`, facePayload);
+      
+      
 
       // Usar el endpoint correcto para registrar rostro
       const result = await this.makeRequest('/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json', 'POST', facePayload);
 
-      console.log(`📸 Resultado de registerUserFaceWithPayload:`, result);
-      console.log(`📸 result.success:`, result.success);
-      console.log(`📸 result.data:`, result.data);
+      
+      
+      
 
       // Verificar si la petición fue exitosa (status 200)
       if (result.success && (result.status === 200 || result.data?.statusCode === 1)) {
@@ -988,9 +988,9 @@ class HikvisionISAPI {
           }
         };
       } else {
-        console.log(`❌ Error en la respuesta del dispositivo:`, result.data);
-        console.log(`❌ Status:`, result.status);
-        console.log(`❌ Error message:`, result.error);
+        
+        
+        
         
         return {
           success: false,
@@ -999,8 +999,8 @@ class HikvisionISAPI {
         };
       }
     } catch (error) {
-      console.log(`❌ Error registrando rostro:`, error.message);
-      console.log(`❌ Error completo:`, error);
+      
+      
       return {
         success: false,
         error: error.message

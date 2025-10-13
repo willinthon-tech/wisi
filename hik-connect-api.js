@@ -22,10 +22,10 @@ async function authenticateHikConnect() {
     });
 
     accessToken = response.data.access_token;
-    console.log('✅ Hik-Connect authentication successful');
+    
     return true;
   } catch (error) {
-    console.error('❌ Hik-Connect authentication failed:', error.message);
+    
     return false;
   }
 }
@@ -59,7 +59,7 @@ router.post('/devices', async (req, res) => {
       message: 'Dispositivos obtenidos desde Hik-Connect'
     });
   } catch (error) {
-    console.error('Error getting devices from Hik-Connect:', error.message);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -90,7 +90,7 @@ router.post('/device-users', async (req, res) => {
       message: `Usuarios del dispositivo ${deviceId} obtenidos desde Hik-Connect`
     });
   } catch (error) {
-    console.error('Error getting device users from Hik-Connect:', error.message);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -126,7 +126,7 @@ router.post('/device-events', async (req, res) => {
       message: `Eventos del dispositivo ${deviceId} obtenidos desde Hik-Connect`
     });
   } catch (error) {
-    console.error('Error getting device events from Hik-Connect:', error.message);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -162,7 +162,7 @@ router.post('/user-photos', async (req, res) => {
       message: `Fotos del dispositivo ${deviceId} obtenidas desde Hik-Connect`
     });
   } catch (error) {
-    console.error('Error getting user photos from Hik-Connect:', error.message);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -193,7 +193,7 @@ router.post('/sync-device', async (req, res) => {
       message: `Dispositivo ${deviceId} sincronizado con Hik-Connect`
     });
   } catch (error) {
-    console.error('Error syncing device with Hik-Connect:', error.message);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -224,7 +224,7 @@ router.post('/device-info', async (req, res) => {
       message: `Información del dispositivo ${deviceId} obtenida desde Hik-Connect`
     });
   } catch (error) {
-    console.error('Error getting device info from Hik-Connect:', error.message);
+    
     res.status(500).json({ success: false, error: error.message });
   }
 });

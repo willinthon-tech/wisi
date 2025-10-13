@@ -965,7 +965,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   }
 
   deleteNovedad(id: number) {
-    console.log('Mostrando modal de confirmación para novedad:', id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -986,16 +986,16 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionNovedad(id: number) {
-    console.log('Ejecutando eliminación de novedad:', id);
+    
     
     this.novedadesRegistrosService.deleteNovedadMaquinaRegistro(id).subscribe({
       next: () => {
-        console.log('Novedad eliminada correctamente');
+        
         this.loadNovedades(); // Recargar la lista
-        alert('Novedad eliminada correctamente');
+        
       },
       error: (error: any) => {
-        console.error('Error eliminando novedad:', error);
+        
         
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
@@ -1010,7 +1010,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar esta novedad, primero debe eliminar o reasignar los elementos relacionados.'
           });
         } else {
-          alert('Error eliminando novedad: ' + (error.error?.message || 'Error desconocido'));
+          
         }
       }
     });

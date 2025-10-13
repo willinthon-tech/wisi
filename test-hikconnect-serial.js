@@ -17,16 +17,16 @@ const HIKCONNECT_CONFIG = {
 };
 
 async function testHikConnectWithSerial() {
-  console.log('🔍 Probando Hik-Connect con Device Serial Number');
-  console.log('================================================\n');
-  console.log(`📧 Email: ${HIKCONNECT_CONFIG.email}`);
-  console.log(`🔐 Password: ${HIKCONNECT_CONFIG.password}`);
-  console.log(`📱 Device Serial: ${HIKCONNECT_CONFIG.deviceSerial}\n`);
+  
+  
+  
+  
+  
 
   // Función para probar autenticación
   async function testAuthentication(apiUrl) {
     try {
-      console.log(`🔄 Probando autenticación en: ${apiUrl}`);
+      
       
       // Intentar diferentes métodos de autenticación
       const authMethods = [
@@ -59,7 +59,7 @@ async function testHikConnectWithSerial() {
 
       for (const method of authMethods) {
         try {
-          console.log(`   🔄 Probando ${method.name}...`);
+          
           
           let authResponse;
           if (method.name === 'Basic Auth') {
@@ -77,18 +77,18 @@ async function testHikConnectWithSerial() {
           }
 
           if (authResponse.data.access_token || authResponse.data.token || authResponse.data) {
-            console.log(`✅ ¡AUTENTICACIÓN EXITOSA con ${method.name}!`);
+            
             
             const token = authResponse.data.access_token || authResponse.data.token;
             
             if (token) {
-              console.log(`🎉 Token obtenido: ${token.substring(0, 30)}...`);
+              
               
               // Probar obtener dispositivos
               await testGetDevices(apiUrl, token);
               return true;
             } else {
-              console.log(`✅ Autenticación exitosa, pero sin token`);
+              
               // Probar obtener dispositivos directamente
               await testGetDevices(apiUrl);
               return true;
@@ -97,18 +97,18 @@ async function testHikConnectWithSerial() {
           
         } catch (methodError) {
           if (methodError.response) {
-            console.log(`   ❌ ${method.name} - Status ${methodError.response.status}: ${methodError.response.data?.error || 'Error desconocido'}`);
+            
           } else {
-            console.log(`   ❌ ${method.name} - ${methodError.message}`);
+            
           }
         }
       }
       
     } catch (error) {
       if (error.response) {
-        console.log(`❌ Error ${error.response.status}: ${error.response.data?.error || 'Error desconocido'}`);
+        
       } else {
-        console.log(`❌ Error: ${error.message}`);
+        
       }
     }
     
@@ -118,7 +118,7 @@ async function testHikConnectWithSerial() {
   // Función para probar obtener dispositivos
   async function testGetDevices(apiUrl, token = null) {
     try {
-      console.log(`\n📱 Obteniendo dispositivos desde: ${apiUrl}`);
+      
       
       const headers = {
         'Content-Type': 'application/json',
@@ -134,26 +134,26 @@ async function testHikConnectWithSerial() {
         timeout: 10000
       });
 
-      console.log('✅ Dispositivos obtenidos exitosamente!');
-      console.log(`📊 Total dispositivos: ${devicesResponse.data.data?.length || devicesResponse.data.length || 0}`);
+      
+      
       
       const devices = devicesResponse.data.data || devicesResponse.data;
       
       if (devices && devices.length > 0) {
-        console.log('\n📋 Dispositivos encontrados:');
+        
         devices.forEach((device, index) => {
-          console.log(`   ${index + 1}. ${device.deviceName || device.name || 'Sin nombre'}`);
-          console.log(`      Serial: ${device.serialNumber || device.deviceSerial || 'N/A'}`);
-          console.log(`      ID: ${device.deviceId || device.id || 'N/A'}`);
-          console.log(`      Estado: ${device.online ? '🟢 Online' : '🔴 Offline'}`);
-          console.log(`      Tipo: ${device.deviceType || 'Desconocido'}`);
-          console.log(`      IP: ${device.ipAddress || 'N/A'}`);
-          console.log('');
+          
+          
+          
+          
+          
+          
+          
           
           // Verificar si es nuestro dispositivo
           if (device.serialNumber === HIKCONNECT_CONFIG.deviceSerial || 
               device.deviceSerial === HIKCONNECT_CONFIG.deviceSerial) {
-            console.log(`🎯 ¡ENCONTRADO! Este es tu dispositivo ${HIKCONNECT_CONFIG.deviceSerial}`);
+            
             
             // Probar obtener usuarios de este dispositivo
             testGetDeviceUsers(apiUrl, device.deviceId || device.id, token);
@@ -164,7 +164,7 @@ async function testHikConnectWithSerial() {
       return true;
       
     } catch (error) {
-      console.log(`❌ Error obteniendo dispositivos: ${error.message}`);
+      
       return false;
     }
   }
@@ -172,7 +172,7 @@ async function testHikConnectWithSerial() {
   // Función para probar obtener usuarios del dispositivo
   async function testGetDeviceUsers(apiUrl, deviceId, token = null) {
     try {
-      console.log(`\n👥 Obteniendo usuarios del dispositivo ${deviceId}...`);
+      
       
       const headers = {
         'Content-Type': 'application/json',
@@ -188,30 +188,30 @@ async function testHikConnectWithSerial() {
         timeout: 10000
       });
 
-      console.log('✅ Usuarios obtenidos exitosamente!');
-      console.log(`📊 Total usuarios: ${usersResponse.data.data?.length || usersResponse.data.length || 0}`);
+      
+      
       
       const users = usersResponse.data.data || usersResponse.data;
       
       if (users && users.length > 0) {
-        console.log('\n👤 Usuarios encontrados:');
+        
         users.slice(0, 5).forEach((user, index) => {
-          console.log(`   ${index + 1}. ${user.name || user.userName || 'Sin nombre'}`);
-          console.log(`      ID: ${user.id || user.userId || 'N/A'}`);
-          console.log(`      Estado: ${user.status || user.active ? '🟢 Activo' : '🔴 Inactivo'}`);
-          console.log(`      Tipo: ${user.userType || 'Usuario'}`);
-          console.log('');
+          
+          
+          
+          
+          
         });
         
         if (users.length > 5) {
-          console.log(`   ... y ${users.length - 5} usuarios más`);
+          
         }
       }
 
       return true;
       
     } catch (error) {
-      console.log(`❌ Error obteniendo usuarios: ${error.message}`);
+      
       return false;
     }
   }
@@ -220,8 +220,8 @@ async function testHikConnectWithSerial() {
   let success = false;
   
   for (const apiUrl of HIKCONNECT_CONFIG.possibleAPIs) {
-    console.log(`\n🌐 Probando API: ${apiUrl}`);
-    console.log('='.repeat(50));
+    
+    
     
     const result = await testAuthentication(apiUrl);
     if (result) {
@@ -229,16 +229,16 @@ async function testHikConnectWithSerial() {
       break;
     }
     
-    console.log(''); // Línea en blanco entre APIs
+     // Línea en blanco entre APIs
   }
 
   if (!success) {
-    console.log('\n❌ No se encontró una API funcional');
-    console.log('\n💡 Sugerencias:');
-    console.log('   1. Verifica que el dispositivo esté registrado en Hik-Connect');
-    console.log('   2. Confirma que las credenciales sean correctas');
-    console.log('   3. Asegúrate de que el dispositivo esté online');
-    console.log('   4. Verifica que la API esté habilitada en tu cuenta');
+    
+    
+    
+    
+    
+    
   }
 }
 

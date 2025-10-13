@@ -13,7 +13,7 @@ class TPPHikvisionAPI {
   // Autenticación OAuth 2.0 con TPP
   async authenticate() {
     try {
-      console.log('🔐 Autenticando con TPP Hikvision...');
+      
       
       const response = await axios.post(`${this.baseURL}/oauth/token`, {
         grant_type: 'client_credentials',
@@ -28,14 +28,14 @@ class TPPHikvisionAPI {
       if (response.data && response.data.access_token) {
         this.accessToken = response.data.access_token;
         this.tokenExpiry = Date.now() + (response.data.expires_in * 1000);
-        console.log('✅ Autenticación TPP exitosa');
+        
         return { success: true, token: this.accessToken };
       } else {
-        console.log('❌ Error en autenticación TPP:', response.data);
+        
         return { success: false, error: 'No se pudo obtener token de acceso' };
       }
     } catch (error) {
-      console.log('❌ Error autenticando con TPP:', error.message);
+      
       return { success: false, error: error.message };
     }
   }
@@ -48,7 +48,7 @@ class TPPHikvisionAPI {
   // Obtener token válido (renovar si es necesario)
   async getValidToken() {
     if (!this.isTokenValid()) {
-      console.log('🔄 Token expirado o no válido, renovando...');
+      
       const authResult = await this.authenticate();
       if (!authResult.success) {
         throw new Error('No se pudo autenticar con TPP');
@@ -78,7 +78,7 @@ class TPPHikvisionAPI {
       const response = await axios(config);
       return { success: true, data: response.data };
     } catch (error) {
-      console.log(`❌ Error en petición TPP ${endpoint}:`, error.message);
+      
       return { success: false, error: error.message };
     }
   }
@@ -86,11 +86,11 @@ class TPPHikvisionAPI {
   // Obtener dispositivos del usuario
   async getDevices() {
     try {
-      console.log('📱 Obteniendo dispositivos desde TPP...');
+      
       const result = await this.makeAuthenticatedRequest('/devices');
       
       if (result.success) {
-        console.log(`✅ Dispositivos obtenidos: ${result.data.devices?.length || 0}`);
+        
         return {
           success: true,
           data: {
@@ -103,7 +103,7 @@ class TPPHikvisionAPI {
         return result;
       }
     } catch (error) {
-      console.log('❌ Error obteniendo dispositivos TPP:', error.message);
+      
       return { success: false, error: error.message };
     }
   }
@@ -111,11 +111,11 @@ class TPPHikvisionAPI {
   // Obtener usuarios de un dispositivo específico
   async getDeviceUsers(deviceId) {
     try {
-      console.log(`👥 Obteniendo usuarios del dispositivo ${deviceId} desde TPP...`);
+      
       const result = await this.makeAuthenticatedRequest(`/devices/${deviceId}/users`);
       
       if (result.success) {
-        console.log(`✅ Usuarios obtenidos: ${result.data.users?.length || 0}`);
+        
         return {
           success: true,
           data: {
@@ -129,7 +129,7 @@ class TPPHikvisionAPI {
         return result;
       }
     } catch (error) {
-      console.log('❌ Error obteniendo usuarios TPP:', error.message);
+      
       return { success: false, error: error.message };
     }
   }
@@ -137,7 +137,7 @@ class TPPHikvisionAPI {
   // Obtener eventos de un dispositivo
   async getDeviceEvents(deviceId, startTime = null, endTime = null) {
     try {
-      console.log(`📊 Obteniendo eventos del dispositivo ${deviceId} desde TPP...`);
+      
       
       let endpoint = `/devices/${deviceId}/events`;
       if (startTime && endTime) {
@@ -147,7 +147,7 @@ class TPPHikvisionAPI {
       const result = await this.makeAuthenticatedRequest(endpoint);
       
       if (result.success) {
-        console.log(`✅ Eventos obtenidos: ${result.data.events?.length || 0}`);
+        
         return {
           success: true,
           data: {
@@ -161,7 +161,7 @@ class TPPHikvisionAPI {
         return result;
       }
     } catch (error) {
-      console.log('❌ Error obteniendo eventos TPP:', error.message);
+      
       return { success: false, error: error.message };
     }
   }
@@ -169,11 +169,11 @@ class TPPHikvisionAPI {
   // Obtener foto de usuario desde TPP
   async getUserPhoto(deviceId, userId) {
     try {
-      console.log(`📸 Obteniendo foto del usuario ${userId} desde TPP...`);
+      
       const result = await this.makeAuthenticatedRequest(`/devices/${deviceId}/users/${userId}/photo`);
       
       if (result.success) {
-        console.log('✅ Foto obtenida desde TPP');
+        
         return {
           success: true,
           data: {
@@ -188,7 +188,7 @@ class TPPHikvisionAPI {
         return result;
       }
     } catch (error) {
-      console.log('❌ Error obteniendo foto TPP:', error.message);
+      
       return { success: false, error: error.message };
     }
   }
@@ -196,7 +196,7 @@ class TPPHikvisionAPI {
   // Sincronizar datos entre TPP e ISAPI
   async syncWithISAPI(deviceId, isapiClient) {
     try {
-      console.log(`🔄 Sincronizando datos TPP con ISAPI para dispositivo ${deviceId}...`);
+      
       
       // Obtener datos desde TPP
       const tppUsers = await this.getDeviceUsers(deviceId);
@@ -221,7 +221,7 @@ class TPPHikvisionAPI {
         }
       };
     } catch (error) {
-      console.log('❌ Error sincronizando TPP con ISAPI:', error.message);
+      
       return { success: false, error: error.message };
     }
   }

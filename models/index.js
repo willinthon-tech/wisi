@@ -177,12 +177,12 @@ Horario.hasMany(Bloque, { foreignKey: 'horario_id', as: 'bloques', onDelete: 'RE
 const syncDatabase = async () => {
   try {
     await sequelize.sync({ force: false }); // Cambiar a true para recrear tablas
-    console.log('✅ Base de datos SQLite sincronizada correctamente');
+    
     
     // Insertar datos iniciales si no existen
     await insertInitialData();
   } catch (error) {
-    console.error('❌ Error sincronizando base de datos:', error);
+    
   }
 };
 
@@ -192,7 +192,7 @@ const insertInitialData = async () => {
     // Verificar si ya existen datos
     const userCount = await User.count();
     if (userCount > 0) {
-      console.log('📊 Datos iniciales ya existen');
+      
       return;
     }
 
@@ -292,9 +292,9 @@ const insertInitialData = async () => {
     await sala1.addModules([moduleRRHH, moduleMaquinas, moduleCecom]);
     await sala2.addModules([moduleRRHH, moduleMaquinas, moduleCecom]);
 
-    console.log('✅ Datos iniciales insertados correctamente');
+    
   } catch (error) {
-    console.error('❌ Error insertando datos iniciales:', error);
+    
   }
 };
 

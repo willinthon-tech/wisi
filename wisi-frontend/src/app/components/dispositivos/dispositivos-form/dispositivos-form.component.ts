@@ -330,7 +330,7 @@ export class DispositivosFormComponent implements OnInit {
           this.loading = false;
         },
         error: (error: any) => {
-          alert('Error cargando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
           this.loading = false;
           this.goBack();
         }
@@ -344,14 +344,14 @@ export class DispositivosFormComponent implements OnInit {
         this.salas = salas;
       },
       error: (error: any) => {
-        alert('Error cargando salas: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
       }
     });
   }
 
   saveDispositivo(): void {
     if (!this.dispositivo.nombre || !this.dispositivo.sala_id || !this.dispositivo.ip_local) {
-      alert('Por favor complete todos los campos obligatorios');
+      
       return;
     }
 
@@ -372,22 +372,22 @@ export class DispositivosFormComponent implements OnInit {
     if (this.isEdit && this.dispositivoId) {
       this.dispositivosService.updateDispositivo(this.dispositivoId, this.dispositivo).subscribe({
         next: (response: any) => {
-          alert('Dispositivo actualizado exitosamente');
+          
           this.goBack();
         },
         error: (error: any) => {
-          alert('Error actualizando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
           this.loading = false;
         }
       });
     } else {
       this.dispositivosService.createDispositivo(this.dispositivo).subscribe({
         next: (response: any) => {
-          alert('Dispositivo creado exitosamente');
+          
           this.goBack();
         },
         error: (error: any) => {
-          alert('Error creando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
           this.loading = false;
         }
       });

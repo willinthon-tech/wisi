@@ -580,7 +580,7 @@ export class MesasListComponent implements OnInit, OnDestroy {
 
   deleteMesa(id: number): void {
     const mesa = this.mesas.find(m => m.id === id);
-    console.log('Mostrando modal de confirmación para mesa:', id);
+    
     this.confirmModalService.showConfirmModal({
       title: 'Confirmar Eliminación',
       message: '¿Está seguro de que desea eliminar esta mesa?',
@@ -597,15 +597,15 @@ export class MesasListComponent implements OnInit, OnDestroy {
   }
 
   private ejecutarEliminacionMesa(id: number, mesa: any) {
-    console.log('Ejecutando eliminación de mesa:', id);
+    
     this.mesasService.deleteMesa(id).subscribe({
       next: () => {
-        console.log('Mesa eliminada correctamente');
+        
         this.loadMesas();
-        alert('Mesa eliminada correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando mesa:', error);
+        
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la mesa',
@@ -619,7 +619,7 @@ export class MesasListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar esta mesa, primero debe eliminar o reasignar los elementos relacionados.'
           });
         } else {
-          alert('Error eliminando mesa: ' + (error.error?.message || 'Error desconocido'));
+          
         }
       }
     });

@@ -484,7 +484,7 @@ export class ModuloEditComponent implements OnInit {
         this.availablePages = pages || [];
       },
       error: (error) => {
-        alert('Error cargando páginas: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
       }
     });
   }
@@ -499,12 +499,12 @@ export class ModuloEditComponent implements OnInit {
           this.module = { ...module };
           this.loading = false;
         } else {
-          alert('Módulo no encontrado');
+          
           this.goBack();
         }
       },
       error: (error) => {
-        alert('Error cargando módulo: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.goBack();
       }
     });
@@ -514,7 +514,7 @@ export class ModuloEditComponent implements OnInit {
     if (this.saving || !this.module) return;
 
     if (!this.module.nombre.trim()) {
-      alert('Nombre es requerido');
+      
       return;
     }
 
@@ -529,11 +529,11 @@ export class ModuloEditComponent implements OnInit {
 
     this.userService.updateModule(this.module.id, moduleData).subscribe({
       next: (response) => {
-        alert('Módulo actualizado exitosamente');
+        
         this.router.navigate(['/super-config/modulos']);
       },
       error: (error) => {
-        alert('Error actualizando módulo: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.saving = false;
       }
     });

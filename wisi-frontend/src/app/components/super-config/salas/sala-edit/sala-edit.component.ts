@@ -314,7 +314,7 @@ export class SalaEditComponent implements OnInit {
         this.router.navigate(['/super-config/salas']);
       },
       error: (error) => {
-        alert('Error actualizando sala: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.saving = false;
       }
     });

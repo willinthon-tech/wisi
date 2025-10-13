@@ -377,7 +377,7 @@ export class PaginasListComponent implements OnInit {
         this.loading = false;
       },
       error: (error) => {
-        alert('Error cargando páginas: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });
@@ -392,7 +392,7 @@ export class PaginasListComponent implements OnInit {
   }
 
   deletePage(page: any) {
-    console.log('Mostrando modal de confirmación para página:', page.id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -413,16 +413,16 @@ export class PaginasListComponent implements OnInit {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionPagina(page: any) {
-    console.log('Ejecutando eliminación de página:', page.id);
+    
     
     this.userService.deletePage(page.id).subscribe({
       next: (response) => {
-        console.log('Página eliminada correctamente:', response);
-        alert('Página eliminada exitosamente');
+        
+        
         this.loadPages(); // Recargar la lista
       },
       error: (error) => {
-        console.error('Error eliminando página:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -438,7 +438,7 @@ export class PaginasListComponent implements OnInit {
             helpText: 'Para eliminar esta página, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando página: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });

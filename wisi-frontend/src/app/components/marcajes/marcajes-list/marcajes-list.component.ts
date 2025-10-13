@@ -1024,7 +1024,7 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
         this.dispositivos = dispositivos;
       },
       error: (error) => {
-        console.error('Error cargando dispositivos:', error);
+        
       }
     });
   }
@@ -1310,7 +1310,7 @@ export class MarcajesListComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         },
         error: (error) => {
-          console.error('Error cargando imagen:', error);
+          
           this.imageUrl = '';
           this.cdr.detectChanges();
         }

@@ -754,8 +754,8 @@ export class TareasListComponent implements OnInit {
 
 
   async ejecutarFuncionDispositivo(tarea: any): Promise<void> {
-    console.log('🎯 FRONTEND: ejecutarFuncionDispositivo llamado para tarea:', tarea.id);
-    console.log('📋 FRONTEND: Acción a realizar:', tarea.accion_realizar);
+    
+    
     
     try {
       // Simular la comunicación con el dispositivo
@@ -897,7 +897,7 @@ export class TareasListComponent implements OnInit {
         this.rechazandoTarea = null;
         this.procesandoTarea = false;
         
-        alert('Error al eliminar la tarea');
+        
       }
     });
   }
@@ -919,16 +919,16 @@ export class TareasListComponent implements OnInit {
 
 
   ejecutarTarea(tarea: any): void {
-    console.log('🔥 FRONTEND: ejecutarTarea llamado para tarea:', tarea.id);
-    console.log('📋 FRONTEND: Datos de la tarea:', tarea);
+    
+    
     
     if (!this.isTareaActiva(tarea)) {
-      console.log('⏸️ FRONTEND: Tarea no está activa, cancelando...');
-      alert('Esta tarea no está disponible. Debe completar las tareas anteriores primero.');
+      
+      
       return;
     }
     
-    console.log('🚀 FRONTEND: Tarea activa, iniciando ejecución...');
+    
 
     this.procesandoTarea = true;
     this.ejecutandoTarea = tarea.id;
@@ -939,7 +939,7 @@ export class TareasListComponent implements OnInit {
 
   rechazarTarea(tarea: any): void {
     if (!this.isTareaActiva(tarea)) {
-      alert('Esta tarea no está disponible. Debe completar las tareas anteriores primero.');
+      
       return;
     }
 

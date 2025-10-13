@@ -610,7 +610,7 @@ export class DropMesasComponent implements OnInit, OnDestroy {
   }
 
   deleteDrop(id: number) {
-    console.log('Mostrando modal de confirmación para drop:', id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -631,16 +631,16 @@ export class DropMesasComponent implements OnInit, OnDestroy {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionDrop(id: number) {
-    console.log('Ejecutando eliminación de drop:', id);
+    
     
     this.dropsService.deleteDrop(id).subscribe({
       next: () => {
-        console.log('Drop eliminado correctamente');
+        
         this.loadDrops(); // Recargar la lista
-        alert('Drop eliminado correctamente');
+        
       },
       error: (error: any) => {
-        console.error('Error eliminando drop:', error);
+        
         
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
@@ -655,7 +655,7 @@ export class DropMesasComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar este drop, primero debe eliminar o reasignar los elementos relacionados.'
           });
         } else {
-          alert('Error eliminando drop: ' + (error.error?.message || 'Error desconocido'));
+          
         }
       }
     });

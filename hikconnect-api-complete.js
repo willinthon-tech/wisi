@@ -24,7 +24,7 @@ class HikConnectAPI {
    */
   async authenticateOAuth2() {
     try {
-      console.log('🔄 Autenticando con OAuth 2.0...');
+      
       
       const response = await axios.post(`${this.baseUrl}/oauth/token`, {
         grant_type: 'password',
@@ -42,12 +42,12 @@ class HikConnectAPI {
       if (response.data.access_token) {
         this.accessToken = response.data.access_token;
         this.refreshToken = response.data.refresh_token;
-        console.log('✅ OAuth 2.0 autenticación exitosa');
+        
         return { success: true, token: this.accessToken };
       }
       
     } catch (error) {
-      console.log(`❌ Error OAuth 2.0: ${error.message}`);
+      
     }
     
     return { success: false, error: 'OAuth 2.0 authentication failed' };
@@ -58,7 +58,7 @@ class HikConnectAPI {
    */
   async authenticateDigest() {
     try {
-      console.log('🔄 Autenticando con Digest...');
+      
       
       const testUrl = `${this.baseUrl}/v3/open/trust/v1/group/device`;
       
@@ -84,7 +84,7 @@ class HikConnectAPI {
             timeout: 10000
           });
           
-          console.log('✅ Digest autenticación exitosa');
+          
           return { success: true, data: secondResponse.data };
         }
       }
@@ -98,7 +98,7 @@ class HikConnectAPI {
    */
   async authenticateBasic() {
     try {
-      console.log('🔄 Autenticando con Basic Auth...');
+      
       
       const response = await axios.get(`${this.baseUrl}/v3/open/trust/v1/group/device`, {
         auth: {
@@ -108,11 +108,11 @@ class HikConnectAPI {
         timeout: 10000
       });
       
-      console.log('✅ Basic Auth exitosa');
+      
       return { success: true, data: response.data };
       
     } catch (error) {
-      console.log(`❌ Error Basic Auth: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -124,17 +124,17 @@ class HikConnectAPI {
    */
   async getDevices() {
     try {
-      console.log('📱 Obteniendo dispositivos...');
+      
       
       const response = await this.makeRequest('/v3/open/trust/v1/group/device');
       
       if (response.success) {
-        console.log(`✅ Dispositivos obtenidos: ${response.data?.data?.length || 0}`);
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error obteniendo dispositivos: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -144,17 +144,17 @@ class HikConnectAPI {
    */
   async getDeviceBySerial(serial) {
     try {
-      console.log(`📱 Obteniendo dispositivo por serial: ${serial}`);
+      
       
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device?serial=${serial}`);
       
       if (response.success) {
-        console.log(`✅ Dispositivo encontrado: ${serial}`);
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error obteniendo dispositivo: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -164,17 +164,17 @@ class HikConnectAPI {
    */
   async createDevice(deviceData) {
     try {
-      console.log('📱 Creando dispositivo...');
+      
       
       const response = await this.makeRequest('/v3/open/trust/v1/group/device', 'POST', deviceData);
       
       if (response.success) {
-        console.log('✅ Dispositivo creado exitosamente');
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error creando dispositivo: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -184,17 +184,17 @@ class HikConnectAPI {
    */
   async updateDevice(deviceId, deviceData) {
     try {
-      console.log(`📱 Actualizando dispositivo: ${deviceId}`);
+      
       
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device/${deviceId}`, 'PUT', deviceData);
       
       if (response.success) {
-        console.log('✅ Dispositivo actualizado exitosamente');
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error actualizando dispositivo: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -204,17 +204,17 @@ class HikConnectAPI {
    */
   async deleteDevice(deviceId) {
     try {
-      console.log(`📱 Eliminando dispositivo: ${deviceId}`);
+      
       
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device/${deviceId}`, 'DELETE');
       
       if (response.success) {
-        console.log('✅ Dispositivo eliminado exitosamente');
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error eliminando dispositivo: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -226,17 +226,17 @@ class HikConnectAPI {
    */
   async getDeviceUsers(deviceId) {
     try {
-      console.log(`👥 Obteniendo usuarios del dispositivo: ${deviceId}`);
+      
       
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device/${deviceId}/users`);
       
       if (response.success) {
-        console.log(`✅ Usuarios obtenidos: ${response.data?.data?.length || 0}`);
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error obteniendo usuarios: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -246,17 +246,17 @@ class HikConnectAPI {
    */
   async createUser(deviceId, userData) {
     try {
-      console.log(`👥 Creando usuario en dispositivo: ${deviceId}`);
+      
       
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device/${deviceId}/users`, 'POST', userData);
       
       if (response.success) {
-        console.log('✅ Usuario creado exitosamente');
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error creando usuario: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -266,17 +266,17 @@ class HikConnectAPI {
    */
   async updateUser(deviceId, userId, userData) {
     try {
-      console.log(`👥 Actualizando usuario: ${userId}`);
+      
       
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device/${deviceId}/users/${userId}`, 'PUT', userData);
       
       if (response.success) {
-        console.log('✅ Usuario actualizado exitosamente');
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error actualizando usuario: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -286,17 +286,17 @@ class HikConnectAPI {
    */
   async deleteUser(deviceId, userId) {
     try {
-      console.log(`👥 Eliminando usuario: ${userId}`);
+      
       
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device/${deviceId}/users/${userId}`, 'DELETE');
       
       if (response.success) {
-        console.log('✅ Usuario eliminado exitosamente');
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error eliminando usuario: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -308,7 +308,7 @@ class HikConnectAPI {
    */
   async getDeviceEvents(deviceId, startTime, endTime) {
     try {
-      console.log(`📊 Obteniendo eventos del dispositivo: ${deviceId}`);
+      
       
       const params = new URLSearchParams({
         startTime: startTime,
@@ -318,12 +318,12 @@ class HikConnectAPI {
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device/${deviceId}/events?${params}`);
       
       if (response.success) {
-        console.log(`✅ Eventos obtenidos: ${response.data?.data?.length || 0}`);
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error obteniendo eventos: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -335,17 +335,17 @@ class HikConnectAPI {
    */
   async getUserPhotos(deviceId, userId) {
     try {
-      console.log(`📸 Obteniendo fotos del usuario: ${userId}`);
+      
       
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device/${deviceId}/users/${userId}/photos`);
       
       if (response.success) {
-        console.log(`✅ Fotos obtenidas: ${response.data?.data?.length || 0}`);
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error obteniendo fotos: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -355,17 +355,17 @@ class HikConnectAPI {
    */
   async uploadUserPhoto(deviceId, userId, photoData) {
     try {
-      console.log(`📸 Subiendo foto del usuario: ${userId}`);
+      
       
       const response = await this.makeRequest(`/v3/open/trust/v1/group/device/${deviceId}/users/${userId}/photos`, 'POST', photoData);
       
       if (response.success) {
-        console.log('✅ Foto subida exitosamente');
+        
         return response;
       }
       
     } catch (error) {
-      console.log(`❌ Error subiendo foto: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -470,31 +470,31 @@ class HikConnectAPI {
 // ==================== FUNCIÓN DE PRUEBA ====================
 
 async function testHikConnectAPI() {
-  console.log('🔍 Probando Hik-Connect API Completa');
-  console.log('====================================\n');
+  
+  
   
   const api = new HikConnectAPI('hikcasinoval@gmail.com', 'S0p0rt3S0p0rt3');
   
   // Probar autenticación
-  console.log('🔄 Probando autenticación...');
+  
   const authResult = await api.authenticateBasic();
   
   if (authResult.success) {
-    console.log('✅ Autenticación exitosa');
+    
     
     // Probar obtener dispositivos
-    console.log('\n📱 Probando obtener dispositivos...');
+    
     const devicesResult = await api.getDevices();
     
     if (devicesResult.success) {
-      console.log('✅ Dispositivos obtenidos exitosamente');
-      console.log('📊 Datos:', JSON.stringify(devicesResult.data, null, 2));
+      
+      
     } else {
-      console.log(`❌ Error obteniendo dispositivos: ${devicesResult.error}`);
+      
     }
     
   } else {
-    console.log(`❌ Error de autenticación: ${authResult.error}`);
+    
   }
 }
 

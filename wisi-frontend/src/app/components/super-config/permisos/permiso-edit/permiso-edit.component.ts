@@ -402,12 +402,12 @@ export class PermisoEditComponent implements OnInit {
           this.permission = permission;
           this.loading = false;
         } else {
-          alert('Permiso no encontrado');
+          
           this.goBack();
         }
       },
       error: (error) => {
-        alert('Error cargando permiso: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.goBack();
       }
     });
@@ -417,7 +417,7 @@ export class PermisoEditComponent implements OnInit {
     if (this.saving || !this.permission) return;
 
     if (!this.permission.nombre.trim()) {
-      alert('Nombre es requerido');
+      
       return;
     }
 
@@ -429,11 +429,11 @@ export class PermisoEditComponent implements OnInit {
 
     this.userService.updatePermission(this.permission.id, permissionData).subscribe({
       next: (response) => {
-        alert('Permiso actualizado exitosamente');
+        
         this.router.navigate(['/super-config/permisos']);
       },
       error: (error) => {
-        alert('Error actualizando permiso: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.saving = false;
       }
     });

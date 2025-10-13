@@ -226,7 +226,7 @@ export class SalaCreateComponent {
         this.router.navigate(['/super-config/salas']);
       },
       error: (error) => {
-        alert('Error creando sala: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });

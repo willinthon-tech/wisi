@@ -371,7 +371,7 @@ export class ModulosListComponent implements OnInit {
         this.checkLoadingComplete();
       },
       error: (error) => {
-        alert('Error cargando módulos: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });
@@ -409,7 +409,7 @@ export class ModulosListComponent implements OnInit {
   }
 
   deleteModule(module: any) {
-    console.log('Mostrando modal de confirmación para módulo:', module.id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -430,16 +430,16 @@ export class ModulosListComponent implements OnInit {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionModulo(module: any) {
-    console.log('Ejecutando eliminación de módulo:', module.id);
+    
     
     this.userService.deleteModule(module.id).subscribe({
       next: (response) => {
-        console.log('Módulo eliminado correctamente:', response);
-        alert('Módulo eliminado exitosamente');
+        
+        
         this.loadData(); // Recargar la lista
       },
       error: (error) => {
-        console.error('Error eliminando módulo:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -455,7 +455,7 @@ export class ModulosListComponent implements OnInit {
             helpText: 'Para eliminar este módulo, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando módulo: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });

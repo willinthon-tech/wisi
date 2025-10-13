@@ -468,7 +468,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
         this.areas = areas;
       },
       error: (error) => {
-        alert('Error cargando áreas');
+        
       }
     });
   }
@@ -491,7 +491,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
         this.userSalas = salas;
       },
       error: (error) => {
-        alert('Error cargando salas');
+        
       }
     });
   }
@@ -515,7 +515,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          alert('Error actualizando área');
+          
         }
       });
     } else {
@@ -526,7 +526,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          alert('Error creando área');
+          
         }
       });
     }
@@ -543,7 +543,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
 
   deleteArea(id: number): void {
     const area = this.areas.find(a => a.id === id);
-    console.log('Mostrando modal de confirmación para área:', id);
+    
     this.confirmModalService.showConfirmModal({
       title: 'Confirmar Eliminación',
       message: '¿Está seguro de que desea eliminar esta área?',
@@ -560,15 +560,15 @@ export class AreasListComponent implements OnInit, OnDestroy {
   }
 
   private ejecutarEliminacionArea(id: number, area: any) {
-    console.log('Ejecutando eliminación de área:', id);
+    
     this.areasService.deleteArea(id).subscribe({
       next: () => {
-        console.log('Área eliminada correctamente');
+        
         this.areas = this.areas.filter(area => area.id !== id);
-        alert('Área eliminada correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando área:', error);
+        
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
           this.errorModalService.showErrorModal({
@@ -583,7 +583,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar este área, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando área: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });

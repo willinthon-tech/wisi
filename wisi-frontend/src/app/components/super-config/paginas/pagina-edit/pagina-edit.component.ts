@@ -534,12 +534,12 @@ export class PaginaEditComponent implements OnInit {
           this.page = { ...page };
           this.loading = false;
         } else {
-          alert('Página no encontrada');
+          
           this.goBack();
         }
       },
       error: (error) => {
-        alert('Error cargando página: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.goBack();
       }
     });
@@ -549,7 +549,7 @@ export class PaginaEditComponent implements OnInit {
     if (this.saving || !this.page) return;
 
     if (!this.page.nombre.trim()) {
-      alert('Nombre es requerido');
+      
       return;
     }
 
@@ -562,11 +562,11 @@ export class PaginaEditComponent implements OnInit {
 
     this.userService.updatePage(this.page.id, pageData).subscribe({
       next: (response) => {
-        alert('Página actualizada exitosamente');
+        
         this.router.navigate(['/super-config/paginas']);
       },
       error: (error) => {
-        alert('Error actualizando página: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.saving = false;
       }
     });

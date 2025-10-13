@@ -68,7 +68,7 @@ class HikvisionISAPI {
     try {
       const uri = `/ISAPI${endpoint}`;
       
-      console.log(`Making request to: ${this.baseUrl}${uri}`);
+      
       
       // Primero hacer una petición sin autenticación para obtener el challenge
       const challengeResponse = await axios({
@@ -78,8 +78,8 @@ class HikvisionISAPI {
         validateStatus: (status) => status === 401 // Esperamos 401 para obtener el challenge
       });
 
-      console.log('Challenge response status:', challengeResponse.status);
-      console.log('Challenge response headers:', challengeResponse.headers);
+      
+      
 
       // Extraer el challenge del header WWW-Authenticate
       const wwwAuth = challengeResponse.headers['www-authenticate'];
@@ -87,11 +87,11 @@ class HikvisionISAPI {
         throw new Error('No se recibió challenge de autenticación');
       }
 
-      console.log('WWW-Authenticate header:', wwwAuth);
+      
 
       // Parsear el challenge
       const challenge = this.parseDigestChallenge(wwwAuth);
-      console.log('Parsed challenge:', challenge);
+      
       
       // Generar la respuesta digest
       const digestResult = this.generateDigestResponse(
@@ -105,7 +105,7 @@ class HikvisionISAPI {
 
       const authHeader = `Digest username="${this.username}", realm="${challenge.realm}", nonce="${challenge.nonce}", uri="${uri}", response="${digestResult.response}"${challenge.qop ? `, qop=${challenge.qop}, nc=00000001, cnonce="${digestResult.cnonce}"` : ''}`;
       
-      console.log('Authorization header:', authHeader);
+      
 
       const headers = {
         'Authorization': authHeader
@@ -132,7 +132,7 @@ class HikvisionISAPI {
       }
 
       const result = await axios(config);
-      console.log('Authenticated request successful:', result.status);
+      
       
       return {
         success: true,
@@ -140,11 +140,11 @@ class HikvisionISAPI {
         status: result.status
       };
     } catch (error) {
-      console.error('Error en petición ISAPI:', error.message);
+      
       if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response headers:', error.response.headers);
-        console.error('Response data:', error.response.data);
+        
+        
+        
       }
       return {
         success: false,
@@ -205,8 +205,8 @@ class HikvisionISAPI {
   // Obtener foto del usuario por FPID
   async getUserPhoto(fpid) {
     try {
-      console.log(`📸 Obteniendo foto del usuario: ${fpid}`);
-      console.log(`📸 Endpoint: /Intelligent/FDLib/FDSearch?format=json`);
+      
+      
       console.log(`📸 Body:`, {
         "searchResultPosition": 0,
         "maxResults": 100,
@@ -223,17 +223,17 @@ class HikvisionISAPI {
         "FPID": fpid
       });
       
-      console.log(`📸 Respuesta completa del endpoint:`, result);
+      
       
       if (result.success && result.data?.MatchList && result.data.MatchList.length > 0) {
         const match = result.data.MatchList[0];
         let faceURL = match.faceURL;
         
         // Usar la URL completa tal como viene del dispositivo (funciona con @WEB)
-        console.log(`📸 URL original del dispositivo: ${faceURL}`);
         
-        console.log(`✅ Foto encontrada para ${fpid}: ${faceURL}`);
-        console.log(`✅ Match completo:`, match);
+        
+        
+        
         
         return {
           success: true,
@@ -244,16 +244,16 @@ class HikvisionISAPI {
           }
         };
       } else {
-        console.log(`❌ No se encontró foto para el usuario: ${fpid}`);
-        console.log(`❌ Resultado completo:`, result);
+        
+        
         return {
           success: false,
           error: 'No se encontró foto para este usuario'
         };
       }
     } catch (error) {
-      console.log(`❌ Error obteniendo foto del usuario ${fpid}:`, error.message);
-      console.log(`❌ Error completo:`, error);
+      
+      
       return {
         success: false,
         error: error.message
@@ -267,7 +267,7 @@ class HikvisionISAPI {
     try {
       // Primero intentar con el endpoint correcto que SÍ funciona - OBTENER TODOS LOS USUARIOS
       try {
-        console.log('Obteniendo TODOS los usuarios desde ISAPI...');
+        
         
         const allUsers = [];
         let searchID = "0";
@@ -280,7 +280,7 @@ class HikvisionISAPI {
         
         while (hasMore && pageCount < 100) { // Límite de seguridad muy alto
           pageCount++;
-          console.log(`Obteniendo usuarios desde posición ${searchResultPosition}...`);
+          
           
           const result = await this.makeRequest('/AccessControl/UserInfo/Search?format=json', 'POST', {
             "UserInfoSearchCond": {
@@ -294,7 +294,7 @@ class HikvisionISAPI {
             const userSearch = result.data.UserInfoSearch;
             totalUsers = userSearch.totalMatches || 0;
             
-            console.log(`📊 Página actual: ${searchResultPosition}, Total en dispositivo: ${totalUsers}, Estado: ${userSearch.responseStatusStrg}`);
+            
             
             // Agregar usuarios de esta página
             if (userSearch.UserInfo) {
@@ -302,32 +302,32 @@ class HikvisionISAPI {
                 ? userSearch.UserInfo 
                 : [userSearch.UserInfo];
               allUsers.push(...userArray);
-              console.log(`👥 Usuarios en esta página: ${userArray.length}, Total acumulado: ${allUsers.length}`);
+              
             }
             
             // Verificar si hay más páginas
             hasMore = userSearch.responseStatusStrg === 'MORE';
-            console.log(`🔄 ¿Hay más páginas? ${hasMore} (responseStatusStrg: ${userSearch.responseStatusStrg})`);
+            
             
             if (hasMore) {
               searchResultPosition += maxResults;
-              console.log(`➡️ Siguiente página: posición ${searchResultPosition}`);
+              
             } else {
-              console.log(`✅ Última página completada. Total usuarios obtenidos: ${allUsers.length}/${totalUsers}`);
+              
             }
           } else {
-            console.log(`❌ Error en la respuesta de la página ${searchResultPosition}:`, result);
+            
             hasMore = false;
           }
         }
         
         // Eliminamos la limitación de páginas - obtener TODOS los usuarios
         
-        console.log(`✅ Obtención completa: ${allUsers.length} usuarios de ${totalUsers} totales`);
-        console.log(`📊 Páginas procesadas: ${pageCount}`);
-        console.log(`📊 Usuarios por página: ${maxResults}`);
-        console.log(`📊 Total esperado: ${totalUsers}`);
-        console.log(`📊 Total obtenido: ${allUsers.length}`);
+        
+        
+        
+        
+        
         
         return {
           success: true,
@@ -355,7 +355,7 @@ class HikvisionISAPI {
           }
         };
       } catch (error) {
-        console.log('Endpoint correcto falló:', error.message);
+        
       }
       
       // Si el endpoint correcto falla, intentar otros endpoints
@@ -370,7 +370,7 @@ class HikvisionISAPI {
       
       for (const endpoint of userEndpoints) {
         try {
-          console.log(`Probando endpoint de usuarios: ${endpoint}`);
+          
           const result = await this.makeRequest(endpoint);
           if (result.success) {
             return {
@@ -385,7 +385,7 @@ class HikvisionISAPI {
             };
           }
         } catch (error) {
-          console.log(`Endpoint ${endpoint} falló: ${error.message}`);
+          
         }
       }
       
@@ -448,7 +448,7 @@ class HikvisionISAPI {
     try {
       // Primero intentar con el endpoint correcto que debería funcionar - OBTENER TODOS LOS EVENTOS
       try {
-        console.log('Obteniendo TODOS los eventos desde ISAPI...');
+        
         
         const allEvents = [];
         let searchID = "0";
@@ -458,7 +458,7 @@ class HikvisionISAPI {
         let totalEvents = 0;
         
         while (hasMore) {
-          console.log(`Obteniendo eventos desde posición ${searchResultPosition}...`);
+          
           
           const result = await this.makeRequest('/AccessControl/AcsEvent?format=json', 'POST', {
             "AcsEventCond": {
@@ -492,7 +492,7 @@ class HikvisionISAPI {
           }
         }
         
-        console.log(`✅ Eventos obtenidos: ${allEvents.length} de ${totalEvents} totales`);
+        
         
         return {
           success: true,
@@ -502,14 +502,14 @@ class HikvisionISAPI {
           }
         };
       } catch (error) {
-        console.log('❌ Error obteniendo eventos:', error.message);
+        
         return {
           success: false,
           error: error.message
         };
       }
     } catch (error) {
-      console.log('❌ Error general obteniendo eventos:', error.message);
+      
       return {
         success: false,
         error: error.message
@@ -520,8 +520,8 @@ class HikvisionISAPI {
   // Actualizar usuario
   async updateUser(userData) {
     try {
-      console.log(`✏️ Actualizando usuario: ${userData.employeeNo}`);
-      console.log(`✏️ Datos a actualizar:`, userData);
+      
+      
       
       // Construir el JSON para la actualización
       const updateData = {
@@ -540,11 +540,11 @@ class HikvisionISAPI {
         }
       };
 
-      console.log(`✏️ JSON de actualización:`, JSON.stringify(updateData, null, 2));
+      
       
       const result = await this.makeRequest('/AccessControl/UserInfo/Modify?format=json', 'PUT', updateData);
       
-      console.log(`✏️ Resultado de actualización:`, result);
+      
       
       if (result.success) {
         return {
@@ -561,7 +561,7 @@ class HikvisionISAPI {
         };
       }
     } catch (error) {
-      console.log(`❌ Error actualizando usuario ${userData.employeeNo}:`, error.message);
+      
       return {
         success: false,
         error: error.message
@@ -586,14 +586,14 @@ class HikvisionISAPI {
             hasMore = eventSearch.responseStatusStrg === 'MORE';
             if (hasMore) {
               searchResultPosition += maxResults;
-              console.log(`Página completada. Total eventos obtenidos: ${allEvents.length}/${totalEvents}`);
+              
             }
           } else {
             hasMore = false;
           }
         }
         
-        console.log(`✅ Obtención completa: ${allEvents.length} eventos de ${totalEvents} totales`);
+        
         
         return {
           success: true,
@@ -621,7 +621,7 @@ class HikvisionISAPI {
           }
         };
       } catch (error) {
-        console.log('Endpoint correcto de eventos falló:', error.message);
+        
       }
       
       // Si el endpoint correcto falla, intentar otros endpoints
@@ -636,7 +636,7 @@ class HikvisionISAPI {
       
       for (const endpoint of eventEndpoints) {
         try {
-          console.log(`Probando endpoint de eventos: ${endpoint}`);
+          
           const result = await this.makeRequest(endpoint);
           if (result.success) {
             return {
@@ -651,7 +651,7 @@ class HikvisionISAPI {
             };
           }
         } catch (error) {
-          console.log(`Endpoint ${endpoint} falló: ${error.message}`);
+          
         }
       }
       
@@ -705,7 +705,7 @@ class HikvisionISAPI {
       
       for (const endpoint of photoEndpoints) {
         try {
-          console.log(`Probando endpoint de fotos: ${endpoint}`);
+          
           const result = await this.makeRequest(endpoint);
           if (result.success) {
             return {
@@ -720,7 +720,7 @@ class HikvisionISAPI {
             };
           }
         } catch (error) {
-          console.log(`Endpoint ${endpoint} falló: ${error.message}`);
+          
         }
       }
       
@@ -761,7 +761,7 @@ class HikvisionISAPI {
   // Obtener capacidades del dispositivo
   async getDeviceCapabilities() {
     try {
-      console.log('Obteniendo capacidades del dispositivo...');
+      
       const result = await this.makeRequest('/System/capabilities', 'GET');
 
       if (result.success) {
@@ -842,7 +842,7 @@ class HikvisionISAPI {
       
       return capabilities;
     } catch (error) {
-      console.error('Error parsing device capabilities:', error);
+      
       return {};
     }
   }
@@ -850,7 +850,7 @@ class HikvisionISAPI {
   // Obtener stream de cámara o captura
   async getCameraStream(streamType = 'preview') {
     try {
-      console.log(`Obteniendo ${streamType} de cámara...`);
+      
       
       let endpoint;
       let contentType;
@@ -862,19 +862,19 @@ class HikvisionISAPI {
         
         for (const channel of channels) {
           try {
-            console.log(`Probando canal ${channel} para stream...`);
+            
             const testEndpoint = `/Streaming/channels/${channel}/httpPreview`;
             const testResult = await this.makeRequest(testEndpoint, 'GET');
             
             if (testResult.success) {
               endpoint = testEndpoint;
               contentType = 'video/x-motion-jpeg';
-              console.log(`✅ Canal ${channel} funcionando para stream`);
+              
               break;
             }
           } catch (error) {
             lastError = error;
-            console.log(`❌ Canal ${channel} falló: ${error.message}`);
+            
           }
         }
         
@@ -888,19 +888,19 @@ class HikvisionISAPI {
         
         for (const channel of channels) {
           try {
-            console.log(`Probando canal ${channel} para snapshot...`);
+            
             const testEndpoint = `/Streaming/channels/${channel}/picture`;
             const testResult = await this.makeRequest(testEndpoint, 'GET');
             
             if (testResult.success) {
               endpoint = testEndpoint;
               contentType = 'image/jpeg';
-              console.log(`✅ Canal ${channel} funcionando para snapshot`);
+              
               break;
             }
           } catch (error) {
             lastError = error;
-            console.log(`❌ Canal ${channel} falló: ${error.message}`);
+            
           }
         }
         
@@ -947,7 +947,7 @@ class HikvisionISAPI {
   // Descubrir canales de streaming disponibles
   async discoverStreamingChannels() {
     try {
-      console.log('Descubriendo canales de streaming disponibles...');
+      
       
       const channels = [1, 101, 102, 201, 202, 301, 302]; // Canales comunes
       const availableChannels = {
@@ -966,10 +966,10 @@ class HikvisionISAPI {
               endpoint: streamEndpoint,
               status: 'OK'
             });
-            console.log(`✅ Canal ${channel} disponible para stream`);
+            
           }
         } catch (error) {
-          console.log(`❌ Canal ${channel} no disponible para stream: ${error.message}`);
+          
         }
         
         // Probar snapshot
@@ -982,10 +982,10 @@ class HikvisionISAPI {
               endpoint: snapshotEndpoint,
               status: 'OK'
             });
-            console.log(`✅ Canal ${channel} disponible para snapshot`);
+            
           }
         } catch (error) {
-          console.log(`❌ Canal ${channel} no disponible para snapshot: ${error.message}`);
+          
         }
       }
 
@@ -1009,11 +1009,11 @@ class HikvisionISAPI {
   // Obtener capacidades específicas de usuarios
   async getUserCapabilities() {
     try {
-      console.log('Obteniendo capacidades de usuarios...');
+      
       
       // Intentar con el endpoint correcto que SÍ funciona
       try {
-        console.log('Probando endpoint correcto: /ISAPI/AccessControl/UserInfo/capabilities?format=json');
+        
         const result = await this.makeRequest('/AccessControl/UserInfo/capabilities?format=json', 'GET');
         
         if (result.success) {
@@ -1032,7 +1032,7 @@ class HikvisionISAPI {
           };
         }
       } catch (error) {
-        console.log('Endpoint correcto falló:', error.message);
+        
       }
       
       // Si el endpoint correcto falla, intentar sin parámetros
@@ -1131,11 +1131,11 @@ class HikvisionISAPI {
       capabilities: null
     };
 
-    console.log('🔍 Descubriendo endpoints disponibles...');
+    
 
     for (const endpoint of endpoints) {
       try {
-        console.log(`Probando endpoint: ${endpoint}`);
+        
         const result = await this.makeRequest(endpoint);
         if (result.success) {
           results.working.push({
@@ -1144,14 +1144,14 @@ class HikvisionISAPI {
             dataType: typeof result.data,
             hasData: !!result.data
           });
-          console.log(`✅ ${endpoint} - OK (${result.status})`);
+          
         } else {
           results.failed.push({
             endpoint,
             error: result.error,
             status: result.status
           });
-          console.log(`❌ ${endpoint} - Failed (${result.status}): ${result.error}`);
+          
         }
       } catch (error) {
         results.failed.push({
@@ -1159,7 +1159,7 @@ class HikvisionISAPI {
           error: error.message,
           status: 'ERROR'
         });
-        console.log(`❌ ${endpoint} - Error: ${error.message}`);
+        
       }
     }
 
@@ -1168,7 +1168,7 @@ class HikvisionISAPI {
       const capabilities = await this.makeRequest('/System/capabilities');
       results.capabilities = capabilities.data;
     } catch (error) {
-      console.log('No se pudieron obtener las capacidades del dispositivo');
+      
     }
 
     return {

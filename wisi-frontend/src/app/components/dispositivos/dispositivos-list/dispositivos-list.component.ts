@@ -934,7 +934,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
 
   deleteDispositivo(dispositivo: any): void {
-    console.log('Mostrando modal de confirmación para dispositivo:', dispositivo.id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -955,17 +955,17 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionDispositivo(dispositivo: any) {
-    console.log('Ejecutando eliminación de dispositivo:', dispositivo.id);
+    
     
     this.dispositivosService.deleteDispositivo(dispositivo.id).subscribe({
       next: (response) => {
-        console.log('Dispositivo eliminado correctamente:', response);
+        
         // Remover el dispositivo del array local
         this.dispositivos = this.dispositivos.filter(d => d.id !== dispositivo.id);
-        alert('Dispositivo eliminado correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando dispositivo:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -981,7 +981,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar este dispositivo, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando dispositivo: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });
@@ -1079,7 +1079,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
         this.cronConfig.isActive = response.isActive;
       },
       error: (error) => {
-        console.error('Error cargando configuración de CRON:', error);
+        
       }
     });
   }
@@ -1090,10 +1090,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.cronConfig.isActive = this.cronConfig.currentValue !== 'Desactivado';
         this.savingCronConfig = false;
-        console.log('Configuración de CRON actualizada:', response);
+        
       },
       error: (error) => {
-        console.error('Error actualizando configuración de CRON:', error);
+        
         this.savingCronConfig = false;
       }
     });
@@ -1107,24 +1107,22 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
         this.loadingQueueStatus = false;
       },
       error: (error) => {
-        console.error('Error obteniendo estado de la cola:', error);
+        
         this.loadingQueueStatus = false;
       }
     });
   }
 
   clearQueue() {
-    if (confirm('¿Estás seguro de que quieres limpiar la cola de CRON?')) {
       this.dispositivosService.clearQueue().subscribe({
         next: (response) => {
-          console.log('Cola limpiada:', response);
+          
           this.refreshQueueStatus();
         },
         error: (error) => {
-          console.error('Error limpiando cola:', error);
+          
         }
       });
-    }
   }
 
   trackByIndex(index: number, item: any): number {

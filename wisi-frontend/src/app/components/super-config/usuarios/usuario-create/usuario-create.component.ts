@@ -826,7 +826,7 @@ export class UsuarioCreateComponent implements OnInit {
       this.availablePermissions = permissions || [];
       this.loadingData = false;
     }).catch(error => {
-      alert('Error cargando datos: ' + (error.error?.message || error.message || 'Error desconocido'));
+      
       this.loadingData = false;
     });
   }
@@ -955,7 +955,7 @@ export class UsuarioCreateComponent implements OnInit {
     if (this.loading) return;
 
     if (!this.user.nombre_apellido.trim() || !this.user.usuario.trim() || !this.user.password.trim()) {
-      alert('Todos los campos obligatorios deben ser completados');
+      
       return;
     }
 
@@ -975,11 +975,11 @@ export class UsuarioCreateComponent implements OnInit {
 
     this.userService.createUser(userData).subscribe({
       next: (response) => {
-        alert('Usuario creado exitosamente');
+        
         this.router.navigate(['/super-config/usuarios']);
       },
       error: (error) => {
-        alert('Error creando usuario: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });

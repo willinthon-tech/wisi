@@ -965,7 +965,7 @@ export class UsuarioEditComponent implements OnInit {
       
       this.loading = false;
     }).catch(error => {
-      alert('Error cargando datos: ' + (error.error?.message || error.message || 'Error desconocido'));
+      
       this.goBack();
     });
   }
@@ -1034,7 +1034,7 @@ export class UsuarioEditComponent implements OnInit {
     const modulePermission = this.modulePermissions.find(mp => mp.moduleId === moduleId);
     if (!modulePermission) {
       event.target.checked = false; // Desmarcar el checkbox
-      alert('Primero debe seleccionar el módulo (VER) para poder asignar otros permisos');
+      
       return;
     }
     
@@ -1042,7 +1042,7 @@ export class UsuarioEditComponent implements OnInit {
     const verPermission = this.availablePermissions.find(p => p.nombre === 'VER');
     if (verPermission && !modulePermission.permissions.includes(verPermission.id)) {
       event.target.checked = false; // Desmarcar el checkbox
-      alert('Primero debe seleccionar el módulo (VER) para poder asignar otros permisos');
+      
       return;
     }
     
@@ -1114,11 +1114,11 @@ export class UsuarioEditComponent implements OnInit {
 
     this.userService.updateUserAssignments(this.user.id, assignments).subscribe({
       next: (response) => {
-        alert('Asignaciones del usuario actualizadas exitosamente');
+        
         this.router.navigate(['/super-config/usuarios']);
       },
       error: (error) => {
-        alert('Error actualizando usuario: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.saving = false;
       }
     });
@@ -1227,7 +1227,7 @@ export class UsuarioEditComponent implements OnInit {
     // Verificar que el módulo tenga VER primero
     if (!modulePermission || !verPermission || !modulePermission.permissions.includes(verPermission.id)) {
       event.target.checked = false;
-      alert('Primero debe seleccionar el módulo (VER) para poder usar "Seleccionar todos"');
+      
       return;
     }
     

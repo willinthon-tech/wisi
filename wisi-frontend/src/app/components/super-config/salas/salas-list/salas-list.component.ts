@@ -245,7 +245,7 @@ export class SalasListComponent implements OnInit {
   }
 
   deleteSala(sala: any) {
-    console.log('Mostrando modal de confirmación para sala:', sala.id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -266,16 +266,16 @@ export class SalasListComponent implements OnInit {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionSala(sala: any) {
-    console.log('Ejecutando eliminación de sala:', sala.id);
+    
     
     this.userService.deleteSala(sala.id).subscribe({
       next: (response) => {
-        console.log('Sala eliminada correctamente:', response);
+        
         this.loadSalas(); // Recargar la lista
-        alert('Sala eliminada correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando sala:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -291,7 +291,7 @@ export class SalasListComponent implements OnInit {
             helpText: 'Para eliminar esta sala, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando sala: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });

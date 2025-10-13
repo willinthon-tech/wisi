@@ -369,7 +369,7 @@ export class ModuloCreateComponent implements OnInit {
         this.availablePages = pages || [];
       },
       error: (error) => {
-        alert('Error cargando páginas: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
       }
     });
   }
@@ -378,7 +378,7 @@ export class ModuloCreateComponent implements OnInit {
     if (this.loading) return;
 
     if (!this.module.nombre.trim()) {
-      alert('Nombre es requerido');
+      
       return;
     }
 
@@ -393,11 +393,11 @@ export class ModuloCreateComponent implements OnInit {
 
     this.userService.createModule(moduleData).subscribe({
       next: (response) => {
-        alert('Módulo creado exitosamente');
+        
         this.router.navigate(['/super-config/modulos']);
       },
       error: (error) => {
-        alert('Error creando módulo: ' + (error.error?.message || error.message || 'Error desconocido'));
+        
         this.loading = false;
       }
     });

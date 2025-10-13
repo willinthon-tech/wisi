@@ -790,7 +790,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
         this.horarios = horarios;
       },
       error: (error) => {
-        alert('Error cargando horarios');
+        
       }
     });
   }
@@ -813,7 +813,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
         this.userSalas = salas;
       },
       error: (error: any) => {
-        alert('Error cargando salas');
+        
       }
     });
   }
@@ -869,14 +869,14 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   }
 
   onDescansoChange(bloque: any): void {
-    console.log('onDescansoChange - tiene_descanso:', bloque.tiene_descanso, typeof bloque.tiene_descanso);
+    
     if (bloque.tiene_descanso !== 'true') {
       // Limpiar las horas de descanso cuando se desactiva
-      console.log('Limpiando campos de descanso');
+      
       bloque.hora_entrada_descanso = '';
       bloque.hora_salida_descanso = '';
     } else {
-      console.log('Descanso activado - campos deberían estar habilitados');
+      
     }
     // Forzar detección de cambios
     this.cdr.detectChanges();
@@ -885,14 +885,14 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   // Función helper para verificar si los campos de descanso deben estar deshabilitados
   isDescansoDisabled(bloque: any): boolean {
     const isDisabled = bloque.turno === 'LIBRE' || bloque.turno === 'PERMISO' || bloque.turno === 'SUSPENDIDO' || bloque.tiene_descanso !== 'true';
-    console.log('isDescansoDisabled - turno:', bloque.turno, 'tiene_descanso:', bloque.tiene_descanso, 'disabled:', isDisabled);
+    
     return isDisabled;
   }
 
 
   createHorario(): void {
     if (!this.nuevoHorario.nombre || !this.nuevoHorario.sala_id || this.bloques.length === 0) {
-      alert('Por favor complete todos los campos requeridos');
+      
       return;
     }
 
@@ -913,7 +913,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     });
 
     if (bloquesInvalidos) {
-      alert('Por favor complete todos los campos requeridos de los bloques');
+      
       return;
     }
 
@@ -932,7 +932,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          alert('Error actualizando horario');
+          
         }
       });
     } else {
@@ -942,7 +942,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          alert('Error creando horario');
+          
         }
       });
     }
@@ -972,7 +972,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   deleteHorario(id: number | null): void {
     if (!id) return;
     
-    console.log('Mostrando modal de confirmación para horario:', id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -993,16 +993,16 @@ export class HorariosListComponent implements OnInit, OnDestroy {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionHorario(id: number) {
-    console.log('Ejecutando eliminación de horario:', id);
+    
     
     this.horariosService.deleteHorario(id).subscribe({
       next: (response) => {
-        console.log('Horario eliminado correctamente:', response);
+        
         this.horarios = this.horarios.filter(horario => horario.id !== id);
-        alert('Horario eliminado correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando horario:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -1018,7 +1018,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar este horario, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando horario: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });

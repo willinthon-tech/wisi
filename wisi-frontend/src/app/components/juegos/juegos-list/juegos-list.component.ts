@@ -571,7 +571,7 @@ export class JuegosListComponent implements OnInit, OnDestroy {
   }
 
   deleteJuego(id: number): void {
-    console.log('Mostrando modal de confirmación para juego:', id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -592,16 +592,16 @@ export class JuegosListComponent implements OnInit, OnDestroy {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionJuego(id: number) {
-    console.log('Ejecutando eliminación de juego:', id);
+    
     
     this.juegosService.deleteJuego(id).subscribe({
       next: () => {
-        console.log('Juego eliminado correctamente');
+        
         this.loadJuegos();
-        alert('Juego eliminado correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando juego:', error);
+        
         
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
@@ -616,7 +616,7 @@ export class JuegosListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar este juego, primero debe eliminar o reasignar los elementos relacionados.'
           });
         } else {
-          alert('Error eliminando juego: ' + (error.error?.message || 'Error desconocido'));
+          
         }
       }
     });

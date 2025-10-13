@@ -1325,7 +1325,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.empleados = empleados;
       },
       error: (error) => {
-        alert('Error cargando empleados');
+        
       }
     });
   }
@@ -1350,7 +1350,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.userCargos = cargos;
       },
       error: (error) => {
-        alert('Error cargando cargos');
+        
       }
     });
   }
@@ -1396,7 +1396,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           },
           error: (error: any) => {
             
-            alert('Error cargando dispositivos');
+            
           }
         });
       } else {
@@ -1538,7 +1538,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         
         // Verificar que sea una imagen válida
         if (!file.type.startsWith('image/')) {
-          alert('Por favor selecciona un archivo de imagen válido');
+          
           return;
         }
 
@@ -1556,7 +1556,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             this.initializeCropInModal();
           } else {
             this.originalImage = '';
-            alert('Esta imagen no es válida para un empleado. Por favor selecciona una foto de una persona.');
+            
           }
           
           this.isInitialValidating = false;
@@ -1565,7 +1565,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         
       } catch (error) {
         
-        alert('Error cargando la imagen. Intente con otra foto');
+        
       }
     }
   }
@@ -1769,7 +1769,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     
     // No mostrar alert para calidad buena/excelente, solo log
     if (quality.imageQuality === 'poor' || quality.imageQuality === 'fair') {
-      alert(message);
+      
     }
   }
 
@@ -1780,7 +1780,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       message += '\n\nRecomendaciones:\n• ' + quality.recommendations.join('\n• ');
     }
 
-    alert(message);
+    
   }
 
   // Métodos para el recorte manual
@@ -2447,7 +2447,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     // Obtener el empleado antes de eliminarlo para crear las tareas
     const empleado = this.empleados.find(e => e.id === id);
     
-    console.log('Mostrando modal de confirmación para empleado:', id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -2470,7 +2470,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   private ejecutarEliminacionEmpleado(id: number, empleado: any) {
     const dispositivosIds = empleado?.dispositivos?.map((d: any) => d.id) || [];
     
-    console.log('Ejecutando eliminación de empleado:', id);
+    
     
     this.empleadosService.deleteEmpleado(id).subscribe({
       next: async () => {
@@ -2480,10 +2480,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         }
         
         this.empleados = this.empleados.filter(empleado => empleado.id !== id);
-        alert('Empleado eliminado correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando empleado:', error);
+        
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
@@ -2499,7 +2499,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar este empleado, primero debe eliminar todos los elementos asociados listados arriba.'
           });
         } else {
-          alert('Error eliminando empleado: ' + (error.error?.message || error.message || 'Error desconocido'));
+          
         }
       }
     });
@@ -2532,7 +2532,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       this.router.navigate(['/empleados/user', user.id, 'tareas']);
     } else {
       
-      alert('Error: No se encontró información del usuario');
+      
     }
   }
 
@@ -2768,16 +2768,16 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // Calcular dispositivos que se quitan, agregan y permanecen
-      console.log('🔍 Dispositivos anteriores:', dispositivosAnteriores);
-      console.log('🔍 Dispositivos nuevos:', dispositivosNuevos);
+      
+      
       
       const dispositivosQueSeQuitan = dispositivosAnteriores.filter(id => !dispositivosNuevos.includes(id));
       const dispositivosQueSeAgregan = dispositivosNuevos.filter(id => !dispositivosAnteriores.includes(id));
       const dispositivosQuePermanecen = dispositivosAnteriores.filter(id => dispositivosNuevos.includes(id));
       
-      console.log('🔍 Dispositivos que se quitan:', dispositivosQueSeQuitan);
-      console.log('🔍 Dispositivos que se agregan:', dispositivosQueSeAgregan);
-      console.log('🔍 Dispositivos que permanecen:', dispositivosQuePermanecen);
+      
+      
+      
 
       
       
@@ -2884,14 +2884,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // 3. Crear tareas de EDITAR para dispositivos que permanecen
-      console.log('🔍 Dispositivos que permanecen:', dispositivosQuePermanecen);
+      
       if (dispositivosQuePermanecen.length > 0) {
         const dispositivosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosQuePermanecen).toPromise();
         
-        console.log('🔍 Datos de dispositivos que permanecen:', dispositivosData);
+        
         if (dispositivosData && dispositivosData.length > 0) {
           for (const dispositivo of dispositivosData) {
-            console.log('🔍 Creando tarea de Editar Usuario para dispositivo:', dispositivo.id);
+            
             // Tarea: Editar Usuario
             tareas.push({
               user_id: user.id,

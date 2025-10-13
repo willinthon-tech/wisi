@@ -13,7 +13,7 @@ const HIKCONNECT_CONFIG = {
 // Función para autenticación digest
 async function makeDigestRequest(url, username, password) {
   try {
-    console.log(`🔄 Haciendo petición digest a: ${url}`);
+    
     
     // Primera petición para obtener el challenge
     const firstResponse = await axios.get(url, {
@@ -24,25 +24,25 @@ async function makeDigestRequest(url, username, password) {
     });
     
     // Si llegamos aquí, no hubo 401, intentar autenticación básica
-    console.log('✅ Respuesta directa recibida, probando autenticación básica...');
+    
     return { success: true, data: firstResponse.data };
     
   } catch (error) {
     if (error.response && error.response.status === 401) {
-      console.log('✅ Challenge digest recibido');
+      
       
       // Extraer información del challenge
       const wwwAuthenticate = error.response.headers['www-authenticate'];
-      console.log(`🔐 WWW-Authenticate: ${wwwAuthenticate}`);
+      
       
       if (wwwAuthenticate && wwwAuthenticate.includes('Digest')) {
         // Parsear el challenge digest
         const challenge = parseDigestChallenge(wwwAuthenticate);
-        console.log('📋 Challenge parseado:', challenge);
+        
         
         // Generar respuesta digest
         const digestResponse = generateDigestResponse(challenge, username, password, url, 'GET');
-        console.log('🔑 Respuesta digest generada');
+        
         
         // Segunda petición con la respuesta digest
         try {
@@ -53,19 +53,19 @@ async function makeDigestRequest(url, username, password) {
             timeout: 10000
           });
           
-          console.log('✅ Autenticación digest exitosa!');
+          
           return { success: true, data: secondResponse.data };
           
         } catch (secondError) {
-          console.log(`❌ Error en segunda petición: ${secondError.message}`);
+          
           return { success: false, error: secondError.message };
         }
       } else {
-        console.log('❌ No se encontró challenge digest');
+        
         return { success: false, error: 'No digest challenge found' };
       }
     } else {
-      console.log(`❌ Error inesperado: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -124,47 +124,47 @@ function generateDigestResponse(challenge, username, password, uri, method) {
 
 // Función principal de prueba
 async function testHikConnectSpecific() {
-  console.log('🔍 Probando Hik-Connect específico con autenticación digest');
-  console.log('============================================================\n');
-  console.log(`📧 Email: ${HIKCONNECT_CONFIG.email}`);
-  console.log(`🔐 Password: ${HIKCONNECT_CONFIG.password}`);
-  console.log(`📱 Device Serial: ${HIKCONNECT_CONFIG.deviceSerial}`);
-  console.log(`🌐 Base URL: ${HIKCONNECT_CONFIG.baseUrl}`);
-  console.log(`📋 API Path: ${HIKCONNECT_CONFIG.apiPath}\n`);
+  
+  
+  
+  
+  
+  
+  
 
   // Construir URL completa
   const fullUrl = `${HIKCONNECT_CONFIG.baseUrl}${HIKCONNECT_CONFIG.apiPath}?serial=${HIKCONNECT_CONFIG.deviceSerial}`;
-  console.log(`🔗 URL completa: ${fullUrl}`);
+  
 
   try {
     // Probar con autenticación digest
-    console.log('\n🔄 Probando autenticación digest...');
+    
     const digestResult = await makeDigestRequest(fullUrl, HIKCONNECT_CONFIG.email, HIKCONNECT_CONFIG.password);
     
     if (digestResult.success) {
-      console.log('✅ ¡AUTENTICACIÓN DIGEST EXITOSA!');
-      console.log('📊 Datos del dispositivo:');
-      console.log(JSON.stringify(digestResult.data, null, 2));
+      
+      
+      
       
       // Probar otros endpoints
       await testOtherEndpoints();
       
     } else {
-      console.log(`❌ Error en autenticación digest: ${digestResult.error}`);
+      
       
       // Probar con autenticación básica como fallback
-      console.log('\n🔄 Probando autenticación básica como fallback...');
+      
       await testBasicAuth();
     }
     
   } catch (error) {
-    console.log(`❌ Error general: ${error.message}`);
+    
   }
 }
 
 // Función para probar otros endpoints
 async function testOtherEndpoints() {
-  console.log('\n🔄 Probando otros endpoints...');
+  
   
   const endpoints = [
     '/v3/open/trust/v1/group/device',
@@ -178,7 +178,7 @@ async function testOtherEndpoints() {
   for (const endpoint of endpoints) {
     try {
       const url = `${HIKCONNECT_CONFIG.baseUrl}${endpoint}?serial=${HIKCONNECT_CONFIG.deviceSerial}`;
-      console.log(`🔄 Probando: ${endpoint}`);
+      
       
       const response = await axios.get(url, {
         auth: {
@@ -188,16 +188,16 @@ async function testOtherEndpoints() {
         timeout: 10000
       });
       
-      console.log(`✅ ${endpoint} - Status: ${response.status}`);
+      
       if (response.data) {
-        console.log(`📊 Datos: ${JSON.stringify(response.data).substring(0, 100)}...`);
+        
       }
       
     } catch (error) {
       if (error.response) {
-        console.log(`❌ ${endpoint} - Status: ${error.response.status}`);
+        
       } else {
-        console.log(`❌ ${endpoint} - Error: ${error.message}`);
+        
       }
     }
   }
@@ -207,7 +207,7 @@ async function testOtherEndpoints() {
 async function testBasicAuth() {
   try {
     const url = `${HIKCONNECT_CONFIG.baseUrl}${HIKCONNECT_CONFIG.apiPath}?serial=${HIKCONNECT_CONFIG.deviceSerial}`;
-    console.log(`🔄 Probando autenticación básica en: ${url}`);
+    
     
     const response = await axios.get(url, {
       auth: {
@@ -217,17 +217,17 @@ async function testBasicAuth() {
       timeout: 10000
     });
     
-    console.log('✅ ¡AUTENTICACIÓN BÁSICA EXITOSA!');
-    console.log('📊 Datos del dispositivo:');
-    console.log(JSON.stringify(response.data, null, 2));
+    
+    
+    
     
     return true;
     
   } catch (error) {
     if (error.response) {
-      console.log(`❌ Error ${error.response.status}: ${error.response.data?.message || 'Error desconocido'}`);
+      
     } else {
-      console.log(`❌ Error: ${error.message}`);
+      
     }
     return false;
   }

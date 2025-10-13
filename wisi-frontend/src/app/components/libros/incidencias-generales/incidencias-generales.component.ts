@@ -393,7 +393,7 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
   }
 
   deleteIncidencia(id: number) {
-    console.log('Mostrando modal de confirmación para incidencia:', id);
+    
 
     // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
     this.confirmModalService.showConfirmModal({
@@ -414,16 +414,16 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
 
   // Método auxiliar para ejecutar la eliminación real
   private ejecutarEliminacionIncidencia(id: number) {
-    console.log('Ejecutando eliminación de incidencia:', id);
+    
     
     this.incidenciasGeneralesService.deleteIncidenciaGeneral(id).subscribe({
       next: () => {
-        console.log('Incidencia eliminada correctamente');
+        
         this.loadIncidencias(); // Recargar la lista
-        alert('Incidencia eliminada correctamente');
+        
       },
       error: (error: any) => {
-        console.error('Error eliminando incidencia:', error);
+        
         
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
@@ -438,7 +438,7 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar esta incidencia, primero debe eliminar o reasignar los elementos relacionados.'
           });
         } else {
-          alert('Error eliminando incidencia: ' + (error.error?.message || 'Error desconocido'));
+          
         }
       }
     });

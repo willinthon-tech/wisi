@@ -72,7 +72,7 @@ function downloadFile(url, filepath) {
 }
 
 async function downloadModels() {
-  console.log('Descargando modelos de face-api.js...');
+  
   
   // Crear directorio si no existe
   if (!fs.existsSync(modelsDir)) {
@@ -81,17 +81,17 @@ async function downloadModels() {
   
   for (const model of models) {
     const filepath = path.join(modelsDir, model.name);
-    console.log(`Descargando ${model.name}...`);
+    
     
     try {
       await downloadFile(model.url, filepath);
-      console.log(`✅ ${model.name} descargado correctamente`);
+      
     } catch (error) {
-      console.error(`❌ Error descargando ${model.name}:`, error.message);
+      
     }
   }
   
-  console.log('Descarga de modelos completada');
+  
 }
 
 downloadModels().catch(console.error);

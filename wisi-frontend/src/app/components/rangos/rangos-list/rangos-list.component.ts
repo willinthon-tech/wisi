@@ -568,7 +568,7 @@ export class RangosListComponent implements OnInit, OnDestroy {
 
   deleteRango(id: number): void {
     const rango = this.rangos.find(r => r.id === id);
-    console.log('Mostrando modal de confirmación para rango:', id);
+    
     this.confirmModalService.showConfirmModal({
       title: 'Confirmar Eliminación',
       message: '¿Está seguro de que desea eliminar este rango?',
@@ -585,15 +585,15 @@ export class RangosListComponent implements OnInit, OnDestroy {
   }
 
   private ejecutarEliminacionRango(id: number, rango: any) {
-    console.log('Ejecutando eliminación de rango:', id);
+    
     this.rangosService.deleteRango(id).subscribe({
       next: () => {
-        console.log('Rango eliminado correctamente');
+        
         this.loadRangos();
-        alert('Rango eliminado correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando rango:', error);
+        
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el rango',
@@ -607,7 +607,7 @@ export class RangosListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar este rango, primero debe eliminar o reasignar los elementos relacionados.'
           });
         } else {
-          alert('Error eliminando rango: ' + (error.error?.message || 'Error desconocido'));
+          
         }
       }
     });

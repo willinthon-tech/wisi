@@ -38,7 +38,7 @@ class WisiHikvisionHybrid {
     };
     
     this.isapiDevices.set(deviceId, device);
-    console.log(`📱 Dispositivo ISAPI registrado: ${deviceId} (${ip})`);
+    
     return device;
   }
 
@@ -58,7 +58,7 @@ class WisiHikvisionHybrid {
     };
     
     this.tppDevices.set(deviceId, device);
-    console.log(`📱 Dispositivo TPP registrado: ${deviceId}`);
+    
     return device;
   }
 
@@ -69,7 +69,7 @@ class WisiHikvisionHybrid {
    */
   async getUsers(deviceId) {
     try {
-      console.log(`👥 Obteniendo usuarios del dispositivo: ${deviceId}`);
+      
       
       // Verificar si es dispositivo ISAPI
       if (this.isapiDevices.has(deviceId)) {
@@ -86,7 +86,7 @@ class WisiHikvisionHybrid {
       return { success: false, error: 'Dispositivo no encontrado' };
       
     } catch (error) {
-      console.log(`❌ Error obteniendo usuarios: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -96,7 +96,7 @@ class WisiHikvisionHybrid {
    */
   async createUser(deviceId, userData) {
     try {
-      console.log(`👥 Creando usuario en dispositivo: ${deviceId}`);
+      
       
       // Verificar si es dispositivo ISAPI
       if (this.isapiDevices.has(deviceId)) {
@@ -113,7 +113,7 @@ class WisiHikvisionHybrid {
       return { success: false, error: 'Dispositivo no encontrado' };
       
     } catch (error) {
-      console.log(`❌ Error creando usuario: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -123,7 +123,7 @@ class WisiHikvisionHybrid {
    */
   async updateUser(deviceId, userId, userData) {
     try {
-      console.log(`👥 Actualizando usuario: ${userId} en dispositivo: ${deviceId}`);
+      
       
       // Verificar si es dispositivo ISAPI
       if (this.isapiDevices.has(deviceId)) {
@@ -140,7 +140,7 @@ class WisiHikvisionHybrid {
       return { success: false, error: 'Dispositivo no encontrado' };
       
     } catch (error) {
-      console.log(`❌ Error actualizando usuario: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -150,7 +150,7 @@ class WisiHikvisionHybrid {
    */
   async deleteUser(deviceId, userId) {
     try {
-      console.log(`👥 Eliminando usuario: ${userId} del dispositivo: ${deviceId}`);
+      
       
       // Verificar si es dispositivo ISAPI
       if (this.isapiDevices.has(deviceId)) {
@@ -167,7 +167,7 @@ class WisiHikvisionHybrid {
       return { success: false, error: 'Dispositivo no encontrado' };
       
     } catch (error) {
-      console.log(`❌ Error eliminando usuario: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -188,13 +188,13 @@ class WisiHikvisionHybrid {
         device.users = result.data;
         device.lastSeen = new Date();
         device.status = 'online';
-        console.log(`✅ Usuarios ISAPI obtenidos: ${result.data.length}`);
+        
       }
       
       return result;
       
     } catch (error) {
-      console.log(`❌ Error obteniendo usuarios ISAPI: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -205,13 +205,13 @@ class WisiHikvisionHybrid {
   async createISAPIUser(device, userData) {
     try {
       // Implementar creación de usuario ISAPI
-      console.log('🔧 Creando usuario ISAPI...');
+      
       
       // Por ahora, retornar éxito simulado
       return { success: true, message: 'Usuario ISAPI creado exitosamente' };
       
     } catch (error) {
-      console.log(`❌ Error creando usuario ISAPI: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -222,13 +222,13 @@ class WisiHikvisionHybrid {
   async updateISAPIUser(device, userId, userData) {
     try {
       // Implementar actualización de usuario ISAPI
-      console.log('🔧 Actualizando usuario ISAPI...');
+      
       
       // Por ahora, retornar éxito simulado
       return { success: true, message: 'Usuario ISAPI actualizado exitosamente' };
       
     } catch (error) {
-      console.log(`❌ Error actualizando usuario ISAPI: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -239,13 +239,13 @@ class WisiHikvisionHybrid {
   async deleteISAPIUser(device, userId) {
     try {
       // Implementar eliminación de usuario ISAPI
-      console.log('🔧 Eliminando usuario ISAPI...');
+      
       
       // Por ahora, retornar éxito simulado
       return { success: true, message: 'Usuario ISAPI eliminado exitosamente' };
       
     } catch (error) {
-      console.log(`❌ Error eliminando usuario ISAPI: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -258,7 +258,7 @@ class WisiHikvisionHybrid {
   async getTPPUsers(device) {
     try {
       // Implementar obtención de usuarios TPP
-      console.log('🏢 Obteniendo usuarios TPP...');
+      
       
       // Por ahora, retornar datos simulados
       return { 
@@ -268,7 +268,7 @@ class WisiHikvisionHybrid {
       };
       
     } catch (error) {
-      console.log(`❌ Error obteniendo usuarios TPP: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -279,7 +279,7 @@ class WisiHikvisionHybrid {
   async createTPPUser(device, userData) {
     try {
       // Implementar creación de usuario TPP
-      console.log('🏢 Creando usuario TPP...');
+      
       
       // Por ahora, retornar mensaje de espera
       return { 
@@ -288,7 +288,7 @@ class WisiHikvisionHybrid {
       };
       
     } catch (error) {
-      console.log(`❌ Error creando usuario TPP: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -299,7 +299,7 @@ class WisiHikvisionHybrid {
   async updateTPPUser(device, userId, userData) {
     try {
       // Implementar actualización de usuario TPP
-      console.log('🏢 Actualizando usuario TPP...');
+      
       
       // Por ahora, retornar mensaje de espera
       return { 
@@ -308,7 +308,7 @@ class WisiHikvisionHybrid {
       };
       
     } catch (error) {
-      console.log(`❌ Error actualizando usuario TPP: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -319,7 +319,7 @@ class WisiHikvisionHybrid {
   async deleteTPPUser(device, userId) {
     try {
       // Implementar eliminación de usuario TPP
-      console.log('🏢 Eliminando usuario TPP...');
+      
       
       // Por ahora, retornar mensaje de espera
       return { 
@@ -328,7 +328,7 @@ class WisiHikvisionHybrid {
       };
       
     } catch (error) {
-      console.log(`❌ Error eliminando usuario TPP: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }
@@ -361,7 +361,7 @@ class WisiHikvisionHybrid {
    */
   async syncData(deviceId) {
     try {
-      console.log(`🔄 Sincronizando datos del dispositivo: ${deviceId}`);
+      
       
       // Obtener datos de ISAPI
       const isapiData = await this.getUsers(deviceId);
@@ -369,13 +369,13 @@ class WisiHikvisionHybrid {
       // Si TPP está disponible, sincronizar
       if (this.tppDevices.has(deviceId)) {
         // Implementar sincronización TPP
-        console.log('🔄 Sincronizando con TPP...');
+        
       }
       
       return { success: true, message: 'Datos sincronizados exitosamente' };
       
     } catch (error) {
-      console.log(`❌ Error sincronizando datos: ${error.message}`);
+      
       return { success: false, error: error.message };
     }
   }

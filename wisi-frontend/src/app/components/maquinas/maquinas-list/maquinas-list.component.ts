@@ -576,7 +576,7 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
 
   deleteMaquina(id: number): void {
     const maquina = this.maquinas.find(m => m.id === id);
-    console.log('Mostrando modal de confirmación para máquina:', id);
+    
     this.confirmModalService.showConfirmModal({
       title: 'Confirmar Eliminación',
       message: '¿Está seguro de que desea eliminar esta máquina?',
@@ -593,15 +593,15 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
   }
 
   private ejecutarEliminacionMaquina(id: number, maquina: any) {
-    console.log('Ejecutando eliminación de máquina:', id);
+    
     this.maquinasService.deleteMaquina(id).subscribe({
       next: () => {
-        console.log('Máquina eliminada correctamente');
+        
         this.loadMaquinas();
-        alert('Máquina eliminada correctamente');
+        
       },
       error: (error) => {
-        console.error('Error eliminando máquina:', error);
+        
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la máquina',
@@ -615,7 +615,7 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
             helpText: 'Para eliminar esta máquina, primero debe eliminar o reasignar los elementos relacionados.'
           });
         } else {
-          alert('Error eliminando máquina: ' + (error.error?.message || 'Error desconocido'));
+          
         }
       }
     });
