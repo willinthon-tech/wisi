@@ -123,13 +123,19 @@ import { HorariosService } from '../../../services/horarios.service';
                       </td>
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
-                          [class.month-divider]="isMonthDivider(dia, i)"
                           [class]="getTurnoClass(empleado, dia)"
-                          [attr.rowspan]="getTurnoClass(empleado, dia) === 'turno-libre' ? 3 : 1">
+                          [attr.rowspan]="(isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)) ? 3 : 1">
                         <div class="horario-data" 
-                             [class.libre-vertical]="getTurnoClass(empleado, dia) === 'turno-libre'">
-                          <span *ngIf="getTurnoClass(empleado, dia) === 'turno-libre'">LIBRE</span>
-                          <span *ngIf="getTurnoClass(empleado, dia) !== 'turno-libre'">
+                             [class.libre-vertical]="isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)">
+                          <span *ngIf="isSinHorario(empleado, dia)">
+                            SIN HORARIO
+                          </span>
+                          <span *ngIf="!isSinHorario(empleado, dia) && isTurnoLibre(getBloqueHorario(empleado, dia)?.turno)">
+                            {{ getBloqueHorario(empleado, dia)?.turno === 'LIBRE' ? 'LIBRE' : 
+                               getBloqueHorario(empleado, dia)?.turno === 'PERMISO' ? 'PERMISO' : 
+                               getBloqueHorario(empleado, dia)?.turno === 'SUSPENDIDO' ? 'SUSPENDIDO' : '' }}
+                          </span>
+                          <span *ngIf="!isSinHorario(empleado, dia) && !isTurnoLibre(getBloqueHorario(empleado, dia)?.turno)">
                             {{ getHorarioInfo(empleado, dia, 'Entrada') }}
                           </span>
                         </div>
@@ -145,9 +151,8 @@ import { HorariosService } from '../../../services/horarios.service';
                       </td>
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
-                          [class.month-divider]="isMonthDivider(dia, i)"
                           [class]="getTurnoClass(empleado, dia)"
-                          [style.display]="getTurnoClass(empleado, dia) === 'turno-libre' ? 'none' : 'table-cell'">
+                          [style.display]="(isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)) ? 'none' : 'table-cell'">
                         <div class="horario-data">
                           {{ getHorarioInfo(empleado, dia, 'Descanso') }}
                         </div>
@@ -163,9 +168,8 @@ import { HorariosService } from '../../../services/horarios.service';
                       </td>
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
-                          [class.month-divider]="isMonthDivider(dia, i)"
                           [class]="getTurnoClass(empleado, dia)"
-                          [style.display]="getTurnoClass(empleado, dia) === 'turno-libre' ? 'none' : 'table-cell'">
+                          [style.display]="(isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)) ? 'none' : 'table-cell'">
                         <div class="horario-data" [innerHTML]="getHorarioInfo(empleado, dia, 'Salida')">
                         </div>
                         
@@ -487,9 +491,11 @@ import { HorariosService } from '../../../services/horarios.service';
     /* Fijar las etiquetas de horario (Entrada, Descanso, Salida) */
     .horario-cell {
       position: sticky !important;
-      left: 200px !important; /* Ancho de la columna empleado */
+      left: 150px !important; /* Ancho de la columna empleado */
       z-index: 9 !important;
       background-color: #4CAF50 !important;
+      height: 45px !important;
+      min-height: 45px !important;
     }
 
     /* Fijar el encabezado "Empleado" */
@@ -539,9 +545,9 @@ import { HorariosService } from '../../../services/horarios.service';
       text-align: center;
       border-bottom: 1px solid #eee;
       font-size: 12px;
-      height: 40px !important;
-      min-height: 40px !important;
-      max-height: 40px !important;
+      height: 45px !important;
+      min-height: 45px !important;
+      max-height: 45px !important;
       vertical-align: middle !important;
     }
 
@@ -556,8 +562,8 @@ import { HorariosService } from '../../../services/horarios.service';
 
 
     .empleado-completo-col, .empleado-completo-cell {
-      width: 200px;
-      min-width: 200px;
+      width: 150px;
+      min-width: 150px;
       text-align: left;
       border-right: 2px solid #ddd;
     }
@@ -655,8 +661,8 @@ import { HorariosService } from '../../../services/horarios.service';
     }
 
     .empleado-completo-col-empty {
-      width: 200px;
-      min-width: 200px;
+      width: 150px;
+      min-width: 150px;
       border-right: 2px solid rgba(255, 255, 255, 0.3);
     }
 
@@ -739,14 +745,16 @@ import { HorariosService } from '../../../services/horarios.service';
     }
 
     .horario-col, .horario-cell {
-      width: 80px;
-      min-width: 80px;
+      width: 60px;
+      min-width: 60px;
+      height: 45px;
+      min-height: 45px;
       text-align: left;
     }
 
     .horario-col-empty {
-      width: 80px;
-      min-width: 80px;
+      width: 60px;
+      min-width: 60px;
       border-right: 2px solid rgba(255, 255, 255, 0.3);
     }
 
@@ -801,9 +809,9 @@ import { HorariosService } from '../../../services/horarios.service';
       padding: 2px 1px !important;
       line-height: 1.2 !important;
       color: #333 !important;
-      height: 40px !important;
-      min-height: 40px !important;
-      max-height: 40px !important;
+      height: 45px !important;
+      min-height: 45px !important;
+      max-height: 45px !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
@@ -823,10 +831,19 @@ import { HorariosService } from '../../../services/horarios.service';
       background-color: #a8d5a8 !important;
     }
 
+    .turno-permiso {
+      background-color: #ffb366 !important;
+    }
+
+    .turno-suspendido {
+      background-color: #ff9999 !important;
+    }
+
     .sin-horario {
-      background-color: #f8f9fa !important;
-      color: #6c757d !important;
-      font-style: italic;
+      background-color: #ffffff !important;
+      color: #000000 !important;
+      font-style: normal;
+      font-weight: 500;
     }
 
     /* Estilo para texto LIBRE en diagonal */
@@ -839,15 +856,21 @@ import { HorariosService } from '../../../services/horarios.service';
       align-items: center;
       justify-content: center;
       height: 100%;
-      min-height: 90px;
-      max-height: 90px;
+      min-height: 135px;
+      max-height: 135px;
       transform: rotate(-45deg);
       transform-origin: center;
     }
 
+    /* Estilo específico para SIN HORARIO - sobrescribir el color blanco */
+    .sin-horario .libre-vertical {
+      color: #000000 !important;
+      background-color: #ffffff !important;
+    }
+
     /* Asegurar que las celdas LIBRE tengan la altura correcta */
     .turno-libre {
-      height: 90px;
+      height: 135px;
       vertical-align: middle;
     }
 
@@ -1387,6 +1410,22 @@ import { HorariosService } from '../../../services/horarios.service';
       border-radius: 0.375rem;
     }
 
+    .badge-permiso {
+      background-color: #fd7e14 !important;
+      color: #fff !important;
+      font-weight: bold;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+    }
+
+    .badge-suspendido {
+      background-color: #dc3545 !important;
+      color: #fff !important;
+      font-weight: bold;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.375rem;
+    }
+
     /* Estilos para el layout de 2 columnas */
     .empleado-info-section {
       background: #f8f9fa;
@@ -1574,13 +1613,95 @@ export class MarcajePersonalComponent implements OnInit {
       next: (response) => {
         this.empleados = response || [];
         
-        // Cargar marcajes para todos los empleados y esperar a que se completen
-        this.cargarMarcajesYAgrupar();
+        // Cargar horarios para todos los empleados primero
+        this.cargarHorariosYMarcajes();
       },
       error: (error) => {
         console.error('Error cargando empleados:', error);
         alert('Error cargando empleados: ' + (error.error?.message || 'Error desconocido'));
         this.loading = false;
+      }
+    });
+  }
+
+  cargarHorariosYMarcajes() {
+    this.marcajesPorEmpleado.clear();
+    
+    if (this.empleados.length === 0) {
+      this.agruparEmpleados();
+      this.loading = false;
+      return;
+    }
+
+    // Contador para saber cuándo terminar
+    let empleadosProcesados = 0;
+    const totalEmpleados = this.empleados.filter(e => e.id).length;
+
+    if (totalEmpleados === 0) {
+      this.agruparEmpleados();
+      this.loading = false;
+      return;
+    }
+
+    // Cargar horarios y marcajes para cada empleado
+    this.empleados.forEach(empleado => {
+      if (empleado.id) {
+        // Cargar horarios del empleado
+        this.empleadosService.getHorariosEmpleado(empleado.id).subscribe({
+          next: (horarios) => {
+            empleado.horariosEmpleado = horarios || [];
+            console.log(`Horarios cargados para ${empleado.nombre}:`, horarios?.length || 0, 'horarios');
+            
+            // Cargar marcajes del empleado
+            if (empleado.cedula) {
+              this.marcajesService.getMarcajes({
+                employee_no: empleado.cedula,
+                fecha_inicio: this.fechaDesde,
+                fecha_fin: this.fechaHasta
+              }).subscribe({
+                next: (response) => {
+                  console.log(`Marcajes cargados para ${empleado.cedula}:`, response.attlogs?.length || 0, 'marcajes');
+                  this.marcajesPorEmpleado.set(empleado.cedula, response.attlogs || []);
+                  empleadosProcesados++;
+                  
+                  // Cuando todos los empleados estén procesados, agrupar
+                  if (empleadosProcesados === totalEmpleados) {
+                    console.log('Todos los datos cargados, agrupando empleados...');
+                    this.agruparEmpleados();
+                    this.loading = false;
+                  }
+                },
+                error: (error) => {
+                  console.error(`Error cargando marcajes para ${empleado.cedula}:`, error);
+                  this.marcajesPorEmpleado.set(empleado.cedula, []);
+                  empleadosProcesados++;
+                  
+                  // Cuando todos los empleados estén procesados, agrupar
+                  if (empleadosProcesados === totalEmpleados) {
+                    this.agruparEmpleados();
+                    this.loading = false;
+                  }
+                }
+              });
+            } else {
+              empleadosProcesados++;
+              if (empleadosProcesados === totalEmpleados) {
+                this.agruparEmpleados();
+                this.loading = false;
+              }
+            }
+          },
+          error: (error) => {
+            console.error(`Error cargando horarios para ${empleado.nombre}:`, error);
+            empleado.horariosEmpleado = [];
+            empleadosProcesados++;
+            
+            if (empleadosProcesados === totalEmpleados) {
+              this.agruparEmpleados();
+              this.loading = false;
+            }
+          }
+        });
       }
     });
   }
@@ -1847,13 +1968,16 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Función para obtener el bloque de horario para un día específico
   getBloqueHorario(empleado: any, dia: Date): any {
-    if (!empleado.Horario || !empleado.Horario.bloques || empleado.Horario.bloques.length === 0) {
+    // Obtener el horario activo para este día
+    const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
+    
+    if (!horarioActivo || !horarioActivo.bloques || horarioActivo.bloques.length === 0) {
       return null;
     }
 
     // Asegurar que los bloques estén ordenados por 'orden'
-    const bloques = empleado.Horario.bloques.sort((a: any, b: any) => a.orden - b.orden);
-    const diasDesdeInicio = this.calcularDiasDesdeInicio(dia, empleado);
+    const bloques = horarioActivo.bloques.sort((a: any, b: any) => a.orden - b.orden);
+    const diasDesdeInicio = this.calcularDiasDesdeInicio(dia, empleado, horarioActivo);
     
     // Si el día es anterior a la fecha de inicio, retornar null (sin horario)
     if (diasDesdeInicio < 0) {
@@ -1873,17 +1997,55 @@ export class MarcajePersonalComponent implements OnInit {
     return bloques[indiceBloque];
   }
 
+  // Obtener el horario activo para una fecha específica
+  getHorarioActivoParaFecha(empleado: any, dia: Date): any {
+    if (!empleado.horariosEmpleado || empleado.horariosEmpleado.length === 0) {
+      return null;
+    }
+
+    const fechaStr = dia.toISOString().split('T')[0];
+    
+    // Ordenar horarios por fecha de inicio (más reciente primero)
+    const horariosOrdenados = empleado.horariosEmpleado.sort((a: any, b: any) => 
+      new Date(b.primer_dia).getTime() - new Date(a.primer_dia).getTime()
+    );
+
+    // Buscar el horario activo para esta fecha
+    for (const horarioEmpleado of horariosOrdenados) {
+      if (fechaStr >= horarioEmpleado.primer_dia) {
+        return horarioEmpleado.Horario;
+      }
+    }
+
+    return null;
+  }
+
   // Calcular días desde la fecha de inicio del horario
-  calcularDiasDesdeInicio(dia: Date, empleado?: any): number {
+  calcularDiasDesdeInicio(dia: Date, empleado?: any, horarioActivo?: any): number {
     let fechaInicioCiclo: Date | null = null;
 
-    // Prioridad 1: fecha_inicio del horario del empleado
-    if (empleado?.Horario?.fecha_inicio) {
-      const fechaStr = empleado.Horario.fecha_inicio.split('T')[0];
+    // Prioridad 1: fecha_inicio del horario activo
+    if (horarioActivo?.fecha_inicio) {
+      const fechaStr = horarioActivo.fecha_inicio.split('T')[0];
       const [año, mes, dia] = fechaStr.split('-').map(Number);
       fechaInicioCiclo = new Date(año, mes - 1, dia);
     }
-    // Prioridad 2: fechaDesde del componente (inicio del rango de visualización)
+    // Prioridad 2: primer_dia del horario empleado
+    else if (empleado?.horariosEmpleado) {
+      const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
+      if (horarioActivo) {
+        // Buscar el horario empleado correspondiente
+        const horarioEmpleado = empleado.horariosEmpleado.find((he: any) => 
+          he.Horario && he.Horario.id === horarioActivo.id
+        );
+        if (horarioEmpleado) {
+          const fechaStr = horarioEmpleado.primer_dia.split('T')[0];
+          const [año, mes, dia] = fechaStr.split('-').map(Number);
+          fechaInicioCiclo = new Date(año, mes - 1, dia);
+        }
+      }
+    }
+    // Prioridad 3: fechaDesde del componente (inicio del rango de visualización)
     else {
       fechaInicioCiclo = new Date(this.fechaDesde);
     }
@@ -2497,6 +2659,30 @@ export class MarcajePersonalComponent implements OnInit {
     return resultado;
   }
 
+  // Verificar si un turno es de tipo "libre" (no requiere marcajes)
+  isTurnoLibre(turno: string): boolean {
+    return turno === 'LIBRE' || turno === 'PERMISO' || turno === 'SUSPENDIDO';
+  }
+
+  // Verificar si es sin horario (fechas anteriores a la fecha de inicio)
+  isSinHorario(empleado: any, dia: Date): boolean {
+    // Verificar si el empleado tiene horarios asignados
+    if (!empleado.horariosEmpleado || empleado.horariosEmpleado.length === 0) {
+      console.log('SIN HORARIO - Empleado sin horarios asignados:', empleado.nombre, dia.toISOString().split('T')[0]);
+      return true;
+    }
+    
+    const bloque = this.getBloqueHorario(empleado, dia);
+    const esSinHorario = !bloque; // Si no hay bloque, es sin horario
+    
+    // Debug: Log para verificar
+    if (esSinHorario) {
+      console.log('SIN HORARIO detectado para:', empleado.nombre, dia.toISOString().split('T')[0]);
+    }
+    
+    return esSinHorario;
+  }
+
   // Obtener clase CSS para el turno
   getTurnoClass(empleado: any, dia: Date): string {
     const bloque = this.getBloqueHorario(empleado, dia);
@@ -2512,6 +2698,10 @@ export class MarcajePersonalComponent implements OnInit {
         return 'turno-nocturno';
       case 'LIBRE':
         return 'turno-libre';
+      case 'PERMISO':
+        return 'turno-permiso';
+      case 'SUSPENDIDO':
+        return 'turno-suspendido';
       default:
         return '';
     }
@@ -2638,7 +2828,10 @@ export class MarcajePersonalComponent implements OnInit {
         console.log('Horario asignado correctamente:', response);
         alert('Horario asignado correctamente');
         this.resetearFormulario();
-        this.cargarHorariosEmpleado(); // Recargar la lista
+        this.cargarHorariosEmpleado(); // Recargar la lista del modal
+        
+        // ✅ ACTUALIZAR LA VISTA PRINCIPAL
+        this.actualizarVistaPrincipal();
       },
       error: (error) => {
         console.error('Error asignando horario:', error);
@@ -2663,7 +2856,10 @@ export class MarcajePersonalComponent implements OnInit {
       next: (response) => {
         console.log('Horario eliminado correctamente:', response);
         alert('Horario eliminado correctamente');
-        this.cargarHorariosEmpleado(); // Recargar la lista
+        this.cargarHorariosEmpleado(); // Recargar la lista del modal
+        
+        // ✅ ACTUALIZAR LA VISTA PRINCIPAL
+        this.actualizarVistaPrincipal();
       },
       error: (error) => {
         console.error('Error eliminando horario:', error);
@@ -2677,7 +2873,9 @@ export class MarcajePersonalComponent implements OnInit {
     const turnos: { [key: string]: string } = {
       'DIURNO': 'D',
       'NOCTURNO': 'N',
-      'LIBRE': 'L'
+      'LIBRE': 'L',
+      'PERMISO': 'P',
+      'SUSPENDIDO': 'S'
     };
     return turnos[turno] || turno;
   }
@@ -2686,7 +2884,9 @@ export class MarcajePersonalComponent implements OnInit {
     const clases: { [key: string]: string } = {
       'DIURNO': 'badge-diurno',
       'NOCTURNO': 'badge-nocturno',
-      'LIBRE': 'badge-libre'
+      'LIBRE': 'badge-libre',
+      'PERMISO': 'badge-permiso',
+      'SUSPENDIDO': 'badge-suspendido'
     };
     return clases[turno] || 'badge-secondary';
   }
@@ -2717,5 +2917,13 @@ export class MarcajePersonalComponent implements OnInit {
 
     // El más reciente es el primero en la lista ordenada
     return horariosOrdenados[0]?.id === horarioId;
+  }
+
+  // Función para actualizar la vista principal después de modificar horarios
+  actualizarVistaPrincipal() {
+    console.log('Actualizando vista principal...');
+    
+    // Recargar todos los datos de la vista principal
+    this.cargarDatos();
   }
 }

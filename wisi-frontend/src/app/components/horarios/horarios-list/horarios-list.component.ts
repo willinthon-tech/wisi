@@ -149,8 +149,8 @@ import { Subscription } from 'rxjs';
                               [(ngModel)]="bloque.hora_entrada"
                               name="hora_entrada_{{i}}"
                               class="form-control"
-                              [disabled]="bloque.turno === 'LIBRE'"
-                              [required]="bloque.turno !== 'LIBRE'"
+                              [disabled]="bloque.turno === 'LIBRE' || bloque.turno === 'PERMISO' || bloque.turno === 'SUSPENDIDO'"
+                              [required]="bloque.turno !== 'LIBRE' && bloque.turno !== 'PERMISO' && bloque.turno !== 'SUSPENDIDO'"
                             />
                           </div>
                         </div>
@@ -162,8 +162,8 @@ import { Subscription } from 'rxjs';
                               [(ngModel)]="bloque.hora_salida"
                               name="hora_salida_{{i}}"
                               class="form-control"
-                              [disabled]="bloque.turno === 'LIBRE'"
-                              [required]="bloque.turno !== 'LIBRE'"
+                              [disabled]="bloque.turno === 'LIBRE' || bloque.turno === 'PERMISO' || bloque.turno === 'SUSPENDIDO'"
+                              [required]="bloque.turno !== 'LIBRE' && bloque.turno !== 'PERMISO' && bloque.turno !== 'SUSPENDIDO'"
                             />
                           </div>
                         </div>
@@ -181,6 +181,8 @@ import { Subscription } from 'rxjs';
                               <option value="DIURNO">Diurno</option>
                               <option value="NOCTURNO">Nocturno</option>
                               <option value="LIBRE">Libre</option>
+                              <option value="PERMISO">Permiso</option>
+                              <option value="SUSPENDIDO">Suspendido</option>
                             </select>
                           </div>
                         </div>
@@ -221,7 +223,7 @@ import { Subscription } from 'rxjs';
                               [(ngModel)]="bloque.tiene_descanso"
                               name="tiene_descanso_{{i}}"
                               class="form-control"
-                              [disabled]="bloque.turno === 'LIBRE'"
+                              [disabled]="bloque.turno === 'LIBRE' || bloque.turno === 'PERMISO' || bloque.turno === 'SUSPENDIDO'"
                               (change)="onDescansoChange(bloque)"
                             >
                               <option value="">Seleccione una opción</option>
@@ -644,6 +646,16 @@ import { Subscription } from 'rxjs';
       color: #fff !important;
     }
 
+    .badge-permiso {
+      background-color: #fd7e14 !important;
+      color: #fff !important;
+    }
+
+    .badge-suspendido {
+      background-color: #dc3545 !important;
+      color: #fff !important;
+    }
+
     .text-success {
       color: #198754 !important;
     }
@@ -844,8 +856,8 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   }
 
   onTurnoChange(bloque: any): void {
-    if (bloque.turno === 'LIBRE') {
-      // Limpiar las horas cuando es libre
+    if (bloque.turno === 'LIBRE' || bloque.turno === 'PERMISO' || bloque.turno === 'SUSPENDIDO') {
+      // Limpiar las horas cuando es libre, permiso o suspendido
       bloque.hora_entrada = '';
       bloque.hora_salida = '';
       bloque.hora_entrada_descanso = '';
@@ -870,7 +882,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
 
   // Función helper para verificar si los campos de descanso deben estar deshabilitados
   isDescansoDisabled(bloque: any): boolean {
-    const isDisabled = bloque.turno === 'LIBRE' || bloque.tiene_descanso !== 'true';
+    const isDisabled = bloque.turno === 'LIBRE' || bloque.turno === 'PERMISO' || bloque.turno === 'SUSPENDIDO' || bloque.tiene_descanso !== 'true';
     console.log('isDescansoDisabled - turno:', bloque.turno, 'tiene_descanso:', bloque.tiene_descanso, 'disabled:', isDisabled);
     return isDisabled;
   }
@@ -885,8 +897,8 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     // Validar que todos los bloques tengan datos
     const bloquesInvalidos = this.bloques.some(bloque => {
       if (!bloque.turno) return true;
-      // Si no es libre, debe tener horas
-      if (bloque.turno !== 'LIBRE') {
+      // Si no es libre, permiso o suspendido, debe tener horas
+      if (bloque.turno !== 'LIBRE' && bloque.turno !== 'PERMISO' && bloque.turno !== 'SUSPENDIDO') {
         const tieneHorasBasicas = !bloque.hora_entrada || !bloque.hora_salida;
         // Si tiene descanso activado, debe tener horas de descanso
         if (bloque.tiene_descanso === 'true') {
@@ -988,7 +1000,9 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     const turnos: { [key: string]: string } = {
       'DIURNO': 'D',
       'NOCTURNO': 'N',
-      'LIBRE': 'L'
+      'LIBRE': 'L',
+      'PERMISO': 'P',
+      'SUSPENDIDO': 'S'
     };
     return turnos[turno] || turno;
   }
@@ -997,7 +1011,9 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     const clases: { [key: string]: string } = {
       'DIURNO': 'badge-diurno',
       'NOCTURNO': 'badge-nocturno',
-      'LIBRE': 'badge-libre'
+      'LIBRE': 'badge-libre',
+      'PERMISO': 'badge-permiso',
+      'SUSPENDIDO': 'badge-suspendido'
     };
     return clases[turno] || 'badge-secondary';
   }
