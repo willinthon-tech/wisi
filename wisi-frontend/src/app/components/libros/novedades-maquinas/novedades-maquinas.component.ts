@@ -755,7 +755,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   libro: any = null;
   
   novedadData: NovedadData = {
-    hora: '',
+    hora: this.getCurrentTime(),
     descripcion: ''
   };
 
@@ -1019,8 +1019,15 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   resetForm() {
     this.selectedMaquinaIds = [];
     this.selectedEmpleadoId = null;
-    this.novedadData.hora = '';
+    this.novedadData.hora = this.getCurrentTime();
     this.novedadData.descripcion = '';
+  }
+
+  private getCurrentTime(): string {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
   }
 
   getSalaName(): string {

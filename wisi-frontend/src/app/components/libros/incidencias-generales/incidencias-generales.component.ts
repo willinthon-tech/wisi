@@ -282,7 +282,7 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
   
   incidenciaData = {
     descripcion: '',
-    hora: ''
+    hora: this.getCurrentTime()
   };
 
   private readonly CECOM_MODULE_ID = 3; // ID del módulo CECOM
@@ -446,7 +446,14 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
 
   resetForm() {
     this.incidenciaData.descripcion = '';
-    this.incidenciaData.hora = '';
+    this.incidenciaData.hora = this.getCurrentTime();
+  }
+
+  private getCurrentTime(): string {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
   }
 
   loadLibro() {
