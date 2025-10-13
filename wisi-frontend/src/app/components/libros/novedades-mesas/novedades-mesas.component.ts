@@ -79,19 +79,26 @@ interface Sala {
           </div>
 
           <div class="form-group">
-            <label for="empleadoSelect">Empleado:</label>
-            <select 
-              id="empleadoSelect" 
-              name="empleadoSelect"
-              [(ngModel)]="novedadData.empleado_id"
+            <label for="empleadoInput">Empleado:</label>
+            <input 
+              type="text" 
+              id="empleadoInput" 
+              name="empleadoInput"
+              [(ngModel)]="empleadoSearchText"
+              (input)="onEmpleadoSearch($event)"
+              (focus)="onEmpleadoFocus()"
+              (blur)="onEmpleadoBlur()"
               class="form-control"
+              placeholder="Escribir para buscar empleado..."
+              list="empleadosList"
               required
             >
-              <option value="">Seleccionar empleado...</option>
-              <option *ngFor="let empleado of empleados" [value]="empleado.id">
-                {{ empleado.nombre }}
+            <datalist id="empleadosList">
+              <option *ngFor="let empleado of empleados" [value]="empleado.nombre" [attr.data-id]="empleado.id">
+                {{ empleado.nombre }} - {{ empleado.cedula }}
               </option>
-            </select>
+            </datalist>
+            <input type="hidden" [(ngModel)]="novedadData.empleado_id" name="empleado_id">
           </div>
 
           <div class="form-group">
@@ -119,7 +126,7 @@ interface Sala {
             />
           </div>
 
-          <button type="submit" class="btn btn-success" [disabled]="!novedadForm.form.valid">
+          <button type="submit" class="btn btn-success" [disabled]="!novedadForm.form.valid || !isEmpleadoValid()">
             Guardar
           </button>
         </form>
@@ -381,6 +388,10 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
     mesa_id: null,
     empleado_id: null
   };
+
+  // Propiedades para el input de empleado
+  empleadoSearchText: string = '';
+  empleadoSelected: any = null;
   libroId: number | null = null;
   salaId: number | null = null;
   salaName: string = 'Sala';
@@ -579,6 +590,70 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
       mesa_id: null,
       empleado_id: null
     };
+    this.empleadoSearchText = '';
+    this.empleadoSelected = null;
+  }
+
+  // Métodos para el input de empleado
+  onEmpleadoSearch(event: any) {
+    const searchText = event.target.value;
+    this.empleadoSearchText = searchText;
+    
+    // Buscar empleado por nombre exacto (no parcial)
+    const empleado = this.empleados.find(emp => 
+      emp.nombre.toLowerCase() === searchText.toLowerCase()
+    );
+    
+    if (empleado) {
+      this.novedadData.empleado_id = empleado.id;
+      this.empleadoSelected = empleado;
+      console.log('✅ Empleado seleccionado:', empleado.nombre, 'ID:', empleado.id);
+    } else {
+      this.novedadData.empleado_id = null;
+      this.empleadoSelected = null;
+      console.log('❌ Empleado no encontrado:', searchText);
+    }
+  }
+
+  onEmpleadoFocus() {
+    // Opcional: cargar todos los empleados si no están cargados
+  }
+
+  onEmpleadoBlur() {
+    // Validar que el empleado seleccionado sea válido
+    if (this.empleadoSearchText && !this.empleadoSelected) {
+      // Si hay texto pero no se encontró empleado, limpiar
+      console.log('⚠️ Empleado inválido, limpiando selección');
+      this.empleadoSearchText = '';
+      this.novedadData.empleado_id = null;
+    }
+    
+    // Verificar que el empleado esté realmente seleccionado
+    if (this.empleadoSearchText && this.empleadoSelected) {
+      const empleadoValido = this.empleados.find(emp => 
+        emp.nombre.toLowerCase() === this.empleadoSearchText.toLowerCase()
+      );
+      
+      if (!empleadoValido) {
+        console.log('⚠️ Empleado no válido, limpiando selección');
+        this.empleadoSearchText = '';
+        this.novedadData.empleado_id = null;
+        this.empleadoSelected = null;
+      }
+    }
+  }
+
+  // Método para verificar si el empleado está válidamente seleccionado
+  isEmpleadoValid(): boolean {
+    if (!this.empleadoSearchText || !this.empleadoSelected) {
+      return false;
+    }
+    
+    const empleadoValido = this.empleados.find(emp => 
+      emp.nombre.toLowerCase() === this.empleadoSearchText.toLowerCase()
+    );
+    
+    return empleadoValido !== undefined;
   }
 
   private getCurrentTime(): string {
