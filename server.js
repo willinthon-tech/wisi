@@ -5289,6 +5289,19 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
         order: [['nombre', 'ASC']]
       });
 
+      // Agregar dispositivos a cada empleado para usuarios TODO
+      for (let empleado of empleados) {
+        const dispositivos = await sequelize.query(
+          'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+          {
+            replacements: [empleado.id],
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+        
+        empleado.dataValues.dispositivos = dispositivos;
+      }
+
       return res.json(empleados);
     }
 

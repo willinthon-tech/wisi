@@ -313,7 +313,7 @@ import { Subscription } from 'rxjs';
                 </div>
                 <small class="form-text text-muted">
                   <span *ngIf="!nuevoEmpleado.cargo_id">Selecciona un cargo primero</span>
-                  <span *ngIf="nuevoEmpleado.cargo_id && userDispositivos.length > 0">Selecciona uno o varios dispositivos de la sala</span>
+                  <span *ngIf="nuevoEmpleado.cargo_id && userDispositivos.length > 0">Opcional: Selecciona uno o varios dispositivos de la sala</span>
                   <span *ngIf="nuevoEmpleado.cargo_id && userDispositivos.length === 0">Esta sala no tiene dispositivos disponibles</span>
                 </small>
               </div>
@@ -326,7 +326,7 @@ import { Subscription } from 'rxjs';
                 <button type="button" class="btn btn-secondary" (click)="closeCargoSelector()">
                   Cancelar
                 </button>
-                <button type="submit" class="btn btn-success" [disabled]="!empleadoForm.form.valid || !isFotoValid() || cedulaError || validandoCedula || (selectedEmpleado && !hasChanges)">
+                <button type="submit" class="btn btn-success" [disabled]="!isFormValid()">
                   {{ selectedEmpleado ? 'Actualizar Empleado' : 'Guardar Empleado' }}
                 </button>
               </div>
@@ -1192,10 +1192,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   
   hasChanges: boolean = false;
   
-  // Método para debuggear el estado completo
-  debugEstado(): void {
-    // Debug estado completo
-  }
   
   // Método para forzar el mapeo de dispositivos (para testing)
   forzarMapeoDispositivos(): void {
@@ -1273,7 +1269,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   // Helper para convertir EmpleadoForm a Partial<Empleado>
   private toEmpleadoData(form: EmpleadoForm): any {
-    return {
+    const data = {
       id: form.id || undefined,
       foto: form.foto,
       nombre: form.nombre,
@@ -1284,6 +1280,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       cargo_id: form.cargo_id || undefined,
       dispositivos: form.dispositivos || []
     };
+    
+    return data;
   }
 
   ngOnInit(): void {
@@ -1312,7 +1310,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   canEdit(): boolean {
-    return this.permissionsService.hasPermission(this.EMPLEADOS_MODULE_ID, 'EDITAR');
+    const canEdit = this.permissionsService.hasPermission(this.EMPLEADOS_MODULE_ID, 'EDITAR');
+    console.log('🔐 Can edit empleados:', canEdit);
+    return canEdit;
   }
 
   canDelete(): boolean {
@@ -1325,7 +1325,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.empleados = empleados;
       },
       error: (error) => {
-        
+        console.error('Error cargando empleados:', error);
       }
     });
   }
@@ -1345,18 +1345,22 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   loadUserCargos(): void {
+    console.log('📋 Cargando cargos del usuario...');
     this.empleadosService.getUserCargos().subscribe({
       next: (cargos) => {
+        console.log('📋 Cargos cargados:', cargos);
         this.userCargos = cargos;
       },
       error: (error) => {
-        
+        console.error('📋 Error cargando cargos:', error);
       }
     });
   }
 
 
   loadUserDispositivos(): void {
+    console.log('📱 Cargando dispositivos para cargo:', this.nuevoEmpleado.cargo_id);
+    
     // Solo cargar dispositivos si hay un cargo seleccionado
     if (this.nuevoEmpleado.cargo_id) {
       // Buscar el cargo seleccionado (manejar tanto string como number)
@@ -1366,77 +1370,77 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         Number(cargo.id) === this.nuevoEmpleado.cargo_id
       );
       
+      console.log('📱 Cargo seleccionado:', cargoSeleccionado);
+      
       if (cargoSeleccionado) {
         this.empleadosService.getUserDispositivos().subscribe({
           next: (dispositivos: any[]) => {
+            console.log('📱 Todos los dispositivos disponibles:', dispositivos);
             
             // Filtrar dispositivos por la sala del cargo seleccionado
             if (cargoSeleccionado.Departamento?.Area?.Sala?.id) {
               const salaId = cargoSeleccionado.Departamento.Area.Sala.id;
-              
+              console.log('📱 Filtrando por sala ID:', salaId);
               
               this.userDispositivos = dispositivos.filter(dispositivo => {
-                
-                return dispositivo.Sala?.id === salaId;
+                const dispositivoSalaId = dispositivo.Sala?.id;
+                console.log('📱 Dispositivo:', dispositivo.nombre, 'Sala ID:', dispositivoSalaId, 'Coincide:', dispositivoSalaId === salaId);
+                return dispositivoSalaId === salaId;
               });
               
-              
-              
+              console.log('📱 Dispositivos filtrados:', this.userDispositivos);
               
               // Forzar detección de cambios para actualizar los checkboxes
               setTimeout(() => {
-                
-                
-                
+                console.log('📱 Dispositivos seleccionados actualmente:', this.nuevoEmpleado.dispositivos);
+                this.forceCheckboxUpdate();
               }, 50);
             } else {
-              
+              console.log('📱 No se encontró sala en el cargo');
               this.userDispositivos = [];
             }
           },
           error: (error: any) => {
-            
-            
+            console.error('📱 Error cargando dispositivos:', error);
           }
         });
       } else {
-        
+        console.log('📱 No se encontró el cargo seleccionado');
         this.userDispositivos = [];
       }
     } else {
+      console.log('📱 No hay cargo seleccionado');
       this.userDispositivos = [];
     }
   }
 
   onCargoChange(): void {
+    console.log('🔄 Cambio de cargo detectado');
+    console.log('🔄 Cargo seleccionado:', this.nuevoEmpleado.cargo_id);
+    console.log('🔄 Es edición:', !!this.selectedEmpleado);
     
     // Guardar dispositivos actuales antes de cambiar
     const dispositivosActuales = [...(this.nuevoEmpleado.dispositivos || [])];
-    
+    console.log('🔄 Dispositivos actuales:', dispositivosActuales);
     
     // Solo limpiar dispositivos si es un empleado nuevo
     if (!this.selectedEmpleado) {
       // Solo para empleados nuevos, limpiar dispositivos si no hay cargo
       if (!this.nuevoEmpleado.cargo_id) {
-        
+        console.log('🔄 Limpiando dispositivos (empleado nuevo sin cargo)');
         this.nuevoEmpleado.dispositivos = [];
       }
     } else {
       // Si es edición, NUNCA limpiar dispositivos automáticamente
-      
-      
+      console.log('🔄 Manteniendo dispositivos (modo edición)');
       
       const cargoAnterior = this.selectedEmpleado.Cargo?.id;
       const cargoNuevo = this.nuevoEmpleado.cargo_id;
-      
-      
-      
+      console.log('🔄 Cargo anterior:', cargoAnterior, 'Cargo nuevo:', cargoNuevo);
       
       // En edición, siempre mantener los dispositivos seleccionados
-      
+      console.log('🔄 Dispositivos mantenidos:', this.nuevoEmpleado.dispositivos);
     }
-    
-    
     
     // Cargar dispositivos de la nueva sala
     this.loadUserDispositivos();
@@ -1451,34 +1455,67 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   // Función helper para verificar si un dispositivo está seleccionado
   isDispositivoSelected(dispositivoId: number): boolean {
+    console.log('🔍 Verificando si dispositivo', dispositivoId, 'está seleccionado');
+    console.log('🔍 Dispositivos en nuevoEmpleado:', this.nuevoEmpleado.dispositivos);
+    console.log('🔍 Tipo de dispositivos:', typeof this.nuevoEmpleado.dispositivos);
+    console.log('🔍 Es array:', Array.isArray(this.nuevoEmpleado.dispositivos));
+    
     if (!this.nuevoEmpleado.dispositivos || !Array.isArray(this.nuevoEmpleado.dispositivos)) {
-      
+      console.log('🔍 No hay dispositivos o no es array, retornando false');
       return false;
     }
+    
     const isSelected = this.nuevoEmpleado.dispositivos.includes(dispositivoId);
+    console.log('🔍 Dispositivo', dispositivoId, 'está seleccionado:', isSelected);
     
     return isSelected;
   }
 
+  // Método para forzar la actualización de los checkboxes
+  forceCheckboxUpdate(): void {
+    console.log('🔄 Forzando actualización de checkboxes');
+    console.log('🔄 Dispositivos disponibles:', this.userDispositivos);
+    console.log('🔄 Dispositivos seleccionados:', this.nuevoEmpleado.dispositivos);
+    
+    // Forzar detección de cambios
+    this.detectChanges();
+    
+    // Pequeño delay para asegurar que Angular actualice la vista
+    setTimeout(() => {
+      console.log('🔄 Checkboxes actualizados');
+    }, 100);
+  }
+
+  // Método de debugging para ver el estado completo
+  debugEstado(): void {
+    console.log('🐛 === DEBUG ESTADO COMPLETO ===');
+    console.log('🐛 Empleado seleccionado:', this.selectedEmpleado?.nombre);
+    console.log('🐛 Es edición:', !!this.selectedEmpleado);
+    console.log('🐛 Cargo seleccionado:', this.nuevoEmpleado.cargo_id);
+    console.log('🐛 Dispositivos en nuevoEmpleado:', this.nuevoEmpleado.dispositivos);
+    console.log('🐛 Dispositivos disponibles:', this.userDispositivos);
+    console.log('🐛 Has changes:', this.hasChanges);
+    
+    if (this.userDispositivos.length > 0) {
+      console.log('🐛 Verificando estado de cada checkbox:');
+      this.userDispositivos.forEach(dispositivo => {
+        const isSelected = this.isDispositivoSelected(dispositivo.id);
+        console.log(`🐛   - ${dispositivo.nombre} (ID: ${dispositivo.id}): ${isSelected ? 'SELECCIONADO' : 'NO SELECCIONADO'}`);
+      });
+    }
+    console.log('🐛 === FIN DEBUG ===');
+  }
+
   onDispositivoChange(dispositivoId: number, event: any): void {
-    
-    
-    
     if (event.target.checked) {
       // Agregar dispositivo si no está ya seleccionado
       if (!this.nuevoEmpleado.dispositivos.includes(dispositivoId)) {
         this.nuevoEmpleado.dispositivos.push(dispositivoId);
-        
-      } else {
-        
       }
     } else {
       // Remover dispositivo
       this.nuevoEmpleado.dispositivos = this.nuevoEmpleado.dispositivos.filter(id => id !== dispositivoId);
-      
     }
-    
-    
     
     // Detectar cambios
     this.detectChanges();
@@ -1499,6 +1536,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       cargo_id: null,
       dispositivos: []
     };
+    
+    console.log('🔄 Formulario reseteado');
+    console.log('🔄 Nuevo empleado inicializado:', this.nuevoEmpleado);
     
     // Limpiar variables de procesamiento de imagen
     this.originalImage = '';
@@ -2286,6 +2326,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     
     this.hasChanges = basicFieldsChanged || fotoChanged || dispositivosChanged;
     
+    console.log('🔍 Detectando cambios:');
+    console.log('  - Campos básicos:', basicFieldsChanged);
+    console.log('  - Foto:', fotoChanged);
+    console.log('  - Dispositivos originales:', dispositivosOriginales);
+    console.log('  - Dispositivos nuevos:', dispositivosNuevos);
+    console.log('  - Dispositivos cambiaron:', dispositivosChanged);
+    console.log('  - Has changes:', this.hasChanges);
+    
     
     
     
@@ -2390,22 +2438,21 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   editEmpleado(empleado: any): void {
-    
-    
-    
-    
-    
-    
+    console.log('🚀 ===== INICIANDO EDICIÓN DE EMPLEADO =====');
+    console.log('🚀 MÉTODO EJECUTADO - CLICK EN BOTÓN EDITAR');
+    console.log('🚀 Empleado recibido:', empleado);
+    console.log('🚀 Nombre:', empleado.nombre);
+    console.log('🚀 ID:', empleado.id);
+    console.log('🚀 ===========================================');
     
     // Log detallado de dispositivos asociados al empleado
     if (empleado.dispositivos && empleado.dispositivos.length > 0) {
-      
+      console.log('🚀 Dispositivos del empleado:', empleado.dispositivos);
       empleado.dispositivos.forEach((dispositivo: any, index: number) => {
-        
+        console.log(`🚀 Dispositivo ${index + 1}:`, dispositivo);
       });
     } else {
-      
-      
+      console.log('🚀 El empleado NO tiene dispositivos asignados');
     }
     
     this.selectedEmpleado = empleado;
@@ -2421,6 +2468,12 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       dispositivos: empleado.dispositivos ? empleado.dispositivos.map((d: any) => d.id) : []
     };
     
+    console.log('📝 Editando empleado:', empleado.nombre);
+    console.log('📝 Dispositivos existentes del empleado:', empleado.dispositivos);
+    console.log('📝 IDs de dispositivos cargados en nuevoEmpleado:', this.nuevoEmpleado.dispositivos);
+    console.log('📝 Cargo del empleado:', empleado.cargo_id);
+    console.log('📝 Nuevo empleado inicializado:', this.nuevoEmpleado);
+    
     
     
     
@@ -2430,16 +2483,20 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     
     
     // Cargar cargos primero, luego los demás datos
+    console.log('📝 Cargando cargos...');
     this.loadUserCargos();
     
+    // Mostrar el modal inmediatamente
+    console.log('📝 Mostrando modal...');
+    this.showCargoModal = true;
     
     // Esperar a que se carguen los cargos antes de cargar dispositivos
+    console.log('📝 Programando carga de dispositivos en 200ms...');
     setTimeout(() => {
+      console.log('📝 Ejecutando carga de dispositivos...');
       this.loadUserDispositivos();
       // Detectar cambios iniciales
       this.detectChanges();
-      // Mostrar el modal después de cargar los dispositivos
-      this.showCargoModal = true;
     }, 200); // Aumentar el timeout para asegurar que todo se carga
   }
 
@@ -2976,6 +3033,29 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     const tieneFotoNueva = this.nuevoEmpleado.foto && this.nuevoEmpleado.foto.trim() !== '';
     
     return tieneFotoExistente || tieneFotoNueva;
+  }
+
+  isFormValid(): boolean {
+    // Validaciones básicas del formulario
+    const formValid = !!(this.nuevoEmpleado.nombre && 
+                        this.nuevoEmpleado.cedula && 
+                        this.nuevoEmpleado.fecha_ingreso && 
+                        this.nuevoEmpleado.fecha_cumpleanos && 
+                        this.nuevoEmpleado.sexo && 
+                        this.nuevoEmpleado.cargo_id);
+    
+    // Validación de foto
+    const fotoValid = this.isFotoValid();
+    
+    // Validación de cédula
+    const cedulaValid = !this.cedulaError && !this.validandoCedula;
+    
+    // Los dispositivos NO son requeridos - pueden ser 0, 1, 2 o N
+    
+    // Para edición, verificar si hay cambios
+    const hasChangesValid = !this.selectedEmpleado || this.hasChanges;
+    
+    return formValid && fotoValid && cedulaValid && hasChangesValid;
   }
 
   validarCedula(): void {
