@@ -143,7 +143,7 @@ interface Sala {
                 <tr>
                   <th class="text-center">N°</th>
                   <th class="text-left">Llave</th>
-                  <th class="text-center">Técnico</th>
+                  <th class="text-center">Empleado</th>
                   <th class="text-center">Hora</th>
                   <th class="text-center">Acciones</th>
                 </tr>
@@ -950,8 +950,8 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
   }
 
   getLibroFecha(): string {
-    if (this.libro && this.libro.fecha) {
-      return new Date(this.libro.fecha).toLocaleDateString('es-ES');
+    if (this.libro && this.libro.created_at) {
+      return new Date(this.libro.created_at).toLocaleDateString('es-ES');
     }
     return 'Fecha no disponible';
   }

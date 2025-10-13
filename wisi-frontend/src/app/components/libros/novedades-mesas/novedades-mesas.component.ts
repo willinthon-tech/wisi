@@ -4,8 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UserService } from '../../../services/user.service';
 import { EmpleadosService } from '../../../services/empleados.service';
+import { MesasService } from '../../../services/mesas.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { LibroService } from '../../../services/libro.service';
+import { NovedadesMesasRegistrosService } from '../../../services/novedades-mesas-registros.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
@@ -41,6 +43,8 @@ interface NovedadMesaRegistro {
 interface NovedadData {
   hora: string;
   descripcion: string;
+  mesa_id: number | null;
+  empleado_id: number | null;
 }
 
 interface Sala {
@@ -53,33 +57,25 @@ interface Sala {
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="novedades-container" *ngIf="hasAccess; else noAccess">
+    <div class="incidencias-container" *ngIf="hasAccess; else noAccess">
       <!-- Formulario de Novedades (Lado Izquierdo) -->
       <div class="form-section">
         <h3>Novedades de Mesas</h3>
         <form (ngSubmit)="saveNovedad()" #novedadForm="ngForm">
           <div class="form-group">
-            <label for="mesaSelect">Seleccionar Mesa(s):</label>
-            <div class="mesas-grid" *ngIf="mesas.length > 0">
-              <div class="mesa-item" *ngFor="let mesa of mesas">
-                <label class="mesa-checkbox">
-                  <input 
-                    type="checkbox" 
-                    [value]="mesa.id"
-                    (change)="onMesaChange($event, mesa.id)"
-                    [checked]="selectedMesaIds.includes(mesa.id)"
-                  >
-                  <span class="checkmark"></span>
-                  <div class="mesa-info">
-                    <strong>{{ mesa.nombre }}</strong>
-                    <small>{{ mesa.Juego?.nombre || 'Sin juego' }}</small>
-                  </div>
-                </label>
-              </div>
-            </div>
-            <div *ngIf="mesas.length === 0" class="no-mesas">
-              <p>No hay mesas disponibles para esta sala</p>
-            </div>
+            <label for="mesaSelect">Mesa:</label>
+            <select 
+              id="mesaSelect" 
+              name="mesaSelect"
+              [(ngModel)]="novedadData.mesa_id"
+              class="form-control"
+              required
+            >
+              <option value="">Seleccionar mesa...</option>
+              <option *ngFor="let mesa of mesas" [value]="mesa.id">
+                {{ mesa.nombre }} - {{ mesa.Juego?.nombre || 'Sin juego' }}
+              </option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -87,7 +83,7 @@ interface Sala {
             <select 
               id="empleadoSelect" 
               name="empleadoSelect"
-              [(ngModel)]="selectedEmpleadoId"
+              [(ngModel)]="novedadData.empleado_id"
               class="form-control"
               required
             >
@@ -96,6 +92,19 @@ interface Sala {
                 {{ empleado.nombre }}
               </option>
             </select>
+          </div>
+
+          <div class="form-group">
+            <label for="descripcionInput">Descripción:</label>
+            <textarea 
+              id="descripcionInput" 
+              name="descripcionInput"
+              [(ngModel)]="novedadData.descripcion"
+              class="form-control textarea"
+              rows="6"
+              placeholder="Describa la novedad..."
+              required
+            ></textarea>
           </div>
 
           <div class="form-group">
@@ -110,50 +119,47 @@ interface Sala {
             />
           </div>
 
-          <div class="form-group">
-            <label for="descripcionInput">Descripción:</label>
-            <textarea 
-              id="descripcionInput" 
-              name="descripcionInput"
-              [(ngModel)]="novedadData.descripcion"
-              class="form-control textarea"
-              rows="4"
-              placeholder="Describa la novedad..."
-              required
-            ></textarea>
-          </div>
-
-          <button type="submit" class="btn btn-success" [disabled]="selectedMesaIds.length === 0 || !novedadData.descripcion || !selectedEmpleadoId || !novedadData.hora">
-            Guardar ({{ selectedMesaIds.length }} mesas)
+          <button type="submit" class="btn btn-success" [disabled]="!novedadForm.form.valid">
+            Guardar
           </button>
         </form>
       </div>
 
-      <!-- Lista de Novedades (Lado Derecho) -->
-      <div class="list-section">
-        <h3>Registros de Novedades</h3>
-        <div class="novedades-list" *ngIf="novedades.length > 0">
-          <div class="novedad-item" *ngFor="let novedad of novedades">
-            <div class="novedad-header">
-              <span class="mesa-name">{{ novedad.Mesa?.nombre || 'Mesa eliminada' }}</span>
-              <span class="novedad-time">{{ novedad.hora }}</span>
-            </div>
-            <div class="novedad-content">
-              <p class="novedad-desc">{{ novedad.descripcion }}</p>
-              <div class="novedad-meta">
-                <span class="empleado">{{ novedad.Empleado?.nombre || 'Empleado eliminado' }}</span>
-                <span class="fecha">{{ novedad.created_at | date:'dd/MM/yyyy HH:mm' }}</span>
-              </div>
-            </div>
-            <div class="novedad-actions">
-              <button class="btn btn-sm btn-danger" (click)="deleteNovedad(novedad.id || 0)">
-                Eliminar
-              </button>
-            </div>
-          </div>
-        </div>
-        <div *ngIf="novedades.length === 0" class="no-novedades">
-          <p>No hay novedades registradas</p>
+      <!-- Tabla de Novedades (Lado Derecho) -->
+      <div class="table-section">
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr class="sala-header">
+                <th colspan="6" class="sala-title">{{ getSalaName() }} - {{ getLibroFecha() }}</th>
+              </tr>
+              <tr>
+                <th class="text-center">N°</th>
+                <th class="text-left">Mesa</th>
+                <th class="text-left">Empleado</th>
+                <th class="text-left">Descripción</th>
+                <th class="text-center">Hora</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let novedad of novedades; let i = index">
+                <td class="text-center">{{ i + 1 }}</td>
+                <td class="text-left">{{ novedad.Mesa?.nombre || 'Sin mesa' }}</td>
+                <td class="text-left">{{ novedad.Empleado?.nombre || 'Sin empleado' }}</td>
+                <td class="text-left">{{ novedad.descripcion }}</td>
+                <td class="text-center">{{ novedad.hora }}</td>
+                <td class="text-center">
+                  <button class="btn btn-danger btn-sm" (click)="deleteNovedad(novedad.id!)">
+                    Eliminar
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="novedades.length === 0">
+                <td colspan="6" class="no-data">No hay novedades registradas</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -161,29 +167,28 @@ interface Sala {
     <ng-template #noAccess>
       <div class="no-access">
         <h2>Acceso Denegado</h2>
-        <p>No tienes permisos para acceder a esta sección.</p>
-        <button class="btn btn-primary" (click)="goBack()">Volver</button>
+        <p>No tienes permisos para acceder a este módulo.</p>
       </div>
     </ng-template>
   `,
   styles: [`
-    .novedades-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    .incidencias-container {
+      display: flex;
       gap: 20px;
       padding: 20px;
-      min-height: calc(100vh - 120px);
+      min-height: calc(100vh - 200px);
     }
 
-    .form-section, .list-section {
+    .form-section {
+      flex: 0.4;
+      height: fit-content;
       background: white;
-      border-radius: 12px;
-      padding: 25px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e9ecef;
+      padding: 20px 20px 30px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    .form-section h3, .list-section h3 {
+    .form-section h3 {
       margin: 0 0 20px 0;
       color: #333;
       font-size: 20px;
@@ -206,101 +211,51 @@ interface Sala {
 
     .form-control {
       width: 100%;
-      padding: 10px 12px;
-      border: 2px solid #ddd;
+      padding: 12px;
+      border: 2px solid #e9ecef;
       border-radius: 6px;
       font-size: 14px;
-      transition: border-color 0.3s;
+      transition: border-color 0.3s ease;
     }
 
     .form-control:focus {
       outline: none;
-      border-color: #4CAF50;
-      box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+      border-color: #007bff;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
     }
 
     .textarea {
       resize: vertical;
-      min-height: 80px;
-    }
-
-    .mesas-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 10px;
-      max-height: 200px;
-      overflow-y: auto;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      padding: 10px;
-      background: #f8f9fa;
-    }
-
-    .mesa-item {
-      margin-bottom: 5px;
-    }
-
-    .mesa-checkbox {
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-      padding: 8px;
-      border-radius: 4px;
-      transition: background-color 0.3s;
-    }
-
-    .mesa-checkbox:hover {
-      background: #e9ecef;
-    }
-
-    .mesa-checkbox input[type="checkbox"] {
-      margin-right: 8px;
-      transform: scale(1.1);
-    }
-
-    .mesa-info {
-      flex: 1;
-    }
-
-    .mesa-info strong {
-      display: block;
-      font-size: 13px;
-      color: #333;
-    }
-
-    .mesa-info small {
-      color: #666;
-      font-size: 11px;
-    }
-
-    .no-mesas {
-      text-align: center;
-      padding: 20px;
-      color: #666;
+      min-height: 120px;
     }
 
     .btn {
-      padding: 10px 20px;
+      padding: 12px 24px;
       border: none;
       border-radius: 6px;
       cursor: pointer;
       font-weight: bold;
-      transition: all 0.3s;
+      transition: all 0.3s ease;
+      font-size: 14px;
     }
 
     .btn-success {
       background: #28a745;
       color: white;
+      width: 100%;
     }
 
-    .btn-success:hover:not(:disabled) {
+    .btn-success:hover {
       background: #218838;
       transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
     }
 
     .btn-success:disabled {
-      background: #ccc;
+      background: #6c757d;
       cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
 
     .btn-danger {
@@ -312,95 +267,79 @@ interface Sala {
       background: #c82333;
     }
 
-    .btn-primary {
-      background: #007bff;
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background: #0056b3;
-    }
-
-    .novedades-list {
-      max-height: 500px;
-      overflow-y: auto;
-    }
-
-    .novedad-item {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 10px;
-      transition: all 0.3s;
-    }
-
-    .novedad-item:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .novedad-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .mesa-name {
-      font-weight: bold;
-      color: #333;
-      font-size: 14px;
-    }
-
-    .novedad-time {
-      background: #007bff;
-      color: white;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-
-    .novedad-content {
-      margin-bottom: 10px;
-    }
-
-    .novedad-desc {
-      margin: 0 0 8px 0;
-      color: #555;
-      line-height: 1.4;
-      font-size: 13px;
-    }
-
-    .novedad-meta {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12px;
-      color: #666;
-    }
-
-    .empleado {
-      font-weight: 500;
-    }
-
-    .fecha {
-      font-style: italic;
-    }
-
-    .novedad-actions {
-      text-align: right;
-    }
-
     .btn-sm {
       padding: 6px 12px;
       font-size: 12px;
     }
 
-    .no-novedades {
+    .table-section {
+      flex: 1.5;
+      background: transparent;
+      padding: 0;
+    }
+
+    .table-container {
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .data-table th {
+      background: #343a40;
+      color: white;
+      font-weight: bold;
+      padding: 12px;
       text-align: center;
-      padding: 40px;
+      border: none;
+    }
+
+    .data-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #dee2e6;
+      background: #f8f9fa;
+    }
+
+    .data-table tbody tr:hover {
+      background: #e9ecef;
+    }
+
+    .data-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .sala-header {
+      background: #6c757d !important;
+    }
+
+    .sala-title {
+      color: white !important;
+      font-weight: bold;
+      text-align: center;
+      padding: 12px;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .text-left {
+      text-align: left;
+    }
+
+    .no-data {
+      text-align: center;
       color: #666;
+      font-style: italic;
     }
 
     .no-access {
@@ -412,8 +351,8 @@ interface Sala {
     }
 
     .no-access h2 {
-      color: #dc3545;
       margin-bottom: 15px;
+      color: #dc3545;
     }
 
     .no-access p {
@@ -421,43 +360,43 @@ interface Sala {
       margin-bottom: 20px;
     }
 
-    /* Responsive */
     @media (max-width: 768px) {
-      .novedades-container {
-        grid-template-columns: 1fr;
-        gap: 15px;
-        padding: 15px;
+      .incidencias-container {
+        flex-direction: column;
       }
-
-      .mesas-grid {
-        grid-template-columns: 1fr;
+      
+      .form-section {
+        flex: none;
       }
     }
   `]
 })
 export class NovedadesMesasComponent implements OnInit, OnDestroy {
   novedades: NovedadMesaRegistro[] = [];
-  mesas: any[] = [];
   empleados: any[] = [];
-  selectedMesaIds: number[] = [];
-  selectedEmpleadoId: number | null = null;
+  mesas: any[] = [];
   novedadData: NovedadData = {
-    hora: this.getCurrentTime(),
-    descripcion: ''
+    hora: '',
+    descripcion: '',
+    mesa_id: null,
+    empleado_id: null
   };
   libroId: number | null = null;
   salaId: number | null = null;
+  salaName: string = 'Sala';
   hasAccess: boolean = false;
   libro: any = null;
   
-  private readonly NOVEDADES_MESAS_MODULE_ID = 17; // ID del módulo Novedades de Mesas
+  private readonly NOVEDADES_MESAS_MODULE_ID = 19; // ID del módulo Novedades de Mesas
   private permissionsSubscription?: Subscription;
 
   constructor(
     private userService: UserService,
     private empleadosService: EmpleadosService,
+    private mesasService: MesasService,
     private permissionsService: PermissionsService,
     private libroService: LibroService,
+    private novedadesRegistrosService: NovedadesMesasRegistrosService,
     private route: ActivatedRoute,
     private router: Router,
     private errorModalService: ErrorModalService,
@@ -465,6 +404,9 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    // Inicializar la hora actual
+    this.novedadData.hora = this.getCurrentTime();
+    
     this.route.params.subscribe(params => {
       this.libroId = +params['libroId'];
       this.salaId = +params['salaId'];
@@ -489,9 +431,10 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
   private loadData() {
     if (this.libroId && this.salaId) {
       this.loadLibro();
-      this.loadMesas();
       this.loadEmpleados();
+      this.loadMesas();
       this.loadNovedades();
+      this.loadSalaName();
     }
   }
 
@@ -499,33 +442,15 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
     if (!this.libroId) return;
     
     this.libroService.getLibro(this.libroId!).subscribe({
-      next: (libro) => {
+      next: (libro: any) => {
         this.libro = libro;
-      },
-      error: (error) => {
-        console.error('Error cargando libro:', error);
-      }
-    });
-  }
-
-  loadMesas() {
-    if (!this.salaId) return;
-
-    this.userService.getUserSalas().subscribe({
-      next: (salas: any) => {
-        // Buscar la sala actual y obtener sus mesas
-        const sala = salas.find((s: any) => s.id === this.salaId);
-        if (sala && sala.Mesas) {
-          this.mesas = sala.Mesas;
-        } else {
-          this.mesas = [];
-        }
+        console.log('Libro cargado:', this.libro);
       },
       error: (error: any) => {
-        console.error('Error cargando mesas:', error);
+        console.error('Error cargando libro:', error);
         this.errorModalService.showErrorModal({
           title: 'Error',
-          message: 'No se pudieron cargar las mesas'
+          message: 'No se pudo cargar la información del libro'
         });
       }
     });
@@ -533,7 +458,6 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
 
   loadEmpleados() {
     if (!this.salaId) return;
-
     this.empleadosService.getEmpleadosBySala(this.salaId).subscribe({
       next: (empleados: any) => {
         this.empleados = empleados;
@@ -548,24 +472,64 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadNovedades() {
-    if (!this.libroId) return;
-    // TODO: Implementar carga de novedades cuando el servicio esté disponible
-    this.novedades = [];
+  loadMesas() {
+    if (!this.salaId) return;
+
+    this.mesasService.getMesas().subscribe({
+      next: (mesas: any) => {
+        // Filtrar mesas por sala y que estén activas
+        this.mesas = mesas.filter((mesa: any) => 
+          mesa.sala_id === this.salaId && mesa.activo === 1
+        );
+        console.log('Mesas cargadas:', this.mesas);
+      },
+      error: (error: any) => {
+        console.error('Error cargando mesas:', error);
+        this.mesas = [];
+        this.errorModalService.showErrorModal({
+          title: 'Error',
+          message: 'No se pudieron cargar las mesas'
+        });
+      }
+    });
   }
 
-  onMesaChange(event: any, mesaId: number) {
-    if (event.target.checked) {
-      if (!this.selectedMesaIds.includes(mesaId)) {
-        this.selectedMesaIds.push(mesaId);
+  loadNovedades() {
+    if (!this.libroId) return;
+    
+    this.novedadesRegistrosService.getNovedadesMesaRegistros(this.libroId).subscribe({
+      next: (novedades: NovedadMesaRegistro[]) => {
+        this.novedades = novedades;
+      },
+      error: (error: any) => {
+        console.error('Error cargando novedades:', error);
+        this.novedades = [];
       }
-    } else {
-      this.selectedMesaIds = this.selectedMesaIds.filter(id => id !== mesaId);
-    }
+    });
+  }
+
+  loadSalaName() {
+    if (!this.salaId) return;
+    
+    this.userService.getUserSalas().subscribe({
+      next: (salas: any) => {
+        console.log('loadSalaName - salas:', salas);
+        const sala = salas.find((s: any) => s.id === this.salaId);
+        console.log('loadSalaName - sala encontrada:', sala);
+        if (sala) {
+          this.salaName = sala.nombre;
+          console.log('loadSalaName - nombre de sala:', this.salaName);
+        }
+      },
+      error: (error: any) => {
+        console.error('Error cargando nombre de sala:', error);
+        this.salaName = 'Sala';
+      }
+    });
   }
 
   saveNovedad() {
-    if (this.selectedMesaIds.length === 0 || !this.novedadData.descripcion || !this.selectedEmpleadoId || !this.novedadData.hora) {
+    if (!this.novedadData.mesa_id || !this.novedadData.empleado_id || !this.novedadData.descripcion || !this.novedadData.hora) {
       return;
     }
 
@@ -573,28 +537,48 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // TODO: Implementar guardado de novedades cuando el servicio esté disponible
-    console.log('Guardando novedad:', {
-      libroId: this.libroId,
-      mesaIds: this.selectedMesaIds,
-      empleadoId: this.selectedEmpleadoId,
+    const novedadData = {
+      libro_id: this.libroId,
+      mesa_id: this.novedadData.mesa_id,
+      empleado_id: this.novedadData.empleado_id,
       descripcion: this.novedadData.descripcion,
       hora: this.novedadData.hora
+    };
+
+    this.novedadesRegistrosService.createNovedadMesaRegistro(novedadData).subscribe({
+      next: (novedad: NovedadMesaRegistro) => {
+        this.loadNovedades();
+        this.resetForm();
+      },
+      error: (error: any) => {
+        console.error('Error guardando novedad:', error);
+        this.errorModalService.showErrorModal({
+          title: 'Error',
+          message: 'No se pudo guardar la novedad'
+        });
+      }
     });
-    
-    this.resetForm();
   }
 
   deleteNovedad(novedadId: number) {
-    // TODO: Implementar eliminación de novedades cuando el servicio esté disponible
-    console.log('Eliminando novedad:', novedadId);
+    this.novedadesRegistrosService.deleteNovedadMesaRegistro(novedadId).subscribe({
+      next: () => {
+        this.loadNovedades();
+      },
+      error: (error: any) => {
+        console.error('Error eliminando novedad:', error);
+        this.loadNovedades();
+      }
+    });
   }
 
   resetForm() {
-    this.selectedMesaIds = [];
-    this.selectedEmpleadoId = null;
-    this.novedadData.hora = this.getCurrentTime();
-    this.novedadData.descripcion = '';
+    this.novedadData = {
+      hora: this.getCurrentTime(),
+      descripcion: '',
+      mesa_id: null,
+      empleado_id: null
+    };
   }
 
   private getCurrentTime(): string {
@@ -605,17 +589,18 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
   }
 
   getSalaName(): string {
-    // Buscar la sala en userSalas usando el salaId de la ruta
-    let salaName = 'Sala';
-    this.userService.getUserSalas().subscribe({
-      next: (salas: any) => {
-        const sala = salas.find((s: any) => s.id === this.salaId);
-        if (sala) {
-          salaName = sala.nombre;
-        }
-      }
-    });
-    return salaName;
+    return this.salaName || 'Sala';
+  }
+
+  getLibroFecha(): string {
+    console.log('getLibroFecha - libro:', this.libro);
+    if (this.libro && this.libro.created_at) {
+      const fecha = new Date(this.libro.created_at).toLocaleDateString('es-ES');
+      console.log('getLibroFecha - fecha formateada:', fecha);
+      return fecha;
+    }
+    console.log('getLibroFecha - fecha no disponible');
+    return 'Fecha no disponible';
   }
 
   goBack() {

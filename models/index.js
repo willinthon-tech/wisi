@@ -28,6 +28,7 @@ const Maquina = require('./Maquina')(sequelize);
 const Drop = require('./Drop')(sequelize);
 const Attlog = require('./Attlog')(sequelize);
 const ControlLlaveRegistro = require('./ControlLlaveRegistro')(sequelize);
+const NovedadMesaRegistro = require('./NovedadMesaRegistro')(sequelize);
 
 // Definir asociaciones
 User.belongsToMany(Sala, { through: UserSala, foreignKey: 'user_id' });
@@ -99,8 +100,7 @@ Rango.hasMany(Maquina, { foreignKey: 'rango_id', onDelete: 'RESTRICT' });
 
 
 
-// Importar NovedadMaquinaRegistro
-const NovedadMaquinaRegistro = require('./NovedadMaquinaRegistro')(sequelize);
+// Importar IncidenciaGeneral
 const IncidenciaGeneral = require('./IncidenciaGeneral')(sequelize);
 const Area = require('./Area')(sequelize);
 const Departamento = require('./Departamento')(sequelize);
@@ -111,6 +111,7 @@ const Bloque = require('./Bloque')(sequelize);
 const Dispositivo = require('./Dispositivo')(sequelize);
 const Cron = require('./Cron')(sequelize);
 const HorarioEmpleado = require('./HorarioEmpleado')(sequelize);
+const NovedadMaquinaRegistro = require('./NovedadMaquinaRegistro')(sequelize);
 const Llave = require('./Llave')(sequelize);
 
 // Asociaciones para NovedadMaquinaRegistro
@@ -179,12 +180,20 @@ Llave.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 Sala.hasMany(Llave, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para ControlLlaveRegistro
-ControlLlaveRegistro.belongsTo(Libro, { foreignKey: 'libro_id', as: 'Libro', onDelete: 'CASCADE' });
+ControlLlaveRegistro.belongsTo(Libro, { foreignKey: 'libro_id', as: 'Libro', onDelete: 'RESTRICT' });
 ControlLlaveRegistro.belongsTo(Llave, { foreignKey: 'llave_id', as: 'Llave', onDelete: 'CASCADE' });
 ControlLlaveRegistro.belongsTo(Empleado, { foreignKey: 'empleado_id', as: 'Empleado', onDelete: 'CASCADE' });
-Libro.hasMany(ControlLlaveRegistro, { foreignKey: 'libro_id', as: 'ControlLlaveRegistros', onDelete: 'CASCADE' });
+Libro.hasMany(ControlLlaveRegistro, { foreignKey: 'libro_id', as: 'ControlLlaveRegistros', onDelete: 'RESTRICT' });
 Llave.hasMany(ControlLlaveRegistro, { foreignKey: 'llave_id', as: 'ControlLlaveRegistros', onDelete: 'CASCADE' });
 Empleado.hasMany(ControlLlaveRegistro, { foreignKey: 'empleado_id', as: 'ControlLlaveRegistros', onDelete: 'CASCADE' });
+
+// Asociaciones para NovedadMesaRegistro
+NovedadMesaRegistro.belongsTo(Libro, { foreignKey: 'libro_id', as: 'Libro', onDelete: 'RESTRICT' });
+NovedadMesaRegistro.belongsTo(Mesa, { foreignKey: 'mesa_id', as: 'Mesa', onDelete: 'CASCADE' });
+NovedadMesaRegistro.belongsTo(Empleado, { foreignKey: 'empleado_id', as: 'Empleado', onDelete: 'CASCADE' });
+Libro.hasMany(NovedadMesaRegistro, { foreignKey: 'libro_id', as: 'NovedadMesaRegistros', onDelete: 'RESTRICT' });
+Mesa.hasMany(NovedadMesaRegistro, { foreignKey: 'mesa_id', as: 'NovedadMesaRegistros', onDelete: 'CASCADE' });
+Empleado.hasMany(NovedadMesaRegistro, { foreignKey: 'empleado_id', as: 'NovedadMesaRegistros', onDelete: 'CASCADE' });
 
 
 // Sincronizar base de datos
@@ -345,6 +354,7 @@ module.exports = {
   HorarioEmpleado,
   Llave,
   ControlLlaveRegistro,
+  NovedadMesaRegistro,
   syncDatabase
 };
 

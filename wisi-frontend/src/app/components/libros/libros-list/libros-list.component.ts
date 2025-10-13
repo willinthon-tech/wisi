@@ -41,27 +41,37 @@ import { Subscription } from 'rxjs';
                      <td>
                        <button
                          class="btn btn-info btn-sm me-1 mb-1"
-                         (click)="operacionDrop(libro.id)">
+                         [class.disabled]="isLibroBloqueado(libro)"
+                         [disabled]="isLibroBloqueado(libro)"
+                         (click)="!isLibroBloqueado(libro) ? operacionDrop(libro.id) : null">
                          Drop de Mesas
                        </button>
                        <button
                          class="btn btn-primary btn-sm me-1 mb-1"
-                         (click)="operacionNovedadesMesas(libro.id)">
+                         [class.disabled]="isLibroBloqueado(libro)"
+                         [disabled]="isLibroBloqueado(libro)"
+                         (click)="!isLibroBloqueado(libro) ? operacionNovedadesMesas(libro.id) : null">
                          Novedades de Mesas
                        </button>
                        <button
                          class="btn btn-secondary btn-sm me-1 mb-1"
-                         (click)="operacionIncidenciasMaquinas(libro.id)">
+                         [class.disabled]="isLibroBloqueado(libro)"
+                         [disabled]="isLibroBloqueado(libro)"
+                         (click)="!isLibroBloqueado(libro) ? operacionIncidenciasMaquinas(libro.id) : null">
                          Novedades de Máquinas
                        </button>
                        <button
                          class="btn btn-success btn-sm me-1 mb-1"
-                         (click)="operacionControlLlaves(libro.id)">
+                         [class.disabled]="isLibroBloqueado(libro)"
+                         [disabled]="isLibroBloqueado(libro)"
+                         (click)="!isLibroBloqueado(libro) ? operacionControlLlaves(libro.id) : null">
                          Control de Llaves
                        </button>
                        <button
                          class="btn btn-warning btn-sm me-1 mb-1"
-                         (click)="operacionIncidenciasGenerales(libro.id)">
+                         [class.disabled]="isLibroBloqueado(libro)"
+                         [disabled]="isLibroBloqueado(libro)"
+                         (click)="!isLibroBloqueado(libro) ? operacionIncidenciasGenerales(libro.id) : null">
                          Incidencias Generales
                        </button>
                      </td>
@@ -76,9 +86,9 @@ import { Subscription } from 'rxjs';
                 </button>
                 <button 
                   class="btn btn-danger btn-sm" 
-                  [class.disabled]="!canDelete()"
-                  [disabled]="!canDelete()"
-                  (click)="canDelete() ? deleteLibro(libro.id) : null">
+                  [class.disabled]="!canDelete() || isLibroBloqueado(libro)"
+                  [disabled]="!canDelete() || isLibroBloqueado(libro)"
+                  (click)="canDelete() && !isLibroBloqueado(libro) ? deleteLibro(libro.id) : null">
                   Eliminar
                 </button>
               </td>
@@ -439,6 +449,21 @@ import { Subscription } from 'rxjs';
       transform: none;
       box-shadow: none;
     }
+
+    /* Estilos para botones bloqueados */
+    .btn.disabled {
+      opacity: 0.5;
+      background: #6c757d !important;
+      color: #fff !important;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    .btn.disabled:hover {
+      transform: none;
+      box-shadow: none;
+      background: #6c757d !important;
+    }
   `]
 })
 export class LibrosListComponent implements OnInit, OnDestroy {
@@ -513,6 +538,22 @@ export class LibrosListComponent implements OnInit, OnDestroy {
 
   canDelete(): boolean {
     return this.permissionsService.canDelete(this.LIBROS_MODULE_ID);
+  }
+
+  isLibroBloqueado(libro: any): boolean {
+    if (!libro || !libro.Sala) return false;
+    
+    // Encontrar el libro más reciente de la misma sala
+    const librosDeLaMismaSala = this.libros.filter(l => l.Sala && l.Sala.id === libro.Sala.id);
+    if (librosDeLaMismaSala.length <= 1) return false;
+    
+    // Ordenar por fecha de creación (más reciente primero)
+    const librosOrdenados = librosDeLaMismaSala.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    // Si este libro no es el más reciente, está bloqueado
+    return librosOrdenados[0].id !== libro.id;
   }
 
   forceReloadPermissions(): void {

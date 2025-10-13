@@ -14,7 +14,7 @@ module.exports = (sequelize) => {
         model: 'Libros',
         key: 'id',
       },
-      onDelete: 'CASCADE',
+      onDelete: 'RESTRICT',
     },
     llave_id: {
       type: DataTypes.INTEGER,

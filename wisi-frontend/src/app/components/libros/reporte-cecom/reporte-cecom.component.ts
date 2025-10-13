@@ -19,6 +19,7 @@ import { Meta, Title } from '@angular/platform-browser';
       </div>
 
       <div class="content" *ngIf="!loading">
+        <!-- 1. Drop de Mesas -->
         <h2>Drop de Mesas</h2>
         <div class="table-container" *ngIf="drops.length > 0">
           <table class="data-table">
@@ -61,6 +62,39 @@ import { Meta, Title } from '@angular/platform-browser';
           </table>
         </div>
 
+        <!-- 2. Novedades de Mesas -->
+        <h2>Novedades de Mesas</h2>
+        <div class="table-container" *ngIf="novedadesMesas.length > 0">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>N°</th>
+                <th>Mesa</th>
+                <th>Empleado</th>
+                <th>Descripción</th>
+                <th>Hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let novedad of novedadesMesas; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td>{{ novedad.Mesa?.nombre || 'Sin mesa' }}</td>
+                <td>
+                  <span *ngIf="novedad.Empleado" 
+                        class="empleado-link" 
+                        (click)="mostrarEmpleado(novedad.Empleado)">
+                    {{ novedad.Empleado.nombre }}
+                  </span>
+                  <span *ngIf="!novedad.Empleado">Sin empleado</span>
+                </td>
+                <td>{{ novedad.descripcion || 'Sin descripción' }}</td>
+                <td>{{ novedad.hora }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 3. Novedades de Máquinas -->
         <h2>Novedades de Máquinas</h2>
         <div class="table-container" *ngIf="novedades.length > 0">
           <table class="data-table">
@@ -69,7 +103,7 @@ import { Meta, Title } from '@angular/platform-browser';
                 <th>N°</th>
                 <th>Máquina</th>
                 <th>Novedad</th>
-                <th>Técnico</th>
+                <th>Empleado</th>
                 <th>Hora</th>
               </tr>
             </thead>
@@ -85,13 +119,58 @@ import { Meta, Title } from '@angular/platform-browser';
                   </span>
                 </td>
                 <td>{{ evento.descripcion || 'Sin descripción' }}</td>
-                <td>{{ evento.empleado?.nombre || 'Sin empleado' }}</td>
+                <td>
+                  <span *ngIf="evento.empleado" 
+                        class="empleado-link" 
+                        (click)="mostrarEmpleado(evento.empleado)">
+                    {{ evento.empleado.nombre }}
+                  </span>
+                  <span *ngIf="!evento.empleado">Sin empleado</span>
+                </td>
                 <td>{{ evento.hora }}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
+        <!-- 4. Control de Llaves -->
+        <h2>Control de Llaves</h2>
+        <div class="table-container" *ngIf="controlLlaves.length > 0">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>N°</th>
+                <th>Llave</th>
+                <th>Empleado</th>
+                <th>Hora</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let evento of controlLlavesAgrupados; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td>
+                  <span *ngIf="!evento.esLote">{{ evento.llaves[0]?.nombre || 'Sin llave' }}</span>
+                  <span *ngIf="evento.esLote" class="evento-lote">
+                    <button class="btn btn-info btn-sm" (click)="mostrarLlavesAfectadas(evento)">
+                      ({{ evento.llaves.length }}) Ver Llaves
+                    </button>
+                  </span>
+                </td>
+                <td>
+                  <span *ngIf="evento.empleado" 
+                        class="empleado-link" 
+                        (click)="mostrarEmpleado(evento.empleado)">
+                    {{ evento.empleado.nombre }}
+                  </span>
+                  <span *ngIf="!evento.empleado">Sin empleado</span>
+                </td>
+                <td>{{ evento.hora }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 5. Incidencias Generales -->
         <h2>Incidencias Generales</h2>
         <div class="table-container" *ngIf="incidencias.length > 0">
           <table class="data-table">
@@ -112,7 +191,7 @@ import { Meta, Title } from '@angular/platform-browser';
           </table>
         </div>
 
-        <div *ngIf="drops.length === 0 && novedadesAgrupadas.length === 0 && incidencias.length === 0" class="no-data">
+        <div *ngIf="drops.length === 0 && novedadesMesas.length === 0 && novedadesAgrupadas.length === 0 && controlLlavesAgrupados.length === 0 && incidencias.length === 0" class="no-data">
           <p>No hay datos disponibles para este libro</p>
         </div>
       </div>
@@ -145,6 +224,78 @@ import { Meta, Title } from '@angular/platform-browser';
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" (click)="cerrarModal()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para mostrar llaves afectadas -->
+    <div class="modal-overlay" *ngIf="showLlavesModal" (click)="cerrarLlavesModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h4>Control de Llaves</h4>
+          <button class="btn-close" (click)="cerrarLlavesModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="evento-info mb-3">
+            <strong>Empleado:</strong> {{ eventoLlavesSeleccionado?.empleado?.nombre }}<br>
+            <strong>Hora:</strong> {{ eventoLlavesSeleccionado?.hora }}
+          </div>
+          <div class="llaves-list">
+            <div class="llave-item" *ngFor="let llave of llavesAfectadas">
+              <span class="llave-nombre">{{ llave?.nombre }}</span>
+              <span class="llave-sala">{{ llave?.Sala?.nombre }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="cerrarLlavesModal()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para mostrar información del empleado -->
+    <div class="modal-overlay" *ngIf="showEmpleadoModal" (click)="cerrarEmpleadoModal()">
+      <div class="modal-content empleado-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h4>Gran Casino San Cristobal</h4>
+          <button class="btn-close" (click)="cerrarEmpleadoModal()">&times;</button>
+        </div>
+        <div class="modal-body empleado-info">
+          <div class="empleado-container">
+            <div class="empleado-foto">
+              <img *ngIf="empleadoSeleccionado?.foto" 
+                   [src]="getEmpleadoFoto(empleadoSeleccionado.foto)" 
+                   [alt]="empleadoSeleccionado.nombre"
+                   class="foto-perfil"
+                   (error)="onImageError($event)">
+              <div *ngIf="!empleadoSeleccionado?.foto" class="foto-placeholder">
+                <span class="icono-usuario">👤</span>
+              </div>
+            </div>
+            <div class="empleado-datos">
+              <h3 class="empleado-nombre">{{ empleadoSeleccionado?.nombre }}</h3>
+              <div class="datos-lista">
+                <div class="dato-item">
+                  <strong>Cédula:</strong> {{ empleadoSeleccionado?.cedula }}
+                </div>
+                <div class="dato-item">
+                  <strong>Área:</strong> {{ empleadoSeleccionado?.Area?.nombre || 'General' }}
+                </div>
+                <div class="dato-item">
+                  <strong>Departamento:</strong> {{ empleadoSeleccionado?.Departamento?.nombre || 'Sistemas' }}
+                </div>
+                <div class="dato-item">
+                  <strong>Cargo:</strong> {{ empleadoSeleccionado?.Cargo?.nombre || 'Jefe de Sistemas' }}
+                </div>
+                <div class="dato-item">
+                  <strong>Sexo:</strong> {{ empleadoSeleccionado?.sexo || 'Masculino' }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="cerrarEmpleadoModal()">Cerrar</button>
         </div>
       </div>
     </div>
@@ -508,11 +659,129 @@ import { Meta, Title } from '@angular/platform-browser';
       margin-top: 2px;
     }
 
+    .llaves-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .llave-item {
+      display: flex;
+      flex-direction: column;
+      padding: 10px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+    }
+
+    .llave-nombre {
+      font-weight: bold;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .llave-sala {
+      color: #666;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
     .modal-footer {
       padding: 15px 20px;
       border-top: 1px solid #dee2e6;
       background: #f8f9fa;
       text-align: right;
+    }
+
+    /* Estilos para enlace de empleado */
+    .empleado-link {
+      color: #17a2b8;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .empleado-link:hover {
+      color: #138496;
+      text-decoration: underline;
+    }
+
+    /* Estilos para modal de empleado */
+    .empleado-modal {
+      max-width: 600px;
+      width: 90%;
+    }
+
+    .empleado-info {
+      padding: 0;
+    }
+
+    .empleado-container {
+      display: flex;
+      gap: 20px;
+      padding: 20px;
+    }
+
+    .empleado-foto {
+      flex: 0 0 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .foto-perfil {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid #17a2b8;
+    }
+
+    .foto-placeholder {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: #f8f9fa;
+      border: 3px solid #17a2b8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      color: #6c757d;
+    }
+
+    .icono-usuario {
+      font-size: 48px;
+      color: #6c757d;
+    }
+
+    .empleado-datos {
+      flex: 1;
+    }
+
+    .empleado-nombre {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #333;
+      margin: 0 0 20px 0;
+    }
+
+    .datos-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dato-item {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .dato-item strong {
+      color: #333;
+      font-weight: 600;
     }
   `]
 })
@@ -522,6 +791,9 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
   drops: any[] = [];
   novedades: any[] = [];
   novedadesAgrupadas: any[] = [];
+  novedadesMesas: any[] = [];
+  controlLlaves: any[] = [];
+  controlLlavesAgrupados: any[] = [];
   incidencias: any[] = [];
   loading: boolean = true;
   
@@ -529,6 +801,15 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
   showMaquinasModal = false;
   maquinasAfectadas: any[] = [];
   eventoSeleccionado: any = null;
+
+  // Modal para mostrar llaves afectadas
+  showLlavesModal = false;
+  llavesAfectadas: any[] = [];
+  eventoLlavesSeleccionado: any = null;
+
+  // Modal para mostrar información del empleado
+  showEmpleadoModal = false;
+  empleadoSeleccionado: any = null;
 
   // Totales calculados
   totalDenominacion100: number = 0;
@@ -572,24 +853,62 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
   }
 
   loadRelatedData(): void {
+    let completedRequests = 0;
+    const totalRequests = 5;
+
+    const checkAllLoaded = () => {
+      completedRequests++;
+      if (completedRequests === totalRequests) {
+        this.loading = false;
+      }
+    };
+
     // Cargar drops usando endpoint público
     this.http.get(`http://localhost:3000/api/public/drops/${this.libroId}`).subscribe({
       next: (drops: any) => {
         this.drops = drops;
         this.calculateTotals();
+        checkAllLoaded();
       },
       error: (error: any) => {
+        checkAllLoaded();
       }
     });
 
-    // Cargar novedades usando endpoint público
-    this.http.get(`http://localhost:3000/api/public/novedades/${this.libroId}`).subscribe({
-      next: (novedades: any) => {
-        this.novedades = novedades;
-        // Agrupar novedades por [Técnico, Novedad, Hora]
-        this.novedadesAgrupadas = this.agruparNovedades(novedades);
+    // Cargar novedades de mesas usando endpoint público
+    this.http.get(`http://localhost:3000/api/public/novedades-mesas/${this.libroId}`).subscribe({
+      next: (novedadesMesas: any) => {
+        this.novedadesMesas = novedadesMesas;
+        checkAllLoaded();
       },
       error: (error: any) => {
+        checkAllLoaded();
+      }
+    });
+
+    // Cargar novedades de máquinas usando endpoint público
+    this.http.get(`http://localhost:3000/api/public/novedades-maquinas/${this.libroId}`).subscribe({
+      next: (novedades: any) => {
+        this.novedades = novedades;
+        // Agrupar novedades por [Empleado, Novedad, Hora]
+        this.novedadesAgrupadas = this.agruparNovedades(novedades);
+        checkAllLoaded();
+      },
+      error: (error: any) => {
+        checkAllLoaded();
+      }
+    });
+
+    // Cargar control de llaves usando endpoint público
+    this.http.get(`http://localhost:3000/api/public/control-llaves/${this.libroId}`).subscribe({
+      next: (controlLlaves: any) => {
+        this.controlLlaves = controlLlaves;
+        // Agrupar control de llaves por [Empleado, Hora]
+        this.controlLlavesAgrupados = this.agruparControlLlaves(controlLlaves);
+        checkAllLoaded();
+      },
+      error: (error: any) => {
+        checkAllLoaded();
       }
     });
 
@@ -597,10 +916,10 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     this.http.get(`http://localhost:3000/api/public/incidencias/${this.libroId}`).subscribe({
       next: (incidencias: any) => {
         this.incidencias = incidencias;
-        this.loading = false;
+        checkAllLoaded();
       },
       error: (error: any) => {
-        this.loading = false;
+        checkAllLoaded();
       }
     });
   }
@@ -690,6 +1009,34 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     });
   }
 
+  agruparControlLlaves(controlLlaves: any[]): any[] {
+    const grupos = new Map<string, any>();
+    
+    controlLlaves.forEach(control => {
+      const clave = `${control.empleado_id}-${control.hora}`;
+      
+      if (grupos.has(clave)) {
+        const grupo = grupos.get(clave);
+        grupo.llaves.push(control.Llave);
+        grupo.ids.push(control.id);
+      } else {
+        grupos.set(clave, {
+          empleado: control.Empleado,
+          hora: control.hora,
+          llaves: [control.Llave],
+          ids: [control.id],
+          esLote: false
+        });
+      }
+    });
+    
+    // Convertir a array y marcar como lote si tiene más de 1 llave
+    return Array.from(grupos.values()).map(grupo => {
+      grupo.esLote = grupo.llaves.length > 1;
+      return grupo;
+    });
+  }
+
   mostrarMaquinasAfectadas(evento: any) {
     this.eventoSeleccionado = evento;
     this.maquinasAfectadas = evento.maquinas;
@@ -700,6 +1047,62 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     this.showMaquinasModal = false;
     this.maquinasAfectadas = [];
     this.eventoSeleccionado = null;
+  }
+
+  mostrarLlavesAfectadas(evento: any) {
+    this.eventoLlavesSeleccionado = evento;
+    this.llavesAfectadas = evento.llaves;
+    this.showLlavesModal = true;
+  }
+
+  cerrarLlavesModal() {
+    this.showLlavesModal = false;
+    this.llavesAfectadas = [];
+    this.eventoLlavesSeleccionado = null;
+  }
+
+  // Método para mostrar información del empleado
+  mostrarEmpleado(empleado: any) {
+    console.log('🔍 Empleado seleccionado:', empleado);
+    console.log('📸 Foto del empleado:', empleado?.foto);
+    console.log('📏 Longitud de la foto:', empleado?.foto?.length);
+    this.empleadoSeleccionado = empleado;
+    this.showEmpleadoModal = true;
+  }
+
+  cerrarEmpleadoModal() {
+    this.showEmpleadoModal = false;
+    this.empleadoSeleccionado = null;
+  }
+
+  // Método para obtener la foto del empleado con el formato correcto
+  getEmpleadoFoto(foto: string): string {
+    console.log('🖼️ Procesando foto:', foto);
+    console.log('📏 Longitud de la foto:', foto?.length);
+    console.log('🔍 Primeros 50 caracteres:', foto?.substring(0, 50));
+    
+    if (!foto) {
+      console.log('❌ No hay foto disponible');
+      return '';
+    }
+    
+    // Si ya tiene el prefijo data:, devolver tal como está
+    if (foto.startsWith('data:')) {
+      console.log('✅ Foto ya tiene prefijo data:');
+      return foto;
+    }
+    
+    // Si no tiene prefijo, agregar el prefijo base64
+    const fotoConPrefijo = `data:image/png;base64,${foto}`;
+    console.log('🔧 Agregando prefijo base64:', fotoConPrefijo.substring(0, 50) + '...');
+    return fotoConPrefijo;
+  }
+
+  // Método para manejar errores de imagen
+  onImageError(event: any) {
+    console.log('Error cargando imagen del empleado:', event);
+    // Ocultar la imagen y mostrar el placeholder
+    event.target.style.display = 'none';
   }
 }
 

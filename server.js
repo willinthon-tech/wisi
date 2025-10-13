@@ -66,6 +66,7 @@ const {
   Cron,
   Llave,
   ControlLlaveRegistro,
+  NovedadMesaRegistro,
   syncDatabase 
 } = require('./models');
 const { Op } = require('sequelize');
@@ -2102,7 +2103,7 @@ app.get('/api/libros/:id', authenticateToken, async (req, res) => {
     
     res.json(libro);
   } catch (error) {
-    
+    console.error('Error obteniendo libro:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2199,12 +2200,16 @@ app.delete('/api/libros/:id', authenticateToken, async (req, res) => {
       SELECT table_name, count FROM (
         SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE libro_id = ?
         UNION ALL
+        SELECT 'Novedades de Mesas' as table_name, COUNT(*) as count FROM novedades_mesas_registros WHERE libro_id = ?
+        UNION ALL
+        SELECT 'Control de Llaves' as table_name, COUNT(*) as count FROM control_llaves_registros WHERE libro_id = ?
+        UNION ALL
         SELECT 'Incidencias Generales' as table_name, COUNT(*) as count FROM incidencias_generales WHERE libro_id = ?
         UNION ALL
         SELECT 'Drops' as table_name, COUNT(*) as count FROM drops WHERE libro_id = ?
       ) as relations WHERE count > 0
     `, {
-      replacements: [id, id, id],
+      replacements: [id, id, id, id, id],
       type: sequelize.QueryTypes.SELECT
     });
     
@@ -4974,6 +4979,182 @@ app.delete('/api/control-llaves-registros/:id', authenticateToken, async (req, r
     res.json({ message: 'Registro eliminado correctamente' });
   } catch (error) {
     console.error('Error eliminando registro de control de llave:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// RUTAS PARA NOVEDADES DE MESAS
+// =============================================
+
+// Obtener registros de novedades de mesas por libro
+app.get('/api/novedades-mesas-registros/:libroId', authenticateToken, async (req, res) => {
+  try {
+    const { libroId } = req.params;
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    // Verificar que el usuario tiene acceso al libro
+    const libro = await Libro.findByPk(libroId, {
+      include: [{ model: Sala, as: 'Sala' }]
+    });
+    
+    if (!libro) {
+      return res.status(404).json({ message: 'Libro no encontrado' });
+    }
+    
+    // Verificar acceso a la sala del libro
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: libro.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a este libro' });
+      }
+    }
+    
+    // Obtener registros de novedades de mesas con relaciones
+    const registros = await NovedadMesaRegistro.findAll({
+      where: { libro_id: libroId },
+      include: [
+        {
+          model: Mesa,
+          as: 'Mesa',
+          include: [
+            {
+              model: Juego,
+              as: 'Juego',
+              attributes: ['id', 'nombre']
+            }
+          ]
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula']
+        }
+      ],
+      order: [['hora', 'ASC']]
+    });
+    
+    res.json(registros);
+  } catch (error) {
+    console.error('Error obteniendo registros de novedades de mesas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear registro de novedad de mesa
+app.post('/api/novedades-mesas-registros', authenticateToken, async (req, res) => {
+  try {
+    const { libro_id, mesa_id, empleado_id, descripcion, hora } = req.body;
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+
+    // Verificar que el libro existe
+    const libro = await Libro.findByPk(libro_id);
+    if (!libro) {
+      return res.status(404).json({ message: 'Libro no encontrado' });
+    }
+
+    // Verificar acceso a la sala del libro
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: libro.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a este libro' });
+      }
+    }
+
+    // Verificar que la mesa existe y está activa
+    const mesa = await Mesa.findByPk(mesa_id);
+    if (!mesa || mesa.activo !== 1) {
+      return res.status(404).json({ message: 'Mesa no encontrada o inactiva' });
+    }
+
+    // Verificar que el empleado existe y está activo
+    const empleado = await Empleado.findByPk(empleado_id);
+    if (!empleado || empleado.activo !== 1) {
+      return res.status(404).json({ message: 'Empleado no encontrado o inactivo' });
+    }
+
+    // Crear el registro
+    const registro = await NovedadMesaRegistro.create({
+      libro_id,
+      mesa_id,
+      empleado_id,
+      descripcion,
+      hora
+    });
+
+    // Obtener el registro con relaciones
+    const registroCompleto = await NovedadMesaRegistro.findByPk(registro.id, {
+      include: [
+        {
+          model: Mesa,
+          as: 'Mesa',
+          include: [
+            {
+              model: Juego,
+              as: 'Juego',
+              attributes: ['id', 'nombre']
+            }
+          ]
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula']
+        }
+      ]
+    });
+
+    res.status(201).json(registroCompleto);
+  } catch (error) {
+    console.error('Error creando registro de novedad de mesa:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar registro de novedad de mesa
+app.delete('/api/novedades-mesas-registros/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    const registro = await NovedadMesaRegistro.findByPk(id, {
+      include: [
+        {
+          model: Libro,
+          as: 'Libro',
+          include: [{ model: Sala, as: 'Sala' }]
+        }
+      ]
+    });
+    
+    if (!registro) {
+      return res.status(404).json({ message: 'Registro no encontrado' });
+    }
+    
+    // Verificar acceso a la sala del libro
+    if (userLevel !== 'TODO') {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: registro.Libro.sala_id }
+      });
+      
+      if (!userSala) {
+        return res.status(403).json({ message: 'No tienes acceso a este registro' });
+      }
+    }
+    
+    await registro.destroy();
+    res.json({ message: 'Registro eliminado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando registro de novedad de mesa:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -9766,6 +9947,124 @@ app.put('/api/cron/config', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// ENDPOINTS PÚBLICOS PARA REPORTES
+// =============================================
+
+// Obtener novedades de máquinas por libro (público) - MOVIDO ARRIBA
+app.get('/api/public/novedades-maquinas/:libroId', async (req, res) => {
+  try {
+    const { libroId } = req.params;
+    console.log('🔍 ENDPOINT LLAMADO - Buscando novedades para libro:', libroId);
+    
+    // Verificar que el modelo existe
+    if (!NovedadMaquinaRegistro) {
+      console.error('❌ NovedadMaquinaRegistro no está definido');
+      return res.status(500).json({ message: 'Modelo no encontrado' });
+    }
+    
+    console.log('✅ Modelo NovedadMaquinaRegistro encontrado');
+    
+    // Consulta con includes para obtener datos completos
+    const novedades = await NovedadMaquinaRegistro.findAll({
+      where: { libro_id: libroId },
+      include: [
+        {
+          model: Maquina,
+          as: 'Maquina',
+          include: [
+            {
+              model: Rango,
+              as: 'Rango',
+              attributes: ['id', 'nombre']
+            }
+          ]
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
+        }
+      ],
+      order: [['created_at', 'ASC']]
+    });
+    
+    console.log('📊 Novedades encontradas:', novedades.length);
+    res.json(novedades);
+  } catch (error) {
+    console.error('❌ Error obteniendo novedades de máquinas:', error);
+    console.error('❌ Error details:', error.message);
+    console.error('❌ Stack trace:', error.stack);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener novedades de mesas por libro (público)
+app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
+  try {
+    const { libroId } = req.params;
+    const novedades = await NovedadMesaRegistro.findAll({
+      where: { libro_id: libroId },
+      include: [
+        {
+          model: Mesa,
+          as: 'Mesa',
+          include: [
+            {
+              model: Juego,
+              as: 'Juego',
+              attributes: ['id', 'nombre']
+            }
+          ]
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
+        }
+      ],
+      order: [['hora', 'ASC']]
+    });
+    res.json(novedades);
+  } catch (error) {
+    console.error('Error obteniendo novedades de mesas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener control de llaves por libro (público)
+app.get('/api/public/control-llaves/:libroId', async (req, res) => {
+  try {
+    const { libroId } = req.params;
+    const controles = await ControlLlaveRegistro.findAll({
+      where: { libro_id: libroId },
+      include: [
+        {
+          model: Llave,
+          as: 'Llave',
+          include: [
+            {
+              model: Sala,
+              as: 'Sala',
+              attributes: ['id', 'nombre']
+            }
+          ]
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
+        }
+      ],
+      order: [['hora', 'ASC']]
+    });
+    res.json(controles);
+  } catch (error) {
+    console.error('Error obteniendo control de llaves:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

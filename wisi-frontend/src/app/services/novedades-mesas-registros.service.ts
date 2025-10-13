@@ -12,7 +12,7 @@ export class NovedadesMesasRegistrosService {
   constructor(private http: HttpClient) { }
 
   getNovedadesMesaRegistros(libroId: number): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/libro/${libroId}`);
+    return this.http.get<any[]>(`${this.apiUrl}/${libroId}`);
   }
 
   createNovedadMesaRegistro(novedadData: any): Observable<any> {

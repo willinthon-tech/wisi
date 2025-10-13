@@ -162,8 +162,8 @@ interface NovedadData {
               <tr>
                 <th class="text-center">N°</th>
                 <th class="text-left">Máquina</th>
+                <th class="text-center">Empleado</th>
                 <th class="text-center">Novedad</th>
-                <th class="text-center">Técnico</th>
                 <th class="text-center">Hora</th>
                 <th class="text-center">Acciones</th>
               </tr>
@@ -179,8 +179,8 @@ interface NovedadData {
                     </button>
                   </span>
                 </td>
-                <td class="text-center">{{ evento.descripcion }}</td>
                 <td class="text-center">{{ evento.empleado?.nombre }}</td>
+                <td class="text-center">{{ evento.descripcion }}</td>
                 <td class="text-center">{{ evento.hora }}</td>
                 <td class="text-center">
                   <button class="btn btn-danger btn-sm" (click)="deleteNovedad(evento)">
@@ -833,7 +833,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
           return 0;
         });
         
-        // Agrupar novedades por [Técnico, Novedad, Hora]
+        // Agrupar novedades por [Empleado, Novedad, Hora]
         this.novedadesAgrupadas = this.agruparNovedades(this.novedades);
       },
       error: (error: any) => {
