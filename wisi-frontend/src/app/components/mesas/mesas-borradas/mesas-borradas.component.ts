@@ -213,7 +213,7 @@ export class MesasBorradasComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
       error: (error) => {
-        console.error('Error cargando mesas borradas:', error);
+        
         this.loading = false;
         this.errorModalService.showErrorModal({
           title: 'Error',
@@ -246,10 +246,10 @@ export class MesasBorradasComponent implements OnInit, OnDestroy {
         this.mesas = this.mesas.filter(m => m.id !== mesa.id);
         
         // Mostrar mensaje de éxito
-        console.log('Mesa activada exitosamente');
+        
       },
       error: (error) => {
-        console.error('Error activando mesa:', error);
+        
         
         if (error.status === 400 && error.error?.relations) {
           // Mostrar modal de error con relaciones

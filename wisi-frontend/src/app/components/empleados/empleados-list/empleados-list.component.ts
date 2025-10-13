@@ -1381,7 +1381,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.empleados = empleados;
       },
       error: (error) => {
-        console.error('Error cargando empleados:', error);
+        
       }
     });
   }
@@ -1408,7 +1408,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.userCargos = cargos;
       },
       error: (error) => {
-        console.error('📋 Error cargando cargos:', error);
+        
       }
     });
   }
@@ -1457,7 +1457,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             }
           },
           error: (error: any) => {
-            console.error('📱 Error cargando dispositivos:', error);
+            
           }
         });
       } else {
@@ -2620,7 +2620,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.empleados = this.empleados.filter(empleado => empleado.id !== id);
       },
       error: (error) => {
-        console.error('Error borrando empleado:', error);
+        
         if (error.status === 400 && error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'Error de Borrado',

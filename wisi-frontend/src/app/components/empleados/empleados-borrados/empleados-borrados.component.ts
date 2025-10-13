@@ -253,7 +253,7 @@ export class EmpleadosBorradosComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
       error: (error) => {
-        console.error('Error cargando empleados borrados:', error);
+        
         this.loading = false;
         this.errorModalService.showErrorModal({
           title: 'Error',
@@ -286,10 +286,10 @@ export class EmpleadosBorradosComponent implements OnInit, OnDestroy {
         this.empleados = this.empleados.filter(e => e.id !== empleado.id);
         
         // Mostrar mensaje de éxito
-        console.log('Empleado activado exitosamente');
+        
       },
       error: (error) => {
-        console.error('Error activando empleado:', error);
+        
         
         if (error.status === 400 && error.error?.relations) {
           // Mostrar modal de error con relaciones

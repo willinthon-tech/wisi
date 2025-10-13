@@ -194,7 +194,7 @@ export class LlavesBorradasComponent implements OnInit, OnDestroy {
         this.llavesBorradas = llaves;
       },
       error: (error) => {
-        console.error('Error cargando llaves borradas:', error);
+        
         this.errorModalService.showErrorModal({
           title: 'Error',
           message: 'No se pudieron cargar las llaves borradas'
@@ -248,7 +248,7 @@ export class LlavesBorradasComponent implements OnInit, OnDestroy {
             this.loadLlavesBorradas();
           },
           error: (error) => {
-            console.error('Error activando llave:', error);
+            
             this.errorModalService.showErrorModal({
               title: 'Error',
               message: 'No se pudo activar la llave'

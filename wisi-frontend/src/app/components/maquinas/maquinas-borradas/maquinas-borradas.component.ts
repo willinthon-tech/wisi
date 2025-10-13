@@ -213,7 +213,7 @@ export class MaquinasBorradasComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
       error: (error) => {
-        console.error('Error cargando máquinas borradas:', error);
+        
         this.loading = false;
         this.errorModalService.showErrorModal({
           title: 'Error',
@@ -246,10 +246,10 @@ export class MaquinasBorradasComponent implements OnInit, OnDestroy {
         this.maquinas = this.maquinas.filter(m => m.id !== maquina.id);
         
         // Mostrar mensaje de éxito
-        console.log('Máquina activada exitosamente');
+        
       },
       error: (error) => {
-        console.error('Error activando máquina:', error);
+        
         
         if (error.status === 400 && error.error?.relations) {
           // Mostrar modal de error con relaciones

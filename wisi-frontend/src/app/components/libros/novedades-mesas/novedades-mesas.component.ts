@@ -455,10 +455,10 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
     this.libroService.getLibro(this.libroId!).subscribe({
       next: (libro: any) => {
         this.libro = libro;
-        console.log('Libro cargado:', this.libro);
+        
       },
       error: (error: any) => {
-        console.error('Error cargando libro:', error);
+        
         this.errorModalService.showErrorModal({
           title: 'Error',
           message: 'No se pudo cargar la información del libro'
@@ -474,7 +474,7 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
         this.empleados = empleados;
       },
       error: (error: any) => {
-        console.error('Error cargando empleados:', error);
+        
         this.errorModalService.showErrorModal({
           title: 'Error',
           message: 'No se pudieron cargar los empleados'
@@ -492,10 +492,10 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
         this.mesas = mesas.filter((mesa: any) => 
           mesa.sala_id === this.salaId && mesa.activo === 1
         );
-        console.log('Mesas cargadas:', this.mesas);
+        
       },
       error: (error: any) => {
-        console.error('Error cargando mesas:', error);
+        
         this.mesas = [];
         this.errorModalService.showErrorModal({
           title: 'Error',
@@ -513,7 +513,7 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
         this.novedades = novedades;
       },
       error: (error: any) => {
-        console.error('Error cargando novedades:', error);
+        
         this.novedades = [];
       }
     });
@@ -524,16 +524,16 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
     
     this.userService.getUserSalas().subscribe({
       next: (salas: any) => {
-        console.log('loadSalaName - salas:', salas);
+        
         const sala = salas.find((s: any) => s.id === this.salaId);
-        console.log('loadSalaName - sala encontrada:', sala);
+        
         if (sala) {
           this.salaName = sala.nombre;
-          console.log('loadSalaName - nombre de sala:', this.salaName);
+          
         }
       },
       error: (error: any) => {
-        console.error('Error cargando nombre de sala:', error);
+        
         this.salaName = 'Sala';
       }
     });
@@ -562,7 +562,7 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
         this.resetForm();
       },
       error: (error: any) => {
-        console.error('Error guardando novedad:', error);
+        
         this.errorModalService.showErrorModal({
           title: 'Error',
           message: 'No se pudo guardar la novedad'
@@ -577,7 +577,7 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
         this.loadNovedades();
       },
       error: (error: any) => {
-        console.error('Error eliminando novedad:', error);
+        
         this.loadNovedades();
       }
     });
@@ -607,11 +607,11 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
     if (empleado) {
       this.novedadData.empleado_id = empleado.id;
       this.empleadoSelected = empleado;
-      console.log('✅ Empleado seleccionado:', empleado.nombre, 'ID:', empleado.id);
+      
     } else {
       this.novedadData.empleado_id = null;
       this.empleadoSelected = null;
-      console.log('❌ Empleado no encontrado:', searchText);
+      
     }
   }
 
@@ -623,7 +623,7 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
     // Validar que el empleado seleccionado sea válido
     if (this.empleadoSearchText && !this.empleadoSelected) {
       // Si hay texto pero no se encontró empleado, limpiar
-      console.log('⚠️ Empleado inválido, limpiando selección');
+      
       this.empleadoSearchText = '';
       this.novedadData.empleado_id = null;
     }
@@ -635,7 +635,7 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
       );
       
       if (!empleadoValido) {
-        console.log('⚠️ Empleado no válido, limpiando selección');
+        
         this.empleadoSearchText = '';
         this.novedadData.empleado_id = null;
         this.empleadoSelected = null;
@@ -668,13 +668,13 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
   }
 
   getLibroFecha(): string {
-    console.log('getLibroFecha - libro:', this.libro);
+    
     if (this.libro && this.libro.created_at) {
       const fecha = new Date(this.libro.created_at).toLocaleDateString('es-ES');
-      console.log('getLibroFecha - fecha formateada:', fecha);
+      
       return fecha;
     }
-    console.log('getLibroFecha - fecha no disponible');
+    
     return 'Fecha no disponible';
   }
 

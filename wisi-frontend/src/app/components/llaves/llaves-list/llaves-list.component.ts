@@ -470,7 +470,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
         this.llaves = llaves;
       },
       error: (error) => {
-        console.error('Error cargando llaves:', error);
+        
         this.errorModalService.showErrorModal({
           title: 'Error',
           message: 'No se pudieron cargar las llaves'
@@ -485,7 +485,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
         this.salas = salas;
       },
       error: (error) => {
-        console.error('Error cargando salas:', error);
+        
         this.errorModalService.showErrorModal({
           title: 'Error',
           message: 'No se pudieron cargar las salas'
@@ -577,7 +577,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
           this.closeModal();
         },
         error: (error) => {
-          console.error('Error actualizando llave:', error);
+          
           this.errorModalService.showErrorModal({
             title: 'Error',
             message: 'No se pudo actualizar la llave'
@@ -591,7 +591,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
           this.closeModal();
         },
         error: (error) => {
-          console.error('Error creando llave:', error);
+          
           this.errorModalService.showErrorModal({
             title: 'Error',
             message: 'No se pudo crear la llave'
@@ -617,7 +617,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
             this.loadLlaves();
           },
           error: (error) => {
-            console.error('Error borrando llave:', error);
+            
             this.errorModalService.showErrorModal({
               title: 'Error',
               message: 'No se pudo borrar la llave'
@@ -644,7 +644,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
             this.loadLlaves();
           },
           error: (error) => {
-            console.error('Error eliminando llave:', error);
+            
             this.errorModalService.showErrorModal({
               title: 'Error',
               message: 'No se pudo eliminar la llave'

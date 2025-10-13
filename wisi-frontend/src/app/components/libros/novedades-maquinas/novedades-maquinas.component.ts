@@ -993,7 +993,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
           this.loadNovedades();
         },
         error: (error: any) => {
-          console.error('Error eliminando novedad:', error);
+          
           // Solo recargar la lista sin mostrar modales
           this.loadNovedades();
         }
@@ -1055,11 +1055,11 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     if (empleado) {
       this.selectedEmpleadoId = empleado.id;
       this.empleadoSelected = empleado;
-      console.log('✅ Empleado seleccionado:', empleado.nombre, 'ID:', empleado.id);
+      
     } else {
       this.selectedEmpleadoId = null;
       this.empleadoSelected = null;
-      console.log('❌ Empleado no encontrado:', searchText);
+      
     }
   }
 
@@ -1071,7 +1071,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     // Validar que el empleado seleccionado sea válido
     if (this.empleadoSearchText && !this.empleadoSelected) {
       // Si hay texto pero no se encontró empleado, limpiar
-      console.log('⚠️ Empleado inválido, limpiando selección');
+      
       this.empleadoSearchText = '';
       this.selectedEmpleadoId = null;
     }
@@ -1083,7 +1083,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
       );
       
       if (!empleadoValido) {
-        console.log('⚠️ Empleado no válido, limpiando selección');
+        
         this.empleadoSearchText = '';
         this.selectedEmpleadoId = null;
         this.empleadoSelected = null;

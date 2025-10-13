@@ -608,7 +608,7 @@ export class MesasListComponent implements OnInit, OnDestroy {
         this.mesas = this.mesas.filter(mesa => mesa.id !== id);
       },
       error: (error) => {
-        console.error('Error borrando mesa:', error);
+        
         if (error.status === 400 && error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'Error de Borrado',

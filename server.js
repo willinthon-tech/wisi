@@ -2103,7 +2103,7 @@ app.get('/api/libros/:id', authenticateToken, async (req, res) => {
     
     res.json(libro);
   } catch (error) {
-    console.error('Error obteniendo libro:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4211,7 +4211,7 @@ app.get('/api/maquinas/borradas', authenticateToken, async (req, res) => {
     
     res.json(maquinas);
   } catch (error) {
-    console.error('Error obteniendo máquinas borradas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4243,7 +4243,7 @@ app.put('/api/maquinas/:id/borrar', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error borrando máquina:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4275,7 +4275,7 @@ app.put('/api/maquinas/:id/activar', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error activando máquina:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4332,7 +4332,7 @@ app.get('/api/mesas/borradas', authenticateToken, async (req, res) => {
     
     res.json(mesas);
   } catch (error) {
-    console.error('Error obteniendo mesas borradas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4364,7 +4364,7 @@ app.put('/api/mesas/:id/borrar', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error borrando mesa:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4396,7 +4396,7 @@ app.put('/api/mesas/:id/activar', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error activando mesa:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4453,7 +4453,7 @@ app.get('/api/llaves', authenticateToken, async (req, res) => {
     
     res.json(llaves);
   } catch (error) {
-    console.error('Error obteniendo llaves:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4519,7 +4519,7 @@ app.post('/api/llaves', authenticateToken, async (req, res) => {
     
     res.status(201).json(llaveWithSala);
   } catch (error) {
-    console.error('Error creando llave:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4602,7 +4602,7 @@ app.put('/api/llaves/:id', authenticateToken, async (req, res) => {
     
     res.json(updatedLlave);
   } catch (error) {
-    console.error('Error actualizando llave:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4658,7 +4658,7 @@ app.delete('/api/llaves/:id', authenticateToken, async (req, res) => {
     await llave.update({ activo: 0 });
     res.json({ message: 'Llave marcada como borrada correctamente' });
   } catch (error) {
-    console.error('Error eliminando llave:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4711,7 +4711,7 @@ app.get('/api/llaves/borradas', authenticateToken, async (req, res) => {
     
     res.json(llaves);
   } catch (error) {
-    console.error('Error obteniendo llaves borradas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4757,7 +4757,7 @@ app.put('/api/llaves/:id/borrar', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error borrando llave:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4803,7 +4803,7 @@ app.put('/api/llaves/:id/activar', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error activando llave:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4865,7 +4865,7 @@ app.get('/api/control-llaves-registros/:libroId', authenticateToken, async (req,
     
     res.json(registros);
   } catch (error) {
-    console.error('Error obteniendo registros de control de llaves:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4938,7 +4938,7 @@ app.post('/api/control-llaves-registros', authenticateToken, async (req, res) =>
 
     res.status(201).json(registroCompleto);
   } catch (error) {
-    console.error('Error creando registro de control de llave:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4978,7 +4978,7 @@ app.delete('/api/control-llaves-registros/:id', authenticateToken, async (req, r
     await registro.destroy();
     res.json({ message: 'Registro eliminado correctamente' });
   } catch (error) {
-    console.error('Error eliminando registro de control de llave:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5040,7 +5040,7 @@ app.get('/api/novedades-mesas-registros/:libroId', authenticateToken, async (req
     
     res.json(registros);
   } catch (error) {
-    console.error('Error obteniendo registros de novedades de mesas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5114,7 +5114,7 @@ app.post('/api/novedades-mesas-registros', authenticateToken, async (req, res) =
 
     res.status(201).json(registroCompleto);
   } catch (error) {
-    console.error('Error creando registro de novedad de mesa:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -5154,7 +5154,7 @@ app.delete('/api/novedades-mesas-registros/:id', authenticateToken, async (req, 
     await registro.destroy();
     res.json({ message: 'Registro eliminado correctamente' });
   } catch (error) {
-    console.error('Error eliminando registro de novedad de mesa:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -6512,7 +6512,7 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
 
     res.json(empleados);
   } catch (error) {
-    console.error('Error obteniendo empleados borrados:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -6664,7 +6664,7 @@ app.put('/api/empleados/:id/borrar', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error borrando empleado:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -6789,7 +6789,7 @@ app.put('/api/empleados/:id/activar', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error activando empleado:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -9959,15 +9959,15 @@ app.put('/api/cron/config', authenticateToken, async (req, res) => {
 app.get('/api/public/novedades-maquinas/:libroId', async (req, res) => {
   try {
     const { libroId } = req.params;
-    console.log('🔍 ENDPOINT LLAMADO - Buscando novedades para libro:', libroId);
+    
     
     // Verificar que el modelo existe
     if (!NovedadMaquinaRegistro) {
-      console.error('❌ NovedadMaquinaRegistro no está definido');
+      
       return res.status(500).json({ message: 'Modelo no encontrado' });
     }
     
-    console.log('✅ Modelo NovedadMaquinaRegistro encontrado');
+    
     
     // Consulta con includes para obtener datos completos
     const novedades = await NovedadMaquinaRegistro.findAll({
@@ -9993,12 +9993,12 @@ app.get('/api/public/novedades-maquinas/:libroId', async (req, res) => {
       order: [['created_at', 'ASC']]
     });
     
-    console.log('📊 Novedades encontradas:', novedades.length);
+    
     res.json(novedades);
   } catch (error) {
-    console.error('❌ Error obteniendo novedades de máquinas:', error);
-    console.error('❌ Error details:', error.message);
-    console.error('❌ Stack trace:', error.stack);
+    
+    
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -10031,7 +10031,7 @@ app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
     });
     res.json(novedades);
   } catch (error) {
-    console.error('Error obteniendo novedades de mesas:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -10064,7 +10064,7 @@ app.get('/api/public/control-llaves/:libroId', async (req, res) => {
     });
     res.json(controles);
   } catch (error) {
-    console.error('Error obteniendo control de llaves:', error);
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

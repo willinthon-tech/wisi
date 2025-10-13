@@ -739,7 +739,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
         this.libro = libro;
       },
       error: (error: any) => {
-        console.error('Error cargando libro:', error);
+        
       }
     });
   }
@@ -751,7 +751,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
         this.empleados = empleados;
       },
       error: (error: any) => {
-        console.error('Error cargando empleados:', error);
+        
         this.errorModalService.showErrorModal({
           title: 'Error',
           message: 'No se pudieron cargar los empleados'
@@ -769,10 +769,10 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
         this.llaves = llaves.filter((llave: any) => 
           llave.sala_id === this.salaId && llave.activo === 1
         );
-        console.log('Llaves cargadas:', this.llaves);
+        
       },
       error: (error: any) => {
-        console.error('Error cargando llaves:', error);
+        
         this.llaves = [];
         this.errorModalService.showErrorModal({
           title: 'Error',
@@ -791,7 +791,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
         this.agruparControles();
       },
       error: (error: any) => {
-        console.error('Error cargando controles:', error);
+        
         this.controles = [];
         this.controlesAgrupados = [];
       }
@@ -809,7 +809,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
         }
       },
       error: (error: any) => {
-        console.error('Error cargando nombre de sala:', error);
+        
         this.salaName = 'Sala';
       }
     });
@@ -866,7 +866,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
         },
         error: (error: any) => {
           errors++;
-          console.error('Error guardando control:', error);
+          
           
           // Si es la última llave, recargar y resetear
           if (completed + errors === this.selectedLlaveIds.length) {
@@ -918,7 +918,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
           this.loadControles();
         },
         error: (error: any) => {
-          console.error('Error eliminando control:', error);
+          
           // Solo recargar la lista sin mostrar modales
           this.loadControles();
         }
@@ -947,11 +947,11 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
     if (empleado) {
       this.selectedEmpleadoId = empleado.id;
       this.empleadoSelected = empleado;
-      console.log('✅ Empleado seleccionado:', empleado.nombre, 'ID:', empleado.id);
+      
     } else {
       this.selectedEmpleadoId = null;
       this.empleadoSelected = null;
-      console.log('❌ Empleado no encontrado:', searchText);
+      
     }
   }
 
@@ -963,7 +963,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
     // Validar que el empleado seleccionado sea válido
     if (this.empleadoSearchText && !this.empleadoSelected) {
       // Si hay texto pero no se encontró empleado, limpiar
-      console.log('⚠️ Empleado inválido, limpiando selección');
+      
       this.empleadoSearchText = '';
       this.selectedEmpleadoId = null;
     }
@@ -975,7 +975,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
       );
       
       if (!empleadoValido) {
-        console.log('⚠️ Empleado no válido, limpiando selección');
+        
         this.empleadoSearchText = '';
         this.selectedEmpleadoId = null;
         this.empleadoSelected = null;

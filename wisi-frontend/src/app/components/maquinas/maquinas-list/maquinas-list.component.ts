@@ -604,7 +604,7 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
         this.maquinas = this.maquinas.filter(maquina => maquina.id !== id);
       },
       error: (error) => {
-        console.error('Error borrando máquina:', error);
+        
         if (error.status === 400 && error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'Error de Borrado',

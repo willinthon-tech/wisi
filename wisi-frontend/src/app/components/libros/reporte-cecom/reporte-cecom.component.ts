@@ -1063,9 +1063,9 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
 
   // Método para mostrar información del empleado
   mostrarEmpleado(empleado: any) {
-    console.log('🔍 Empleado seleccionado:', empleado);
-    console.log('📸 Foto del empleado:', empleado?.foto);
-    console.log('📏 Longitud de la foto:', empleado?.foto?.length);
+    
+    
+    
     this.empleadoSeleccionado = empleado;
     this.showEmpleadoModal = true;
   }
@@ -1077,30 +1077,30 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
 
   // Método para obtener la foto del empleado con el formato correcto
   getEmpleadoFoto(foto: string): string {
-    console.log('🖼️ Procesando foto:', foto);
-    console.log('📏 Longitud de la foto:', foto?.length);
-    console.log('🔍 Primeros 50 caracteres:', foto?.substring(0, 50));
+    
+    
+    
     
     if (!foto) {
-      console.log('❌ No hay foto disponible');
+      
       return '';
     }
     
     // Si ya tiene el prefijo data:, devolver tal como está
     if (foto.startsWith('data:')) {
-      console.log('✅ Foto ya tiene prefijo data:');
+      
       return foto;
     }
     
     // Si no tiene prefijo, agregar el prefijo base64
     const fotoConPrefijo = `data:image/png;base64,${foto}`;
-    console.log('🔧 Agregando prefijo base64:', fotoConPrefijo.substring(0, 50) + '...');
+    
     return fotoConPrefijo;
   }
 
   // Método para manejar errores de imagen
   onImageError(event: any) {
-    console.log('Error cargando imagen del empleado:', event);
+    
     // Ocultar la imagen y mostrar el placeholder
     event.target.style.display = 'none';
   }
