@@ -7,6 +7,7 @@ import { HorariosService } from '../../../services/horarios.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { AreasService } from '../../../services/areas.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -749,6 +750,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -970,11 +972,37 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   deleteHorario(id: number | null): void {
     if (!id) return;
     
+    console.log('Mostrando modal de confirmación para horario:', id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este horario?',
+      entity: {
+        id: id,
+        nombre: 'Horario',
+        tipo: 'Horario'
+      },
+      warningText: 'Esta acción eliminará permanentemente el horario y todos sus bloques.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionHorario(id);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionHorario(id: number) {
+    console.log('Ejecutando eliminación de horario:', id);
+    
     this.horariosService.deleteHorario(id).subscribe({
       next: (response) => {
+        console.log('Horario eliminado correctamente:', response);
         this.horarios = this.horarios.filter(horario => horario.id !== id);
+        alert('Horario eliminado correctamente');
       },
       error: (error) => {
+        console.error('Error eliminando horario:', error);
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {

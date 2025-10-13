@@ -9,6 +9,7 @@ import { UserService } from '../../../services/user.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { LibroService } from '../../../services/libro.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 interface NovedadMaquinaRegistro {
@@ -770,7 +771,8 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     private permissionsService: PermissionsService,
     private router: Router,
     private libroService: LibroService,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit() {
@@ -963,11 +965,38 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
   }
 
   deleteNovedad(id: number) {
+    console.log('Mostrando modal de confirmación para novedad:', id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar esta novedad?',
+      entity: {
+        id: id,
+        nombre: 'Novedad',
+        tipo: 'Novedad'
+      },
+      warningText: 'Esta acción eliminará permanentemente la novedad.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionNovedad(id);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionNovedad(id: number) {
+    console.log('Ejecutando eliminación de novedad:', id);
+    
     this.novedadesRegistrosService.deleteNovedadMaquinaRegistro(id).subscribe({
       next: () => {
+        console.log('Novedad eliminada correctamente');
         this.loadNovedades(); // Recargar la lista
+        alert('Novedad eliminada correctamente');
       },
       error: (error: any) => {
+        console.error('Error eliminando novedad:', error);
+        
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la novedad',
@@ -980,6 +1009,8 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
             relations: error.error.relations,
             helpText: 'Para eliminar esta novedad, primero debe eliminar o reasignar los elementos relacionados.'
           });
+        } else {
+          alert('Error eliminando novedad: ' + (error.error?.message || 'Error desconocido'));
         }
       }
     });

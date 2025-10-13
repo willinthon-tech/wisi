@@ -5,6 +5,7 @@ import { JuegosService } from '../../../services/juegos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -438,7 +439,8 @@ export class JuegosListComponent implements OnInit, OnDestroy {
     private juegosService: JuegosService,
     private router: Router,
     private permissionsService: PermissionsService,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit(): void {
@@ -569,11 +571,38 @@ export class JuegosListComponent implements OnInit, OnDestroy {
   }
 
   deleteJuego(id: number): void {
+    console.log('Mostrando modal de confirmación para juego:', id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este juego?',
+      entity: {
+        id: id,
+        nombre: 'Juego',
+        tipo: 'Juego'
+      },
+      warningText: 'Esta acción eliminará permanentemente el juego.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionJuego(id);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionJuego(id: number) {
+    console.log('Ejecutando eliminación de juego:', id);
+    
     this.juegosService.deleteJuego(id).subscribe({
       next: () => {
+        console.log('Juego eliminado correctamente');
         this.loadJuegos();
+        alert('Juego eliminado correctamente');
       },
       error: (error) => {
+        console.error('Error eliminando juego:', error);
+        
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el juego',
@@ -586,6 +615,8 @@ export class JuegosListComponent implements OnInit, OnDestroy {
             relations: error.error.relations,
             helpText: 'Para eliminar este juego, primero debe eliminar o reasignar los elementos relacionados.'
           });
+        } else {
+          alert('Error eliminando juego: ' + (error.error?.message || 'Error desconocido'));
         }
       }
     });

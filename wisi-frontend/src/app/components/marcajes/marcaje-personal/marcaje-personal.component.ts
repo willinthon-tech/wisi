@@ -6,6 +6,7 @@ import { AuthService } from '../../../services/auth.service';
 import { MarcajesService } from '../../../services/marcajes.service';
 import { HorariosService } from '../../../services/horarios.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 
 @Component({
   selector: 'app-marcaje-personal',
@@ -1557,7 +1558,8 @@ export class MarcajePersonalComponent implements OnInit {
     private empleadosService: EmpleadosService,
     private marcajesService: MarcajesService,
     private horariosService: HorariosService,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit() {
@@ -2843,24 +2845,43 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   eliminarHorarioEmpleado(horarioEmpleadoId: number) {
-    if (!confirm('¿Está seguro de que desea eliminar este horario?')) {
-      return;
-    }
-
     if (!this.empleadoSeleccionado?.id) {
       alert('Error: No se ha seleccionado un empleado');
       return;
     }
 
-    console.log('Eliminando horario:', horarioEmpleadoId);
+    console.log('Mostrando modal de confirmación para horario:', horarioEmpleadoId);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este horario?',
+      entity: {
+        id: horarioEmpleadoId,
+        nombre: 'Horario de Empleado',
+        tipo: 'Horario'
+      },
+      warningText: 'Esta acción eliminará permanentemente el horario asignado al empleado.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionHorario(horarioEmpleadoId);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionHorario(horarioEmpleadoId: number) {
+    if (!this.empleadoSeleccionado?.id) {
+      return;
+    }
+
+    console.log('Ejecutando eliminación de horario:', horarioEmpleadoId);
 
     this.empleadosService.eliminarHorarioEmpleado(this.empleadoSeleccionado.id, horarioEmpleadoId).subscribe({
       next: (response) => {
         console.log('Horario eliminado correctamente:', response);
         alert('Horario eliminado correctamente');
-        this.cargarHorariosEmpleado(); // Recargar la lista del modal
-        
-        // ✅ ACTUALIZAR LA VISTA PRINCIPAL
+        this.cargarHorariosEmpleado();
         this.actualizarVistaPrincipal();
       },
       error: (error) => {
@@ -2868,7 +2889,7 @@ export class MarcajePersonalComponent implements OnInit {
         console.error('Error status:', error.status);
         console.error('Error error:', error.error);
         
-        // Si es error 400 con relaciones, mostrar modal global
+        // Si es error 400 con relaciones, mostrar modal global de error
         if (error.status === 400 && error.error?.relations) {
           console.log('Mostrando modal global de error con relaciones');
           this.errorModalService.showErrorModal({

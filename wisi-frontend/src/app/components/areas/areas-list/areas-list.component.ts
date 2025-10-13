@@ -5,6 +5,7 @@ import { AreasService } from '../../../services/areas.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -432,7 +433,8 @@ export class AreasListComponent implements OnInit, OnDestroy {
     private areasService: AreasService,
     private permissionsService: PermissionsService,
     private router: Router,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit(): void {
@@ -540,12 +542,33 @@ export class AreasListComponent implements OnInit, OnDestroy {
   }
 
   deleteArea(id: number): void {
+    const area = this.areas.find(a => a.id === id);
+    console.log('Mostrando modal de confirmación para área:', id);
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar esta área?',
+      entity: {
+        id: id,
+        nombre: area?.nombre || 'Área',
+        tipo: 'Área'
+      },
+      warningText: 'Esta acción eliminará permanentemente el área y todos sus datos asociados.',
+      onConfirm: () => {
+        this.ejecutarEliminacionArea(id, area);
+      }
+    });
+  }
+
+  private ejecutarEliminacionArea(id: number, area: any) {
+    console.log('Ejecutando eliminación de área:', id);
     this.areasService.deleteArea(id).subscribe({
       next: () => {
+        console.log('Área eliminada correctamente');
         this.areas = this.areas.filter(area => area.id !== id);
+        alert('Área eliminada correctamente');
       },
       error: (error) => {
-        
+        console.error('Error eliminando área:', error);
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
           this.errorModalService.showErrorModal({
@@ -553,7 +576,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
             message: error.error.message,
             entity: {
               id: error.error.area?.id || id,
-              nombre: error.error.area?.nombre || 'Área',
+              nombre: error.error.area?.nombre || area?.nombre || 'Área',
               tipo: 'Área'
             },
             relations: error.error.relations,

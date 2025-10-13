@@ -5,6 +5,7 @@ import { DepartamentosService } from '../../../services/departamentos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -434,7 +435,8 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
     private departamentosService: DepartamentosService,
     private permissionsService: PermissionsService,
     private router: Router,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit(): void {
@@ -542,12 +544,33 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
   }
 
   deleteDepartamento(id: number): void {
+    const departamento = this.departamentos.find(d => d.id === id);
+    console.log('Mostrando modal de confirmación para departamento:', id);
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este departamento?',
+      entity: {
+        id: id,
+        nombre: departamento?.nombre || 'Departamento',
+        tipo: 'Departamento'
+      },
+      warningText: 'Esta acción eliminará permanentemente el departamento y todos sus datos asociados.',
+      onConfirm: () => {
+        this.ejecutarEliminacionDepartamento(id, departamento);
+      }
+    });
+  }
+
+  private ejecutarEliminacionDepartamento(id: number, departamento: any) {
+    console.log('Ejecutando eliminación de departamento:', id);
     this.departamentosService.deleteDepartamento(id).subscribe({
       next: () => {
+        console.log('Departamento eliminado correctamente');
         this.departamentos = this.departamentos.filter(departamento => departamento.id !== id);
+        alert('Departamento eliminado correctamente');
       },
       error: (error) => {
-        
+        console.error('Error eliminando departamento:', error);
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
           this.errorModalService.showErrorModal({
@@ -555,7 +578,7 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
             message: error.error.message,
             entity: {
               id: error.error.departamento?.id || id,
-              nombre: error.error.departamento?.nombre || 'Departamento',
+              nombre: error.error.departamento?.nombre || departamento?.nombre || 'Departamento',
               tipo: 'Departamento'
             },
             relations: error.error.relations,

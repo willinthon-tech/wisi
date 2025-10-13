@@ -8,6 +8,7 @@ import { AuthService } from '../../../services/auth.service';
 import { HikvisionIsapiService } from '../../../services/hikvision-isapi.service';
 import { XmlParserService } from '../../../services/xml-parser.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 
 @Component({
   selector: 'app-dispositivos-list',
@@ -100,7 +101,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     private sanitizer: DomSanitizer,
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit(): void {
@@ -932,16 +934,38 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
 
   deleteDispositivo(dispositivo: any): void {
-    
+    console.log('Mostrando modal de confirmación para dispositivo:', dispositivo.id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este dispositivo?',
+      entity: {
+        id: dispositivo.id,
+        nombre: dispositivo.nombre || 'Dispositivo',
+        tipo: 'Dispositivo'
+      },
+      warningText: 'Esta acción eliminará permanentemente el dispositivo y todos sus datos asociados.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionDispositivo(dispositivo);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionDispositivo(dispositivo: any) {
+    console.log('Ejecutando eliminación de dispositivo:', dispositivo.id);
     
     this.dispositivosService.deleteDispositivo(dispositivo.id).subscribe({
       next: (response) => {
-        
+        console.log('Dispositivo eliminado correctamente:', response);
         // Remover el dispositivo del array local
         this.dispositivos = this.dispositivos.filter(d => d.id !== dispositivo.id);
+        alert('Dispositivo eliminado correctamente');
       },
       error: (error) => {
-        
+        console.error('Error eliminando dispositivo:', error);
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {

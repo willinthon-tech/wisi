@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { UserService } from '../../../../services/user.service';
 import { AuthService } from '../../../../services/auth.service';
+import { ErrorModalService } from '../../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../../services/confirm-modal.service';
 
 @Component({
   selector: 'app-permisos-list',
@@ -313,7 +315,9 @@ export class PermisosListComponent implements OnInit {
   constructor(
     private userService: UserService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit() {
@@ -358,16 +362,55 @@ export class PermisosListComponent implements OnInit {
   }
 
   deletePermission(permission: any) {
-    if (confirm(`¿Estás seguro de que quieres eliminar el permiso "${permission.nombre}"?`)) {
-      this.userService.deletePermission(permission.id).subscribe({
-        next: (response) => {
-          alert('Permiso eliminado exitosamente');
-          this.loadPermissions(); // Recargar la lista
-        },
-        error: (error) => {
+    console.log('Mostrando modal de confirmación para permiso:', permission.id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este permiso?',
+      entity: {
+        id: permission.id,
+        nombre: permission.nombre || 'Permiso',
+        tipo: 'Permiso'
+      },
+      warningText: 'Esta acción eliminará permanentemente el permiso y todos sus datos asociados.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionPermiso(permission);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionPermiso(permission: any) {
+    console.log('Ejecutando eliminación de permiso:', permission.id);
+    
+    this.userService.deletePermission(permission.id).subscribe({
+      next: (response) => {
+        console.log('Permiso eliminado correctamente:', response);
+        alert('Permiso eliminado exitosamente');
+        this.loadPermissions(); // Recargar la lista
+      },
+      error: (error) => {
+        console.error('Error eliminando permiso:', error);
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el permiso',
+            message: error.error.message,
+            entity: {
+              id: error.error.permission?.id || permission.id,
+              nombre: error.error.permission?.nombre || permission.nombre || 'Permiso',
+              tipo: 'Permiso'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este permiso, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
           alert('Error eliminando permiso: ' + (error.error?.message || error.message || 'Error desconocido'));
         }
-      });
-    }
+      }
+    });
   }
 }

@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { UserService } from '../../../../services/user.service';
 import { AuthService } from '../../../../services/auth.service';
+import { ErrorModalService } from '../../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../../services/confirm-modal.service';
 
 @Component({
   selector: 'app-modulos-list',
@@ -343,7 +345,9 @@ export class ModulosListComponent implements OnInit {
   constructor(
     private userService: UserService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit() {
@@ -405,17 +409,56 @@ export class ModulosListComponent implements OnInit {
   }
 
   deleteModule(module: any) {
-    if (confirm(`¿Estás seguro de que quieres eliminar el módulo "${module.nombre}"?`)) {
-      this.userService.deleteModule(module.id).subscribe({
-        next: (response) => {
-          alert('Módulo eliminado exitosamente');
-          this.loadData(); // Recargar la lista
-        },
-        error: (error) => {
+    console.log('Mostrando modal de confirmación para módulo:', module.id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este módulo?',
+      entity: {
+        id: module.id,
+        nombre: module.nombre || 'Módulo',
+        tipo: 'Módulo'
+      },
+      warningText: 'Esta acción eliminará permanentemente el módulo y todos sus datos asociados.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionModulo(module);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionModulo(module: any) {
+    console.log('Ejecutando eliminación de módulo:', module.id);
+    
+    this.userService.deleteModule(module.id).subscribe({
+      next: (response) => {
+        console.log('Módulo eliminado correctamente:', response);
+        alert('Módulo eliminado exitosamente');
+        this.loadData(); // Recargar la lista
+      },
+      error: (error) => {
+        console.error('Error eliminando módulo:', error);
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el módulo',
+            message: error.error.message,
+            entity: {
+              id: error.error.module?.id || module.id,
+              nombre: error.error.module?.nombre || module.nombre || 'Módulo',
+              tipo: 'Módulo'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este módulo, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
           alert('Error eliminando módulo: ' + (error.error?.message || error.message || 'Error desconocido'));
         }
-      });
-    }
+      }
+    });
   }
 
   getModuleIcon(icono: string): string {

@@ -7,6 +7,7 @@ import { UserService } from '../../../services/user.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { LibroService } from '../../../services/libro.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 interface Sala {
@@ -466,7 +467,8 @@ export class DropMesasComponent implements OnInit, OnDestroy {
     private permissionsService: PermissionsService,
     private router: Router,
     private libroService: LibroService,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit() {
@@ -608,11 +610,38 @@ export class DropMesasComponent implements OnInit, OnDestroy {
   }
 
   deleteDrop(id: number) {
+    console.log('Mostrando modal de confirmación para drop:', id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este drop?',
+      entity: {
+        id: id,
+        nombre: 'Drop',
+        tipo: 'Drop'
+      },
+      warningText: 'Esta acción eliminará permanentemente el drop.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionDrop(id);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionDrop(id: number) {
+    console.log('Ejecutando eliminación de drop:', id);
+    
     this.dropsService.deleteDrop(id).subscribe({
       next: () => {
+        console.log('Drop eliminado correctamente');
         this.loadDrops(); // Recargar la lista
+        alert('Drop eliminado correctamente');
       },
       error: (error: any) => {
+        console.error('Error eliminando drop:', error);
+        
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el drop',
@@ -625,6 +654,8 @@ export class DropMesasComponent implements OnInit, OnDestroy {
             relations: error.error.relations,
             helpText: 'Para eliminar este drop, primero debe eliminar o reasignar los elementos relacionados.'
           });
+        } else {
+          alert('Error eliminando drop: ' + (error.error?.message || 'Error desconocido'));
         }
       }
     });

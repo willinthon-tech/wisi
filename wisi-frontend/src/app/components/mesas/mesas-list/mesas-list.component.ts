@@ -5,6 +5,7 @@ import { MesasService } from '../../../services/mesas.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -440,7 +441,8 @@ export class MesasListComponent implements OnInit, OnDestroy {
     private mesasService: MesasService,
     private router: Router,
     private permissionsService: PermissionsService,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit(): void {
@@ -577,23 +579,47 @@ export class MesasListComponent implements OnInit, OnDestroy {
   }
 
   deleteMesa(id: number): void {
+    const mesa = this.mesas.find(m => m.id === id);
+    console.log('Mostrando modal de confirmación para mesa:', id);
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar esta mesa?',
+      entity: {
+        id: id,
+        nombre: mesa?.nombre || 'Mesa',
+        tipo: 'Mesa'
+      },
+      warningText: 'Esta acción eliminará permanentemente la mesa y todos sus datos asociados.',
+      onConfirm: () => {
+        this.ejecutarEliminacionMesa(id, mesa);
+      }
+    });
+  }
+
+  private ejecutarEliminacionMesa(id: number, mesa: any) {
+    console.log('Ejecutando eliminación de mesa:', id);
     this.mesasService.deleteMesa(id).subscribe({
       next: () => {
+        console.log('Mesa eliminada correctamente');
         this.loadMesas();
+        alert('Mesa eliminada correctamente');
       },
       error: (error) => {
+        console.error('Error eliminando mesa:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la mesa',
             message: 'Esta mesa tiene relaciones que impiden su eliminación.',
             entity: {
               id: id,
-              nombre: 'Mesa',
+              nombre: mesa?.nombre || 'Mesa',
               tipo: 'mesa'
             },
             relations: error.error.relations,
             helpText: 'Para eliminar esta mesa, primero debe eliminar o reasignar los elementos relacionados.'
           });
+        } else {
+          alert('Error eliminando mesa: ' + (error.error?.message || 'Error desconocido'));
         }
       }
     });

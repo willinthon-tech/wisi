@@ -2,6 +2,8 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EmpleadosService, Empleado } from '../../../services/empleados.service';
+import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 
 interface EmpleadoForm {
   id: number | null;
@@ -20,7 +22,6 @@ import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
 import { TareasAutomaticasService } from '../../../services/tareas-automaticas.service';
 import { AuthService } from '../../../services/auth.service';
-import { ErrorModalService } from '../../../services/error-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -1266,7 +1267,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     private router: Router,
     private tareasAutomaticasService: TareasAutomaticasService,
     private authService: AuthService,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   // Helper para convertir EmpleadoForm a Partial<Empleado>
@@ -2444,10 +2446,31 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   deleteEmpleado(id: number): void {
     // Obtener el empleado antes de eliminarlo para crear las tareas
     const empleado = this.empleados.find(e => e.id === id);
+    
+    console.log('Mostrando modal de confirmación para empleado:', id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este empleado?',
+      entity: {
+        id: id,
+        nombre: empleado?.nombre || 'Empleado',
+        tipo: 'Empleado'
+      },
+      warningText: 'Esta acción eliminará permanentemente el empleado y todos sus datos asociados.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionEmpleado(id, empleado);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionEmpleado(id: number, empleado: any) {
     const dispositivosIds = empleado?.dispositivos?.map((d: any) => d.id) || [];
     
-    
-    
+    console.log('Ejecutando eliminación de empleado:', id);
     
     this.empleadosService.deleteEmpleado(id).subscribe({
       next: async () => {
@@ -2457,10 +2480,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         }
         
         this.empleados = this.empleados.filter(empleado => empleado.id !== id);
-        
+        alert('Empleado eliminado correctamente');
       },
       error: (error) => {
-        
+        console.error('Error eliminando empleado:', error);
         
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {

@@ -5,6 +5,7 @@ import { MaquinasService } from '../../../services/maquinas.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -440,7 +441,8 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
     private maquinasService: MaquinasService,
     private router: Router,
     private permissionsService: PermissionsService,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit(): void {
@@ -573,23 +575,47 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
   }
 
   deleteMaquina(id: number): void {
+    const maquina = this.maquinas.find(m => m.id === id);
+    console.log('Mostrando modal de confirmación para máquina:', id);
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar esta máquina?',
+      entity: {
+        id: id,
+        nombre: maquina?.nombre || 'Máquina',
+        tipo: 'Máquina'
+      },
+      warningText: 'Esta acción eliminará permanentemente la máquina y todos sus datos asociados.',
+      onConfirm: () => {
+        this.ejecutarEliminacionMaquina(id, maquina);
+      }
+    });
+  }
+
+  private ejecutarEliminacionMaquina(id: number, maquina: any) {
+    console.log('Ejecutando eliminación de máquina:', id);
     this.maquinasService.deleteMaquina(id).subscribe({
       next: () => {
+        console.log('Máquina eliminada correctamente');
         this.loadMaquinas();
+        alert('Máquina eliminada correctamente');
       },
       error: (error) => {
+        console.error('Error eliminando máquina:', error);
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la máquina',
             message: 'Esta máquina tiene relaciones que impiden su eliminación.',
             entity: {
               id: id,
-              nombre: 'Máquina',
+              nombre: maquina?.nombre || 'Máquina',
               tipo: 'máquina'
             },
             relations: error.error.relations,
             helpText: 'Para eliminar esta máquina, primero debe eliminar o reasignar los elementos relacionados.'
           });
+        } else {
+          alert('Error eliminando máquina: ' + (error.error?.message || 'Error desconocido'));
         }
       }
     });

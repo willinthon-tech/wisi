@@ -5,6 +5,7 @@ import { CargosService } from '../../../services/cargos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -436,7 +437,8 @@ export class CargosListComponent implements OnInit, OnDestroy {
     private cargosService: CargosService,
     private permissionsService: PermissionsService,
     private router: Router,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit(): void {
@@ -544,12 +546,33 @@ export class CargosListComponent implements OnInit, OnDestroy {
   }
 
   deleteCargo(id: number): void {
+    const cargo = this.cargos.find(c => c.id === id);
+    console.log('Mostrando modal de confirmación para cargo:', id);
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este cargo?',
+      entity: {
+        id: id,
+        nombre: cargo?.nombre || 'Cargo',
+        tipo: 'Cargo'
+      },
+      warningText: 'Esta acción eliminará permanentemente el cargo y todos sus datos asociados.',
+      onConfirm: () => {
+        this.ejecutarEliminacionCargo(id, cargo);
+      }
+    });
+  }
+
+  private ejecutarEliminacionCargo(id: number, cargo: any) {
+    console.log('Ejecutando eliminación de cargo:', id);
     this.cargosService.deleteCargo(id).subscribe({
       next: () => {
+        console.log('Cargo eliminado correctamente');
         this.cargos = this.cargos.filter(cargo => cargo.id !== id);
+        alert('Cargo eliminado correctamente');
       },
       error: (error) => {
-        
+        console.error('Error eliminando cargo:', error);
         // Si es error 400 con relaciones, mostrar modal global
         if (error.status === 400 && error.error?.relations) {
           this.errorModalService.showErrorModal({
@@ -557,7 +580,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
             message: error.error.message,
             entity: {
               id: error.error.cargo?.id || id,
-              nombre: error.error.cargo?.nombre || 'Cargo',
+              nombre: error.error.cargo?.nombre || cargo?.nombre || 'Cargo',
               tipo: 'Cargo'
             },
             relations: error.error.relations,

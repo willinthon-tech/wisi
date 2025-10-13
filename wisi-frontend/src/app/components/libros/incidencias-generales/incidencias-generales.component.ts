@@ -7,6 +7,7 @@ import { UserService } from '../../../services/user.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { LibroService } from '../../../services/libro.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 interface IncidenciaGeneral {
@@ -294,7 +295,8 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
     private permissionsService: PermissionsService,
     private router: Router,
     private libroService: LibroService,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit() {
@@ -391,11 +393,38 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
   }
 
   deleteIncidencia(id: number) {
+    console.log('Mostrando modal de confirmación para incidencia:', id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar esta incidencia?',
+      entity: {
+        id: id,
+        nombre: 'Incidencia',
+        tipo: 'Incidencia'
+      },
+      warningText: 'Esta acción eliminará permanentemente la incidencia.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionIncidencia(id);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionIncidencia(id: number) {
+    console.log('Ejecutando eliminación de incidencia:', id);
+    
     this.incidenciasGeneralesService.deleteIncidenciaGeneral(id).subscribe({
       next: () => {
+        console.log('Incidencia eliminada correctamente');
         this.loadIncidencias(); // Recargar la lista
+        alert('Incidencia eliminada correctamente');
       },
       error: (error: any) => {
+        console.error('Error eliminando incidencia:', error);
+        
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar la incidencia',
@@ -408,6 +437,8 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
             relations: error.error.relations,
             helpText: 'Para eliminar esta incidencia, primero debe eliminar o reasignar los elementos relacionados.'
           });
+        } else {
+          alert('Error eliminando incidencia: ' + (error.error?.message || 'Error desconocido'));
         }
       }
     });

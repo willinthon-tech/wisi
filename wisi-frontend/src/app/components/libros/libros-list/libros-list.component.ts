@@ -5,6 +5,7 @@ import { LibroService } from '../../../services/libro.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -446,7 +447,8 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     private libroService: LibroService,
     private router: Router,
     private permissionsService: PermissionsService,
-    private errorModalService: ErrorModalService
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit(): void {
@@ -594,11 +596,38 @@ export class LibrosListComponent implements OnInit, OnDestroy {
   }
 
   deleteLibro(id: number): void {
+    console.log('Mostrando modal de confirmación para libro:', id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este libro?',
+      entity: {
+        id: id,
+        nombre: 'Libro',
+        tipo: 'Libro'
+      },
+      warningText: 'Esta acción eliminará permanentemente el libro.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionLibro(id);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionLibro(id: number) {
+    console.log('Ejecutando eliminación de libro:', id);
+    
     this.libroService.deleteLibro(id).subscribe({
       next: () => {
+        console.log('Libro eliminado correctamente');
         this.loadLibros();
+        alert('Libro eliminado correctamente');
       },
       error: (error) => {
+        console.error('Error eliminando libro:', error);
+        
         if (error.error && error.error.relations) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el libro',
@@ -611,6 +640,8 @@ export class LibrosListComponent implements OnInit, OnDestroy {
             relations: error.error.relations,
             helpText: 'Para eliminar este libro, primero debe eliminar o reasignar los elementos relacionados.'
           });
+        } else {
+          alert('Error eliminando libro: ' + (error.error?.message || 'Error desconocido'));
         }
       }
     });

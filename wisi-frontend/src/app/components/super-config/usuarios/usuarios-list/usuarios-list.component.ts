@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { UserService, User } from '../../../../services/user.service';
+import { ErrorModalService } from '../../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../../services/confirm-modal.service';
 
 @Component({
   selector: 'app-usuarios-list',
@@ -432,7 +434,9 @@ export class UsuariosListComponent implements OnInit {
 
   constructor(
     private userService: UserService,
-    private router: Router
+    private router: Router,
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit() {
@@ -511,17 +515,56 @@ export class UsuariosListComponent implements OnInit {
       return;
     }
 
-    if (confirm(`¿Estás seguro de que quieres eliminar al usuario "${usuario.nombre_apellido}"?`)) {
-      this.userService.deleteUser(usuario.id).subscribe({
-        next: (response) => {
-          alert('Usuario eliminado exitosamente');
-          this.loadData(); // Recargar la lista
-        },
-        error: (error) => {
+    console.log('Mostrando modal de confirmación para usuario:', usuario.id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar este usuario?',
+      entity: {
+        id: usuario.id,
+        nombre: usuario.nombre_apellido || 'Usuario',
+        tipo: 'Usuario'
+      },
+      warningText: 'Esta acción eliminará permanentemente el usuario y todos sus datos asociados.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionUsuario(usuario);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionUsuario(usuario: User) {
+    console.log('Ejecutando eliminación de usuario:', usuario.id);
+    
+    this.userService.deleteUser(usuario.id).subscribe({
+      next: (response) => {
+        console.log('Usuario eliminado correctamente:', response);
+        alert('Usuario eliminado exitosamente');
+        this.loadData(); // Recargar la lista
+      },
+      error: (error) => {
+        console.error('Error eliminando usuario:', error);
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el usuario',
+            message: error.error.message,
+            entity: {
+              id: error.error.user?.id || usuario.id,
+              nombre: error.error.user?.nombre || usuario.nombre_apellido || 'Usuario',
+              tipo: 'Usuario'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar este usuario, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
           alert('Error eliminando usuario: ' + (error.error?.message || error.message || 'Error desconocido'));
         }
-      });
-    }
+      }
+    });
   }
 
   getLevelText(level: string): string {

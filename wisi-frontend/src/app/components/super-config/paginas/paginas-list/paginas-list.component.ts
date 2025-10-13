@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { UserService } from '../../../../services/user.service';
 import { AuthService } from '../../../../services/auth.service';
+import { ErrorModalService } from '../../../../services/error-modal.service';
+import { ConfirmModalService } from '../../../../services/confirm-modal.service';
 
 @Component({
   selector: 'app-paginas-list',
@@ -351,7 +353,9 @@ export class PaginasListComponent implements OnInit {
   constructor(
     private userService: UserService,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    private errorModalService: ErrorModalService,
+    private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit() {
@@ -388,17 +392,56 @@ export class PaginasListComponent implements OnInit {
   }
 
   deletePage(page: any) {
-    if (confirm(`¿Estás seguro de que quieres eliminar la página "${page.nombre}"?`)) {
-      this.userService.deletePage(page.id).subscribe({
-        next: (response) => {
-          alert('Página eliminada exitosamente');
-          this.loadPages(); // Recargar la lista
-        },
-        error: (error) => {
+    console.log('Mostrando modal de confirmación para página:', page.id);
+
+    // MOSTRAR MODAL DE CONFIRMACIÓN PRIMERO
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Eliminación',
+      message: '¿Está seguro de que desea eliminar esta página?',
+      entity: {
+        id: page.id,
+        nombre: page.nombre || 'Página',
+        tipo: 'Página'
+      },
+      warningText: 'Esta acción eliminará permanentemente la página y todos sus datos asociados.',
+      onConfirm: () => {
+        // Ejecutar la eliminación real
+        this.ejecutarEliminacionPagina(page);
+      }
+    });
+  }
+
+  // Método auxiliar para ejecutar la eliminación real
+  private ejecutarEliminacionPagina(page: any) {
+    console.log('Ejecutando eliminación de página:', page.id);
+    
+    this.userService.deletePage(page.id).subscribe({
+      next: (response) => {
+        console.log('Página eliminada correctamente:', response);
+        alert('Página eliminada exitosamente');
+        this.loadPages(); // Recargar la lista
+      },
+      error: (error) => {
+        console.error('Error eliminando página:', error);
+        
+        // Si es error 400 con relaciones, mostrar modal global
+        if (error.status === 400 && error.error?.relations) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar la página',
+            message: error.error.message,
+            entity: {
+              id: error.error.page?.id || page.id,
+              nombre: error.error.page?.nombre || page.nombre || 'Página',
+              tipo: 'Página'
+            },
+            relations: error.error.relations,
+            helpText: 'Para eliminar esta página, primero debe eliminar todos los elementos asociados listados arriba.'
+          });
+        } else {
           alert('Error eliminando página: ' + (error.error?.message || error.message || 'Error desconocido'));
         }
-      });
-    }
+      }
+    });
   }
 
 }
