@@ -27,6 +27,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'carnet',
+    loadComponent: () => import('./components/carnet/carnet-list/carnet-list.component').then(m => m.CarnetListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'areas',
     loadComponent: () => import('./components/areas/areas-list/areas-list.component').then(m => m.AreasListComponent),
     canActivate: [AuthGuard]

@@ -85,6 +85,12 @@ import { Subscription } from 'rxjs';
             <p>Administra plantillas de horarios</p>
           </div>
           
+          <div class="feature-card" (click)="navigateToCarnet()">
+            <div class="feature-icon">🎫</div>
+            <h3>Carnet</h3>
+            <p>Visualiza carnets de empleados</p>
+          </div>
+          
           <div class="feature-card">
             <div class="feature-icon">📋</div>
             <h3>Gestión de Personal</h3>
@@ -318,6 +324,10 @@ export class RrhhComponent implements OnInit, OnDestroy {
 
   navigateToHorarios(): void {
     this.router.navigate(['/horarios']);
+  }
+
+  navigateToCarnet(): void {
+    this.router.navigate(['/carnet']);
   }
 }
 

@@ -22,6 +22,11 @@ import { ConfirmModalService } from '../../../../services/confirm-modal.service'
           <div class="sala-card" *ngFor="let sala of salas">
             <div class="sala-info">
               <h3>{{ sala.nombre }}</h3>
+              <p *ngIf="sala.nombre_comercial" class="commercial-name">{{ sala.nombre_comercial }}</p>
+              <p *ngIf="sala.rif" class="rif-info">RIF: {{ sala.rif }}</p>
+              <p *ngIf="sala.ubicacion" class="location-info">📍 {{ sala.ubicacion }}</p>
+              <p *ngIf="sala.telefono" class="phone-info">📞 {{ sala.telefono }}</p>
+              <p *ngIf="sala.correo" class="email-info">✉️ {{ sala.correo }}</p>
             </div>
             <div class="sala-actions">
               <button class="btn-edit" (click)="navigateToEdit(sala.id)">
@@ -114,9 +119,26 @@ import { ConfirmModalService } from '../../../../services/confirm-modal.service'
     }
 
     .sala-info p {
-      margin: 0 0 15px 0;
+      margin: 0 0 8px 0;
       color: #666;
-      line-height: 1.5;
+      line-height: 1.4;
+      font-size: 14px;
+    }
+
+    .commercial-name {
+      font-weight: 600;
+      color: #4CAF50 !important;
+      font-size: 16px !important;
+    }
+
+    .rif-info {
+      color: #333 !important;
+      font-weight: 500;
+    }
+
+    .location-info, .phone-info, .email-info {
+      color: #666 !important;
+      font-size: 13px !important;
     }
 
 

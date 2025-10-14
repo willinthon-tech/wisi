@@ -1281,7 +1281,15 @@ app.get('/api/salas', authenticateToken, async (req, res) => {
 
 app.post('/api/salas', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
   try {
-    const { nombre } = req.body;
+    const { 
+      nombre, 
+      logo, 
+      rif, 
+      ubicacion, 
+      correo, 
+      telefono, 
+      nombre_comercial 
+    } = req.body;
     
 
     if (!nombre) {
@@ -1294,7 +1302,15 @@ app.post('/api/salas', authenticateToken, authorizeLevel('TODO'), async (req, re
       return res.status(400).json({ message: 'Ya existe una sala con ese nombre' });
     }
 
-    const sala = await Sala.create({ nombre });
+    const sala = await Sala.create({ 
+      nombre,
+      logo: logo || null,
+      rif: rif || null,
+      ubicacion: ubicacion || null,
+      correo: correo || null,
+      telefono: telefono || null,
+      nombre_comercial: nombre_comercial || null
+    });
     
 
     // Asignar automáticamente al usuario creador
@@ -1311,14 +1327,30 @@ app.post('/api/salas', authenticateToken, authorizeLevel('TODO'), async (req, re
 app.put('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre} = req.body;
+    const { 
+      nombre, 
+      logo, 
+      rif, 
+      ubicacion, 
+      correo, 
+      telefono, 
+      nombre_comercial 
+    } = req.body;
 
     const sala = await Sala.findByPk(id);
     if (!sala) {
       return res.status(404).json({ message: 'Sala no encontrada' });
     }
 
-    await sala.update({ nombre});
+    await sala.update({ 
+      nombre,
+      logo: logo || null,
+      rif: rif || null,
+      ubicacion: ubicacion || null,
+      correo: correo || null,
+      telefono: telefono || null,
+      nombre_comercial: nombre_comercial || null
+    });
 
     res.json({ message: 'Sala actualizada exitosamente' });
   } catch (error) {
@@ -5393,6 +5425,7 @@ app.get('/api/empleados/debug-filter', authenticateToken, async (req, res) => {
                     {
                       model: Sala,
                       as: 'Sala',
+                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo'],
                       attributes: ['id', 'nombre']
                     }
                   ]
@@ -6303,7 +6336,7 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
                       {
                         model: Sala,
                         as: 'Sala',
-                        attributes: ['id', 'nombre']
+                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
                       }
                     ]
                   }
@@ -6353,9 +6386,10 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
                   as: 'Area',
                   include: [
                     {
-                      model: Sala,
-                      as: 'Sala',
-                      required: false
+                        model: Sala,
+                        as: 'Sala',
+                        required: false,
+                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
                     }
                   ]
                 }
@@ -6427,7 +6461,7 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
                       {
                         model: Sala,
                         as: 'Sala',
-                        attributes: ['id', 'nombre']
+                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
                       }
                     ]
                   }
@@ -6477,9 +6511,10 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
                   as: 'Area',
                   include: [
                     {
-                      model: Sala,
-                      as: 'Sala',
-                      required: false
+                        model: Sala,
+                        as: 'Sala',
+                        required: false,
+                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
                     }
                   ]
                 }
@@ -6538,7 +6573,8 @@ app.get('/api/empleados/:id', authenticateToken, async (req, res) => {
                   include: [
                     {
                       model: Sala,
-                      as: 'Sala'
+                      as: 'Sala',
+                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
                     }
                   ]
                 }
@@ -6619,7 +6655,8 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
                   include: [
                     {
                       model: Sala,
-                      as: 'Sala'
+                      as: 'Sala',
+                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
                     }
                   ]
                 }
@@ -6744,7 +6781,8 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
                   include: [
                     {
                       model: Sala,
-                      as: 'Sala'
+                      as: 'Sala',
+                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
                     }
                   ]
                 }

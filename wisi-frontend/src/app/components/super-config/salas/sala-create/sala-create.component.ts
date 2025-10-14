@@ -35,6 +35,74 @@ import { UserService } from '../../../../services/user.service';
             </div>
           </div>
 
+          <div class="form-group">
+            <label for="nombre_comercial">Nombre Comercial</label>
+            <input 
+              type="text" 
+              id="nombre_comercial"
+              [(ngModel)]="sala.nombre_comercial" 
+              name="nombre_comercial"
+              class="form-input"
+              placeholder="Ingresa el nombre comercial (opcional)">
+          </div>
+
+          <div class="form-group">
+            <label for="rif">RIF</label>
+            <input 
+              type="text" 
+              id="rif"
+              [(ngModel)]="sala.rif" 
+              name="rif"
+              class="form-input"
+              placeholder="Ingresa el RIF (opcional)">
+          </div>
+
+          <div class="form-group">
+            <label for="ubicacion">Ubicación</label>
+            <textarea 
+              id="ubicacion"
+              [(ngModel)]="sala.ubicacion" 
+              name="ubicacion"
+              class="form-textarea"
+              placeholder="Ingresa la ubicación física (opcional)"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="correo">Correo Electrónico</label>
+            <input 
+              type="email" 
+              id="correo"
+              [(ngModel)]="sala.correo" 
+              name="correo"
+              class="form-input"
+              placeholder="Ingresa el correo electrónico (opcional)">
+          </div>
+
+          <div class="form-group">
+            <label for="telefono">Teléfono</label>
+            <input 
+              type="tel" 
+              id="telefono"
+              [(ngModel)]="sala.telefono" 
+              name="telefono"
+              class="form-input"
+              placeholder="Ingresa el teléfono (opcional)">
+          </div>
+
+          <div class="form-group">
+            <label for="logo">Logo</label>
+            <input 
+              type="file" 
+              id="logo"
+              (change)="onLogoSelected($event)"
+              accept="image/*"
+              class="form-input file-input">
+            <div class="file-info" *ngIf="logoPreview">
+              <p>✅ Imagen seleccionada: {{ logoFileName }}</p>
+              <img [src]="logoPreview" alt="Preview" class="logo-preview">
+            </div>
+          </div>
+
 
           <div class="form-actions">
             <button type="button" class="btn-secondary" (click)="goBack()">
@@ -126,6 +194,40 @@ import { UserService } from '../../../../services/user.service';
       min-height: 100px;
     }
 
+    .file-input {
+      padding: 8px 12px;
+      border: 2px dashed #ddd;
+      background: #f9f9f9;
+      cursor: pointer;
+    }
+
+    .file-input:hover {
+      border-color: #4CAF50;
+      background: #f0f8f0;
+    }
+
+    .file-info {
+      margin-top: 10px;
+      padding: 10px;
+      background: #e8f5e8;
+      border-radius: 6px;
+      border: 1px solid #4CAF50;
+    }
+
+    .file-info p {
+      margin: 0 0 10px 0;
+      color: #2e7d32;
+      font-weight: 500;
+    }
+
+    .logo-preview {
+      max-width: 150px;
+      max-height: 100px;
+      border-radius: 6px;
+      border: 2px solid #4CAF50;
+      object-fit: cover;
+    }
+
     .error-message {
       color: #dc3545;
       font-size: 14px;
@@ -200,9 +302,17 @@ import { UserService } from '../../../../services/user.service';
 })
 export class SalaCreateComponent {
   sala = {
-    nombre: ''
+    nombre: '',
+    nombre_comercial: '',
+    rif: '',
+    ubicacion: '',
+    correo: '',
+    telefono: '',
+    logo: ''
   };
   loading = false;
+  logoPreview: string | null = null;
+  logoFileName: string = '';
 
   constructor(
     private userService: UserService,
@@ -219,7 +329,14 @@ export class SalaCreateComponent {
     this.loading = true;
 
     const salaData = {
-      nombre: this.sala.nombre.trim()};
+      nombre: this.sala.nombre.trim(),
+      nombre_comercial: this.sala.nombre_comercial?.trim() || null,
+      rif: this.sala.rif?.trim() || null,
+      ubicacion: this.sala.ubicacion?.trim() || null,
+      correo: this.sala.correo?.trim() || null,
+      telefono: this.sala.telefono?.trim() || null,
+      logo: this.sala.logo?.trim() || null
+    };
     
     this.userService.createSala(salaData).subscribe({
       next: (response) => {
@@ -230,6 +347,21 @@ export class SalaCreateComponent {
         this.loading = false;
       }
     });
+  }
+
+  onLogoSelected(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.logoFileName = file.name;
+      
+      // Convertir a base64
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.logoPreview = e.target.result;
+        this.sala.logo = e.target.result; // Guardar el base64
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   goBack() {
