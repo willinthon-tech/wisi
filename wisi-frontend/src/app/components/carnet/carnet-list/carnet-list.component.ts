@@ -57,60 +57,58 @@ import { UserService } from '../../../services/user.service';
           
           <!-- Frente del carnet (solo para empleados) -->
           <div [id]="getCarnetId(carnet)" *ngIf="carnet.type === 'empleado'">
-            <div class="carnet-front">
+            <div [style]="getCarnetFrontStyles(carnet)">
               <div *ngIf="carnet.sala?.logo">
-                <img  [src]="getSalaLogo(carnet.sala.logo)" [alt]="carnet.sala.nombre" class="casino-logo-full"> 
+                <img [src]="getSalaLogo(carnet.sala.logo)" [alt]="carnet.sala.nombre" [style]="getLogoStyles()"> 
               </div>
-              <div class="casino-logo-full" *ngIf="!carnet.sala?.logo">
+              <div *ngIf="!carnet.sala?.logo" [style]="getLogoTextStyles()">
                 {{carnet.sala.nombre}}
               </div>
                   
-                <div class="carnet-header-black">
+                <div [style]="getHeaderStyles()">
                 </div>
                 
-                <div class="carnet-body-gray">
-                  <div class="black-background-extension"></div>
+                <div [style]="getBodyStyles()">
+                  <div [style]="getBlackExtensionStyles()"></div>
                   
-                  <div class="hexagonal-photo-container">
-                    <div class="hexagonal-photo {{ carnet.color }}">
-                      <img *ngIf="carnet.data?.foto" [src]="getEmployeePhoto(carnet.data.foto)" [alt]="carnet.data.nombre">
-                      <div *ngIf="!carnet.data?.foto" class="photo-placeholder">👤</div>
+                  <div [style]="getPhotoContainerStyles()">
+                    <div [style]="getHexagonalPhotoStyles(carnet.color)">
+                      <img *ngIf="carnet.data?.foto" [src]="getEmployeePhoto(carnet.data.foto)" [alt]="carnet.data.nombre" [style]="getPhotoImageStyles()">
+                      <div *ngIf="!carnet.data?.foto" [style]="getPhotoPlaceholderStyles()">👤</div>
                     </div>
                   </div>
                   
-                  <div class="employee-name-large">
+                  <div [style]="getEmployeeNameStyles()">
                     {{ (carnet.data?.nombre || 'SIN NOMBRE').toUpperCase() }}
                   </div>
                   
-                  <div class="position-hexagonal-badge {{ carnet.color }}">
+                  <div [style]="getBadgeStyles(carnet.color)">
                     {{ (carnet.data?.Cargo?.nombre || 'SIN CARGO').toUpperCase() }}
                   </div>
                   
-                  <div class="employee-details">
-                    <div class="detail-line">
-                      <span class="label">Cedula :</span>
-                      <span class="value">{{ carnet.data?.cedula || 'SIN CÉDULA' }}</span>
+                  <div [style]="getEmployeeDetailsStyles()">
+                    <div [style]="getDetailLineStyles()">
+                      <span [style]="getDetailLabelStyles()">Cedula :</span>
+                      <span [style]="getDetailValueStyles()">{{ carnet.data?.cedula || 'SIN CÉDULA' }}</span>
                     </div>
-                    <div class="detail-line">
-                      <span class="label">Departamento :</span>
-                      <span class="value">{{ carnet.data?.Cargo?.Departamento?.nombre || 'SIN DEPARTAMENTO' }}</span>
+                    <div [style]="getDetailLineStyles()">
+                      <span [style]="getDetailLabelStyles()">Departamento :</span>
+                      <span [style]="getDetailValueStyles()">{{ carnet.data?.Cargo?.Departamento?.nombre || 'SIN DEPARTAMENTO' }}</span>
                     </div>
-                    <div class="detail-line">
-                      <span class="label">Área :</span>
-                      <span class="value">{{ carnet.data?.Cargo?.Departamento?.Area?.nombre || 'SIN ÁREA' }}</span>
+                    <div [style]="getDetailLineStyles()">
+                      <span [style]="getDetailLabelStyles()">Área :</span>
+                      <span [style]="getDetailValueStyles()">{{ carnet.data?.Cargo?.Departamento?.Area?.nombre || 'SIN ÁREA' }}</span>
                     </div>
-                    <div class="detail-line">
-                      <span class="label">Ingreso :</span>
-                      <span class="value">{{ carnet.data?.fecha_ingreso || 'SIN FECHA' }}</span>
+                    <div [style]="getDetailLineStyles()">
+                      <span [style]="getDetailLabelStyles()">Ingreso :</span>
+                      <span [style]="getDetailValueStyles()">{{ carnet.data?.fecha_ingreso || 'SIN FECHA' }}</span>
                     </div>
                   </div>
                   
-                  <div class="barcode-section">
-                    <div class="barcode {{ carnet.color }}">
+                  <div [style]="getBarcodeSectionStyles()">
+                    <div [style]="getBarcodeStyles(carnet.color)">
                       <span *ngFor="let bar of generateBarcodeBars(carnet.data)" 
-                            class="barcode-bar" 
-                            [style.height]="bar.height + 'mm'"
-                            [style.width]="bar.width + 'px'">
+                            [style]="getBarcodeBarStyles(bar, carnet.color)">
                       </span>
                     </div>
                   </div>
@@ -120,29 +118,29 @@ import { UserService } from '../../../services/user.service';
 
           <!-- Reverso del carnet (solo para salas - cara trasera) -->
           <div [id]="getCarnetId(carnet)" *ngIf="carnet.type === 'sala'">
-            <div class="carnet-back">
-              <div class="carnet-back-content">
-                <p class="intro-text">El portador del presente Carnet presta sus servicios Profesionales a:</p>
+            <div [style]="getCarnetBackStyles(carnet)">
+              <div [style]="getBackContentStyles()">
+                <p [style]="getIntroTextStyles()">El portador del presente Carnet presta sus servicios Profesionales a:</p>
                 
-                <div class="company-info">
-                  <h3 class="company-name">{{ carnet.data?.nombre_comercial || carnet.sala?.nombre_comercial || 'SIN NOMBRE' }}</h3>
-                  <p class="company-rif">R.I.F.: {{ carnet.data?.rif || carnet.sala?.rif || 'SIN RIF' }}</p>
+                <div [style]="getCompanyInfoStyles()">
+                  <h3 [style]="getCompanyNameStyles()">{{ carnet.data?.nombre_comercial || carnet.sala?.nombre_comercial || 'SIN NOMBRE' }}</h3>
+                  <p [style]="getCompanyRifStyles()">R.I.F.: {{ carnet.data?.rif || carnet.sala?.rif || 'SIN RIF' }}</p>
                 </div>
                 
-                <p class="instruction-text">
+                <p [style]="getInstructionTextStyles()">
                   Se le agradece a las autoridades Civiles, Militares y otros Organismos Públicos, 
                   brindarle todo su apoyo y colaboración. En caso de emergencia o pérdida, favor avisar al teléfono:
                 </p>
                 
-                <div class="phone-section">
-                  <p class="phone-number">{{ carnet.data?.telefono || carnet.sala?.telefono || 'SIN TELÉFONO' }}</p>
+                <div [style]="getPhoneSectionStyles()">
+                  <p [style]="getPhoneNumberStyles()">{{ carnet.data?.telefono || carnet.sala?.telefono || 'SIN TELÉFONO' }}</p>
                 </div>
                 
-                <p class="address-text">{{ carnet.data?.ubicacion || carnet.sala?.ubicacion || 'SIN UBICACIÓN' }}</p>
+                <p [style]="getAddressTextStyles()">{{ carnet.data?.ubicacion || carnet.sala?.ubicacion || 'SIN UBICACIÓN' }}</p>
                 
-                <div class="email-section {{ carnet.color }}">
-                  <div class="email-label">Correo:</div>
-                  <div class="email-address">{{ carnet.data?.correo || carnet.sala?.correo || 'SIN CORREO' }}</div>
+                <div [style]="getEmailSectionStyles(carnet.color)">
+                  <div [style]="getEmailLabelStyles()">Correo:</div>
+                  <div [style]="getEmailAddressStyles()">{{ carnet.data?.correo || carnet.sala?.correo || 'SIN CORREO' }}</div>
                 </div>
               </div>
             </div>
@@ -1147,6 +1145,142 @@ export class CarnetListComponent implements OnInit {
     }
     
     return id;
+  }
+
+  // ===== ESTILOS INLINE PARA CARNET FRONTAL =====
+  
+  getCarnetFrontStyles(carnet: any): string {
+    return 'width: 100%; height: 100%; background: #f5f5f5; position: relative;';
+  }
+
+  getLogoStyles(): string {
+    return 'width: 150px; height: 64px; object-fit: contain; position: absolute; top: 13px; left: 50%; transform: translateX(-50%); z-index: 30;';
+  }
+
+  getLogoTextStyles(): string {
+    return 'color: #fff; text-align: center; margin-top: 26px; font-size: 12px; position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 30;';
+  }
+
+  getHeaderStyles(): string {
+    return 'background: #000; color: #FFD700; padding: 4mm; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; height: 20mm; clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 85% 90%, 15% 90%, 0% 80%);';
+  }
+
+  getBodyStyles(): string {
+    return 'background: #f5f5f5; padding: 4mm; text-align: center; position: relative; height: calc(100% - 20mm);';
+  }
+
+  getBlackExtensionStyles(): string {
+    return 'position: absolute; top: -30mm; left: 0; right: 0; height: 45mm; background: #000; z-index: 5; clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 85% 90%, 15% 90%, 0% 80%);';
+  }
+
+  getPhotoContainerStyles(): string {
+    return 'margin-bottom: 3mm; margin-top: -2mm; z-index: 20; position: relative;';
+  }
+
+  getHexagonalPhotoStyles(color: string): string {
+    const colorHex = this.getColorHex(color);
+    return `width: 22mm; height: 22mm; border: 2px solid ${colorHex}; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); margin: 0 auto; overflow: hidden; display: flex; align-items: center; justify-content: center; background: ${colorHex}; position: relative;`;
+  }
+
+  getPhotoImageStyles(): string {
+    return 'width: calc(100% - 4px); height: calc(100% - 4px); object-fit: cover; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); background: #fff; border-radius: 0;';
+  }
+
+  getPhotoPlaceholderStyles(): string {
+    return 'font-size: 6mm; color: #722f37;';
+  }
+
+  getEmployeeNameStyles(): string {
+    return 'font-size: 3.2mm; font-weight: bold; color: #000; text-transform: uppercase; line-height: 1.1; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+  }
+
+  getBadgeStyles(color: string): string {
+    const colorHex = this.getColorHex(color);
+    return `background: ${colorHex}; color: white; padding: 1.5mm 12mm; clip-path: polygon(8% 0%, 92% 0%, 100% 50%, 92% 100%, 8% 100%, 0% 50%); margin: 0 auto; font-size: 1.8mm; font-weight: bold; text-align: center; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; display: inline-block;`;
+  }
+
+  getEmployeeDetailsStyles(): string {
+    return 'text-align: left; margin-top: 6mm; margin-bottom: 1mm; max-width: 40mm; margin-left: auto; margin-right: auto;';
+  }
+
+  getDetailLineStyles(): string {
+    return 'display: flex; justify-content: space-between; margin-bottom: 0.5mm; font-size: 2.2mm;';
+  }
+
+  getDetailLabelStyles(): string {
+    return 'font-weight: bold; color: #333;';
+  }
+
+  getDetailValueStyles(): string {
+    return 'color: #000; font-weight: normal;';
+  }
+
+  getBarcodeSectionStyles(): string {
+    return 'bottom: -1.5mm; height: 3mm; left: 1mm; position: absolute; right: 1mm;';
+  }
+
+  getBarcodeStyles(color: string): string {
+    return 'text-align: center; white-space: nowrap; overflow: hidden; height: 100%; display: flex; align-items: flex-end; justify-content: space-between; gap: 0px;';
+  }
+
+  getBarcodeBarStyles(bar: any, color: string): string {
+    const colorHex = this.getColorHex(color);
+    return `display: inline-block; background: ${colorHex}; border-radius: 0.1px; vertical-align: bottom; width: ${bar.width}px; height: ${bar.height}mm;`;
+  }
+
+  // ===== ESTILOS INLINE PARA CARNET TRASERO =====
+
+  getCarnetBackStyles(carnet: any): string {
+    return 'width: 100%; height: 100%; background: #f5f5f5; color: #333; font-family: Arial, sans-serif; display: flex; flex-direction: column; padding: 3mm;';
+  }
+
+  getBackContentStyles(): string {
+    return 'flex: 1; display: flex; flex-direction: column;';
+  }
+
+  getIntroTextStyles(): string {
+    return 'margin: 0 !important; font-size: 2.5mm; color: #333; line-height: 1.2; text-align: left; font-weight: normal;';
+  }
+
+  getCompanyInfoStyles(): string {
+    return 'margin: 5mm 0 5mm 0; text-align: center;';
+  }
+
+  getCompanyNameStyles(): string {
+    return 'margin: 0 !important; font-size: 3.5mm !important; font-weight: bold; text-decoration: underline; color: #000 !important; text-align: center; line-height: 1.1;';
+  }
+
+  getCompanyRifStyles(): string {
+    return 'margin: 0 !important; font-size: 3mm; font-weight: bold; color: #000 !important; text-align: center;';
+  }
+
+  getInstructionTextStyles(): string {
+    return 'margin: 0 !important; font-size: 2.3mm; color: #333; line-height: 1.2; text-align: left; font-weight: normal;';
+  }
+
+  getPhoneSectionStyles(): string {
+    return 'margin: 5mm 0px;';
+  }
+
+  getPhoneNumberStyles(): string {
+    return 'margin: 0 !important; font-size: 3mm; font-weight: bold; color: #333; text-align: center;';
+  }
+
+  getAddressTextStyles(): string {
+    return 'margin: auto 0 !important; font-size: 3mm; font-style: italic; color: #333; line-height: 1.2; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center;';
+  }
+
+  getEmailSectionStyles(color: string): string {
+    const colorHex = this.getColorHex(color);
+    return `background: ${colorHex}; border-radius: 2mm; bottom: 0px; color: white; flex-direction: column; justify-content: center; left: 0px; margin-bottom: 2mm; margin-top: auto; min-height: 8mm; padding: 2mm; position: absolute; right: 0px; text-align: center; width: 180px; margin: auto; margin-bottom: 10px;`;
+  }
+
+  getEmailLabelStyles(): string {
+    return 'font-size: 2.3mm; font-weight: normal; margin-bottom: 1mm;';
+  }
+
+  getEmailAddressStyles(): string {
+    return 'font-size: 2.3mm; font-weight: bold; color: white; margin-top: 1mm; word-break: break-all; line-height: 1.1;';
   }
 
 
