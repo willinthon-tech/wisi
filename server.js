@@ -1827,30 +1827,7 @@ app.get('/api/user/modules', authenticateToken, async (req, res) => {
   }
 });
 
-// Obtener salas asignadas al usuario
-app.get('/api/user/salas', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    // Obtener salas asignadas al usuario
-    const userSalas = await UserSala.findAll({
-      where: { user_id: userId },
-      include: [{
-        model: Sala,
-        where: {}
-      }]
-    });
-
-    
-    // Extraer solo las salas
-    const salas = userSalas.map(us => us.Sala);
-    
-    res.json(salas);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+// Endpoint duplicado eliminado - usar el de línea 2038
 
 // Obtener juegos asignados al usuario
 app.get('/api/user/juegos', authenticateToken, async (req, res) => {

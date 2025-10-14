@@ -12,7 +12,7 @@ module.exports = (sequelize) => {
       allowNull: false
     },
     logo: {
-      type: DataTypes.TEXT,
+      type: DataTypes.TEXT('long'),
       allowNull: true,
       comment: 'Logo de la sala en base64'
     },

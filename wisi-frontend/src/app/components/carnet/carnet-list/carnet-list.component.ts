@@ -46,17 +46,22 @@ import { UserService } from '../../../services/user.service';
       <!-- Grid de carnets -->
       <div class="carnets-grid" *ngIf="!loading">
         <div class="carnet-card" *ngFor="let carnet of filteredEmpleados">
+          
           <!-- Frente del carnet (solo para empleados) -->
           <div class="carnet-front" *ngIf="carnet.type === 'empleado'">
+            
+          <div *ngIf="carnet.sala?.logo">
+            <img  [src]="getSalaLogo(carnet.sala.logo)" [alt]="carnet.sala.nombre" class="casino-logo-full"> 
+          </div>
+          <div class="casino-logo-full" *ngIf="!carnet.sala?.logo">
+            {{carnet.sala.nombre}}
+          </div>
+              
             <div class="carnet-header-black">
-              <div class="casino-logo-section">
-                <img *ngIf="carnet.sala?.logo" [src]="carnet.sala.logo" [alt]="carnet.sala.nombre" class="casino-logo">
-                <div *ngIf="!carnet.sala?.logo" class="empty-logo-section"></div>
-              </div>
             </div>
             
             <div class="carnet-body-gray">
-              <div class="angular-stripes"></div>
+              <div class="black-background-extension"></div>
               
               <div class="hexagonal-photo-container">
                 <div class="hexagonal-photo">
@@ -80,7 +85,7 @@ import { UserService } from '../../../services/user.service';
                 </div>
                 <div class="detail-line">
                   <span class="label">Departamento :</span>
-                  <span class="value">{{ carnet.data?.Departamento?.nombre || 'SIN DEPARTAMENTO' }}</span>
+                  <span class="value">{{ carnet.data?.Cargo?.Departamento?.nombre || 'SIN DEPARTAMENTO' }}</span>
                 </div>
                 <div class="detail-line">
                   <span class="label">Área :</span>
@@ -93,7 +98,13 @@ import { UserService } from '../../../services/user.service';
               </div>
               
               <div class="barcode-section">
-                <div class="barcode">{{ generateBarcodeData(carnet.data) }}</div>
+                <div class="barcode">
+                  <span *ngFor="let bar of generateBarcodeBars(carnet.data)" 
+                        class="barcode-bar" 
+                        [style.height]="bar.height + 'mm'"
+                        [style.width]="bar.width + 'px'">
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -204,7 +215,7 @@ import { UserService } from '../../../services/user.service';
     .carnet-card {
       width: 53.98mm; /* Ancho del carnet de identidad */
       height: 85.6mm; /* Alto del carnet de identidad */
-      background: #D8D8D7;
+      background: #f5f5f5;
       border-radius: 4px;
       overflow: hidden;
       position: relative;
@@ -216,118 +227,231 @@ import { UserService } from '../../../services/user.service';
     .carnet-front {
       width: 100%;
       height: 100%;
-      background: #D8D8D7;
+      background: #f5f5f5;
       position: relative;
     }
 
     .carnet-header-black {
       background: #000;
-      color: white;
-      padding: 8px;
+      color: #FFD700;
+      padding: 4mm;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       position: relative;
-      height: 18mm;
+      height: 20mm;
       clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 85% 90%, 15% 90%, 0% 80%);
     }
 
     .casino-logo-section {
       text-align: center;
       width: 100%;
+      position: relative;
+      z-index: 20;
     }
 
     .casino-logo {
-      width: 25mm;
+      width: 30mm;
       height: auto;
       object-fit: contain;
-      max-height: 12mm;
+      max-height: 15mm;
+      max-width: 100%;
+      position: relative;
+      z-index: 20;
+      display: block;
+      margin: 0 auto;
     }
 
     .empty-logo-section {
       width: 100%;
-      height: 12mm;
+      height: 15mm;
       background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Logo centrado y más pequeño para no cortar la foto */
+    .casino-logo-full {
+      width: 150px;
+      height: auto;
+      object-fit: contain;
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      max-height: 20mm;
+    }
+
+    .empty-logo-full {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 3mm;
+    }
+
+    /* Estilos para cuando no hay logo - muestra el nombre de la sala */
+    .casino-logo-full:not(img) {
+      color: #fff;
+      text-align: center;
+      margin-top: 26px;
+      font-size: 12px;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+    }
+
+    .casino-name {
+      font-size: 4mm;
+      font-weight: bold;
+      color: #FFD700;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+      margin: 0;
+      letter-spacing: 1px;
+    }
+
+    .casino-subtitle {
+      font-size: 2.5mm;
+      font-weight: normal;
+      color: #FFD700;
+      margin: 1mm 0;
+      letter-spacing: 0.5px;
+    }
+
+    .casino-stars {
+      font-size: 2mm;
+      color: #FFD700;
+      margin: 0;
     }
 
     .carnet-body-gray {
       background: #f5f5f5;
-      padding: 6mm;
+      padding: 4mm;
       text-align: center;
       position: relative;
-      height: calc(100% - 18mm);
+      height: calc(100% - 20mm);
+    }
+    
+    .black-background-extension {
+      position: absolute;
+      top: -30mm;
+      left: 0;
+      right: 0;
+      height: 45mm;
+      background: #000;
+      z-index: 5;
+      clip-path: polygon(0% 0%, 100% 0%, 100% 80%, 85% 90%, 15% 90%, 0% 80%);
     }
 
     .angular-stripes {
       position: absolute;
-      top: -3mm;
+      top: -4mm;
       left: 0;
       right: 0;
-      height: 3mm;
-      background: linear-gradient(45deg, #722f37 0%, #722f37 50%, white 50%, white 100%);
+      height: 4mm;
+      background: linear-gradient(45deg, #722f37 0%, #722f37 50%, #f5f5f5 50%, #f5f5f5 100%);
       clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%);
     }
 
     .hexagonal-photo-container {
-      margin-bottom: 4mm;
-      margin-top: -4mm;
-      z-index: 10;
+      margin-bottom: 3mm;
+      margin-top: -2mm;
+      z-index: 20;
+      position: relative;
     }
 
     .hexagonal-photo {
-      width: 20mm;
-      height: 20mm;
-      border: 1px solid #722f37;
+      width: 22mm;
+      height: 22mm;
+      border: 4px solid #722f37;
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
       margin: 0 auto;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
+      background: #fff;
+      position: relative;
+    }
+    
+    .hexagonal-photo::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      right: -4px;
+      bottom: -4px;
+      background: #722f37;
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      z-index: -1;
     }
 
     .hexagonal-photo img {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     }
 
     .photo-placeholder {
-      font-size: 8mm;
+      font-size: 6mm;
       color: #722f37;
     }
 
     .employee-name-large {
-      font-size: 3.5mm;
+      font-size: 3.2mm;
       font-weight: bold;
       color: #000;
-      margin-bottom: 2mm;
       text-transform: uppercase;
       line-height: 1.1;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .position-hexagonal-badge {
       background: #722f37;
       color: white;
-      padding: 1.5mm 4mm;
-      clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
-      width: 25mm;
-      margin: 0 auto 2mm;
-      font-size: 2.2mm;
+      padding: 1.5mm 12mm;
+      clip-path: polygon(8% 0%, 92% 0%, 100% 50%, 92% 100%, 8% 100%, 0% 50%);
+      margin: 0 auto;
+      font-size: 1.8mm;
       font-weight: bold;
       text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      display: inline-block;
     }
 
     .employee-details {
       text-align: left;
-      margin-bottom: 2mm;
+      margin-top: 6mm;
+      margin-bottom: 1mm;
+      max-width: 40mm;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .detail-line {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 1mm;
-      font-size: 2mm;
+      margin-bottom: 0.5mm;
+      font-size: 2.2mm;
     }
 
     .detail-line .label {
@@ -336,22 +460,34 @@ import { UserService } from '../../../services/user.service';
     }
 
     .detail-line .value {
-      color: #666;
+      color: #000;
+      font-weight: normal;
     }
 
     .barcode-section {
       position: absolute;
-      bottom: 2mm;
-      left: 2mm;
-      right: 2mm;
+      bottom: 1mm;
+      left: 1mm;
+      right: 1mm;
+      height: 3mm;
     }
 
     .barcode {
-      font-family: 'Courier New', monospace;
-      font-size: 1.8mm;
-      color: #722f37;
       text-align: center;
-      word-break: break-all;
+      white-space: nowrap;
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 0px;
+    }
+
+    .barcode-bar {
+      display: inline-block;
+      background: #722f37;
+      border-radius: 0.1px;
+      vertical-align: bottom;
     }
 
     /* Estilos para el reverso del carnet */
@@ -435,7 +571,7 @@ import { UserService } from '../../../services/user.service';
     }
 
     .email-section {
-      background: #8B4513;
+      background: #722f37;
       color: white;
       padding: 2mm;
       border-radius: 2mm;
@@ -563,25 +699,30 @@ export class CarnetListComponent implements OnInit {
     // Cargar empleados y salas en paralelo
     Promise.all([
       this.empleadosService.getEmpleados().toPromise(),
-      this.userService.getSalas().toPromise()
+      this.userService.getUserSalas().toPromise()
     ]).then(([empleados, salas]) => {
-      console.log('🔍 Empleados cargados:', empleados);
-      console.log('🏢 Salas cargadas:', salas);
       
       this.empleados = empleados || [];
       this.salas = salas || [];
       
       // Crear carnets para cada sala
       this.carnetsData = [];
-      console.log('🔍 Debug - Salas cargadas:', salas);
       
       // Agregar carnets de empleados
       this.empleados.forEach(empleado => {
-        this.carnetsData.push({
+        // Buscar la sala completa con todos sus datos (incluyendo logo)
+        const empleadoSala = empleado?.Cargo?.Departamento?.Area?.Sala;
+        const salaCompleta = this.salas.find(sala => sala.id === empleadoSala?.id);
+        
+        
+        const carnetData = {
           type: 'empleado',
           data: empleado,
-          sala: empleado?.Cargo?.Departamento?.Area?.Sala
-        });
+          sala: salaCompleta || empleadoSala // Usar sala completa si existe, sino la básica
+        };
+        
+        
+        this.carnetsData.push(carnetData);
       });
       
       // Agregar caras traseras para CADA sala asignada al usuario
@@ -593,7 +734,6 @@ export class CarnetListComponent implements OnInit {
         });
       });
       
-      console.log('🎫 Carnets creados:', this.carnetsData);
       this.applyFilters();
       this.loading = false;
     }).catch(error => {
@@ -636,6 +776,19 @@ export class CarnetListComponent implements OnInit {
     return `data:image/png;base64,${foto}`;
   }
 
+  getSalaLogo(logo: string): string {
+    if (!logo) {
+      return '';
+    }
+    
+    if (logo.startsWith('data:')) {
+      return logo;
+    }
+    
+    return `data:image/png;base64,${logo}`;
+  }
+  
+
   generateBarcodeData(empleado: any): string {
     if (!empleado) return 'SIN DATA';
     
@@ -650,6 +803,30 @@ export class CarnetListComponent implements OnInit {
     
     // Crear un string único con la data del empleado
     return `${barcodeData.id}|${barcodeData.cedula}|${barcodeData.nombre}|${barcodeData.cargo}|${barcodeData.sala}`;
+  }
+
+  generateBarcodeBars(empleado: any): any[] {
+    if (!empleado) return [];
+    
+    // Crear un código de barras visual con barras verticales
+    const data = this.generateBarcodeData(empleado);
+    const bars = [];
+    
+    // Generar barras para código de barras
+    const barcodeLength = 40; // Número de barras
+    
+    for (let i = 0; i < barcodeLength; i++) {
+      const char = data.charCodeAt(i % data.length);
+      const height = (char % 3) + 1; // Altura variable de 1 a 3mm
+      const width = (char % 2) + 1; // Ancho variable de 1 a 2px
+      
+      bars.push({
+        height: height,
+        width: width
+      });
+    }
+    
+    return bars;
   }
 
   getSalaInfo(empleado: any, field: string): string {

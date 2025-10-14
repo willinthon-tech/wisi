@@ -25,6 +25,12 @@ export interface Empleado {
         Sala?: {
           id: number;
           nombre: string;
+          nombre_comercial?: string;
+          rif?: string;
+          ubicacion?: string;
+          correo?: string;
+          telefono?: string;
+          logo?: string;
         };
       };
     };
