@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EmpleadosService } from '../../../services/empleados.service';
 import { UserService } from '../../../services/user.service';
+import * as htmlToImage from 'html-to-image';
 
 @Component({
   selector: 'app-carnet-list',
@@ -53,7 +54,7 @@ import { UserService } from '../../../services/user.service';
       <!-- Grid de carnets -->
       <div class="carnets-grid" *ngIf="!loading">
         <div class="carnet-wrapper" *ngFor="let carnet of filteredEmpleados">
-          <div class="carnet-card">
+          <div class="carnet-card" (click)="descargarCarnet(carnet)">
           
           <!-- Frente del carnet (solo para empleados) -->
           <div [id]="getCarnetId(carnet)" *ngIf="carnet.type === 'empleado'">
@@ -224,14 +225,15 @@ import { UserService } from '../../../services/user.service';
     }
 
     .carnet-card {
-      width: 53.98mm; /* Ancho del carnet de identidad */
-      height: 85.6mm; /* Alto del carnet de identidad */
       background: #f5f5f5;
       border-radius: 4px;
-      overflow: hidden;
+      overflow: hidden !important; /* Forzar overflow hidden */
       position: relative;
       margin: 0 auto;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      /* Aislar del CSS global */
+      overflow-x: hidden !important;
+      overflow-y: hidden !important;
     }
 
     /* Estilos para el frente del carnet */
@@ -1131,26 +1133,11 @@ export class CarnetListComponent implements OnInit {
     return this.currentCarnetIndex < this.filteredEmpleados.length - 1;
   }
 
-  getCarnetId(carnet: any): string {
-    // Generar ID único: lado + color + sala_id + (empleado_id si es frontal)
-    const lado = carnet.type === 'empleado' ? 'frente' : 'detras';
-    const color = carnet.color || 'sin-color';
-    const salaId = carnet.sala?.id || carnet.data?.sala_id || 'sin-sala';
-    const empleadoId = carnet.type === 'empleado' ? (carnet.data?.id || 'sin-empleado') : '';
-    
-    // Construir el ID único
-    let id = `${lado}-${color}-${salaId}`;
-    if (carnet.type === 'empleado') {
-      id += `-${empleadoId}`;
-    }
-    
-    return id;
-  }
 
   // ===== ESTILOS INLINE PARA CARNET FRONTAL =====
   
   getCarnetFrontStyles(carnet: any): string {
-    return 'width: 100%; height: 100%; background: #f5f5f5; position: relative;';
+    return 'width: 53.98mm; height: 85.6mm; background: #f5f5f5; position: relative;';
   }
 
   getLogoStyles(): string {
@@ -1200,7 +1187,7 @@ export class CarnetListComponent implements OnInit {
   }
 
   getEmployeeDetailsStyles(): string {
-    return 'text-align: left; margin-top: 6mm; margin-bottom: 1mm; max-width: 40mm; margin-left: auto; margin-right: auto;';
+    return 'text-align: left; margin-top: 4mm; margin-bottom: 12px; max-width: 40mm; margin-left: auto; margin-right: auto;';
   }
 
   getDetailLineStyles(): string {
@@ -1216,7 +1203,7 @@ export class CarnetListComponent implements OnInit {
   }
 
   getBarcodeSectionStyles(): string {
-    return 'bottom: -1.5mm; height: 3mm; left: 1mm; position: absolute; right: 1mm;';
+    return 'bottom: 2mm; height: 3mm; left: 1mm; position: absolute; right: 1mm;';
   }
 
   getBarcodeStyles(color: string): string {
@@ -1231,7 +1218,7 @@ export class CarnetListComponent implements OnInit {
   // ===== ESTILOS INLINE PARA CARNET TRASERO =====
 
   getCarnetBackStyles(carnet: any): string {
-    return 'width: 100%; height: 100%; background: #f5f5f5; color: #333; font-family: Arial, sans-serif; display: flex; flex-direction: column; padding: 3mm;';
+    return 'width: 53.98mm; height: 85.6mm; background: #f5f5f5; color: #333; font-family: Arial, sans-serif; display: flex; flex-direction: column; padding: 3mm;';
   }
 
   getBackContentStyles(): string {
@@ -1259,7 +1246,7 @@ export class CarnetListComponent implements OnInit {
   }
 
   getPhoneSectionStyles(): string {
-    return 'margin: 5mm 0px;';
+    return 'margin-top: 5mm;';
   }
 
   getPhoneNumberStyles(): string {
@@ -1267,7 +1254,7 @@ export class CarnetListComponent implements OnInit {
   }
 
   getAddressTextStyles(): string {
-    return 'margin: auto 0 !important; font-size: 3mm; font-style: italic; color: #333; line-height: 1.2; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center;';
+    return 'align-items: center; color: rgb(51, 51, 51); display: flex; flex: 1 1 0%; font-size: 3mm; font-style: italic; justify-content: center; line-height: 1.2; margin: auto 0px !important; margin-bottom: 50px !important; text-align: center;';
   }
 
   getEmailSectionStyles(color: string): string {
@@ -1697,6 +1684,79 @@ export class CarnetListComponent implements OnInit {
     } catch (error) {
       console.error('Error obteniendo info de sala:', error);
       return '';
+    }
+  }
+
+  getCarnetId(carnet: any): string {
+    if (carnet.type === 'empleado') {
+      return `carnet-empleado-${carnet.data?.id || 'unknown'}`;
+    } else if (carnet.type === 'sala') {
+      return `carnet-sala-${carnet.sala?.id || 'unknown'}`;
+    }
+    return `carnet-unknown-${Date.now()}`;
+  }
+
+  async descargarCarnet(carnet: any) {
+    try {
+      const carnetId = this.getCarnetId(carnet);
+      const element = document.getElementById(carnetId);
+      
+      if (!element) {
+        console.error('No se encontró el elemento del carnet');
+        return;
+      }
+
+      // Buscar el contenedor padre .carnet-card que tiene overflow: hidden
+      const carnetCard = element.closest('.carnet-card');
+      if (!carnetCard) {
+        console.error('No se encontró el contenedor .carnet-card');
+        return;
+      }
+
+      // Usar EXACTAMENTE las mismas dimensiones del carnet principal
+      const carnetWidthMM = 53.98;  // Ancho del carnet principal
+      const carnetHeightMM = 85.6; // Alto del carnet principal
+      const dpi = 300;
+      const mmToPixels = dpi / 25.4; // Conversión mm a píxeles
+      
+      const widthPixels = Math.round(carnetWidthMM * mmToPixels);
+      const heightPixels = Math.round(carnetHeightMM * mmToPixels);
+
+      console.log(`📏 Dimensiones EXACTAS del carnet: ${widthPixels}x${heightPixels}px (${carnetWidthMM}mm x ${carnetHeightMM}mm @ ${dpi}DPI)`);
+
+      // Capturar el contenedor .carnet-card completo (con overflow: hidden)
+      const dataUrl = await htmlToImage.toPng(carnetCard as HTMLElement, {
+        width: widthPixels,
+        height: heightPixels,
+        quality: 1.0,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2, // Resolución estándar
+        cacheBust: true,
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'top left'
+        },
+        filter: (node) => {
+          // Incluir todos los elementos del carnet
+          return true;
+        }
+      });
+
+      // Crear enlace de descarga
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      link.download = `carnet-${carnet.type}-${carnet.color}-${carnet.data?.id || carnet.sala?.id || 'unknown'}-${timestamp}.png`;
+      link.href = dataUrl;
+      
+      // Simular click para descargar
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log('✅ Carnet descargado exitosamente');
+      
+    } catch (error) {
+      console.error('❌ Error al descargar carnet:', error);
     }
   }
 }
