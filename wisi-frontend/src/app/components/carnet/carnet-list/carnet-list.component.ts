@@ -1283,7 +1283,8 @@ export class CarnetListComponent implements OnInit {
       'amarillo': '#eab308',
       'vinotinto': '#8B0000'
     };
-    return colorMap[color] || '#722f37';
+    const hexColor = colorMap[color] || '#722f37';
+    return hexColor;
   }
 
 
@@ -1689,11 +1690,11 @@ export class CarnetListComponent implements OnInit {
 
   getCarnetId(carnet: any): string {
     if (carnet.type === 'empleado') {
-      return `carnet-empleado-${carnet.data?.id || 'unknown'}`;
+      return `carnet-empleado-${carnet.data?.id || 'unknown'}-${carnet.color}`;
     } else if (carnet.type === 'sala') {
-      return `carnet-sala-${carnet.sala?.id || 'unknown'}`;
+      return `carnet-sala-${carnet.sala?.id || 'unknown'}-${carnet.color}`;
     }
-    return `carnet-unknown-${Date.now()}`;
+    return `carnet-unknown-${Date.now()}-${carnet.color}`;
   }
 
   async descargarCarnet(carnet: any) {
@@ -1706,46 +1707,61 @@ export class CarnetListComponent implements OnInit {
         return;
       }
 
-      // Buscar el contenedor padre .carnet-card que tiene overflow: hidden
-      const carnetCard = element.closest('.carnet-card');
-      if (!carnetCard) {
-        console.error('No se encontró el contenedor .carnet-card');
-        return;
+      // Forzar actualización de estilos antes de capturar
+      console.log('📏 Capturando carnet único:', carnetId);
+      console.log('🎨 Color del carnet:', carnet.color);
+      console.log('🎨 Color hex del carnet:', this.getColorHex(carnet.color));
+      
+      // Forzar re-renderizado del elemento para asegurar estilos correctos
+      element.style.display = 'none';
+      element.offsetHeight; // Trigger reflow
+      element.style.display = '';
+
+      // Verificar que estamos capturando solo el carnet específico
+      console.log('🔍 Elemento a capturar:', element);
+      console.log('🔍 ID del elemento:', element.id);
+      console.log('🔍 Clase del elemento:', element.className);
+      
+      // Verificar los estilos aplicados a los elementos con color
+      const badgeElement = element.querySelector('.badge');
+      const photoElement = element.querySelector('.hexagonal-photo');
+      const emailElement = element.querySelector('.email-section');
+      
+      if (badgeElement) {
+        console.log('🔍 Badge style actual:', badgeElement.getAttribute('style'));
+      }
+      if (photoElement) {
+        console.log('🔍 Photo style actual:', photoElement.getAttribute('style'));
+      }
+      if (emailElement) {
+        console.log('🔍 Email style actual:', emailElement.getAttribute('style'));
       }
 
-      // Usar EXACTAMENTE las mismas dimensiones del carnet principal
-      const carnetWidthMM = 53.98;  // Ancho del carnet principal
-      const carnetHeightMM = 85.6; // Alto del carnet principal
-      const dpi = 300;
-      const mmToPixels = dpi / 25.4; // Conversión mm a píxeles
-      
-      const widthPixels = Math.round(carnetWidthMM * mmToPixels);
-      const heightPixels = Math.round(carnetHeightMM * mmToPixels);
-
-      console.log(`📏 Dimensiones EXACTAS del carnet: ${widthPixels}x${heightPixels}px (${carnetWidthMM}mm x ${carnetHeightMM}mm @ ${dpi}DPI)`);
-
-      // Capturar el contenedor .carnet-card completo (con overflow: hidden)
-      const dataUrl = await htmlToImage.toPng(carnetCard as HTMLElement, {
-        width: widthPixels,
-        height: heightPixels,
-        quality: 1.0,
+      // Capturar el carnet con html-to-image - SOLO el carnet específico
+      const dataUrl = await htmlToImage.toPng(element, {
+        quality: 1.0, // Máxima calidad
         backgroundColor: '#ffffff',
-        pixelRatio: 2, // Resolución estándar
+        pixelRatio: 20, // Ultra ultra alta resolución (20x)
         cacheBust: true,
         style: {
           transform: 'scale(1)',
           transformOrigin: 'top left'
         },
         filter: (node) => {
-          // Incluir todos los elementos del carnet
-          return true;
+          // Solo incluir elementos que pertenecen al carnet específico
+          return node === element || element.contains(node);
         }
       });
 
       // Crear enlace de descarga
       const link = document.createElement('a');
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      link.download = `carnet-${carnet.type}-${carnet.color}-${carnet.data?.id || carnet.sala?.id || 'unknown'}-${timestamp}.png`;
+      // Para empleados usar cédula, para salas usar nombre de la sala
+      const identifier = carnet.type === 'empleado' 
+        ? (carnet.data?.cedula || carnet.data?.id || 'unknown')
+        : (carnet.sala?.nombre || carnet.sala?.id || 'unknown');
+      
+      link.download = `carnet-${identifier}-${carnet.color}-${carnet.data?.id || carnet.sala?.id || 'unknown'}-${timestamp}.png`;
       link.href = dataUrl;
       
       // Simular click para descargar
