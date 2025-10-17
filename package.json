@@ -10,7 +10,7 @@
     "build": "cd wisi-frontend && ng build --configuration production",
     "build:dev": "cd wisi-frontend && ng build --configuration development",
     "start:all": "concurrently \"npm run dev\" \"npm run frontend\"",
-    "start:prod": "npm run build && npm start",
+    "start:prod": "npm run build",
     "install:all": "npm install && cd wisi-frontend && npm install"
   },
   "dependencies": {
