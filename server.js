@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -9773,6 +9774,14 @@ app.post('/api/tpp/sync/:deviceId', authenticateToken, async (req, res) => {
     
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// Servir archivos estáticos de la aplicación Angular PWA
+app.use(express.static(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser')));
+
+// Ruta catch-all: devolver index.html para todas las rutas no encontradas (SPA)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser/index.html'));
 });
 
 app.listen(PORT, () => {
