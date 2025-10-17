@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "frontend": "cd wisi-frontend && ng serve --port 4200",
-    "build": "cd wisi-frontend && ng build --configuration production",
-    "build:dev": "cd wisi-frontend && ng build --configuration development",
+    "frontend": "cd wisi-frontend && npx ng serve --port 4200",
+    "build": "cd wisi-frontend && npm run build",
+    "build:dev": "cd wisi-frontend && npm run build:dev",
     "start:all": "concurrently \"npm run dev\" \"npm run frontend\"",
     "start:prod": "npm run build",
     "install:all": "npm install && cd wisi-frontend && npm install"
