@@ -1073,7 +1073,7 @@ export class CarnetListComponent implements OnInit {
       this.applyFilters();
       this.loading = false;
     }).catch(error => {
-      console.error('❌ Error cargando datos:', error);
+      
       this.loading = false;
     });
   }
@@ -1315,10 +1315,10 @@ export class CarnetListComponent implements OnInit {
         link.download = `carnet_${this.getCarnetName(element)}.png`;
         link.click();
       }).catch((error: any) => {
-        console.error('Error al capturar el carnet:', error);
+        
       });
     }).catch((error: any) => {
-      console.error('Error al cargar html2canvas:', error);
+      
     });
   }
 
@@ -1680,10 +1680,10 @@ export class CarnetListComponent implements OnInit {
     try {
       // Ruta: empleado.Cargo.Departamento.Area.Sala
       const sala = empleado?.Cargo?.Departamento?.Area?.Sala;
-      console.log('🏢 Sala info for', empleado?.nombre, ':', sala);
+      
       return sala?.[field] || '';
     } catch (error) {
-      console.error('Error obteniendo info de sala:', error);
+      
       return '';
     }
   }
@@ -1703,14 +1703,14 @@ export class CarnetListComponent implements OnInit {
       const element = document.getElementById(carnetId);
       
       if (!element) {
-        console.error('No se encontró el elemento del carnet');
+        
         return;
       }
 
       // Forzar actualización de estilos antes de capturar
-      console.log('📏 Capturando carnet único:', carnetId);
-      console.log('🎨 Color del carnet:', carnet.color);
-      console.log('🎨 Color hex del carnet:', this.getColorHex(carnet.color));
+      
+      
+      
       
       // Forzar re-renderizado del elemento para asegurar estilos correctos
       element.style.display = 'none';
@@ -1718,9 +1718,9 @@ export class CarnetListComponent implements OnInit {
       element.style.display = '';
 
       // Verificar que estamos capturando solo el carnet específico
-      console.log('🔍 Elemento a capturar:', element);
-      console.log('🔍 ID del elemento:', element.id);
-      console.log('🔍 Clase del elemento:', element.className);
+      
+      
+      
       
       // Verificar los estilos aplicados a los elementos con color
       const badgeElement = element.querySelector('.badge');
@@ -1728,13 +1728,13 @@ export class CarnetListComponent implements OnInit {
       const emailElement = element.querySelector('.email-section');
       
       if (badgeElement) {
-        console.log('🔍 Badge style actual:', badgeElement.getAttribute('style'));
+        
       }
       if (photoElement) {
-        console.log('🔍 Photo style actual:', photoElement.getAttribute('style'));
+        
       }
       if (emailElement) {
-        console.log('🔍 Email style actual:', emailElement.getAttribute('style'));
+        
       }
 
       // Capturar el carnet con html-to-image - SOLO el carnet específico
@@ -1769,10 +1769,10 @@ export class CarnetListComponent implements OnInit {
       link.click();
       document.body.removeChild(link);
       
-      console.log('✅ Carnet descargado exitosamente');
+      
       
     } catch (error) {
-      console.error('❌ Error al descargar carnet:', error);
+      
     }
   }
 }
