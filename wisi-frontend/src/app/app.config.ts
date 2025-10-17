@@ -1,7 +1,7 @@
 import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { importProvidersFrom } from '@angular/core';
+import { importProvidersFrom, isDevMode } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { routes } from './app.routes';
@@ -18,6 +18,9 @@ import { IncidenciasGeneralesService } from './services/incidencias-generales.se
 import { DropsService } from './services/drops.service';
 import { DispositivosService } from './services/dispositivos.service';
 import { HikvisionIsapiService } from './services/hikvision-isapi.service';
+import { PwaService } from './services/pwa.service';
+import { PwaInstallComponent } from './components/pwa-install/pwa-install.component';
+import { provideServiceWorker } from '@angular/service-worker';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -36,6 +39,12 @@ export const appConfig: ApplicationConfig = {
     IncidenciasGeneralesService,
     DropsService,
     DispositivosService,
-    HikvisionIsapiService
+    HikvisionIsapiService,
+    PwaService,
+    PwaInstallComponent,
+    provideServiceWorker('ngsw-worker.js', {
+            enabled: !isDevMode(),
+            registrationStrategy: 'registerWhenStable:30000'
+          })
   ]
 };
