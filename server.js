@@ -5696,7 +5696,7 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
 });
 
 // =============================================
-// RUTA DE INICIO
+// RUTA DE INICIO - WILLINTHON
 // =============================================
 
 // Ruta de inicio comentada para permitir que el frontend se sirva correctamente
