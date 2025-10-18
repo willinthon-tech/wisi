@@ -6,24 +6,9 @@ import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 
 export interface UserPermission {
-  id: number;
-  user_id: number;
-  module_id: number;
-  permission_id: number;
-  Module?: {
-    id: number;
-    nombre: string;
-    icono: string;
-    ruta: string;
-  };
-  Permission?: {
-    id: number;
-    nombre: string;
-  };
-  // Compatibilidad con código existente
-  moduleId?: number;
-  permissionId?: number;
-  permissionName?: string;
+  moduleId: number;
+  permissionId: number;
+  permissionName: string;
 }
 
 @Injectable({
@@ -38,17 +23,16 @@ export class PermissionsService {
     private http: HttpClient,
     private authService: AuthService
   ) {
-    // Usar los permisos que vienen del login directamente
-    this.authService.userPermissions$.subscribe(permissions => {
-      // Transformar permisos para incluir compatibilidad
-      const transformedPermissions = permissions.map(permission => ({
-        ...permission,
-        // Compatibilidad con código existente
-        moduleId: permission.module_id,
-        permissionId: permission.permission_id,
-        permissionName: permission.Permission?.nombre || ''
-      }));
-      this.userPermissionsSubject.next(transformedPermissions);
+    // Esperar a que el usuario esté autenticado antes de cargar permisos
+    this.authService.currentUser$.subscribe(user => {
+      if (user) {
+        // Limpiar permisos anteriores antes de cargar nuevos
+        this.userPermissionsSubject.next([]);
+        // Cargar permisos del nuevo usuario
+        this.loadUserPermissions();
+      } else {
+        this.userPermissionsSubject.next([]);
+      }
     });
   }
 
@@ -83,13 +67,6 @@ export class PermissionsService {
     return this.http.get<any[]>(`${this.apiUrl}/user/permissions`).pipe(
       map((response: any[]) => {
         const permissions = response.map(item => ({
-          id: item.id,
-          user_id: item.user_id,
-          module_id: item.module_id,
-          permission_id: item.permission_id,
-          Module: item.Module,
-          Permission: item.Permission,
-          // Compatibilidad
           moduleId: item.module_id,
           permissionId: item.permission_id,
           permissionName: item.Permission?.nombre || ''
@@ -103,15 +80,10 @@ export class PermissionsService {
   hasPermission(moduleId: number, permissionName: string): boolean {
     const currentPermissions = this.userPermissionsSubject.value;
     
-    // Buscar en la nueva estructura de permisos del login
-    const hasPermission = currentPermissions.some(permission => {
-      // Verificar si el módulo coincide
-      const moduleMatches = permission.Module && permission.Module.id === moduleId;
-      // Verificar si el permiso coincide
-      const permissionMatches = permission.Permission && permission.Permission.nombre === permissionName;
-      
-      return moduleMatches && permissionMatches;
-    });
+    const hasPermission = currentPermissions.some(permission => 
+      permission.moduleId === moduleId && 
+      permission.permissionName === permissionName
+    );
     
     return hasPermission;
   }

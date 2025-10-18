@@ -18,7 +18,6 @@ export interface LoginResponse {
   user: User;
   salas: any[];
   modules: any[];
-  permissions: any[];
 }
 
 @Injectable({
@@ -27,9 +26,7 @@ export interface LoginResponse {
 export class AuthService {
   private apiUrl = environment.apiUrl;
   private currentUserSubject = new BehaviorSubject<User | null>(null);
-  private userPermissionsSubject = new BehaviorSubject<any[]>([]);
   public currentUser$ = this.currentUserSubject.asObservable();
-  public userPermissions$ = this.userPermissionsSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -57,7 +54,6 @@ export class AuthService {
         if (response.token) {
           this.tokenService.setToken(response.token);
           this.currentUserSubject.next(response.user);
-          this.userPermissionsSubject.next(response.permissions || []);
         }
       })
     );
@@ -66,7 +62,6 @@ export class AuthService {
   logout(): void {
     this.tokenService.removeToken();
     this.currentUserSubject.next(null);
-    this.userPermissionsSubject.next([]);
   }
 
   getToken(): string | null {
@@ -79,10 +74,6 @@ export class AuthService {
 
   getCurrentUser(): User | null {
     return this.currentUserSubject.value;
-  }
-
-  getCurrentPermissions(): any[] {
-    return this.userPermissionsSubject.value;
   }
 
   // Método de prueba para verificar el endpoint
