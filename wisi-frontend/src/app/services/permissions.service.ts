@@ -20,6 +20,10 @@ export interface UserPermission {
     id: number;
     nombre: string;
   };
+  // Compatibilidad con código existente
+  moduleId?: number;
+  permissionId?: number;
+  permissionName?: string;
 }
 
 @Injectable({
@@ -36,7 +40,15 @@ export class PermissionsService {
   ) {
     // Usar los permisos que vienen del login directamente
     this.authService.userPermissions$.subscribe(permissions => {
-      this.userPermissionsSubject.next(permissions);
+      // Transformar permisos para incluir compatibilidad
+      const transformedPermissions = permissions.map(permission => ({
+        ...permission,
+        // Compatibilidad con código existente
+        moduleId: permission.module_id,
+        permissionId: permission.permission_id,
+        permissionName: permission.Permission?.nombre || ''
+      }));
+      this.userPermissionsSubject.next(transformedPermissions);
     });
   }
 
@@ -71,6 +83,13 @@ export class PermissionsService {
     return this.http.get<any[]>(`${this.apiUrl}/user/permissions`).pipe(
       map((response: any[]) => {
         const permissions = response.map(item => ({
+          id: item.id,
+          user_id: item.user_id,
+          module_id: item.module_id,
+          permission_id: item.permission_id,
+          Module: item.Module,
+          Permission: item.Permission,
+          // Compatibilidad
           moduleId: item.module_id,
           permissionId: item.permission_id,
           permissionName: item.Permission?.nombre || ''
