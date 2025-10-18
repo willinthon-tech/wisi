@@ -823,6 +823,19 @@ app.use(express.urlencoded({ limit: '500mb', extended: true }));
 // Servir archivos estáticos de la aplicación Angular PWA (ANTES de las rutas de API)
 app.use(express.static(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser')));
 
+// Headers anti-caché para archivos estáticos
+app.use((req, res, next) => {
+  // Solo aplicar a archivos estáticos (no API)
+  if (!req.path.startsWith('/api/')) {
+    res.set({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+  }
+  next();
+});
+
 
 // Rate limiting DESHABILITADO para desarrollo
 // const limiter = rateLimit({

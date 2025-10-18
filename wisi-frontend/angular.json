@@ -64,7 +64,16 @@
                 }
               ],
               "outputHashing": "all",
-              "serviceWorker": "ngsw-config.json"
+              "serviceWorker": "ngsw-config.json",
+              "optimization": {
+                "scripts": false,
+                "styles": false
+              },
+              "buildOptimizer": false,
+              "aot": true,
+              "extractLicenses": false,
+              "vendorChunk": false,
+              "namedChunks": true
             },
             "development": {
               "optimization": false,

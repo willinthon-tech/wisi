@@ -8,6 +8,7 @@
     "build": "npm run clean && npx ng build --configuration production",
     "build:dev": "npm run clean && npx ng build --configuration development",
     "build:force": "npm run clean && npx ng build --configuration production --delete-output-path",
+    "build:no-cache": "npm run clean && npx ng build --configuration production --delete-output-path --aot --build-optimizer=false",
     "watch": "npx ng build --watch --configuration development",
     "test": "npx ng test"
   },
