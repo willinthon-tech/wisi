@@ -9304,6 +9304,39 @@ app.get('/img/:id', (req, res) => {
   res.send(imageBuffer);
 });
 
+// Ruta directa para servir imágenes de attlogs
+app.get('/api/attlogs/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const fs = require('fs');
+    const path = require('path');
+    const attlogsDir = path.join(__dirname, 'attlogs');
+    const imagePath = path.join(attlogsDir, `${id}.jpg`);
+    
+    if (fs.existsSync(imagePath)) {
+      // Si existe, enviar la imagen
+      const imageBuffer = fs.readFileSync(imagePath);
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Content-Length', imageBuffer.length);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.send(imageBuffer);
+    } else {
+      // Si no existe, devolver 404
+      res.status(404).json({ 
+        message: 'Imagen no encontrada',
+        path: imagePath
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ 
+      message: 'Error interno del servidor',
+      error: error.message 
+    });
+  }
+});
+
 // Ruta para registrar rostro de usuario con ImgBB (URL pública gratuita)
 app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (req, res) => {
   try {
