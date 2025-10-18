@@ -9389,7 +9389,7 @@ app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
 // ==================== CRON REAL PARA DESCARGA DE IMÁGENES ====================
 
 // Variable para controlar el CRON
-let cronInterval: NodeJS.Timeout | null = null;
+let cronInterval = null;
 let cronConfig = {
   enabled: false,
   interval: 300000, // 5 minutos por defecto
