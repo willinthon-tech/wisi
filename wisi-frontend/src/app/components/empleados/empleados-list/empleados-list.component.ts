@@ -21,6 +21,7 @@ import { BiometricImageService } from '../../../services/biometric-image.service
 import { ImageValidationService } from '../../../services/image-validation.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { TareasAutomaticasService } from '../../../services/tareas-automaticas.service';
 import { AuthService } from '../../../services/auth.service';
 import { Subscription } from 'rxjs';
@@ -1305,7 +1306,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   initialValidation: {valid: boolean, message: string} | null = null;
   isInitialValidating = false;
 
-  private readonly EMPLEADOS_MODULE_ID = 1; // Módulo RRHH
   private permissionsSubscription?: Subscription;
 
   constructor(
@@ -1313,6 +1313,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     private biometricImageService: BiometricImageService,
     private imageValidationService: ImageValidationService,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private router: Router,
     private tareasAutomaticasService: TareasAutomaticasService,
     private authService: AuthService,
@@ -1362,17 +1363,15 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   canAdd(): boolean {
-    return this.permissionsService.hasPermission(this.EMPLEADOS_MODULE_ID, 'AGREGAR');
+    return this.permissionsService.canAddByName('Empleados');
   }
 
   canEdit(): boolean {
-    const canEdit = this.permissionsService.hasPermission(this.EMPLEADOS_MODULE_ID, 'EDITAR');
-    
-    return canEdit;
+    return this.permissionsService.canEditByName('Empleados');
   }
 
   canDelete(): boolean {
-    return this.permissionsService.hasPermission(this.EMPLEADOS_MODULE_ID, 'BORRAR');
+    return this.permissionsService.canDeleteByName('Empleados');
   }
 
   loadEmpleados(): void {

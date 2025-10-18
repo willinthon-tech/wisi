@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { LibroService } from '../../../services/libro.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
@@ -474,19 +475,21 @@ export class LibrosListComponent implements OnInit, OnDestroy {
     sala_id: null
   };
   
-  // ID del módulo de libros (según los permisos del usuario)
-  private readonly LIBROS_MODULE_ID = 3; // ID del módulo CECOM (donde están los libros)
   private permissionsSubscription?: Subscription;
 
   constructor(
     private libroService: LibroService,
     private router: Router,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit(): void {
+    // Cargar módulos primero
+    this.modulesService.loadModules();
+    
     this.loadLibros();
     
     // Suscribirse a cambios de permisos
@@ -525,19 +528,19 @@ export class LibrosListComponent implements OnInit, OnDestroy {
 
   // Métodos para verificar permisos
   canAdd(): boolean {
-    return this.permissionsService.canAdd(this.LIBROS_MODULE_ID);
+    return this.permissionsService.canAddByName('Libro');
   }
 
   canEdit(): boolean {
-    return this.permissionsService.canEdit(this.LIBROS_MODULE_ID);
+    return this.permissionsService.canEditByName('Libro');
   }
 
   canReport(): boolean {
-    return this.permissionsService.canReport(this.LIBROS_MODULE_ID);
+    return this.permissionsService.canReportByName('Libro');
   }
 
   canDelete(): boolean {
-    return this.permissionsService.canDelete(this.LIBROS_MODULE_ID);
+    return this.permissionsService.canDeleteByName('Libro');
   }
 
   isLibroBloqueado(libro: any): boolean {

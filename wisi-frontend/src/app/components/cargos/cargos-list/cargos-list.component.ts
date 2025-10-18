@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CargosService } from '../../../services/cargos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
@@ -430,18 +431,21 @@ export class CargosListComponent implements OnInit, OnDestroy {
     departamento_id: null
   };
 
-  private readonly CARGOS_MODULE_ID = 1; // Módulo RRHH
   private permissionsSubscription?: Subscription;
 
   constructor(
     private cargosService: CargosService,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private router: Router,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit(): void {
+    // Cargar módulos primero
+    this.modulesService.loadModules();
+    
     this.loadCargos();
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {
       // Los permisos se actualizan automáticamente
@@ -455,15 +459,15 @@ export class CargosListComponent implements OnInit, OnDestroy {
   }
 
   canAdd(): boolean {
-    return this.permissionsService.hasPermission(this.CARGOS_MODULE_ID, 'AGREGAR');
+    return this.permissionsService.canAddByName('Cargos');
   }
 
   canEdit(): boolean {
-    return this.permissionsService.hasPermission(this.CARGOS_MODULE_ID, 'EDITAR');
+    return this.permissionsService.canEditByName('Cargos');
   }
 
   canDelete(): boolean {
-    return this.permissionsService.hasPermission(this.CARGOS_MODULE_ID, 'BORRAR');
+    return this.permissionsService.canDeleteByName('Cargos');
   }
 
   loadCargos(): void {

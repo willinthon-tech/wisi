@@ -5,6 +5,7 @@ import { LlavesService } from '../../../services/llaves.service';
 import { UserService } from '../../../services/user.service';
 import { AuthService } from '../../../services/auth.service';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
@@ -440,7 +441,6 @@ export class LlavesListComponent implements OnInit, OnDestroy {
     sala_id: null as number | null
   };
   
-  private readonly LLAVES_MODULE_ID = 3; // ID del módulo CECOM (donde están las llaves)
   private permissionsSubscription?: Subscription;
 
   constructor(
@@ -448,11 +448,15 @@ export class LlavesListComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private authService: AuthService,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit() {
+    // Cargar módulos primero
+    this.modulesService.loadModules();
+    
     this.loadLlaves();
     this.loadSalas();
     this.loadPermissions();
@@ -502,16 +506,14 @@ export class LlavesListComponent implements OnInit, OnDestroy {
       return;
     }
     
-    // Para usuarios normales, verificar permisos específicos
-    this.permissionsService.getUserPermissions().subscribe((permissions: any) => {
-      const hasAccess = permissions.some((p: any) => p.Module?.id === this.LLAVES_MODULE_ID);
-      if (!hasAccess) {
-        this.errorModalService.showErrorModal({
-          title: 'Acceso Denegado',
-          message: 'No tienes permisos para acceder a este módulo'
-        });
-      }
-    });
+    // Para usuarios normales, verificar permisos específicos usando el nombre del módulo
+    const hasAccess = this.permissionsService.canViewByName('Llaves');
+    if (!hasAccess) {
+      this.errorModalService.showErrorModal({
+        title: 'Acceso Denegado',
+        message: 'No tienes permisos para acceder a este módulo'
+      });
+    }
   }
 
   canAdd(): boolean {
@@ -519,8 +521,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
     if (currentUser && currentUser.nivel === 'TODO') {
       return true; // Superusuario puede hacer todo
     }
-    // TODO: Implementar verificación de permisos específicos para usuarios normales
-    return true;
+    return this.permissionsService.canAddByName('Llaves');
   }
 
   canEdit(): boolean {
@@ -528,8 +529,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
     if (currentUser && currentUser.nivel === 'TODO') {
       return true; // Superusuario puede hacer todo
     }
-    // TODO: Implementar verificación de permisos específicos para usuarios normales
-    return true;
+    return this.permissionsService.canEditByName('Llaves');
   }
 
   canDelete(): boolean {
@@ -537,8 +537,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
     if (currentUser && currentUser.nivel === 'TODO') {
       return true; // Superusuario puede hacer todo
     }
-    // TODO: Implementar verificación de permisos específicos para usuarios normales
-    return true;
+    return this.permissionsService.canDeleteByName('Llaves');
   }
 
   showCreateModal() {

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RangosService } from '../../../services/rangos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
@@ -426,18 +427,21 @@ export class RangosListComponent implements OnInit, OnDestroy {
     sala_id: null
   };
 
-  private readonly RANGOS_MODULE_ID = 4; // ID del módulo SUPER CONFIGURACION (donde están los rangos)
   private permissionsSubscription?: Subscription;
 
   constructor(
     private rangosService: RangosService,
     private router: Router,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit(): void {
+    // Cargar módulos primero
+    this.modulesService.loadModules();
+    
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
       this.debugPermissions();
@@ -473,19 +477,19 @@ export class RangosListComponent implements OnInit, OnDestroy {
 
   // Métodos para verificar permisos
   canAdd(): boolean {
-    return this.permissionsService.canAdd(this.RANGOS_MODULE_ID);
+    return this.permissionsService.canAddByName('Rangos');
   }
 
   canEdit(): boolean {
-    return this.permissionsService.canEdit(this.RANGOS_MODULE_ID);
+    return this.permissionsService.canEditByName('Rangos');
   }
 
   canDelete(): boolean {
-    return this.permissionsService.canDelete(this.RANGOS_MODULE_ID);
+    return this.permissionsService.canDeleteByName('Rangos');
   }
 
   canReport(): boolean {
-    return this.permissionsService.canReport(this.RANGOS_MODULE_ID);
+    return this.permissionsService.canReportByName('Rangos');
   }
 
 

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MesasService } from '../../../services/mesas.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
@@ -441,18 +442,21 @@ export class MesasListComponent implements OnInit, OnDestroy {
     juego_id: null
   };
 
-  private readonly MESAS_MODULE_ID = 3; // ID del módulo CECOM (donde están las mesas)
   private permissionsSubscription?: Subscription;
 
   constructor(
     private mesasService: MesasService,
     private router: Router,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit(): void {
+    // Cargar módulos primero
+    this.modulesService.loadModules();
+    
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
       this.debugPermissions();
@@ -490,19 +494,19 @@ export class MesasListComponent implements OnInit, OnDestroy {
 
   // Métodos para verificar permisos
   canAdd(): boolean {
-    return this.permissionsService.canAdd(this.MESAS_MODULE_ID);
+    return this.permissionsService.canAddByName('Mesas');
   }
 
   canEdit(): boolean {
-    return this.permissionsService.canEdit(this.MESAS_MODULE_ID);
+    return this.permissionsService.canEditByName('Mesas');
   }
 
   canDelete(): boolean {
-    return this.permissionsService.canDelete(this.MESAS_MODULE_ID);
+    return this.permissionsService.canDeleteByName('Mesas');
   }
 
   canReport(): boolean {
-    return this.permissionsService.canReport(this.MESAS_MODULE_ID);
+    return this.permissionsService.canReportByName('Mesas');
   }
 
   forceReloadPermissions(): void {

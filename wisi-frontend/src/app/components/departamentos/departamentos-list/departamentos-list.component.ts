@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { DepartamentosService } from '../../../services/departamentos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
@@ -428,18 +429,21 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
     area_id: null
   };
 
-  private readonly DEPARTAMENTOS_MODULE_ID = 1; // Módulo RRHH
   private permissionsSubscription?: Subscription;
 
   constructor(
     private departamentosService: DepartamentosService,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private router: Router,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit(): void {
+    // Cargar módulos primero
+    this.modulesService.loadModules();
+    
     this.loadDepartamentos();
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {
       // Los permisos se actualizan automáticamente
@@ -453,15 +457,15 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
   }
 
   canAdd(): boolean {
-    return this.permissionsService.hasPermission(this.DEPARTAMENTOS_MODULE_ID, 'AGREGAR');
+    return this.permissionsService.canAddByName('Departamentos');
   }
 
   canEdit(): boolean {
-    return this.permissionsService.hasPermission(this.DEPARTAMENTOS_MODULE_ID, 'EDITAR');
+    return this.permissionsService.canEditByName('Departamentos');
   }
 
   canDelete(): boolean {
-    return this.permissionsService.hasPermission(this.DEPARTAMENTOS_MODULE_ID, 'BORRAR');
+    return this.permissionsService.canDeleteByName('Departamentos');
   }
 
   loadDepartamentos(): void {

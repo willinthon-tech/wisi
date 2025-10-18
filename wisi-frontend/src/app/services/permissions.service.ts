@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import { AuthService } from './auth.service';
+import { ModulesService } from './modules.service';
 import { environment } from '../../environments/environment';
 
 export interface UserPermission {
@@ -21,7 +22,8 @@ export class PermissionsService {
 
   constructor(
     private http: HttpClient,
-    private authService: AuthService
+    private authService: AuthService,
+    private modulesService: ModulesService
   ) {
     // Esperar a que el usuario esté autenticado antes de cargar permisos
     this.authService.currentUser$.subscribe(user => {
@@ -111,6 +113,33 @@ export class PermissionsService {
   // Verificar si el usuario tiene permiso de eliminar
   canDelete(moduleId: number): boolean {
     return this.hasPermission(moduleId, 'BORRAR');
+  }
+
+  // Métodos para verificar permisos por nombre de módulo
+  hasPermissionByName(moduleName: string, permissionName: string): boolean {
+    const moduleId = this.modulesService.getModuleIdByName(moduleName);
+    if (!moduleId) return false;
+    return this.hasPermission(moduleId, permissionName);
+  }
+
+  canAddByName(moduleName: string): boolean {
+    return this.hasPermissionByName(moduleName, 'AGREGAR');
+  }
+
+  canViewByName(moduleName: string): boolean {
+    return this.hasPermissionByName(moduleName, 'VER');
+  }
+
+  canEditByName(moduleName: string): boolean {
+    return this.hasPermissionByName(moduleName, 'EDITAR');
+  }
+
+  canReportByName(moduleName: string): boolean {
+    return this.hasPermissionByName(moduleName, 'REPORTE');
+  }
+
+  canDeleteByName(moduleName: string): boolean {
+    return this.hasPermissionByName(moduleName, 'BORRAR');
   }
 
   // Obtener permisos actuales

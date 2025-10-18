@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AreasService } from '../../../services/areas.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
@@ -426,18 +427,21 @@ export class AreasListComponent implements OnInit, OnDestroy {
     sala_id: null
   };
 
-  private readonly AREAS_MODULE_ID = 1; // Módulo RRHH
   private permissionsSubscription?: Subscription;
 
   constructor(
     private areasService: AreasService,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private router: Router,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) {}
 
   ngOnInit(): void {
+    // Cargar módulos primero
+    this.modulesService.loadModules();
+    
     this.loadAreas();
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {
       // Los permisos se actualizan automáticamente
@@ -451,15 +455,15 @@ export class AreasListComponent implements OnInit, OnDestroy {
   }
 
   canAdd(): boolean {
-    return this.permissionsService.hasPermission(this.AREAS_MODULE_ID, 'AGREGAR');
+    return this.permissionsService.canAddByName('Areas');
   }
 
   canEdit(): boolean {
-    return this.permissionsService.hasPermission(this.AREAS_MODULE_ID, 'EDITAR');
+    return this.permissionsService.canEditByName('Areas');
   }
 
   canDelete(): boolean {
-    return this.permissionsService.hasPermission(this.AREAS_MODULE_ID, 'BORRAR');
+    return this.permissionsService.canDeleteByName('Areas');
   }
 
   loadAreas(): void {

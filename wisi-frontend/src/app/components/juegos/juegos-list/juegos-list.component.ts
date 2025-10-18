@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { JuegosService } from '../../../services/juegos.service';
 import { Router } from '@angular/router';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
@@ -432,18 +433,21 @@ export class JuegosListComponent implements OnInit, OnDestroy {
     sala_id: null
   };
 
-  private readonly JUEGOS_MODULE_ID = 3; // ID del módulo CECOM (donde están los juegos)
   private permissionsSubscription?: Subscription;
 
   constructor(
     private juegosService: JuegosService,
     private router: Router,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) { }
 
   ngOnInit(): void {
+    // Cargar módulos primero
+    this.modulesService.loadModules();
+    
     // Suscribirse a cambios de permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
       this.debugPermissions();
@@ -479,19 +483,19 @@ export class JuegosListComponent implements OnInit, OnDestroy {
 
   // Métodos para verificar permisos
   canAdd(): boolean {
-    return this.permissionsService.canAdd(this.JUEGOS_MODULE_ID);
+    return this.permissionsService.canAddByName('Juegos');
   }
 
   canEdit(): boolean {
-    return this.permissionsService.canEdit(this.JUEGOS_MODULE_ID);
+    return this.permissionsService.canEditByName('Juegos');
   }
 
   canDelete(): boolean {
-    return this.permissionsService.canDelete(this.JUEGOS_MODULE_ID);
+    return this.permissionsService.canDeleteByName('Juegos');
   }
 
   canReport(): boolean {
-    return this.permissionsService.canReport(this.JUEGOS_MODULE_ID);
+    return this.permissionsService.canReportByName('Juegos');
   }
 
   loadJuegos(): void {

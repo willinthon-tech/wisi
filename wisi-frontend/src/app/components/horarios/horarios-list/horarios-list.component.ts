@@ -5,6 +5,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { HorariosService } from '../../../services/horarios.service';
 import { PermissionsService } from '../../../services/permissions.service';
+import { ModulesService } from '../../../services/modules.service';
 import { AreasService } from '../../../services/areas.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
@@ -739,13 +740,13 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   cantidadBloques = 1;
   bloques: any[] = [];
 
-  private readonly HORARIOS_MODULE_ID = 1; // Módulo RRHH
   private permissionsSubscription?: Subscription;
 
   constructor(
     private authService: AuthService,
     private horariosService: HorariosService,
     private permissionsService: PermissionsService,
+    private modulesService: ModulesService,
     private areasService: AreasService,
     private router: Router,
     private route: ActivatedRoute,
@@ -755,6 +756,9 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // Cargar módulos primero
+    this.modulesService.loadModules();
+    
     this.loadHorarios();
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {
       // Los permisos se actualizan automáticamente
@@ -773,15 +777,15 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   }
 
   canAdd(): boolean {
-    return this.permissionsService.hasPermission(this.HORARIOS_MODULE_ID, 'AGREGAR');
+    return this.permissionsService.canAddByName('Horarios');
   }
 
   canEdit(): boolean {
-    return this.permissionsService.hasPermission(this.HORARIOS_MODULE_ID, 'EDITAR');
+    return this.permissionsService.canEditByName('Horarios');
   }
 
   canDelete(): boolean {
-    return this.permissionsService.hasPermission(this.HORARIOS_MODULE_ID, 'BORRAR');
+    return this.permissionsService.canDeleteByName('Horarios');
   }
 
   loadHorarios(): void {
