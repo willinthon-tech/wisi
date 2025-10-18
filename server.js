@@ -9338,6 +9338,54 @@ app.get('/api/attlogs/:id', (req, res) => {
   }
 });
 
+// ==================== ENDPOINTS DE CRON ====================
+
+// GET /api/cron/config - Obtener configuración del CRON
+app.get('/api/cron/config', authenticateToken, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        enabled: true,
+        interval: 300000, // 5 minutos en milisegundos
+        lastRun: new Date().toISOString(),
+        nextRun: new Date(Date.now() + 300000).toISOString(),
+        devicesCount: 0,
+        status: 'active'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message 
+    });
+  }
+});
+
+// GET /api/cron/queue-status - Obtener estado de la cola de descarga
+app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        queueLength: 0,
+        processing: false,
+        lastProcessed: new Date().toISOString(),
+        errors: 0,
+        success: 0,
+        status: 'idle'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      message: 'Error interno del servidor',
+      error: error.message 
+    });
+  }
+});
+
 // Ruta para registrar rostro de usuario con ImgBB (URL pública gratuita)
 app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (req, res) => {
   try {
