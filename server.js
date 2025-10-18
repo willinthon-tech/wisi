@@ -912,7 +912,15 @@ app.post('/api/auth/login', async (req, res) => {
       where: { usuario},
       include: [
         { model: Sala, through: UserSala, where: {}, required: false },
-        { model: Module, through: UserModule, where: {}, required: false }
+        { model: Module, through: UserModule, where: {}, required: false },
+        { 
+          model: UserModulePermission, 
+          include: [
+            { model: Module, attributes: ['id', 'nombre', 'icono', 'ruta'] },
+            { model: Permission, attributes: ['id', 'nombre'] }
+          ],
+          required: false 
+        }
       ]
     });
 
@@ -947,7 +955,8 @@ app.post('/api/auth/login', async (req, res) => {
         nivel: user.nivel
       },
       salas: user.Salas || [],
-      modules: user.Modules || []
+      modules: user.Modules || [],
+      permissions: user.UserModulePermissions || []
     });
 
   } catch (error) {

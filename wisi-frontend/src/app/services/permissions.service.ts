@@ -23,16 +23,9 @@ export class PermissionsService {
     private http: HttpClient,
     private authService: AuthService
   ) {
-    // Esperar a que el usuario esté autenticado antes de cargar permisos
-    this.authService.currentUser$.subscribe(user => {
-      if (user) {
-        // Limpiar permisos anteriores antes de cargar nuevos
-        this.userPermissionsSubject.next([]);
-        // Cargar permisos del nuevo usuario
-        this.loadUserPermissions();
-      } else {
-        this.userPermissionsSubject.next([]);
-      }
+    // Usar los permisos que vienen del login directamente
+    this.authService.userPermissions$.subscribe(permissions => {
+      this.userPermissionsSubject.next(permissions);
     });
   }
 
@@ -80,13 +73,15 @@ export class PermissionsService {
   hasPermission(moduleId: number, permissionName: string): boolean {
     const currentPermissions = this.userPermissionsSubject.value;
     
-    // Mostrar permisos específicos para este módulo
-    const modulePermissions = currentPermissions.filter(p => p.moduleId === moduleId);
-    
-    const hasPermission = currentPermissions.some(permission => 
-      permission.moduleId === moduleId && 
-      permission.permissionName === permissionName
-    );
+    // Buscar en la nueva estructura de permisos del login
+    const hasPermission = currentPermissions.some(permission => {
+      // Verificar si el módulo coincide
+      const moduleMatches = permission.Module && permission.Module.id === moduleId;
+      // Verificar si el permiso coincide
+      const permissionMatches = permission.Permission && permission.Permission.nombre === permissionName;
+      
+      return moduleMatches && permissionMatches;
+    });
     
     return hasPermission;
   }
