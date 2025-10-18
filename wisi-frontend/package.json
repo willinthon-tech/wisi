@@ -4,8 +4,10 @@
   "scripts": {
     "ng": "ng",
     "start": "npx ng serve",
-    "build": "npx ng build --configuration production",
-    "build:dev": "npx ng build --configuration development",
+    "clean": "node clean-build.js",
+    "build": "npm run clean && npx ng build --configuration production",
+    "build:dev": "npm run clean && npx ng build --configuration development",
+    "build:force": "npm run clean && npx ng build --configuration production --delete-output-path",
     "watch": "npx ng build --watch --configuration development",
     "test": "npx ng test"
   },
