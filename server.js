@@ -9386,6 +9386,221 @@ app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
   }
 });
 
+// ==================== CRON REAL PARA DESCARGA DE IMÁGENES ====================
+
+// Variable para controlar el CRON
+let cronInterval: NodeJS.Timeout | null = null;
+let cronConfig = {
+  enabled: false,
+  interval: 300000, // 5 minutos por defecto
+  lastRun: null,
+  nextRun: null
+};
+
+// Función para ejecutar la descarga de imágenes
+async function executeImageDownload() {
+  try {
+    console.log('🔄 Ejecutando descarga automática de imágenes...');
+    
+    // Obtener todos los dispositivos activos
+    const dispositivos = await Dispositivo.findAll({
+      where: { activo: 1 },
+      include: [
+        {
+          model: Sala,
+          as: 'Sala',
+          attributes: ['id', 'nombre']
+        }
+      ]
+    });
+
+    if (dispositivos.length === 0) {
+      console.log('⚠️ No hay dispositivos activos para descargar imágenes');
+      return;
+    }
+
+    let imagesDownloaded = 0;
+    let imagesErrors = 0;
+
+    // Procesar cada dispositivo
+    for (const dispositivo of dispositivos) {
+      try {
+        console.log(`📱 Procesando dispositivo: ${dispositivo.nombre}`);
+        
+        // Obtener marcajes recientes (últimas 24 horas)
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const marcajes = await Attlog.findAll({
+          where: {
+            dispositivo_id: dispositivo.id,
+            created_at: {
+              [Op.gte]: yesterday
+            }
+          },
+          limit: 10 // Limitar a 10 marcajes por dispositivo
+        });
+
+        console.log(`📊 Encontrados ${marcajes.length} marcajes para ${dispositivo.nombre}`);
+
+        // Descargar imagen para cada marcaje
+        for (const marcaje of marcajes) {
+          try {
+            // Verificar si la imagen ya existe
+            const fs = require('fs');
+            const path = require('path');
+            const attlogsDir = path.join(__dirname, 'attlogs');
+            const imagePath = path.join(attlogsDir, `${marcaje.id}.jpg`);
+            
+            if (fs.existsSync(imagePath)) {
+              console.log(`✅ Imagen ya existe: ${marcaje.id}.jpg`);
+              continue;
+            }
+
+            // Intentar descargar imagen del dispositivo
+            if (dispositivo.usuario && dispositivo.clave) {
+              const authObject = {
+                usuario_login_dispositivo: dispositivo.usuario,
+                clave_login_dispositivo: dispositivo.clave
+              };
+
+              // Construir URL de imagen (esto depende de tu API del dispositivo)
+              const imageUrl = `/ISAPI/Intelligent/FDLib/FDSearch/DownloadPicture?format=json&FDID=1&faceLibType=blackFD&faceID=${marcaje.id}`;
+              
+              const imageResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imageUrl, 'GET', null, authObject);
+              
+              if (imageResponse.status === 200 && imageResponse.data) {
+                let imageBuffer;
+                
+                if (Buffer.isBuffer(imageResponse.data)) {
+                  imageBuffer = imageResponse.data;
+                } else if (typeof imageResponse.data === 'string') {
+                  let base64Data = imageResponse.data;
+                  if (base64Data.startsWith('data:image/')) {
+                    base64Data = base64Data.split(',')[1];
+                  }
+                  imageBuffer = Buffer.from(base64Data, 'base64');
+                } else if (imageResponse.data.pictureInfo?.picData) {
+                  imageBuffer = Buffer.from(imageResponse.data.pictureInfo.picData, 'base64');
+                }
+
+                if (imageBuffer && imageBuffer.length > 0) {
+                  // Crear directorio si no existe
+                  if (!fs.existsSync(attlogsDir)) {
+                    fs.mkdirSync(attlogsDir, { recursive: true });
+                  }
+                  
+                  // Guardar imagen
+                  fs.writeFileSync(imagePath, imageBuffer);
+                  imagesDownloaded++;
+                  console.log(`✅ Imagen descargada: ${marcaje.id}.jpg`);
+                } else {
+                  imagesErrors++;
+                  console.log(`❌ Error: Buffer vacío para ${marcaje.id}`);
+                }
+              } else {
+                imagesErrors++;
+                console.log(`❌ Error descargando imagen ${marcaje.id}: ${imageResponse.status}`);
+              }
+            } else {
+              console.log(`⚠️ Dispositivo ${dispositivo.nombre} no tiene credenciales`);
+            }
+          } catch (imageError) {
+            imagesErrors++;
+            console.log(`❌ Error procesando imagen ${marcaje.id}:`, imageError.message);
+          }
+        }
+      } catch (deviceError) {
+        console.log(`❌ Error procesando dispositivo ${dispositivo.nombre}:`, deviceError.message);
+      }
+    }
+
+    console.log(`🎯 Descarga completada: ${imagesDownloaded} imágenes descargadas, ${imagesErrors} errores`);
+    
+    // Actualizar configuración
+    cronConfig.lastRun = new Date();
+    cronConfig.nextRun = new Date(Date.now() + cronConfig.interval);
+    
+  } catch (error) {
+    console.error('❌ Error en descarga automática:', error);
+  }
+}
+
+// Función para iniciar el CRON
+function startCron() {
+  if (cronInterval) {
+    clearInterval(cronInterval);
+  }
+  
+  if (cronConfig.enabled) {
+    console.log(`🚀 Iniciando CRON cada ${cronConfig.interval / 1000} segundos`);
+    cronInterval = setInterval(executeImageDownload, cronConfig.interval);
+    
+    // Ejecutar inmediatamente la primera vez
+    executeImageDownload();
+  }
+}
+
+// Función para detener el CRON
+function stopCron() {
+  if (cronInterval) {
+    clearInterval(cronInterval);
+    cronInterval = null;
+    console.log('⏹️ CRON detenido');
+  }
+}
+
+// POST /api/cron/start - Iniciar CRON
+app.post('/api/cron/start', authenticateToken, async (req, res) => {
+  try {
+    const { interval } = req.body;
+    
+    cronConfig.enabled = true;
+    cronConfig.interval = interval || 300000; // 5 minutos por defecto
+    cronConfig.lastRun = null;
+    cronConfig.nextRun = new Date(Date.now() + cronConfig.interval);
+    
+    startCron();
+    
+    res.json({
+      success: true,
+      message: 'CRON iniciado correctamente',
+      config: cronConfig
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error iniciando CRON',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/cron/stop - Detener CRON
+app.post('/api/cron/stop', authenticateToken, async (req, res) => {
+  try {
+    cronConfig.enabled = false;
+    stopCron();
+    
+    res.json({
+      success: true,
+      message: 'CRON detenido correctamente'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error deteniendo CRON',
+      error: error.message
+    });
+  }
+});
+
+// Iniciar CRON automáticamente al arrancar el servidor
+console.log('🔄 Iniciando CRON automático...');
+cronConfig.enabled = true;
+cronConfig.interval = 300000; // 5 minutos
+startCron();
+
 // Ruta para registrar rostro de usuario con ImgBB (URL pública gratuita)
 app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (req, res) => {
   try {
@@ -9904,6 +10119,104 @@ app.post('/api/tpp/sync/:deviceId', authenticateToken, async (req, res) => {
 
 // Configuración de archivos estáticos movida al inicio del archivo
 
+// =============================================
+// ENDPOINTS PÚBLICOS PARA REPORTES
+// =============================================
+
+// Obtener novedades de máquinas por libro (público)
+app.get('/api/public/novedades-maquinas/:libroId', async (req, res) => {
+  try {
+    const { libroId } = req.params;
+    
+    // Verificar que el modelo existe
+    if (!NovedadMaquinaRegistro) {
+      return res.status(500).json({ message: 'Modelo no encontrado' });
+    }
+    
+    // Consulta con includes para obtener datos completos
+    const novedades = await NovedadMaquinaRegistro.findAll({
+      where: { libro_id: libroId },
+      include: [
+        {
+          model: Maquina,
+          as: 'Maquina',
+          include: [
+            {
+              model: Rango,
+              as: 'Rango',
+              attributes: ['id', 'nombre']
+            }
+          ]
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
+        }
+      ],
+      order: [['created_at', 'ASC']]
+    });
+    
+    res.json(novedades);
+  } catch (error) {
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener novedades de mesas por libro (público)
+app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
+  try {
+    const { libroId } = req.params;
+    const novedades = await NovedadMesaRegistro.findAll({
+      where: { libro_id: libroId },
+      include: [
+        {
+          model: Mesa,
+          as: 'Mesa',
+          attributes: ['id', 'nombre', 'numero']
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
+        }
+      ],
+      order: [['created_at', 'ASC']]
+    });
+    
+    res.json(novedades);
+  } catch (error) {
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener control de llaves por libro (público)
+app.get('/api/public/control-llaves/:libroId', async (req, res) => {
+  try {
+    const { libroId } = req.params;
+    const controles = await ControlLlaveRegistro.findAll({
+      where: { libro_id: libroId },
+      include: [
+        {
+          model: Llave,
+          as: 'Llave',
+          attributes: ['id', 'nombre', 'numero']
+        },
+        {
+          model: Empleado,
+          as: 'Empleado',
+          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
+        }
+      ],
+      order: [['created_at', 'ASC']]
+    });
+    
+    res.json(controles);
+  } catch (error) {
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // Ruta catch-all: devolver index.html para todas las rutas no encontradas (SPA)
 // IMPORTANTE: Esta ruta debe estar AL FINAL, después de todas las rutas de API
 app.get('*', (req, res) => {
@@ -10107,120 +10420,3 @@ app.put('/api/cron/config', authenticateToken, async (req, res) => {
   }
 });
 
-// =============================================
-// ENDPOINTS PÚBLICOS PARA REPORTES
-// =============================================
-
-// Obtener novedades de máquinas por libro (público) - MOVIDO ARRIBA
-app.get('/api/public/novedades-maquinas/:libroId', async (req, res) => {
-  try {
-    const { libroId } = req.params;
-    
-    
-    // Verificar que el modelo existe
-    if (!NovedadMaquinaRegistro) {
-      
-      return res.status(500).json({ message: 'Modelo no encontrado' });
-    }
-    
-    
-    
-    // Consulta con includes para obtener datos completos
-    const novedades = await NovedadMaquinaRegistro.findAll({
-      where: { libro_id: libroId },
-      include: [
-        {
-          model: Maquina,
-          as: 'Maquina',
-          include: [
-            {
-              model: Rango,
-              as: 'Rango',
-              attributes: ['id', 'nombre']
-            }
-          ]
-        },
-        {
-          model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
-        }
-      ],
-      order: [['created_at', 'ASC']]
-    });
-    
-    
-    res.json(novedades);
-  } catch (error) {
-    
-    
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Obtener novedades de mesas por libro (público)
-app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
-  try {
-    const { libroId } = req.params;
-    const novedades = await NovedadMesaRegistro.findAll({
-      where: { libro_id: libroId },
-      include: [
-        {
-          model: Mesa,
-          as: 'Mesa',
-          include: [
-            {
-              model: Juego,
-              as: 'Juego',
-              attributes: ['id', 'nombre']
-            }
-          ]
-        },
-        {
-          model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
-        }
-      ],
-      order: [['hora', 'ASC']]
-    });
-    res.json(novedades);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Obtener control de llaves por libro (público)
-app.get('/api/public/control-llaves/:libroId', async (req, res) => {
-  try {
-    const { libroId } = req.params;
-    const controles = await ControlLlaveRegistro.findAll({
-      where: { libro_id: libroId },
-      include: [
-        {
-          model: Llave,
-          as: 'Llave',
-          include: [
-            {
-              model: Sala,
-              as: 'Sala',
-              attributes: ['id', 'nombre']
-            }
-          ]
-        },
-        {
-          model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
-        }
-      ],
-      order: [['hora', 'ASC']]
-    });
-    res.json(controles);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
