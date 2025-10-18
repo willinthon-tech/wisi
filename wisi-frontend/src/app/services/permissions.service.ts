@@ -6,9 +6,20 @@ import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 
 export interface UserPermission {
-  moduleId: number;
-  permissionId: number;
-  permissionName: string;
+  id: number;
+  user_id: number;
+  module_id: number;
+  permission_id: number;
+  Module?: {
+    id: number;
+    nombre: string;
+    icono: string;
+    ruta: string;
+  };
+  Permission?: {
+    id: number;
+    nombre: string;
+  };
 }
 
 @Injectable({
