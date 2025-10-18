@@ -9304,7 +9304,7 @@ app.get('/img/:id', (req, res) => {
   res.send(imageBuffer);
 });
 
-// Ruta directa para servir imágenes de attlogs
+// Ruta directa para servir imágenes de attlogs (SIN autenticación)
 app.get('/api/attlogs/:id', (req, res) => {
   try {
     const { id } = req.params;
@@ -9321,6 +9321,7 @@ app.get('/api/attlogs/:id', (req, res) => {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+      res.setHeader('Access-Control-Allow-Origin', '*');
       res.send(imageBuffer);
     } else {
       // Si no existe, devolver 404
