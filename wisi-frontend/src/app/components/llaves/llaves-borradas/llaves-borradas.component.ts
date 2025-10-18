@@ -165,7 +165,7 @@ import { Subscription } from 'rxjs';
 export class LlavesBorradasComponent implements OnInit, OnDestroy {
   llavesBorradas: any[] = [];
   
-  private readonly LLAVES_MODULE_ID = 19; // ID del módulo Llaves
+  private readonly LLAVES_MODULE_ID = 3; // ID del módulo CECOM (donde están las llaves)
   private permissionsSubscription?: Subscription;
 
   constructor(

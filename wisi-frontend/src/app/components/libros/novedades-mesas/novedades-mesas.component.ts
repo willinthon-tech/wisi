@@ -398,7 +398,7 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
   hasAccess: boolean = false;
   libro: any = null;
   
-  private readonly NOVEDADES_MESAS_MODULE_ID = 19; // ID del módulo Novedades de Mesas
+  private readonly NOVEDADES_MESAS_MODULE_ID = 3; // ID del módulo CECOM (donde están las novedades)
   private permissionsSubscription?: Subscription;
 
   constructor(

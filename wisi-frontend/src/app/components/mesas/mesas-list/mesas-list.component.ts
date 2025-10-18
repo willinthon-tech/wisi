@@ -441,7 +441,7 @@ export class MesasListComponent implements OnInit, OnDestroy {
     juego_id: null
   };
 
-  private readonly MESAS_MODULE_ID = 12; // Módulo "Gestion de Mesas"
+  private readonly MESAS_MODULE_ID = 3; // ID del módulo CECOM (donde están las mesas)
   private permissionsSubscription?: Subscription;
 
   constructor(

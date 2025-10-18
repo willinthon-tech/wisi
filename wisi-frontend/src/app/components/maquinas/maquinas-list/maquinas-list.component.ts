@@ -441,7 +441,7 @@ export class MaquinasListComponent implements OnInit, OnDestroy {
     rango_id: null
   };
 
-  private readonly MAQUINAS_MODULE_ID = 14; // Módulo MAQUINAS
+  private readonly MAQUINAS_MODULE_ID = 2; // ID del módulo MAQUINAS
   private permissionsSubscription?: Subscription;
 
   constructor(

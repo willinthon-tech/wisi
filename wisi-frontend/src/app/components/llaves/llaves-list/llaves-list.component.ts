@@ -440,7 +440,7 @@ export class LlavesListComponent implements OnInit, OnDestroy {
     sala_id: null as number | null
   };
   
-  private readonly LLAVES_MODULE_ID = 19; // ID del módulo Llaves
+  private readonly LLAVES_MODULE_ID = 3; // ID del módulo CECOM (donde están las llaves)
   private permissionsSubscription?: Subscription;
 
   constructor(

@@ -683,7 +683,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
   llavesAfectadas: any[] = [];
   eventoSeleccionado: any = null;
   
-  private readonly CONTROL_LLAVES_MODULE_ID = 18; // ID del módulo Control de Llaves
+  private readonly CONTROL_LLAVES_MODULE_ID = 3; // ID del módulo CECOM (donde está el control de llaves)
   private permissionsSubscription?: Subscription;
 
   constructor(
