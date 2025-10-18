@@ -820,6 +820,9 @@ app.use(cors());
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
+// Servir archivos estáticos de la aplicación Angular PWA (ANTES de las rutas de API)
+app.use(express.static(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser')));
+
 
 // Rate limiting DESHABILITADO para desarrollo
 // const limiter = rateLimit({
@@ -9792,8 +9795,7 @@ app.post('/api/tpp/sync/:deviceId', authenticateToken, async (req, res) => {
   }
 });
 
-// Servir archivos estáticos de la aplicación Angular PWA
-app.use(express.static(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser')));
+// Configuración de archivos estáticos movida al inicio del archivo
 
 // Ruta catch-all: devolver index.html para todas las rutas no encontradas (SPA)
 app.get('*', (req, res) => {
