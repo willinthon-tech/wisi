@@ -1681,6 +1681,31 @@ app.get('/api/debug/modules', authenticateToken, async (req, res) => {
   }
 });
 
+// Endpoint para debug - ver permisos de un usuario específico
+app.get('/api/debug/user-permissions/:userId', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const userPermissions = await UserModulePermission.findAll({
+      where: { user_id: userId },
+      include: [
+        {
+          model: Module,
+          where: {}
+        },
+        {
+          model: Permission,
+          where: {}
+        }
+      ]
+    });
+    
+    res.json(userPermissions);
+  } catch (error) {
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // Endpoint para obtener permisos del usuario
 app.get('/api/user/permissions', authenticateToken, async (req, res) => {
   try {

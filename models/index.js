@@ -305,6 +305,20 @@ const insertInitialData = async () => {
     // Asignar todos los permisos al usuario creador
     await creator.addPermissions(permissions);
 
+    // Crear UserModulePermission específicos para el usuario creador
+    const UserModulePermission = require('./UserModulePermission')(sequelize);
+    
+    // Asignar todos los permisos a todos los módulos para el creador
+    for (const module of [moduleRRHH, moduleMaquinas, moduleCecom, moduleSuperConfig]) {
+      for (const permission of permissions) {
+        await UserModulePermission.create({
+          user_id: creator.id,
+          module_id: module.id,
+          permission_id: permission.id
+        });
+      }
+    }
+
     // Asignar módulos a páginas (relación uno a muchos)
     await moduleSuperConfig.update({ page_id: pages[0].id }); // ADMINISTRACIÓN -> SUPER CONFIG
     await moduleRRHH.update({ page_id: pages[1].id }); // OPERACIONES -> RRHH
