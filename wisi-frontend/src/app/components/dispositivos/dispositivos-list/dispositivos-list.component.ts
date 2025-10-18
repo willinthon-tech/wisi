@@ -1206,6 +1206,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   // Método auxiliar para obtener la unidad de tiempo
   private getTimeUnit(cronValue: string): string {
+    if (!cronValue || typeof cronValue !== 'string') return 'm';
     if (cronValue.includes('h')) return 'h';
     if (cronValue.includes('m')) return 'm';
     return 'm';
@@ -1213,6 +1214,7 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
   // Método auxiliar para obtener el valor numérico del tiempo
   private getTimeValue(cronValue: string): number {
+    if (!cronValue || typeof cronValue !== 'string') return 1;
     const match = cronValue.match(/(\d+)/);
     return match ? parseInt(match[1]) : 1;
   }
