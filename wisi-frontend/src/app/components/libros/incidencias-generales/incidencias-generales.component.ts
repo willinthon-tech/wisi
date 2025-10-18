@@ -285,7 +285,7 @@ export class IncidenciasGeneralesComponent implements OnInit, OnDestroy {
     hora: this.getCurrentTime()
   };
 
-  private readonly CECOM_MODULE_ID = 3; // ID del módulo CECOM
+  private readonly LIBRO_MODULE_ID = 5; // ID del módulo Libro (CECOM)
   private permissionsSubscription?: Subscription;
 
   constructor(

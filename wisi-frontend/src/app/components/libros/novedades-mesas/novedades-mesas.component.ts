@@ -398,7 +398,7 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
   hasAccess: boolean = false;
   libro: any = null;
   
-  private readonly NOVEDADES_MESAS_MODULE_ID = 3; // ID del módulo CECOM (donde están las novedades)
+  private readonly LIBRO_MODULE_ID = 5; // ID del módulo Libro (CECOM)
   private permissionsSubscription?: Subscription;
 
   constructor(
@@ -435,7 +435,7 @@ export class NovedadesMesasComponent implements OnInit, OnDestroy {
 
   private checkPermissions() {
     this.permissionsSubscription = this.permissionsService.getUserPermissions().subscribe((permissions: any) => {
-      this.hasAccess = this.permissionsService.canEdit(this.NOVEDADES_MESAS_MODULE_ID);
+      this.hasAccess = this.permissionsService.canView(this.LIBRO_MODULE_ID);
     });
   }
 

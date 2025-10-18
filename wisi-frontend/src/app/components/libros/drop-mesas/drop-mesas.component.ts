@@ -457,7 +457,7 @@ export class DropMesasComponent implements OnInit, OnDestroy {
     denominacion_1: 0
   };
 
-  private readonly CECOM_MODULE_ID = 3; // ID del módulo CECOM
+  private readonly LIBRO_MODULE_ID = 5; // ID del módulo Libro (CECOM)
   private permissionsSubscription?: Subscription;
 
   constructor(

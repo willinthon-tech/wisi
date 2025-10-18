@@ -683,7 +683,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
   llavesAfectadas: any[] = [];
   eventoSeleccionado: any = null;
   
-  private readonly CONTROL_LLAVES_MODULE_ID = 3; // ID del módulo CECOM (donde está el control de llaves)
+  private readonly LIBRO_MODULE_ID = 5; // ID del módulo Libro (CECOM)
   private permissionsSubscription?: Subscription;
 
   constructor(
@@ -717,7 +717,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
 
   private checkPermissions() {
     this.permissionsSubscription = this.permissionsService.getUserPermissions().subscribe((permissions: any) => {
-      this.hasAccess = this.permissionsService.canEdit(this.CONTROL_LLAVES_MODULE_ID);
+      this.hasAccess = this.permissionsService.canView(this.LIBRO_MODULE_ID);
     });
   }
 

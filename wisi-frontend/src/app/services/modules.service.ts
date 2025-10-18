@@ -23,7 +23,7 @@ export class ModulesService {
 
   // Obtener todos los módulos
   getModules(): Observable<Module[]> {
-    return this.http.get<Module[]>(`${this.apiUrl}/modules`);
+    return this.http.get<Module[]>(`${this.apiUrl}/debug/modules`);
   }
 
   // Cargar módulos y almacenarlos en el BehaviorSubject

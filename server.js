@@ -6092,14 +6092,6 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
             }]
           }]
         }, {
-          model: NovedadMaquina,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre'],
-            where: { id: userSalaIds }
-          }]
-        }, {
           model: Empleado,
           attributes: ['id', 'nombre'],
           include: [{
@@ -6126,8 +6118,8 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
     
     res.json(registros);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('Error en novedades-maquinas-registros:', error);
+    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
 
