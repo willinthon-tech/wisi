@@ -3832,9 +3832,9 @@ app.delete('/api/mesas/:id', authenticateToken, async (req, res) => {
       });
     }
     
-    // Si no hay relaciones, marcar mesa como borrada (soft delete)
-    await mesa.update({ activo: 0 });
-    res.json({ message: 'Mesa marcada como borrada correctamente' });
+    // Si no hay relaciones, eliminar físicamente de la base de datos
+    await mesa.destroy();
+    res.json({ message: 'Mesa eliminada permanentemente de la base de datos' });
   } catch (error) {
     
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -4220,9 +4220,9 @@ app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
       });
     }
     
-    // Si no hay relaciones, marcar máquina como borrada (soft delete)
-    await maquina.update({ activo: 0 });
-    res.json({ message: 'Máquina marcada como borrada correctamente' });
+    // Si no hay relaciones, eliminar físicamente de la base de datos
+    await maquina.destroy();
+    res.json({ message: 'Máquina eliminada permanentemente de la base de datos' });
   } catch (error) {
     
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -4724,9 +4724,9 @@ app.delete('/api/llaves/:id', authenticateToken, async (req, res) => {
     //   });
     // }
     
-    // Si no hay relaciones, marcar llave como borrada (soft delete)
-    await llave.update({ activo: 0 });
-    res.json({ message: 'Llave marcada como borrada correctamente' });
+    // Si no hay relaciones, eliminar físicamente de la base de datos
+    await llave.destroy();
+    res.json({ message: 'Llave eliminada permanentemente de la base de datos' });
   } catch (error) {
     
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -6425,8 +6425,8 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
                   as: 'Area',
                   include: [
                     {
-                        model: Sala,
-                        as: 'Sala',
+                      model: Sala,
+                      as: 'Sala',
                         required: false,
                         attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
                     }
@@ -6873,8 +6873,8 @@ app.put('/api/empleados/:id/activar', authenticateToken, async (req, res) => {
 
 // DELETE /api/empleados/:id - Eliminar empleado
 app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
-  const { id } = req.params;
-  
+    const { id } = req.params;
+    
   try {
     const empleado = await Empleado.findByPk(id);
     if (!empleado) {
@@ -6919,9 +6919,9 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // Marcar empleado como borrado (activo = 0) en lugar de eliminar físicamente
-    await empleado.update({ activo: 0 });
-    res.json({ message: 'Empleado marcado como borrado correctamente' });
+    // Si no hay relaciones, eliminar físicamente de la base de datos
+    await empleado.destroy();
+    res.json({ message: 'Empleado eliminado permanentemente de la base de datos' });
   } catch (error) {
     
     console.error('❌ Detalles del error:', {
