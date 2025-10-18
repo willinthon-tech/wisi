@@ -8638,8 +8638,8 @@ app.get('/api/verify-img-device/:id', async (req, res) => {
   }
 });
 
-// GET /api/attlogs/:id - Obtener datos de un marcaje específico
-app.get('/api/attlogs/:id', authenticateToken, async (req, res) => {
+// GET /api/attlogs/:id/data - Obtener datos de un marcaje específico (REQUIERE AUTENTICACIÓN)
+app.get('/api/attlogs/:id/data', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -9759,31 +9759,7 @@ app.get('/api/attlogs', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/attlogs/:id - Obtener marcaje por ID
-app.get('/api/attlogs/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const attlog = await Attlog.findByPk(id, {
-      include: [
-        {
-          model: Dispositivo,
-          as: 'Dispositivo',
-          attributes: ['id', 'nombre', 'ip_remota']
-        }
-      ]
-    });
-    
-    if (!attlog) {
-      return res.status(404).json({ message: 'Marcaje no encontrado' });
-    }
-    
-    res.json(attlog);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+// ENDPOINT DUPLICADO ELIMINADO - Usar /api/attlogs/:id/data para datos con autenticación
 
 // ==================== RUTAS DE HIK-CONNECT ====================
 
