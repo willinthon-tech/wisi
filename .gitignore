@@ -2,3 +2,9 @@ node_modules/
 
 # Carpeta de imágenes de marcajes
 attlogs/
+
+# Bases de datos
+*.db
+*.sqlite
+database.sqlite
+wisi_system.db
