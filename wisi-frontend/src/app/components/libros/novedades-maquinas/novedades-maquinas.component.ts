@@ -770,7 +770,7 @@ export class NovedadesMaquinasComponent implements OnInit, OnDestroy {
     descripcion: ''
   };
 
-  private readonly NOVEDADES_MAQUINAS_MODULE_ID = 16; // ID del módulo Gestion de Novedades de Maquinas
+  private readonly NOVEDADES_MAQUINAS_MODULE_ID = 2; // ID del módulo MAQUINAS
   private permissionsSubscription?: Subscription;
 
   constructor(

@@ -475,7 +475,7 @@ export class LibrosListComponent implements OnInit, OnDestroy {
   };
   
   // ID del módulo de libros (según los permisos del usuario)
-  private readonly LIBROS_MODULE_ID = 5; // Módulo donde el usuario tiene permisos
+  private readonly LIBROS_MODULE_ID = 3; // ID del módulo CECOM (donde están los libros)
   private permissionsSubscription?: Subscription;
 
   constructor(

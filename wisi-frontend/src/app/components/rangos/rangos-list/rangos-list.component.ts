@@ -426,7 +426,7 @@ export class RangosListComponent implements OnInit, OnDestroy {
     sala_id: null
   };
 
-  private readonly RANGOS_MODULE_ID = 6; // ID del módulo de configuración (donde están los rangos)
+  private readonly RANGOS_MODULE_ID = 4; // ID del módulo SUPER CONFIGURACION (donde están los rangos)
   private permissionsSubscription?: Subscription;
 
   constructor(

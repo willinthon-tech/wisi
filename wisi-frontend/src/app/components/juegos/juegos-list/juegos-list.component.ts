@@ -432,7 +432,7 @@ export class JuegosListComponent implements OnInit, OnDestroy {
     sala_id: null
   };
 
-  private readonly JUEGOS_MODULE_ID = 13; // Módulo CECOM donde están los juegos
+  private readonly JUEGOS_MODULE_ID = 3; // ID del módulo CECOM (donde están los juegos)
   private permissionsSubscription?: Subscription;
 
   constructor(
