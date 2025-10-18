@@ -5696,13 +5696,14 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
 // RUTA DE INICIO
 // =============================================
 
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Sistema WISI - API funcionando correctamente',
-    version: '1.0.0',
-    author: 'Willinthon Carriedo'
-  });
-});
+// Ruta de inicio comentada para permitir que el frontend se sirva correctamente
+// app.get('/', (req, res) => {
+//   res.json({ 
+//     message: 'Sistema WISI - API funcionando correctamente',
+//     version: '1.0.0',
+//     author: 'Willinthon Carriedo'
+//   });
+// });
 
 // ===== RUTAS PARA DROPS =====
 
