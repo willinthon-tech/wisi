@@ -8667,8 +8667,8 @@ app.get('/api/attlogs/:id/data', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/attlogs/:id/image - Obtener imagen de un marcaje específico
-app.get('/api/attlogs/:id/image', authenticateToken, async (req, res) => {
+// GET /api/attlogs/:id/image - Obtener imagen de un marcaje específico (SIN autenticación)
+app.get('/api/attlogs/:id/image', async (req, res) => {
   try {
     const { id } = req.params;
     
