@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class DispositivosService {
-  private apiUrl = 'http://localhost:3000/api/dispositivos';
+  private apiUrl = `${environment.apiUrl}/dispositivos`;
 
   constructor(private http: HttpClient) { }
 
@@ -32,23 +33,23 @@ export class DispositivosService {
 
   // Métodos para CRON global
   getCronConfig(): Observable<any> {
-    return this.http.get<any>('http://localhost:3000/api/cron/config');
+    return this.http.get<any>(`${environment.apiUrl}/cron/config`);
   }
 
   updateCronConfig(value: string): Observable<any> {
-    return this.http.put<any>('http://localhost:3000/api/cron/config', { value });
+    return this.http.put<any>(`${environment.apiUrl}/cron/config`, { value });
   }
 
   getQueueStatus(): Observable<any> {
-    return this.http.get<any>('http://localhost:3000/api/cron/queue-status');
+    return this.http.get<any>(`${environment.apiUrl}/cron/queue-status`);
   }
 
   clearQueue(): Observable<any> {
-    return this.http.post<any>('http://localhost:3000/api/cron/clear-queue', {});
+    return this.http.post<any>(`${environment.apiUrl}/cron/clear-queue`, {});
   }
 
   getSalas(): Observable<any[]> {
-    return this.http.get<any[]>('http://localhost:3000/api/salas');
+    return this.http.get<any[]>(`${environment.apiUrl}/salas`);
   }
 
 }

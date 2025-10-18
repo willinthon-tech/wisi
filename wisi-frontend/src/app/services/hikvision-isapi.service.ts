@@ -7,7 +7,7 @@ import { catchError, map } from 'rxjs/operators';
   providedIn: 'root'
 })
 export class HikvisionIsapiService {
-  private baseUrl = 'http://localhost:3000/api/hikvision';
+  private baseUrl = `${environment.apiUrl}/hikvision`;
 
   constructor(private http: HttpClient) { }
 

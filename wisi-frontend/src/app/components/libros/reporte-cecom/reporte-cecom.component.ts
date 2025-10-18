@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Meta, Title } from '@angular/platform-browser';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-reporte-cecom',
@@ -840,7 +841,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     this.loading = true;
     
     // Cargar datos del libro usando endpoint público
-    this.http.get(`http://localhost:3000/api/public/libros/${this.libroId}`).subscribe({
+    this.http.get(`${environment.apiUrl}/public/libros/${this.libroId}`).subscribe({
       next: (libro: any) => {
         this.libro = libro;
         this.loadRelatedData();
@@ -864,7 +865,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     };
 
     // Cargar drops usando endpoint público
-    this.http.get(`http://localhost:3000/api/public/drops/${this.libroId}`).subscribe({
+    this.http.get(`${environment.apiUrl}/public/drops/${this.libroId}`).subscribe({
       next: (drops: any) => {
         this.drops = drops;
         this.calculateTotals();
@@ -876,7 +877,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     });
 
     // Cargar novedades de mesas usando endpoint público
-    this.http.get(`http://localhost:3000/api/public/novedades-mesas/${this.libroId}`).subscribe({
+    this.http.get(`${environment.apiUrl}/public/novedades-mesas/${this.libroId}`).subscribe({
       next: (novedadesMesas: any) => {
         this.novedadesMesas = novedadesMesas;
         checkAllLoaded();
@@ -887,7 +888,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     });
 
     // Cargar novedades de máquinas usando endpoint público
-    this.http.get(`http://localhost:3000/api/public/novedades-maquinas/${this.libroId}`).subscribe({
+    this.http.get(`${environment.apiUrl}/public/novedades-maquinas/${this.libroId}`).subscribe({
       next: (novedades: any) => {
         this.novedades = novedades;
         // Agrupar novedades por [Empleado, Novedad, Hora]
@@ -900,7 +901,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     });
 
     // Cargar control de llaves usando endpoint público
-    this.http.get(`http://localhost:3000/api/public/control-llaves/${this.libroId}`).subscribe({
+    this.http.get(`${environment.apiUrl}/public/control-llaves/${this.libroId}`).subscribe({
       next: (controlLlaves: any) => {
         this.controlLlaves = controlLlaves;
         // Agrupar control de llaves por [Empleado, Hora]
@@ -913,7 +914,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     });
 
     // Cargar incidencias usando endpoint público
-    this.http.get(`http://localhost:3000/api/public/incidencias/${this.libroId}`).subscribe({
+    this.http.get(`${environment.apiUrl}/public/incidencias/${this.libroId}`).subscribe({
       next: (incidencias: any) => {
         this.incidencias = incidencias;
         checkAllLoaded();

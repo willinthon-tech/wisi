@@ -14,7 +14,7 @@ export interface UserPermission {
   providedIn: 'root'
 })
 export class PermissionsService {
-  private apiUrl = 'http://localhost:3000/api';
+  private apiUrl = environment.apiUrl;
   private userPermissionsSubject = new BehaviorSubject<UserPermission[]>([]);
   public userPermissions$ = this.userPermissionsSubject.asObservable();
 

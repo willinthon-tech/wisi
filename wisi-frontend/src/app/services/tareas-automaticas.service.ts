@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TareasAutomaticasService {
-  private baseUrl = 'http://localhost:3000/api/tareas-dispositivo-usuarios';
+  private baseUrl = `${environment.apiUrl}/tareas-dispositivo-usuarios`;
 
   constructor(private http: HttpClient) {}
 
@@ -32,11 +33,11 @@ export class TareasAutomaticasService {
 
   // Obtener dispositivos por IDs
   getDispositivosByIds(dispositivoIds: number[]): Observable<any[]> {
-    return this.http.post<any[]>('http://localhost:3000/api/dispositivos/by-ids', { ids: dispositivoIds });
+    return this.http.post<any[]>(`${environment.apiUrl}/dispositivos/by-ids`, { ids: dispositivoIds });
   }
 
   // Obtener empleado por ID
   getEmpleadoById(id: number): Observable<any> {
-    return this.http.get<any>(`http://localhost:3000/api/empleados/${id}`);
+    return this.http.get<any>(`${environment.apiUrl}/empleados/${id}`);
   }
 }

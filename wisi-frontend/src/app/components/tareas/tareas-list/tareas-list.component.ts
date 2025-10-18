@@ -710,7 +710,7 @@ export class TareasListComponent implements OnInit {
   }
 
   loadTareas(): void {
-    this.http.get(`http://localhost:3000/api/tareas-dispositivo-usuarios/user/${this.userId}`).subscribe({
+    this.http.get(`${environment.apiUrl}/tareas-dispositivo-usuarios/user/${this.userId}`).subscribe({
       next: (response: any) => {
         this.tareas = response.data || response;
         // La primera tarea (por orden de base de datos) es la activa
@@ -873,7 +873,7 @@ export class TareasListComponent implements OnInit {
   }
 
   eliminarTarea(tareaId: number): void {
-    this.http.delete(`http://localhost:3000/api/tareas-dispositivo-usuarios/${tareaId}`).subscribe({
+      this.http.delete(`${environment.apiUrl}/tareas-dispositivo-usuarios/${tareaId}`).subscribe({
       next: (response) => {
         
         
@@ -904,7 +904,7 @@ export class TareasListComponent implements OnInit {
 
   eliminarTareaAsync(tareaId: number): Promise<any> {
     return new Promise((resolve, reject) => {
-      this.http.delete(`http://localhost:3000/api/tareas-dispositivo-usuarios/${tareaId}`).subscribe({
+      this.http.delete(`${environment.apiUrl}/tareas-dispositivo-usuarios/${tareaId}`).subscribe({
         next: (response) => {
           
           resolve(response);
