@@ -69,8 +69,6 @@
                 "scripts": false,
                 "styles": false
               },
-              "buildOptimizer": false,
-              "aot": true,
               "extractLicenses": false,
               "vendorChunk": false,
               "namedChunks": true
