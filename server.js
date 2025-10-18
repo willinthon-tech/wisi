@@ -9798,8 +9798,14 @@ app.post('/api/tpp/sync/:deviceId', authenticateToken, async (req, res) => {
 // Configuración de archivos estáticos movida al inicio del archivo
 
 // Ruta catch-all: devolver index.html para todas las rutas no encontradas (SPA)
+// IMPORTANTE: Esta ruta debe estar AL FINAL, después de todas las rutas de API
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser/index.html'));
+  // Solo servir index.html para rutas que no sean de API
+  if (!req.path.startsWith('/api/')) {
+    res.sendFile(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser/index.html'));
+  } else {
+    res.status(404).json({ message: 'Ruta de API no encontrada' });
+  }
 });
 
 app.listen(PORT, () => {
