@@ -69,9 +69,7 @@
                 "scripts": false,
                 "styles": false
               },
-              "extractLicenses": false,
-              "vendorChunk": false,
-              "namedChunks": true
+              "extractLicenses": false
             },
             "development": {
               "optimization": false,
