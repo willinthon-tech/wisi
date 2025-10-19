@@ -10173,7 +10173,7 @@ app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
         {
           model: Mesa,
           as: 'Mesa',
-          attributes: ['id', 'nombre', 'numero']
+          attributes: ['id', 'nombre']
         },
         {
           model: Empleado,
@@ -10203,7 +10203,7 @@ app.get('/api/public/control-llaves/:libroId', async (req, res) => {
         {
           model: Llave,
           as: 'Llave',
-          attributes: ['id', 'nombre', 'numero']
+          attributes: ['id', 'nombre']
         },
         {
           model: Empleado,
