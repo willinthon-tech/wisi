@@ -10166,6 +10166,7 @@ app.get('/api/public/novedades-maquinas/:libroId', async (req, res) => {
 app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
   try {
     const { libroId } = req.params;
+    console.log('🔍 Consultando novedades-mesas para libro:', libroId);
     const novedades = await NovedadMesaRegistro.findAll({
       where: { libro_id: libroId },
       include: [
@@ -10183,9 +10184,11 @@ app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
       order: [['created_at', 'ASC']]
     });
     
+    console.log('✅ Novedades-mesas encontradas:', novedades.length);
     res.json(novedades);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('❌ Error en novedades-mesas:', error);
+    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
 
@@ -10193,6 +10196,7 @@ app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
 app.get('/api/public/control-llaves/:libroId', async (req, res) => {
   try {
     const { libroId } = req.params;
+    console.log('🔍 Consultando control-llaves para libro:', libroId);
     const controles = await ControlLlaveRegistro.findAll({
       where: { libro_id: libroId },
       include: [
@@ -10210,9 +10214,11 @@ app.get('/api/public/control-llaves/:libroId', async (req, res) => {
       order: [['created_at', 'ASC']]
     });
     
+    console.log('✅ Control-llaves encontrados:', controles.length);
     res.json(controles);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('❌ Error en control-llaves:', error);
+    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
 
