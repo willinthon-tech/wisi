@@ -9402,9 +9402,8 @@ async function executeImageDownload() {
   try {
     console.log('🔄 Ejecutando descarga automática de imágenes...');
     
-    // Obtener todos los dispositivos activos
+    // Obtener todos los dispositivos (sin filtro de activo)
     const dispositivos = await Dispositivo.findAll({
-      where: { activo: 1 },
       include: [
         {
           model: Sala,
