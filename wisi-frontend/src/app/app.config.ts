@@ -43,7 +43,7 @@ export const appConfig: ApplicationConfig = {
     PwaService,
     PwaInstallComponent,
     provideServiceWorker('ngsw-worker.js', {
-            enabled: !isDevMode(),
+            enabled: false, // DESHABILITADO para evitar caché excesivo en desarrollo
             registrationStrategy: 'registerWhenStable:30000'
           })
   ]

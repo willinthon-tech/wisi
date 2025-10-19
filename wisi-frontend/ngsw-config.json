@@ -31,28 +31,13 @@
     {
       "name": "api-cache",
       "urls": [
-        "/api/auth/login",
-        "/api/users",
-        "/api/empleados",
-        "/api/salas",
-        "/api/dispositivos"
+        "/api/auth/login"
       ],
       "cacheConfig": {
         "strategy": "freshness",
-        "maxSize": 100,
-        "maxAge": "1h",
-        "timeout": "10s"
-      }
-    },
-    {
-      "name": "offline-fallback",
-      "urls": [
-        "/api/**"
-      ],
-      "cacheConfig": {
-        "strategy": "performance",
-        "maxSize": 50,
-        "maxAge": "1d"
+        "maxSize": 10,
+        "maxAge": "5m",
+        "timeout": "5s"
       }
     }
   ]

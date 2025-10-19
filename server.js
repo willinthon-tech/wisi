@@ -820,6 +820,16 @@ app.use(cors());
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
+// Middleware anti-caché para todas las rutas de API
+app.use('/api/*', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Last-Modified', new Date().toUTCString());
+  res.setHeader('ETag', '');
+  next();
+});
+
 // Servir archivos estáticos de la aplicación Angular PWA (ANTES de las rutas de API)
 app.use(express.static(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser'), {
   setHeaders: (res, path) => {
