@@ -808,7 +808,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],
       scriptSrcAttr: ["'unsafe-inline'"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "http://localhost:3000", "https://localhost:3000"],
+      connectSrc: ["'self'", "http://localhost:3000", "https://localhost:3000", "data:"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
