@@ -50,7 +50,15 @@ import { Subscription } from 'rxjs';
         </button>
       </div>
       
-      <div class="table-wrapper">
+      <div *ngIf="loading || !permissionsLoaded" class="loading-indicator">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Cargando...</span>
+        </div>
+        <p *ngIf="!permissionsLoaded">Cargando permisos...</p>
+        <p *ngIf="permissionsLoaded && loading">Cargando empleados...</p>
+      </div>
+      
+      <div class="table-wrapper" *ngIf="!loading && permissionsLoaded">
         <table class="table table-striped table-hover">
           <thead class="table-dark">
             <tr>
@@ -451,6 +459,21 @@ import { Subscription } from 'rxjs';
 
     .table-wrapper::-webkit-scrollbar {
       display: none; /* Chrome, Safari, Edge */
+    }
+
+    .loading-indicator {
+      text-align: center;
+      padding: 40px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      margin: 20px 0;
+    }
+
+    .spinner-border {
+      width: 3rem;
+      height: 3rem;
+      margin-bottom: 15px;
     }
 
     .table {
@@ -1230,6 +1253,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   dispositivosAnteriores: number[] = [];
   dispositivosNuevos: number[] = [];
   showCargoModal = false;
+  loading: boolean = false;
+  permissionsLoaded: boolean = false;
   selectedEmpleado: any = null;
   nuevoEmpleado: EmpleadoForm = {
     id: null,
@@ -1342,17 +1367,19 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadEmpleados();
+    // Esperar a que los permisos estén cargados antes de cargar empleados
+    this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
+      if (permissions && permissions.length > 0) {
+        this.permissionsLoaded = true;
+        this.loadEmpleados();
+      }
+    });
     
     // Esperar a que el usuario esté disponible antes de cargar tareas
     this.authService.currentUser$.subscribe(user => {
       if (user) {
         this.loadTareasCount();
       }
-    });
-    
-    this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {
-      // Los permisos se actualizan automáticamente
     });
   }
 
