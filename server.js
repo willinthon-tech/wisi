@@ -5019,6 +5019,7 @@ app.post('/api/control-llaves-registros', authenticateToken, async (req, res) =>
         {
           model: Llave,
           as: 'Llave',
+          attributes: ['id', 'nombre', 'sala_id'],
           include: [
             {
               model: Sala,
