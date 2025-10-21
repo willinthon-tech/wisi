@@ -4944,6 +4944,7 @@ app.get('/api/control-llaves-registros/:libroId', authenticateToken, async (req,
         {
           model: Llave,
           as: 'Llave',
+          attributes: ['id', 'nombre', 'sala_id'],
           include: [
             {
               model: Sala,
