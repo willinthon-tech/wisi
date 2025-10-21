@@ -5489,7 +5489,7 @@ app.get('/api/empleados/debug-filter', authenticateToken, async (req, res) => {
                     {
                       model: Sala,
                       as: 'Sala',
-                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo'],
+                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono'],
                       attributes: ['id', 'nombre']
                     }
                   ]
@@ -6393,7 +6393,7 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
                       {
                         model: Sala,
                         as: 'Sala',
-                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
+                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                       }
                     ]
                   }
@@ -6446,7 +6446,7 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
                       model: Sala,
                       as: 'Sala',
                         required: false,
-                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
+                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                     }
                   ]
                 }
@@ -6518,7 +6518,7 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
                       {
                         model: Sala,
                         as: 'Sala',
-                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
+                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                       }
                     ]
                   }
@@ -6571,7 +6571,7 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
                         model: Sala,
                         as: 'Sala',
                         required: false,
-                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
+                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                     }
                   ]
                 }
@@ -6631,7 +6631,7 @@ app.get('/api/empleados/:id', authenticateToken, async (req, res) => {
                     {
                       model: Sala,
                       as: 'Sala',
-                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
+                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                     }
                   ]
                 }
@@ -6713,7 +6713,7 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
                     {
                       model: Sala,
                       as: 'Sala',
-                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
+                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                     }
                   ]
                 }
@@ -6839,7 +6839,7 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
                     {
                       model: Sala,
                       as: 'Sala',
-                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono', 'logo']
+                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                     }
                   ]
                 }
