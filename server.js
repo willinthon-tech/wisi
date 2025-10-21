@@ -3614,43 +3614,45 @@ app.delete('/api/empleados/:empleadoId/horarios/:horarioEmpleadoId', authenticat
     }
 
     // Verificar relaciones de forma más simple
-    const relations = [];
+    // COMENTADO: Verificaciones de relaciones que impiden eliminar horarios
+    // Los marcajes y novedades no deberían impedir cambiar horarios
+    // const relations = [];
     
-    try {
-      // Verificar marcajes
-      const marcajesCount = await Attlog.count({
-        where: { employee_no: empleado.cedula }
-      });
-      if (marcajesCount > 0) {
-        relations.push({ table_name: 'Marcajes', count: marcajesCount });
-      }
+    // try {
+    //   // Verificar marcajes
+    //   const marcajesCount = await Attlog.count({
+    //     where: { employee_no: empleado.cedula }
+    //   });
+    //   if (marcajesCount > 0) {
+    //     relations.push({ table_name: 'Marcajes', count: marcajesCount });
+    //   }
       
-      // Verificar novedades de máquinas
-      const novedadesCount = await NovedadMaquinaRegistro.count({
-        where: { empleado_id: empleadoId }
-      });
-      if (novedadesCount > 0) {
-        relations.push({ table_name: 'Novedades de Máquinas', count: novedadesCount });
-      }
-    } catch (relationError) {
+    //   // Verificar novedades de máquinas
+    //   const novedadesCount = await NovedadMaquinaRegistro.count({
+    //     where: { empleado_id: empleadoId }
+    //   });
+    //   if (novedadesCount > 0) {
+    //     relations.push({ table_name: 'Novedades de Máquinas', count: novedadesCount });
+    //   }
+    // } catch (relationError) {
       
-      // Si hay error en la verificación, continuar con la eliminación
-    }
+    //   // Si hay error en la verificación, continuar con la eliminación
+    // }
     
     
 
-    if (relations.length > 0) {
-      return res.status(400).json({ 
-        message: 'No se puede eliminar el horario porque tiene elementos asociados.',
-        relations: relations,
-        horarioEmpleado: {
-          id: horarioEmpleado.id,
-          empleado_id: horarioEmpleado.empleado_id,
-          horario_id: horarioEmpleado.horario_id,
-          primer_dia: horarioEmpleado.primer_dia
-        }
-      });
-    }
+    // if (relations.length > 0) {
+    //   return res.status(400).json({ 
+    //     message: 'No se puede eliminar el horario porque tiene elementos asociados.',
+    //     relations: relations,
+    //     horarioEmpleado: {
+    //       id: horarioEmpleado.id,
+    //       empleado_id: horarioEmpleado.empleado_id,
+    //       horario_id: horarioEmpleado.horario_id,
+    //       primer_dia: horarioEmpleado.primer_dia
+    //     }
+    //   });
+    // }
 
     await horarioEmpleado.destroy();
     res.json({ message: 'Horario eliminado correctamente' });
