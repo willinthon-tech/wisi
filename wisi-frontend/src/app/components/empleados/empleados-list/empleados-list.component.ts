@@ -1367,6 +1367,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Forzar carga de permisos inmediatamente
+    this.permissionsService.forceReloadPermissions();
+    
     // Esperar a que los permisos estén cargados antes de cargar empleados
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
       if (permissions && permissions.length > 0) {
@@ -1374,6 +1377,15 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.loadEmpleados();
       }
     });
+    
+    // Timeout de respaldo para cargar empleados si los permisos no se cargan
+    setTimeout(() => {
+      if (!this.permissionsLoaded) {
+        console.warn('Permisos no cargados, cargando empleados de todas formas');
+        this.permissionsLoaded = true;
+        this.loadEmpleados();
+      }
+    }, 2000);
     
     // Esperar a que el usuario esté disponible antes de cargar tareas
     this.authService.currentUser$.subscribe(user => {
