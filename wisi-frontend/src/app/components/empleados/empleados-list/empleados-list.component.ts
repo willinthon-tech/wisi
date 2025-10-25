@@ -2588,21 +2588,24 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     
     
     // Cargar cargos primero, luego los demás datos
-    
     this.loadUserCargos();
     
     // Mostrar el modal inmediatamente
-    
     this.showCargoModal = true;
     
     // Esperar a que se carguen los cargos antes de cargar dispositivos
-    
     setTimeout(() => {
+      // Verificar si el cargo del empleado está en la lista de cargos disponibles
+      const cargoEmpleado = this.userCargos.find(cargo => cargo.id === empleado.cargo_id);
+      if (!cargoEmpleado && empleado.Cargo) {
+        // Si el cargo del empleado no está en la lista, agregarlo
+        this.userCargos.push(empleado.Cargo);
+      }
       
       this.loadUserDispositivos();
       // Detectar cambios iniciales
       this.detectChanges();
-    }, 200); // Aumentar el timeout para asegurar que todo se carga
+    }, 500); // Aumentar el timeout para asegurar que los cargos se cargan
   }
 
   deleteEmpleado(id: number): void {
