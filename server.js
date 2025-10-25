@@ -5286,15 +5286,14 @@ app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
           include: [{
             model: Sala,
             attributes: ['id', 'nombre'],
-            required: false
+            where: {
+              id: {
+                [Op.in]: userSalaIds
+              }
+            }
           }]
         }]
       }],
-      where: {
-        '$Area.Departamento.Sala.id$': {
-          [Op.in]: userSalaIds
-        }
-      },
       order: [['nombre', 'ASC']]
     });
     
