@@ -812,7 +812,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   }
 
   loadUserSalas(): void {
-    this.areasService.getUserSalas().subscribe({
+    this.areasService.getUserDepartamentos().subscribe({
       next: (salas: any[]) => {
         this.userSalas = salas;
       },

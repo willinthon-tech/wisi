@@ -40,6 +40,11 @@ export class CargosService {
   getUserDepartamentos(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/user/departamentos`);
   }
+
+  // Obtener áreas del usuario
+  getUserAreas(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/user/areas`);
+  }
 }
 
 

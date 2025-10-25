@@ -19,7 +19,7 @@ import { Subscription } from 'rxjs';
           class="btn btn-success" 
           [class.disabled]="!canAdd()"
           [disabled]="!canAdd()"
-          (click)="canAdd() ? showAreaSelector() : null">
+          (click)="canAdd() ? showSalaSelector() : null">
           Agregar
         </button>
       </div>
@@ -30,7 +30,6 @@ import { Subscription } from 'rxjs';
             <tr>
               <th>N°</th>
               <th>Nombre</th>
-              <th>Área</th>
               <th>Sala</th>
               <th>Acciones</th>
             </tr>
@@ -39,8 +38,7 @@ import { Subscription } from 'rxjs';
             <tr *ngFor="let departamento of departamentos; let i = index">
               <td>{{ i + 1 }}</td>
               <td>{{ departamento.nombre }}</td>
-              <td>{{ departamento.Area?.nombre || 'Sin asignar' }}</td>
-              <td>{{ departamento.Area?.Sala?.nombre || 'Sin asignar' }}</td>
+              <td>{{ departamento.Sala?.nombre || 'Sin asignar' }}</td>
               <td>
                 <button 
                   class="btn btn-info btn-sm me-1" 
@@ -67,11 +65,11 @@ import { Subscription } from 'rxjs';
       </div>
 
       <!-- Modal para crear departamento -->
-      <div *ngIf="showAreaModal" class="modal-overlay" (click)="closeAreaSelector()">
+      <div *ngIf="showSalaModal" class="modal-overlay" (click)="closeSalaSelector()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
             <h3>{{ selectedDepartamento ? 'Editar Departamento' : 'Crear Nuevo Departamento' }}</h3>
-            <button class="close-btn" (click)="closeAreaSelector()">&times;</button>
+            <button class="close-btn" (click)="closeSalaSelector()">&times;</button>
           </div>
           <div class="modal-body">
             <form (ngSubmit)="createDepartamento()" #departamentoForm="ngForm">
@@ -89,23 +87,23 @@ import { Subscription } from 'rxjs';
               </div>
               
               <div class="form-group" *ngIf="!selectedDepartamento">
-                <label for="areaSelect">Área:</label>
+                <label for="salaSelect">Sala:</label>
                 <select 
-                  id="areaSelect" 
-                  name="areaSelect"
-                  [(ngModel)]="nuevoDepartamento.area_id"
+                  id="salaSelect" 
+                  name="salaSelect"
+                  [(ngModel)]="nuevoDepartamento.sala_id"
                   class="form-control"
                   required
                 >
-                  <option value="">Seleccione un área</option>
-                  <option *ngFor="let area of userAreas" [value]="area.id">
-                    {{ area.nombre }} ({{ area.Sala?.nombre || 'Sin sala' }})
+                  <option value="">Seleccione una sala</option>
+                  <option *ngFor="let sala of userSalas" [value]="sala.id">
+                    {{ sala.nombre }}
                   </option>
                 </select>
               </div>
               
               <div class="form-actions">
-                <button type="button" class="btn btn-secondary" (click)="closeAreaSelector()">
+                <button type="button" class="btn btn-secondary" (click)="closeSalaSelector()">
                   Cancelar
                 </button>
                 <button type="submit" class="btn btn-success" [disabled]="!departamentoForm.form.valid">
@@ -114,8 +112,8 @@ import { Subscription } from 'rxjs';
               </div>
             </form>
             
-            <div *ngIf="userAreas.length === 0 && !selectedDepartamento" class="no-areas">
-              <p>No tienes áreas asignadas</p>
+            <div *ngIf="userSalas.length === 0 && !selectedDepartamento" class="no-salas">
+              <p>No tienes salas asignadas</p>
             </div>
           </div>
         </div>
@@ -421,12 +419,12 @@ import { Subscription } from 'rxjs';
 })
 export class DepartamentosListComponent implements OnInit, OnDestroy {
   departamentos: any[] = [];
-  userAreas: any[] = [];
-  showAreaModal = false;
+  userSalas: any[] = [];
+  showSalaModal = false;
   selectedDepartamento: any = null;
   nuevoDepartamento = {
     nombre: '',
-    area_id: null
+    sala_id: null
   };
 
   private permissionsSubscription?: Subscription;
@@ -479,22 +477,22 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
     });
   }
 
-  showAreaSelector(): void {
-    this.loadUserAreas();
+  showSalaSelector(): void {
+    this.loadUserSalas();
     this.resetForm();
-    this.showAreaModal = true;
+    this.showSalaModal = true;
   }
 
-  closeAreaSelector(): void {
-    this.showAreaModal = false;
+  closeSalaSelector(): void {
+    this.showSalaModal = false;
     this.selectedDepartamento = null;
     this.resetForm();
   }
 
-  loadUserAreas(): void {
-    this.departamentosService.getUserAreas().subscribe({
-      next: (areas) => {
-        this.userAreas = areas;
+  loadUserSalas(): void {
+    this.departamentosService.getUserSalas().subscribe({
+      next: (salas) => {
+        this.userSalas = salas;
       },
       error: (error) => {
         
@@ -505,7 +503,7 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
   resetForm(): void {
     this.nuevoDepartamento = {
       nombre: '',
-      area_id: null
+      sala_id: null
     };
   }
 
@@ -518,7 +516,7 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
           if (index !== -1) {
             this.departamentos[index] = departamento;
           }
-          this.closeAreaSelector();
+          this.closeSalaSelector();
         },
         error: (error) => {
           
@@ -529,7 +527,7 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
       this.departamentosService.createDepartamento(this.nuevoDepartamento).subscribe({
         next: (departamento) => {
           this.departamentos.unshift(departamento);
-          this.closeAreaSelector();
+          this.closeSalaSelector();
         },
         error: (error) => {
           
@@ -542,9 +540,9 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
     this.selectedDepartamento = departamento;
     this.nuevoDepartamento = {
       nombre: departamento.nombre,
-      area_id: departamento.area_id
+      sala_id: departamento.sala_id
     };
-    this.showAreaModal = true;
+    this.showSalaModal = true;
   }
 
   deleteDepartamento(id: number): void {

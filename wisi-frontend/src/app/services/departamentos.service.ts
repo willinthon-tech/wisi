@@ -36,9 +36,9 @@ export class DepartamentosService {
     return this.http.delete<any>(`${this.apiUrl}/departamentos/${id}`);
   }
 
-  // Obtener áreas del usuario
-  getUserAreas(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.apiUrl}/user/areas`);
+  // Obtener salas del usuario
+  getUserSalas(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/user/salas`);
   }
 }
 

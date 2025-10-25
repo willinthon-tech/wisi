@@ -30,8 +30,8 @@ import { Subscription } from 'rxjs';
             <tr>
               <th>N°</th>
               <th>Nombre</th>
-              <th>Departamento</th>
               <th>Área</th>
+              <th>Departamento</th>
               <th>Sala</th>
               <th>Acciones</th>
             </tr>
@@ -40,9 +40,9 @@ import { Subscription } from 'rxjs';
             <tr *ngFor="let cargo of cargos; let i = index">
               <td>{{ i + 1 }}</td>
               <td>{{ cargo.nombre }}</td>
-              <td>{{ cargo.Departamento?.nombre || 'Sin asignar' }}</td>
-              <td>{{ cargo.Departamento?.Area?.nombre || 'Sin asignar' }}</td>
-              <td>{{ cargo.Departamento?.Area?.Sala?.nombre || 'Sin asignar' }}</td>
+              <td>{{ cargo.Area?.nombre || 'Sin asignar' }}</td>
+              <td>{{ cargo.Area?.Departamento?.nombre || 'Sin asignar' }}</td>
+              <td>{{ cargo.Area?.Departamento?.Sala?.nombre || 'Sin asignar' }}</td>
               <td>
                 <button 
                   class="btn btn-info btn-sm me-1" 
@@ -91,17 +91,17 @@ import { Subscription } from 'rxjs';
               </div>
               
               <div class="form-group" *ngIf="!selectedCargo">
-                <label for="departamentoSelect">Departamento:</label>
+                <label for="areaSelect">Área:</label>
                 <select 
-                  id="departamentoSelect" 
-                  name="departamentoSelect"
-                  [(ngModel)]="nuevoCargo.departamento_id"
+                  id="areaSelect" 
+                  name="areaSelect"
+                  [(ngModel)]="nuevoCargo.area_id"
                   class="form-control"
                   required
                 >
-                  <option value="">Seleccione un departamento</option>
-                  <option *ngFor="let departamento of userDepartamentos" [value]="departamento.id">
-                    {{ departamento.nombre }} ({{ departamento.Area?.nombre || 'Sin área' }} - {{ departamento.Area?.Sala?.nombre || 'Sin sala' }})
+                  <option value="">Seleccione un área</option>
+                  <option *ngFor="let area of userAreas" [value]="area.id">
+                    {{ area.nombre }} ({{ area.Departamento?.nombre || 'Sin departamento' }} - {{ area.Departamento?.Sala?.nombre || 'Sin sala' }})
                   </option>
                 </select>
               </div>
@@ -116,8 +116,8 @@ import { Subscription } from 'rxjs';
               </div>
             </form>
             
-            <div *ngIf="userDepartamentos.length === 0 && !selectedCargo" class="no-departamentos">
-              <p>No tienes departamentos asignados</p>
+            <div *ngIf="userAreas.length === 0 && !selectedCargo" class="no-departamentos">
+              <p>No tienes áreas asignadas</p>
             </div>
           </div>
         </div>
@@ -423,12 +423,12 @@ import { Subscription } from 'rxjs';
 })
 export class CargosListComponent implements OnInit, OnDestroy {
   cargos: any[] = [];
-  userDepartamentos: any[] = [];
+  userAreas: any[] = [];
   showDepartamentoModal = false;
   selectedCargo: any = null;
   nuevoCargo = {
     nombre: '',
-    departamento_id: null
+    area_id: null
   };
 
   private permissionsSubscription?: Subscription;
@@ -482,7 +482,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
   }
 
   showDepartamentoSelector(): void {
-    this.loadUserDepartamentos();
+    this.loadUserAreas();
     this.resetForm();
     this.showDepartamentoModal = true;
   }
@@ -493,10 +493,10 @@ export class CargosListComponent implements OnInit, OnDestroy {
     this.resetForm();
   }
 
-  loadUserDepartamentos(): void {
-    this.cargosService.getUserDepartamentos().subscribe({
-      next: (departamentos) => {
-        this.userDepartamentos = departamentos;
+  loadUserAreas(): void {
+    this.cargosService.getUserAreas().subscribe({
+      next: (areas) => {
+        this.userAreas = areas;
       },
       error: (error) => {
         
@@ -507,7 +507,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
   resetForm(): void {
     this.nuevoCargo = {
       nombre: '',
-      departamento_id: null
+      area_id: null
     };
   }
 
@@ -544,7 +544,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
     this.selectedCargo = cargo;
     this.nuevoCargo = {
       nombre: cargo.nombre,
-      departamento_id: cargo.departamento_id
+      area_id: cargo.area_id
     };
     this.showDepartamentoModal = true;
   }
