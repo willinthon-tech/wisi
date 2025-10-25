@@ -1883,8 +1883,7 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
 
     res.json(pages);
   } catch (error) {
-    
-    
+    console.error('Error en POST /api/departamentos:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2608,13 +2607,17 @@ app.post('/api/areas', authenticateToken, async (req, res) => {
     const areaConDepartamento = await Area.findByPk(area.id, {
       include: [{
         model: Departamento,
-        attributes: ['id', 'nombre']
+        attributes: ['id', 'nombre'],
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }]
       }]
     });
 
     res.status(201).json(areaConDepartamento);
   } catch (error) {
-    
+    console.error('Error en POST /api/areas:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2623,35 +2626,39 @@ app.post('/api/areas', authenticateToken, async (req, res) => {
 app.put('/api/areas/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, sala_id } = req.body;
+    const { nombre, departamento_id } = req.body;
     
     const area = await Area.findByPk(id);
     if (!area) {
       return res.status(404).json({ message: 'Área no encontrada' });
     }
 
-    if (sala_id) {
-      const sala = await Sala.findByPk(sala_id);
-      if (!sala) {
-        return res.status(404).json({ message: 'Sala no encontrada' });
+    if (departamento_id) {
+      const departamento = await Departamento.findByPk(departamento_id);
+      if (!departamento) {
+        return res.status(404).json({ message: 'Departamento no encontrado' });
       }
     }
 
     await area.update({
       nombre: nombre || area.nombre,
-      sala_id: sala_id || area.sala_id
+      departamento_id: departamento_id || area.departamento_id
     });
 
     const areaActualizada = await Area.findByPk(area.id, {
       include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
+        model: Departamento,
+        attributes: ['id', 'nombre'],
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }]
       }]
     });
 
     res.json(areaActualizada);
   } catch (error) {
-    
+    console.error('Error en PUT /api/areas/:id:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2845,20 +2852,16 @@ app.post('/api/departamentos', authenticateToken, async (req, res) => {
       updated_at: fechaCreacion
     });
 
-    const departamentoConArea = await Departamento.findByPk(departamento.id, {
+    const departamentoConSala = await Departamento.findByPk(departamento.id, {
       include: [{
-        model: Area,
-        attributes: ['id', 'nombre'],
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }]
+        model: Sala,
+        attributes: ['id', 'nombre']
       }]
     });
 
-    res.status(201).json(departamentoConArea);
+    res.status(201).json(departamentoConSala);
   } catch (error) {
-    
+    console.error('Error en POST /api/departamentos:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2874,32 +2877,28 @@ app.put('/api/departamentos/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ message: 'Departamento no encontrado' });
     }
 
-    if (area_id) {
-      const area = await Area.findByPk(area_id);
-      if (!area) {
-        return res.status(404).json({ message: 'Área no encontrada' });
+    if (sala_id) {
+      const sala = await Sala.findByPk(sala_id);
+      if (!sala) {
+        return res.status(404).json({ message: 'Sala no encontrada' });
       }
     }
 
     await departamento.update({
       nombre: nombre || departamento.nombre,
-      area_id: area_id || departamento.area_id
+      sala_id: sala_id || departamento.sala_id
     });
 
     const departamentoActualizado = await Departamento.findByPk(departamento.id, {
       include: [{
-        model: Area,
-        attributes: ['id', 'nombre'],
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }]
+        model: Sala,
+        attributes: ['id', 'nombre']
       }]
     });
 
     res.json(departamentoActualizado);
   } catch (error) {
-    
+    console.error('Error en PUT /api/departamentos/:id:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3071,42 +3070,42 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
 // Crear un nuevo cargo
 app.post('/api/cargos', authenticateToken, async (req, res) => {
   try {
-    const { nombre, departamento_id } = req.body;
+    const { nombre, area_id } = req.body;
     
-    if (!nombre || !departamento_id) {
-      return res.status(400).json({ message: 'El nombre y el departamento son requeridos' });
+    if (!nombre || !area_id) {
+      return res.status(400).json({ message: 'El nombre y el área son requeridos' });
     }
 
-    const departamento = await Departamento.findByPk(departamento_id);
-    if (!departamento) {
-      return res.status(404).json({ message: 'Departamento no encontrado' });
+    const area = await Area.findByPk(area_id);
+    if (!area) {
+      return res.status(404).json({ message: 'Área no encontrada' });
     }
 
-    const ultimoCargoDepartamento = await Cargo.findOne({
-      where: { departamento_id: departamento_id },
+    const ultimoCargoArea = await Cargo.findOne({
+      where: { area_id: area_id },
       order: [['created_at', 'DESC']]
     });
 
     let fechaCreacion = new Date();
-    if (ultimoCargoDepartamento) {
-      const ultimaFecha = new Date(ultimoCargoDepartamento.created_at);
+    if (ultimoCargoArea) {
+      const ultimaFecha = new Date(ultimoCargoArea.created_at);
       fechaCreacion = new Date(ultimaFecha);
       fechaCreacion.setDate(fechaCreacion.getDate() + 1);
     }
 
     const cargo = await Cargo.create({
       nombre: nombre,
-      departamento_id: departamento_id,
+      area_id: area_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
     });
 
-    const cargoConDepartamento = await Cargo.findByPk(cargo.id, {
+    const cargoConArea = await Cargo.findByPk(cargo.id, {
       include: [{
-        model: Departamento,
+        model: Area,
         attributes: ['id', 'nombre'],
         include: [{
-          model: Area,
+          model: Departamento,
           attributes: ['id', 'nombre'],
           include: [{
             model: Sala,
@@ -3116,9 +3115,9 @@ app.post('/api/cargos', authenticateToken, async (req, res) => {
       }]
     });
 
-    res.status(201).json(cargoConDepartamento);
+    res.status(201).json(cargoConArea);
   } catch (error) {
-    
+    console.error('Error en POST /api/cargos:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3127,31 +3126,31 @@ app.post('/api/cargos', authenticateToken, async (req, res) => {
 app.put('/api/cargos/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, departamento_id } = req.body;
+    const { nombre, area_id } = req.body;
     
     const cargo = await Cargo.findByPk(id);
     if (!cargo) {
       return res.status(404).json({ message: 'Cargo no encontrado' });
     }
 
-    if (departamento_id) {
-      const departamento = await Departamento.findByPk(departamento_id);
-      if (!departamento) {
-        return res.status(404).json({ message: 'Departamento no encontrado' });
+    if (area_id) {
+      const area = await Area.findByPk(area_id);
+      if (!area) {
+        return res.status(404).json({ message: 'Área no encontrada' });
       }
     }
 
     await cargo.update({
       nombre: nombre || cargo.nombre,
-      departamento_id: departamento_id || cargo.departamento_id
+      area_id: area_id || cargo.area_id
     });
 
     const cargoActualizado = await Cargo.findByPk(cargo.id, {
       include: [{
-        model: Departamento,
+        model: Area,
         attributes: ['id', 'nombre'],
         include: [{
-          model: Area,
+          model: Departamento,
           attributes: ['id', 'nombre'],
           include: [{
             model: Sala,
@@ -3163,7 +3162,7 @@ app.put('/api/cargos/:id', authenticateToken, async (req, res) => {
 
     res.json(cargoActualizado);
   } catch (error) {
-    
+    console.error('Error en PUT /api/cargos/:id:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

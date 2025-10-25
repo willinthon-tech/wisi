@@ -86,7 +86,7 @@ import { Subscription } from 'rxjs';
                 />
               </div>
               
-              <div class="form-group" *ngIf="!selectedDepartamento">
+              <div class="form-group">
                 <label for="salaSelect">Sala:</label>
                 <select 
                   id="salaSelect" 
@@ -112,7 +112,7 @@ import { Subscription } from 'rxjs';
               </div>
             </form>
             
-            <div *ngIf="userSalas.length === 0 && !selectedDepartamento" class="no-salas">
+            <div *ngIf="userSalas.length === 0" class="no-salas">
               <p>No tienes salas asignadas</p>
             </div>
           </div>
@@ -542,6 +542,7 @@ export class DepartamentosListComponent implements OnInit, OnDestroy {
       nombre: departamento.nombre,
       sala_id: departamento.sala_id
     };
+    this.loadUserSalas(); // Cargar salas disponibles para edición
     this.showSalaModal = true;
   }
 

@@ -86,7 +86,7 @@ import { Subscription } from 'rxjs';
                 />
               </div>
               
-              <div class="form-group" *ngIf="!selectedArea">
+              <div class="form-group">
                 <label for="departamentoSelect">Departamento:</label>
                 <select 
                   id="departamentoSelect" 
@@ -112,7 +112,7 @@ import { Subscription } from 'rxjs';
               </div>
             </form>
             
-            <div *ngIf="userDepartamentos.length === 0 && !selectedArea" class="no-departamentos">
+            <div *ngIf="userDepartamentos.length === 0" class="no-departamentos">
               <p>No tienes departamentos asignados</p>
             </div>
           </div>
@@ -542,6 +542,7 @@ export class AreasListComponent implements OnInit, OnDestroy {
       nombre: area.nombre,
       departamento_id: area.departamento_id
     };
+    this.loadUserDepartamentos(); // Cargar departamentos disponibles para edición
     this.showDepartamentoModal = true;
   }
 
