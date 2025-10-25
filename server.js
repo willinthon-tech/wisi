@@ -2982,16 +2982,14 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       departamentos = await Departamento.findAll({
-        where: {},
+        where: {
+          sala_id: {
+            [Op.in]: userSalaIds
+          }
+        },
         include: [{
-          model: Area,
-          where: {sala_id: userSalaIds
-          },
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
-          }]
+          model: Sala,
+          attributes: ['id', 'nombre']
         }],
         order: [['created_at', 'DESC']]
       });
@@ -2999,7 +2997,7 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
     
     res.json(departamentos);
   } catch (error) {
-    
+    console.error('Error en /api/user/departamentos:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
