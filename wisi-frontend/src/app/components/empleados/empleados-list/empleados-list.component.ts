@@ -315,7 +315,7 @@ import { Subscription } from 'rxjs';
                 >
                   <option value="">Seleccione un cargo</option>
                   <option *ngFor="let cargo of userCargos" [value]="cargo.id">
-                    {{ cargo.nombre }} ({{ cargo.Departamento?.Area?.Sala?.nombre || 'Sin sala' }})
+                    {{ cargo.nombre }} ({{ cargo.Area?.Departamento?.Sala?.nombre || 'Sin sala' }})
                   </option>
                 </select>
               </div>
