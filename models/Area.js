@@ -11,11 +11,11 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    sala_id: {
+    departamento_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'salas',
+        model: 'departamentos',
         key: 'id'
       },
       onDelete: 'RESTRICT'

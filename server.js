@@ -2524,7 +2524,7 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
       areas = await Area.findAll({
         where: {},
         include: [{
-          model: Sala,
+          model: Departamento,
           attributes: ['id', 'nombre']
         }],
         order: [['created_at', 'DESC']]
@@ -2564,44 +2564,44 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
 // Crear una nueva área
 app.post('/api/areas', authenticateToken, async (req, res) => {
   try {
-    const { nombre, sala_id } = req.body;
+    const { nombre, departamento_id } = req.body;
     
-    if (!nombre || !sala_id) {
-      return res.status(400).json({ message: 'El nombre y la sala son requeridos' });
+    if (!nombre || !departamento_id) {
+      return res.status(400).json({ message: 'El nombre y el departamento son requeridos' });
     }
 
-    const sala = await Sala.findByPk(sala_id);
-    if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+    const departamento = await Departamento.findByPk(departamento_id);
+    if (!departamento) {
+      return res.status(404).json({ message: 'Departamento no encontrado' });
     }
 
-    const ultimaAreaSala = await Area.findOne({
-      where: { sala_id: sala_id },
+    const ultimaAreaDepartamento = await Area.findOne({
+      where: { departamento_id: departamento_id },
       order: [['created_at', 'DESC']]
     });
 
     let fechaCreacion = new Date();
-    if (ultimaAreaSala) {
-      const ultimaFecha = new Date(ultimaAreaSala.created_at);
+    if (ultimaAreaDepartamento) {
+      const ultimaFecha = new Date(ultimaAreaDepartamento.created_at);
       fechaCreacion = new Date(ultimaFecha);
       fechaCreacion.setDate(fechaCreacion.getDate() + 1);
     }
 
     const area = await Area.create({
       nombre: nombre,
-      sala_id: sala_id,
+      departamento_id: departamento_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
     });
 
-    const areaConSala = await Area.findByPk(area.id, {
+    const areaConDepartamento = await Area.findByPk(area.id, {
       include: [{
-        model: Sala,
+        model: Departamento,
         attributes: ['id', 'nombre']
       }]
     });
 
-    res.status(201).json(areaConSala);
+    res.status(201).json(areaConDepartamento);
   } catch (error) {
     
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -2701,7 +2701,7 @@ app.get('/api/user/areas', authenticateToken, async (req, res) => {
       areas = await Area.findAll({
         where: {},
         include: [{
-          model: Sala,
+          model: Departamento,
           attributes: ['id', 'nombre']
         }],
         order: [['created_at', 'DESC']]
@@ -2750,12 +2750,8 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
       departamentos = await Departamento.findAll({
         where: {},
         include: [{
-          model: Area,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
-          }]
+          model: Sala,
+          attributes: ['id', 'nombre']
         }],
         order: [['created_at', 'DESC']]
       });
@@ -2799,32 +2795,32 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
 // Crear un nuevo departamento
 app.post('/api/departamentos', authenticateToken, async (req, res) => {
   try {
-    const { nombre, area_id } = req.body;
+    const { nombre, sala_id } = req.body;
     
-    if (!nombre || !area_id) {
-      return res.status(400).json({ message: 'El nombre y el área son requeridos' });
+    if (!nombre || !sala_id) {
+      return res.status(400).json({ message: 'El nombre y la sala son requeridos' });
     }
 
-    const area = await Area.findByPk(area_id);
-    if (!area) {
-      return res.status(404).json({ message: 'Área no encontrada' });
+    const sala = await Sala.findByPk(sala_id);
+    if (!sala) {
+      return res.status(404).json({ message: 'Sala no encontrada' });
     }
 
-    const ultimoDepartamentoArea = await Departamento.findOne({
-      where: { area_id: area_id },
+    const ultimoDepartamentoSala = await Departamento.findOne({
+      where: { sala_id: sala_id },
       order: [['created_at', 'DESC']]
     });
 
     let fechaCreacion = new Date();
-    if (ultimoDepartamentoArea) {
-      const ultimaFecha = new Date(ultimoDepartamentoArea.created_at);
+    if (ultimoDepartamentoSala) {
+      const ultimaFecha = new Date(ultimoDepartamentoSala.created_at);
       fechaCreacion = new Date(ultimaFecha);
       fechaCreacion.setDate(fechaCreacion.getDate() + 1);
     }
 
     const departamento = await Departamento.create({
       nombre: nombre,
-      area_id: area_id,
+      sala_id: sala_id,
       created_at: fechaCreacion,
       updated_at: fechaCreacion
     });
@@ -2851,7 +2847,7 @@ app.post('/api/departamentos', authenticateToken, async (req, res) => {
 app.put('/api/departamentos/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, area_id } = req.body;
+    const { nombre, sala_id } = req.body;
     
     const departamento = await Departamento.findByPk(id);
     if (!departamento) {
@@ -2946,12 +2942,8 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
       departamentos = await Departamento.findAll({
         where: {},
         include: [{
-          model: Area,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
-          }]
+          model: Sala,
+          attributes: ['id', 'nombre']
         }],
         order: [['created_at', 'DESC']]
       });
@@ -3004,10 +2996,10 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
       cargos = await Cargo.findAll({
         where: {},
         include: [{
-          model: Departamento,
+          model: Area,
           attributes: ['id', 'nombre'],
           include: [{
-            model: Area,
+            model: Departamento,
             attributes: ['id', 'nombre'],
             include: [{
               model: Sala,
@@ -3034,13 +3026,12 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
       cargos = await Cargo.findAll({
         where: {},
         include: [{
-          model: Departamento,
+          model: Area,
           where: {},
           attributes: ['id', 'nombre'],
           include: [{
-            model: Area,
-            where: {sala_id: userSalaIds
-            },
+            model: Departamento,
+            where: {sala_id: userSalaIds},
             attributes: ['id', 'nombre'],
             include: [{
               model: Sala,
@@ -5287,20 +5278,20 @@ app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
 
     const cargos = await Cargo.findAll({
       include: [{
-        model: Departamento,
+        model: Area,
         attributes: ['id', 'nombre'],
         include: [{
-          model: Area,
+          model: Departamento,
           attributes: ['id', 'nombre'],
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre'],
-          required: false
+          include: [{
+            model: Sala,
+            attributes: ['id', 'nombre'],
+            required: false
           }]
         }]
       }],
       where: {
-        '$Departamento.Area.Sala.id$': {
+        '$Area.Departamento.Sala.id$': {
           [Op.in]: userSalaIds
         }
       },
@@ -6387,12 +6378,12 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
             as: 'Cargo',
             include: [
               {
-                model: Departamento,
-                as: 'Departamento',
+                model: Area,
+                as: 'Area',
                 include: [
                   {
-                    model: Area,
-                    as: 'Area',
+                    model: Departamento,
+                    as: 'Departamento',
                     include: [
                       {
                         model: Sala,
@@ -6439,12 +6430,12 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
           as: 'Cargo',
           include: [
             {
-              model: Departamento,
-              as: 'Departamento',
+              model: Area,
+              as: 'Area',
               include: [
                 {
-                  model: Area,
-                  as: 'Area',
+                  model: Departamento,
+                  as: 'Departamento',
                   include: [
                     {
                       model: Sala,
@@ -6460,7 +6451,7 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
         }
       ],
       where: {
-        '$Cargo.Departamento.Area.Sala.id$': {
+        '$Cargo.Area.Departamento.Sala.id$': {
           [Op.in]: userSalaIds
         },
         activo: 1
@@ -6512,12 +6503,12 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
             as: 'Cargo',
             include: [
               {
-                model: Departamento,
-                as: 'Departamento',
+                model: Area,
+                as: 'Area',
                 include: [
                   {
-                    model: Area,
-                    as: 'Area',
+                    model: Departamento,
+                    as: 'Departamento',
                     include: [
                       {
                         model: Sala,
@@ -6564,12 +6555,12 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
           as: 'Cargo',
           include: [
             {
-              model: Departamento,
-              as: 'Departamento',
+              model: Area,
+              as: 'Area',
               include: [
                 {
-                  model: Area,
-                  as: 'Area',
+                  model: Departamento,
+                  as: 'Departamento',
                   include: [
                     {
                         model: Sala,
@@ -6586,7 +6577,7 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
       ],
       where: {
         activo: 0,
-        '$Cargo.Departamento.Area.Sala.id$': {
+        '$Cargo.Area.Departamento.Sala.id$': {
           [Op.in]: userSalaIds
         }
       },
