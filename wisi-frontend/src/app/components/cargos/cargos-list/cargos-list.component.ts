@@ -90,7 +90,7 @@ import { Subscription } from 'rxjs';
                 />
               </div>
               
-              <div class="form-group" *ngIf="!selectedCargo">
+              <div class="form-group">
                 <label for="areaSelect">Área:</label>
                 <select 
                   id="areaSelect" 
@@ -116,7 +116,7 @@ import { Subscription } from 'rxjs';
               </div>
             </form>
             
-            <div *ngIf="userAreas.length === 0 && !selectedCargo" class="no-departamentos">
+            <div *ngIf="userAreas.length === 0" class="no-departamentos">
               <p>No tienes áreas asignadas</p>
             </div>
           </div>
@@ -546,6 +546,7 @@ export class CargosListComponent implements OnInit, OnDestroy {
       nombre: cargo.nombre,
       area_id: cargo.area_id
     };
+    this.loadUserAreas(); // Cargar áreas disponibles para edición
     this.showDepartamentoModal = true;
   }
 
