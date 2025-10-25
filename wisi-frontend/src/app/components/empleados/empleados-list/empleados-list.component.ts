@@ -1472,8 +1472,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             
             
             // Filtrar dispositivos por la sala del cargo seleccionado
-            if (cargoSeleccionado.Departamento?.Area?.Sala?.id) {
-              const salaId = cargoSeleccionado.Departamento.Area.Sala.id;
+            if (cargoSeleccionado.Area?.Departamento?.Sala?.id) {
+              const salaId = cargoSeleccionado.Area.Departamento.Sala.id;
               
               
               this.userDispositivos = dispositivos.filter(dispositivo => {
