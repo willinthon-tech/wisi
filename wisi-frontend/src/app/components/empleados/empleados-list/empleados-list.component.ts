@@ -67,6 +67,8 @@ import { Subscription } from 'rxjs';
               <th>Nombre</th>
               <th>Cédula</th>
               <th>Cargo</th>
+              <th>Edad</th>
+              <th>Antigüedad</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -85,6 +87,12 @@ import { Subscription } from 'rxjs';
               <td>{{ empleado.nombre }}</td>
               <td>{{ empleado.cedula }}</td>
               <td>{{ empleado.Cargo?.nombre || 'Sin asignar' }}</td>
+              <td class="text-center">
+                <span class="edad-badge">{{ calcularEdad(empleado.fecha_cumpleanos) }}</span>
+              </td>
+              <td class="text-center">
+                <span class="antiguedad-badge">{{ calcularAntiguedad(empleado.fecha_ingreso) }}</span>
+              </td>
               <td>
                 <button 
                   class="btn btn-info btn-sm me-1" 
@@ -1231,6 +1239,34 @@ import { Subscription } from 'rxjs';
       padding: 20px;
       color: #6c757d;
       font-style: italic;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    .edad-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+      white-space: nowrap;
+    }
+
+    .antiguedad-badge {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      box-shadow: 0 2px 4px rgba(245, 87, 108, 0.3);
+      white-space: nowrap;
     }
 
     @media (max-width: 768px) {
@@ -3262,6 +3298,45 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     const charCode = event.which ? event.which : event.keyCode;
     if (charCode < 48 || charCode > 57) {
       event.preventDefault();
+    }
+  }
+
+  calcularEdad(fechaNacimiento: string): string {
+    if (!fechaNacimiento) return '-';
+    
+    const hoy = new Date();
+    const nacimiento = new Date(fechaNacimiento);
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const mes = hoy.getMonth() - nacimiento.getMonth();
+    
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+      edad--;
+    }
+    
+    return edad + ' años';
+  }
+
+  calcularAntiguedad(fechaIngreso: string): string {
+    if (!fechaIngreso) return '-';
+    
+    const hoy = new Date();
+    const ingreso = new Date(fechaIngreso);
+    let años = hoy.getFullYear() - ingreso.getFullYear();
+    let meses = hoy.getMonth() - ingreso.getMonth();
+    
+    if (meses < 0) {
+      años--;
+      meses += 12;
+    }
+    
+    if (años > 0 && meses > 0) {
+      return `${años} año${años > 1 ? 's' : ''}, ${meses} mes${meses > 1 ? 'es' : ''}`;
+    } else if (años > 0) {
+      return `${años} año${años > 1 ? 's' : ''}`;
+    } else if (meses > 0) {
+      return `${meses} mes${meses > 1 ? 'es' : ''}`;
+    } else {
+      return 'Menos de 1 mes';
     }
   }
 
