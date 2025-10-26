@@ -156,10 +156,15 @@ function addDeviceToQueue(dispositivo, priority = 1) {
 
 // Función para limpiar el tracking al inicio de un nuevo ciclo
 function resetSyncCycle() {
-  processedDevices.clear();
-  pendingDevices.clear();
-  lastSyncCycle = new Date().toISOString();
-  console.log(`🔄 Nuevo ciclo de sincronización iniciado: ${lastSyncCycle}`);
+  // Solo resetear si no hay procesamiento activo
+  if (!isProcessingCron) {
+    processedDevices.clear();
+    pendingDevices.clear();
+    lastSyncCycle = new Date().toISOString();
+    console.log(`🔄 Nuevo ciclo de sincronización iniciado: ${lastSyncCycle}`);
+  } else {
+    console.log(`⏳ Ciclo anterior aún en proceso, omitiendo reset`);
+  }
 }
 
 // Función para guardar la cola en disco
@@ -315,9 +320,13 @@ async function processCronQueue() {
   // Guardar estado final
   saveQueueToDisk();
   
-  // Si no hay dispositivos pendientes, limpiar archivos de persistencia
+  // Si no hay dispositivos pendientes, limpiar archivos de persistencia y resetear tracking
   if (pendingDevices.size === 0 && cronQueue.length === 0) {
     clearPersistenceFiles();
+    // Resetear tracking para el próximo ciclo
+    processedDevices.clear();
+    pendingDevices.clear();
+    console.log(`🔄 Tracking reseteado para el próximo ciclo`);
   }
   
   console.log(`✅ Procesamiento de cola CRON completado. Procesados: ${processedDevices.size}, Pendientes: ${pendingDevices.size}`);
@@ -864,6 +873,12 @@ function stopCronForDevice(dispositivoId) {
 // Función para ejecutar sincronización global
 async function executeGlobalSync() {
   try {
+    // Verificar si ya hay un ciclo en proceso
+    if (isProcessingCron) {
+      console.log('⏳ Ciclo de sincronización ya en proceso, omitiendo...');
+      return;
+    }
+    
     console.log('🔄 Iniciando sincronización global...');
     
     // Limpiar el tracking del ciclo anterior
@@ -897,7 +912,7 @@ async function executeGlobalSync() {
     console.log(`📋 Agregados ${addedCount} dispositivos a la cola de procesamiento (${dispositivos.length - addedCount} omitidos por duplicados)`);
     
     // Procesar cola si no está en proceso
-    if (!isProcessingCron) {
+    if (!isProcessingCron && cronQueue.length > 0) {
       processCronQueue();
     } else {
       console.log('⏳ Cola ya está siendo procesada, dispositivos agregados a la cola');
@@ -10675,6 +10690,35 @@ app.post('/api/cron/restore-queue', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error restaurando cola:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para forzar reset completo del sistema CRON
+app.post('/api/cron/reset-system', authenticateToken, async (req, res) => {
+  try {
+    // Detener procesamiento actual
+    isProcessingCron = false;
+    currentProcessingDevice = null;
+    
+    // Limpiar cola y tracking
+    cronQueue = [];
+    processedDevices.clear();
+    pendingDevices.clear();
+    
+    // Limpiar archivos de persistencia
+    clearPersistenceFiles();
+    
+    console.log('🔄 Sistema CRON reseteado completamente');
+    
+    res.json({ 
+      message: 'Sistema CRON reseteado exitosamente',
+      queueLength: 0,
+      processedCount: 0,
+      pendingCount: 0
+    });
+  } catch (error) {
+    console.error('Error reseteando sistema CRON:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
