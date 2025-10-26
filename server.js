@@ -425,15 +425,19 @@ async function syncAttendanceFromDevice(dispositivo) {
         return null;
       }
       
-      // Formato específico para Hikvision: YYYY-MM-DDTHH:mm:ss-07:00
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
+      // Convertir de UTC a GMT-04:00 (zona horaria del dispositivo)
+      // Restar 4 horas para ajustar a la zona horaria del dispositivo
+      const adjustedDate = new Date(date.getTime() - (4 * 60 * 60 * 1000));
       
-      const result = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-07:00`;
+      // Formato específico para Hikvision: YYYY-MM-DDTHH:mm:ss-04:00
+      const year = adjustedDate.getFullYear();
+      const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(adjustedDate.getDate()).padStart(2, '0');
+      const hours = String(adjustedDate.getHours()).padStart(2, '0');
+      const minutes = String(adjustedDate.getMinutes()).padStart(2, '0');
+      const seconds = String(adjustedDate.getSeconds()).padStart(2, '0');
+      
+      const result = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-04:00`;
       
       return result;
     }
@@ -10719,6 +10723,154 @@ app.post('/api/cron/reset-system', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error reseteando sistema CRON:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para debug de sincronización - verificar configuración de dispositivos
+app.get('/api/debug/sync-config', authenticateToken, async (req, res) => {
+  try {
+    const dispositivos = await Dispositivo.findAll({
+      where: { 
+        ip_remota: { [Op.ne]: null },
+        usuario: { [Op.ne]: null },
+        clave: { [Op.ne]: null }
+      },
+      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'marcaje_inicio', 'marcaje_fin']
+    });
+    
+    const debugInfo = await Promise.all(dispositivos.map(async (dispositivo) => {
+      // Obtener último evento para este dispositivo
+      const lastEvent = await Attlog.findOne({
+        where: { dispositivo_id: dispositivo.id },
+        order: [['event_time', 'DESC']]
+      });
+      
+      // Función para formatear fechas (misma que en syncAttendanceFromDevice)
+      function formatDateForHikvision(dateInput) {
+        if (!dateInput) return null;
+        const date = new Date(dateInput);
+        if (isNaN(date.getTime())) return null;
+        
+        // Convertir de UTC a GMT-04:00 (zona horaria del dispositivo)
+        // Restar 4 horas para ajustar a la zona horaria del dispositivo
+        const adjustedDate = new Date(date.getTime() - (4 * 60 * 60 * 1000));
+        
+        const year = adjustedDate.getFullYear();
+        const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(adjustedDate.getDate()).padStart(2, '0');
+        const hours = String(adjustedDate.getHours()).padStart(2, '0');
+        const minutes = String(adjustedDate.getMinutes()).padStart(2, '0');
+        const seconds = String(adjustedDate.getSeconds()).padStart(2, '0');
+        
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-04:00`;
+      }
+      
+      const startTimeForQuery = formatDateForHikvision(lastEvent?.event_time || dispositivo.marcaje_inicio);
+      const endTimeForQuery = formatDateForHikvision(dispositivo.marcaje_fin);
+      
+      return {
+        id: dispositivo.id,
+        nombre: dispositivo.nombre,
+        ip_remota: dispositivo.ip_remota,
+        marcaje_inicio: dispositivo.marcaje_inicio,
+        marcaje_fin: dispositivo.marcaje_fin,
+        lastEventTime: lastEvent?.event_time || null,
+        startTimeForQuery: startTimeForQuery,
+        endTimeForQuery: endTimeForQuery,
+        hasValidDates: !!(startTimeForQuery && endTimeForQuery),
+        lastEventId: lastEvent?.id || null,
+        totalEventsInDB: await Attlog.count({ where: { dispositivo_id: dispositivo.id } })
+      };
+    }));
+    
+    res.json({
+      dispositivos: debugInfo,
+      totalDispositivos: debugInfo.length,
+      dispositivosConFechasValidas: debugInfo.filter(d => d.hasValidDates).length
+    });
+  } catch (error) {
+    console.error('Error obteniendo configuración de debug:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta específica para debug del dispositivo Marques
+app.get('/api/debug/marques-sync', authenticateToken, async (req, res) => {
+  try {
+    // Buscar el dispositivo Marques
+    const dispositivo = await Dispositivo.findOne({
+      where: { 
+        nombre: { [Op.like]: '%Marques%' }
+      },
+      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'marcaje_inicio', 'marcaje_fin']
+    });
+    
+    if (!dispositivo) {
+      return res.status(404).json({ message: 'Dispositivo Marques no encontrado' });
+    }
+    
+    // Obtener último evento para este dispositivo
+    const lastEvent = await Attlog.findOne({
+      where: { dispositivo_id: dispositivo.id },
+      order: [['event_time', 'DESC']]
+    });
+    
+    // Obtener todos los eventos de este dispositivo
+    const allEvents = await Attlog.findAll({
+      where: { dispositivo_id: dispositivo.id },
+      order: [['event_time', 'DESC']],
+      limit: 10
+    });
+    
+    // Función para formatear fechas (misma que en syncAttendanceFromDevice)
+    function formatDateForHikvision(dateInput) {
+      if (!dateInput) return null;
+      const date = new Date(dateInput);
+      if (isNaN(date.getTime())) return null;
+      
+      // Convertir de UTC a GMT-04:00 (zona horaria del dispositivo)
+      // Restar 4 horas para ajustar a la zona horaria del dispositivo
+      const adjustedDate = new Date(date.getTime() - (4 * 60 * 60 * 1000));
+      
+      const year = adjustedDate.getFullYear();
+      const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(adjustedDate.getDate()).padStart(2, '0');
+      const hours = String(adjustedDate.getHours()).padStart(2, '0');
+      const minutes = String(adjustedDate.getMinutes()).padStart(2, '0');
+      const seconds = String(adjustedDate.getSeconds()).padStart(2, '0');
+      
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-04:00`;
+    }
+    
+    const startTimeForQuery = formatDateForHikvision(lastEvent?.event_time || dispositivo.marcaje_inicio);
+    const endTimeForQuery = formatDateForHikvision(dispositivo.marcaje_fin);
+    
+    res.json({
+      dispositivo: {
+        id: dispositivo.id,
+        nombre: dispositivo.nombre,
+        ip_remota: dispositivo.ip_remota,
+        marcaje_inicio: dispositivo.marcaje_inicio,
+        marcaje_fin: dispositivo.marcaje_fin
+      },
+      lastEvent: lastEvent ? {
+        id: lastEvent.id,
+        event_time: lastEvent.event_time,
+        employee_id: lastEvent.employee_id
+      } : null,
+      startTimeForQuery: startTimeForQuery,
+      endTimeForQuery: endTimeForQuery,
+      hasValidDates: !!(startTimeForQuery && endTimeForQuery),
+      totalEventsInDB: allEvents.length,
+      recentEvents: allEvents.map(event => ({
+        id: event.id,
+        event_time: event.event_time,
+        employee_id: event.employee_id
+      }))
+    });
+  } catch (error) {
+    console.error('Error obteniendo debug de Marques:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
