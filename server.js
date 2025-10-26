@@ -1,3 +1,6 @@
+// Configurar zona horaria para UTC
+process.env.TZ = 'UTC';
+
 const express = require('express');
 const path = require('path');
 const bcrypt = require('bcryptjs');
@@ -693,7 +696,7 @@ function startCronForDevice(dispositivo) {
       }
     }, {
       scheduled: true,
-      timezone: "America/Caracas"
+      timezone: "UTC"
     });
     
     
@@ -789,7 +792,7 @@ async function initializeAllCronJobs() {
       executeGlobalSync();
     }, {
       scheduled: true,
-      timezone: "America/Caracas"
+      timezone: "UTC"
     });
     
     activeCronJobs.set('global', globalCronJob);
