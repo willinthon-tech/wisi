@@ -25,7 +25,6 @@ let lastSyncCycle = null; // Timestamp del último ciclo de sincronización
 
 // Sistema de persistencia de cola
 const fs = require('fs');
-const path = require('path');
 const QUEUE_FILE = path.join(__dirname, 'cron-queue.json');
 const TRACKING_FILE = path.join(__dirname, 'cron-tracking.json');
 // Función para convertir tiempo a milisegundos
