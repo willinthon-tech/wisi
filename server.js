@@ -30,7 +30,7 @@ function timeToMs(timeValue) {
   };
   return timeMap[timeValue] || 60 * 1000; // Default 1 minuto
 }
-const CRON_TIMEOUT = 30000; // 30 segundos timeout máximo por dispositivo
+const CRON_TIMEOUT = 300000; // 5 minutos timeout máximo por dispositivo (aumentado para dispositivos lentos)
 const hikConnectRoutes = require('./hik-connect-api');
 const hybridRoutes = require('./wisi-hikvision-hybrid');
 const TPPHikvisionAPI = require('./tpp-hikvision-api');
@@ -114,21 +114,20 @@ async function processCronQueue() {
   }
   
   isProcessingCron = true;
-  
+  console.log(`🔄 Iniciando procesamiento de cola CRON con ${cronQueue.length} dispositivos`);
   
   while (cronQueue.length > 0) {
     const { dispositivo, timestamp } = cronQueue.shift();
     
     // Actualizar dispositivo actual
     currentProcessingDevice = dispositivo;
+    console.log(`📱 Procesando dispositivo: ${dispositivo.nombre} (${dispositivo.ip_remota})`);
     
     try {
-      
-      
       // Verificar salud del dispositivo antes de proceder
       const isHealthy = await checkDeviceHealth(dispositivo);
       if (!isHealthy) {
-        
+        console.log(`❌ Dispositivo ${dispositivo.nombre} no está disponible, saltando...`);
         currentProcessingDevice = null;
         continue;
       }
@@ -142,17 +141,16 @@ async function processCronQueue() {
       ]);
       
       if (result.error) {
-        
+        console.log(`❌ Error en ${dispositivo.nombre}: ${result.error}`);
       } else {
-        
-        
+        console.log(`✅ Sincronización exitosa en ${dispositivo.nombre}: ${result.savedCount || 0} eventos guardados`);
       }
     } catch (error) {
-      
+      console.log(`❌ Error procesando ${dispositivo.nombre}: ${error.message}`);
       
       // Si es un error de timeout, marcar el dispositivo como problemático
       if (error.message === 'Timeout' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
-        
+        console.log(`⏰ Timeout en ${dispositivo.nombre} después de ${CRON_TIMEOUT/1000} segundos`);
       }
     }
     
@@ -162,7 +160,7 @@ async function processCronQueue() {
       const cronValue = cronConfig ? cronConfig.value : '1m';
       const delayMs = timeToMs(cronValue);
       
-      
+      console.log(`⏳ Esperando ${delayMs/1000} segundos antes del siguiente dispositivo...`);
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
@@ -170,7 +168,7 @@ async function processCronQueue() {
   // Limpiar dispositivo actual
   currentProcessingDevice = null;
   isProcessingCron = false;
-  
+  console.log(`✅ Procesamiento de cola CRON completado`);
 }
 
 // Función para verificar la salud del dispositivo
@@ -228,10 +226,16 @@ async function syncAttendanceFromDevice(dispositivo) {
         error: 'Dispositivo no disponible'
       };
     }
-    // Crear carpeta attlogs si no existe
+    // Crear carpeta attlogs si no existe (compatible con Linux y Windows)
     const attlogsDir = path.join(__dirname, 'attlogs');
     if (!fs.existsSync(attlogsDir)) {
-      fs.mkdirSync(attlogsDir, { recursive: true });
+      try {
+        fs.mkdirSync(attlogsDir, { recursive: true, mode: 0o755 }); // Permisos para Linux
+        console.log(`📁 Directorio attlogs creado: ${attlogsDir}`);
+      } catch (mkdirError) {
+        console.error(`❌ Error creando directorio attlogs: ${mkdirError.message}`);
+        // Continuar sin el directorio si no se puede crear
+      }
     }
 
     // Obtener el último evento sincronizado para este dispositivo
@@ -713,7 +717,7 @@ function stopCronForDevice(dispositivoId) {
 // Función para ejecutar sincronización global
 async function executeGlobalSync() {
   try {
-    
+    console.log('🔄 Iniciando sincronización global...');
     
     // Obtener todos los dispositivos con credenciales completas
     const dispositivos = await Dispositivo.findAll({
@@ -725,34 +729,34 @@ async function executeGlobalSync() {
       attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'marcaje_inicio', 'marcaje_fin']
     });
     
-    
+    console.log(`📊 Encontrados ${dispositivos.length} dispositivos para sincronizar`);
     
     if (dispositivos.length === 0) {
-      
+      console.log('⚠️ No hay dispositivos activos para sincronizar');
       return;
     }
     
-    // Agregar SOLO el dispositivo actual del ciclo rotativo
-    const currentDevice = dispositivos[currentDeviceIndex];
+    // MEJORA: Procesar TODOS los dispositivos en cada ciclo, no solo uno
+    // Esto asegura que todos los dispositivos se sincronicen en cada ejecución
+    for (const dispositivo of dispositivos) {
+      cronQueue.push({
+        dispositivo: dispositivo,
+        timestamp: new Date().toISOString(),
+        priority: 1
+      });
+    }
     
-    
-    cronQueue.push({
-      dispositivo: currentDevice,
-      timestamp: new Date().toISOString(),
-      priority: 1
-    });
-    
-    // Avanzar al siguiente dispositivo para la próxima ejecución
-    currentDeviceIndex = (currentDeviceIndex + 1) % dispositivos.length;
-    
+    console.log(`📋 Agregados ${dispositivos.length} dispositivos a la cola de procesamiento`);
     
     // Procesar cola si no está en proceso
     if (!isProcessingCron) {
       processCronQueue();
+    } else {
+      console.log('⏳ Cola ya está siendo procesada, dispositivos agregados a la cola');
     }
     
   } catch (error) {
-    
+    console.error('❌ Error en sincronización global:', error);
   }
 }
 
@@ -9370,18 +9374,35 @@ app.get('/api/attlogs/:id', (req, res) => {
 // GET /api/cron/config - Obtener configuración del CRON
 app.get('/api/cron/config', authenticateToken, async (req, res) => {
   try {
-    res.json({
-      success: true,
-      data: {
-        enabled: true,
-        interval: 300000, // 5 minutos en milisegundos
-        lastRun: new Date().toISOString(),
-        nextRun: new Date(Date.now() + 300000).toISOString(),
-        devicesCount: 0,
-        status: 'active'
+    // Obtener configuración real de la base de datos
+    const cronConfig = await Cron.findOne();
+    const currentValue = cronConfig ? cronConfig.value : 'Desactivado';
+    
+    // Obtener dispositivos reales
+    const dispositivos = await Dispositivo.findAll({
+      where: { 
+        ip_remota: { [Op.ne]: null },
+        usuario: { [Op.ne]: null },
+        clave: { [Op.ne]: null }
       }
     });
+    
+    // Calcular información real del sistema
+    const isActive = currentValue !== 'Desactivado';
+    const intervalMs = timeToMs(currentValue);
+    const totalDevices = dispositivos.length;
+    
+    res.json({
+      currentValue: currentValue,
+      isActive: isActive,
+      intervalMs: intervalMs,
+      totalDevices: totalDevices,
+      timeoutPerDevice: CRON_TIMEOUT,
+      lastRun: cronConfig ? cronConfig.updated_at : null,
+      nextRun: isActive ? new Date(Date.now() + intervalMs).toISOString() : null
+    });
   } catch (error) {
+    console.error('Error obteniendo configuración CRON:', error);
     res.status(500).json({ 
       success: false,
       message: 'Error interno del servidor',
@@ -9393,18 +9414,86 @@ app.get('/api/cron/config', authenticateToken, async (req, res) => {
 // GET /api/cron/queue-status - Obtener estado de la cola de descarga
 app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
   try {
+    // Obtener información real del sistema
+    const dispositivos = await Dispositivo.findAll({
+      where: { 
+        ip_remota: { [Op.ne]: null },
+        usuario: { [Op.ne]: null },
+        clave: { [Op.ne]: null }
+      },
+      include: [{
+        model: Sala,
+        as: 'Sala',
+        attributes: ['id', 'nombre']
+      }]
+    });
+    
+    // Información detallada del dispositivo actual
+    let currentDeviceInfo = null;
+    if (currentProcessingDevice) {
+      currentDeviceInfo = {
+        id: currentProcessingDevice.id,
+        nombre: currentProcessingDevice.nombre,
+        ip: currentProcessingDevice.ip_remota,
+        sala: currentProcessingDevice.Sala?.nombre || 'Sin sala',
+        estado: 'Procesando',
+        tiempoInicio: new Date().toISOString()
+      };
+    }
+    
+    // Información detallada de la cola
+    const queueDetails = cronQueue.map((item, index) => ({
+      position: index + 1,
+      device: {
+        id: item.dispositivo.id,
+        nombre: item.dispositivo.nombre,
+        ip: item.dispositivo.ip_remota,
+        sala: item.dispositivo.Sala?.nombre || 'Sin sala'
+      },
+      timestamp: item.timestamp,
+      waitTime: Math.floor((Date.now() - new Date(item.timestamp).getTime()) / 1000 / 60) // minutos de espera
+    }));
+    
+    // Calcular estadísticas
+    const totalDevices = dispositivos.length;
+    const processedToday = await Attlog.count({
+      where: {
+        created_at: {
+          [Op.gte]: new Date().setHours(0, 0, 0, 0)
+        }
+      }
+    });
+    
     res.json({
-      success: true,
-      data: {
-        queueLength: 0,
-        processing: false,
-        lastProcessed: new Date().toISOString(),
-        errors: 0,
-        success: 0,
-        status: 'idle'
+      // Estado básico
+      queueLength: cronQueue.length,
+      isProcessing: isProcessingCron,
+      activeCronJobs: activeCronJobs.size,
+      
+      // Dispositivo actual (detallado)
+      currentProcessingDevice: currentDeviceInfo,
+      
+      // Cola (detallada)
+      queue: queueDetails,
+      
+      // Configuración
+      delayBetweenDevices: '1m',
+      timeoutPerDevice: CRON_TIMEOUT,
+      maxConcurrentDevices: 1,
+      
+      // Estadísticas
+      totalDevices: totalDevices,
+      processedToday: processedToday,
+      
+      // Estado del sistema
+      systemStatus: {
+        lastSync: cronConfig.lastRun,
+        nextSync: cronConfig.nextRun,
+        isHealthy: true
       }
     });
   } catch (error) {
+    console.error('Error obteniendo estado de cola CRON:', error);
     res.status(500).json({ 
       success: false,
       message: 'Error interno del servidor',
@@ -10440,14 +10529,50 @@ app.put('/api/cron/config', authenticateToken, async (req, res) => {
     // Reinicializar CRON global
     await initializeAllCronJobs();
     
-    
+    console.log(`⚙️ Configuración CRON actualizada a: ${value}`);
     
     res.json({ 
       message: 'Configuración de CRON actualizada exitosamente',
       value: value
     });
   } catch (error) {
-    
+    console.error('Error actualizando configuración CRON:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para obtener estado de sincronización de dispositivos
+app.get('/api/dispositivos/sync-status', authenticateToken, async (req, res) => {
+  try {
+    const dispositivos = await Dispositivo.findAll({
+      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave'],
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }]
+    });
+
+    const syncStatus = dispositivos.map(dispositivo => ({
+      id: dispositivo.id,
+      nombre: dispositivo.nombre,
+      ip_remota: dispositivo.ip_remota,
+      sala: dispositivo.Sala?.nombre || 'Sin asignar',
+      hasCredentials: !!(dispositivo.ip_remota && dispositivo.usuario && dispositivo.clave),
+      isCurrentlyProcessing: currentProcessingDevice?.id === dispositivo.id,
+      lastSyncTime: null, // TODO: Implementar tracking de última sincronización
+      status: 'unknown' // TODO: Implementar estado de salud del dispositivo
+    }));
+
+    res.json({
+      dispositivos: syncStatus,
+      queueStatus: {
+        queueLength: cronQueue.length,
+        isProcessing: isProcessingCron,
+        currentProcessingDevice: currentProcessingDevice?.nombre || null
+      }
+    });
+  } catch (error) {
+    console.error('Error obteniendo estado de sincronización:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
