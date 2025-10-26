@@ -5300,6 +5300,7 @@ app.get('/api/novedades-mesas-registros/:libroId', authenticateToken, async (req
         {
           model: Mesa,
           as: 'Mesa',
+          attributes: ['id', 'nombre'],
           include: [
             {
               model: Juego,
