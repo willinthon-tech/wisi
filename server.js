@@ -7041,7 +7041,7 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
 
     res.json(empleadoActualizado);
   } catch (error) {
-    
+    console.error('Error actualizando empleado:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
