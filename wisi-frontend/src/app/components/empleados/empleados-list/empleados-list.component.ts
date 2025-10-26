@@ -50,6 +50,18 @@ import { Subscription } from 'rxjs';
         </button>
       </div>
       
+      <!-- Filtro de empleados -->
+      <div class="filter-container" *ngIf="!loading && permissionsLoaded">
+        <div class="search-input-wrapper">
+          <input 
+            type="text" 
+            class="search-input" 
+            placeholder="Buscar empleados por nombre, cédula, cargo..." 
+            [(ngModel)]="filtroTexto"
+            (input)="aplicarFiltro()">
+        </div>
+      </div>
+      
       <div *ngIf="loading || !permissionsLoaded" class="loading-indicator">
         <div class="spinner-border" role="status">
           <span class="visually-hidden">Cargando...</span>
@@ -73,7 +85,7 @@ import { Subscription } from 'rxjs';
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let empleado of empleados; let i = index">
+            <tr *ngFor="let empleado of empleadosFiltrados; let i = index">
               <td>{{ i + 1 }}</td>
               <td>
                 <img 
@@ -121,8 +133,9 @@ import { Subscription } from 'rxjs';
         </table>
       </div>
 
-      <div *ngIf="empleados.length === 0" class="no-data">
-        <p>No hay empleados registrados</p>
+      <div *ngIf="empleadosFiltrados.length === 0" class="no-data">
+        <p *ngIf="filtroTexto">No se encontraron empleados que coincidan con "{{ filtroTexto }}"</p>
+        <p *ngIf="!filtroTexto">No hay empleados registrados</p>
       </div>
 
       <!-- Modal para crear empleado -->
@@ -435,6 +448,40 @@ import { Subscription } from 'rxjs';
       cursor: not-allowed;
       transform: none;
       box-shadow: none;
+    }
+
+    .filter-container {
+      margin-bottom: 20px;
+      padding: 0;
+      width: 100%;
+    }
+
+    .search-input-wrapper {
+      width: 100%;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 14px;
+      border: 2px solid #e9ecef;
+      border-radius: 6px;
+      background: white;
+      transition: all 0.3s ease;
+      box-sizing: border-box;
+      height: 36px;
+    }
+
+    .search-input:focus {
+      border-color: #007bff;
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+      outline: none;
+    }
+
+    .search-input::placeholder {
+      color: #6c757d;
+      font-style: italic;
     }
 
     .header .btn-info:disabled:hover {
@@ -1283,6 +1330,8 @@ import { Subscription } from 'rxjs';
 })
 export class EmpleadosListComponent implements OnInit, OnDestroy {
   empleados: any[] = [];
+  empleadosFiltrados: any[] = [];
+  filtroTexto: string = '';
   userCargos: any[] = [];
   userDispositivos: any[] = [];
   tareasCount: number = 0;
@@ -1453,11 +1502,26 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     this.empleadosService.getEmpleados().subscribe({
       next: (empleados) => {
         this.empleados = empleados;
+        this.aplicarFiltro(); // Aplicar filtro inicial
       },
       error: (error) => {
         
       }
     });
+  }
+
+  aplicarFiltro(): void {
+    if (!this.filtroTexto.trim()) {
+      this.empleadosFiltrados = [...this.empleados];
+    } else {
+      const filtro = this.filtroTexto.toLowerCase().trim();
+      this.empleadosFiltrados = this.empleados.filter(empleado => 
+        empleado.nombre?.toLowerCase().includes(filtro) ||
+        empleado.cedula?.toLowerCase().includes(filtro) ||
+        empleado.Cargo?.nombre?.toLowerCase().includes(filtro) ||
+        empleado.Cargo?.Area?.Departamento?.Sala?.nombre?.toLowerCase().includes(filtro)
+      );
+    }
   }
 
   showCargoSelector(): void {
