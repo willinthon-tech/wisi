@@ -17,6 +17,17 @@ let isProcessingCron = false;
 const MAX_CONCURRENT_DEVICES = 1; // Máximo 1 dispositivo a la vez para evitar bloqueos
 let currentDeviceIndex = 0; // Índice para el dispositivo actual en el ciclo rotativo
 let currentProcessingDevice = null; // Dispositivo que se está procesando actualmente
+
+// Sistema de tracking para evitar duplicados y asegurar sincronización completa
+let processedDevices = new Set(); // Dispositivos ya procesados en el ciclo actual
+let pendingDevices = new Set(); // Dispositivos pendientes de procesar
+let lastSyncCycle = null; // Timestamp del último ciclo de sincronización
+
+// Sistema de persistencia de cola
+const fs = require('fs');
+const path = require('path');
+const QUEUE_FILE = path.join(__dirname, 'cron-queue.json');
+const TRACKING_FILE = path.join(__dirname, 'cron-tracking.json');
 // Función para convertir tiempo a milisegundos
 function timeToMs(timeValue) {
   const timeMap = {
@@ -110,6 +121,112 @@ async function assignToCreator(element, elementType) {
   }
 }
 
+// Función para agregar dispositivo a la cola de forma segura (evita duplicados)
+function addDeviceToQueue(dispositivo, priority = 1) {
+  const deviceId = dispositivo.id;
+  
+  // Verificar si ya está en la cola o ya fue procesado
+  if (processedDevices.has(deviceId)) {
+    console.log(`⚠️ Dispositivo ${dispositivo.nombre} ya fue procesado en este ciclo, omitiendo...`);
+    return false;
+  }
+  
+  // Verificar si ya está en la cola
+  const alreadyInQueue = cronQueue.some(item => item.dispositivo.id === deviceId);
+  if (alreadyInQueue) {
+    console.log(`⚠️ Dispositivo ${dispositivo.nombre} ya está en la cola, omitiendo...`);
+    return false;
+  }
+  
+  // Agregar a la cola
+  cronQueue.push({
+    dispositivo: dispositivo,
+    timestamp: new Date().toISOString(),
+    priority: priority
+  });
+  
+  // Marcar como pendiente
+  pendingDevices.add(deviceId);
+  
+  // Guardar estado en disco después de agregar dispositivo
+  saveQueueToDisk();
+  
+  console.log(`📋 Dispositivo ${dispositivo.nombre} agregado a la cola (posición ${cronQueue.length})`);
+  return true;
+}
+
+// Función para limpiar el tracking al inicio de un nuevo ciclo
+function resetSyncCycle() {
+  processedDevices.clear();
+  pendingDevices.clear();
+  lastSyncCycle = new Date().toISOString();
+  console.log(`🔄 Nuevo ciclo de sincronización iniciado: ${lastSyncCycle}`);
+}
+
+// Función para guardar la cola en disco
+function saveQueueToDisk() {
+  try {
+    const queueData = {
+      queue: cronQueue,
+      processedDevices: Array.from(processedDevices),
+      pendingDevices: Array.from(pendingDevices),
+      lastSyncCycle: lastSyncCycle,
+      timestamp: new Date().toISOString()
+    };
+    
+    fs.writeFileSync(QUEUE_FILE, JSON.stringify(queueData, null, 2));
+    console.log(`💾 Cola guardada en disco: ${cronQueue.length} dispositivos, ${processedDevices.size} procesados`);
+  } catch (error) {
+    console.error('❌ Error guardando cola en disco:', error);
+  }
+}
+
+// Función para cargar la cola desde disco
+function loadQueueFromDisk() {
+  try {
+    if (fs.existsSync(QUEUE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8'));
+      
+      // Verificar si los datos no son muy antiguos (máximo 1 hora)
+      const dataAge = Date.now() - new Date(data.timestamp).getTime();
+      const maxAge = 60 * 60 * 1000; // 1 hora en milisegundos
+      
+      if (dataAge < maxAge) {
+        cronQueue = data.queue || [];
+        processedDevices = new Set(data.processedDevices || []);
+        pendingDevices = new Set(data.pendingDevices || []);
+        lastSyncCycle = data.lastSyncCycle;
+        
+        console.log(`📂 Cola restaurada desde disco: ${cronQueue.length} dispositivos, ${processedDevices.size} procesados`);
+        console.log(`🕐 Datos de hace ${Math.round(dataAge / 1000 / 60)} minutos`);
+        
+        return true;
+      } else {
+        console.log(`⚠️ Datos de cola muy antiguos (${Math.round(dataAge / 1000 / 60)} min), ignorando...`);
+        return false;
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error cargando cola desde disco:', error);
+  }
+  return false;
+}
+
+// Función para limpiar archivos de persistencia
+function clearPersistenceFiles() {
+  try {
+    if (fs.existsSync(QUEUE_FILE)) {
+      fs.unlinkSync(QUEUE_FILE);
+    }
+    if (fs.existsSync(TRACKING_FILE)) {
+      fs.unlinkSync(TRACKING_FILE);
+    }
+    console.log('🗑️ Archivos de persistencia limpiados');
+  } catch (error) {
+    console.error('❌ Error limpiando archivos de persistencia:', error);
+  }
+}
+
 // Función para procesar la cola de CRON de forma asíncrona
 async function processCronQueue() {
   if (isProcessingCron || cronQueue.length === 0) {
@@ -121,6 +238,7 @@ async function processCronQueue() {
   
   while (cronQueue.length > 0) {
     const { dispositivo, timestamp } = cronQueue.shift();
+    const deviceId = dispositivo.id;
     
     // Actualizar dispositivo actual
     currentProcessingDevice = dispositivo;
@@ -131,6 +249,9 @@ async function processCronQueue() {
       const isHealthy = await checkDeviceHealth(dispositivo);
       if (!isHealthy) {
         console.log(`❌ Dispositivo ${dispositivo.nombre} no está disponible, saltando...`);
+        // Marcar como procesado aunque haya fallado
+        processedDevices.add(deviceId);
+        pendingDevices.delete(deviceId);
         currentProcessingDevice = null;
         continue;
       }
@@ -148,6 +269,14 @@ async function processCronQueue() {
       } else {
         console.log(`✅ Sincronización exitosa en ${dispositivo.nombre}: ${result.savedCount || 0} eventos guardados`);
       }
+      
+      // Marcar como procesado exitosamente
+      processedDevices.add(deviceId);
+      pendingDevices.delete(deviceId);
+      
+      // Guardar estado en disco después de cada dispositivo
+      saveQueueToDisk();
+      
     } catch (error) {
       console.log(`❌ Error procesando ${dispositivo.nombre}: ${error.message}`);
       
@@ -155,6 +284,13 @@ async function processCronQueue() {
       if (error.message === 'Timeout' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
         console.log(`⏰ Timeout en ${dispositivo.nombre} después de ${CRON_TIMEOUT/1000} segundos`);
       }
+      
+      // Marcar como procesado aunque haya fallado
+      processedDevices.add(deviceId);
+      pendingDevices.delete(deviceId);
+      
+      // Guardar estado en disco después de cada dispositivo
+      saveQueueToDisk();
     }
     
     // Delay entre dispositivos basado en la configuración del CRON global
@@ -171,7 +307,21 @@ async function processCronQueue() {
   // Limpiar dispositivo actual
   currentProcessingDevice = null;
   isProcessingCron = false;
-  console.log(`✅ Procesamiento de cola CRON completado`);
+  
+  // Verificar si quedaron dispositivos sin procesar
+  if (pendingDevices.size > 0) {
+    console.log(`⚠️ Advertencia: ${pendingDevices.size} dispositivos quedaron sin procesar en este ciclo`);
+  }
+  
+  // Guardar estado final
+  saveQueueToDisk();
+  
+  // Si no hay dispositivos pendientes, limpiar archivos de persistencia
+  if (pendingDevices.size === 0 && cronQueue.length === 0) {
+    clearPersistenceFiles();
+  }
+  
+  console.log(`✅ Procesamiento de cola CRON completado. Procesados: ${processedDevices.size}, Pendientes: ${pendingDevices.size}`);
 }
 
 // Función para verificar la salud del dispositivo
@@ -682,17 +832,12 @@ function startCronForDevice(dispositivo) {
     const cronExpression = timeToCronExpression(dispositivo.cron_tiempo);
     
     const job = cron.schedule(cronExpression, () => {
-      // Agregar a la cola en lugar de ejecutar directamente
-      
-      cronQueue.push({
-        dispositivo: dispositivo,
-        timestamp: new Date().toISOString(),
-        priority: 1 // Prioridad normal
-      });
-      
-      // Procesar cola si no está en proceso
-      if (!isProcessingCron) {
-        processCronQueue();
+      // Agregar a la cola de forma segura (evita duplicados)
+      if (addDeviceToQueue(dispositivo, 1)) {
+        // Procesar cola si no está en proceso
+        if (!isProcessingCron) {
+          processCronQueue();
+        }
       }
     }, {
       scheduled: true,
@@ -722,6 +867,9 @@ async function executeGlobalSync() {
   try {
     console.log('🔄 Iniciando sincronización global...');
     
+    // Limpiar el tracking del ciclo anterior
+    resetSyncCycle();
+    
     // Obtener todos los dispositivos con credenciales completas
     const dispositivos = await Dispositivo.findAll({
       where: { 
@@ -739,17 +887,15 @@ async function executeGlobalSync() {
       return;
     }
     
-    // MEJORA: Procesar TODOS los dispositivos en cada ciclo, no solo uno
-    // Esto asegura que todos los dispositivos se sincronicen en cada ejecución
+    // Agregar dispositivos a la cola de forma segura (evita duplicados)
+    let addedCount = 0;
     for (const dispositivo of dispositivos) {
-      cronQueue.push({
-        dispositivo: dispositivo,
-        timestamp: new Date().toISOString(),
-        priority: 1
-      });
+      if (addDeviceToQueue(dispositivo, 1)) {
+        addedCount++;
+      }
     }
     
-    console.log(`📋 Agregados ${dispositivos.length} dispositivos a la cola de procesamiento`);
+    console.log(`📋 Agregados ${addedCount} dispositivos a la cola de procesamiento (${dispositivos.length - addedCount} omitidos por duplicados)`);
     
     // Procesar cola si no está en proceso
     if (!isProcessingCron) {
@@ -10368,6 +10514,16 @@ app.listen(PORT, () => {
   // Inicializar trabajos CRON después de que el servidor esté listo
   setTimeout(async () => {
     
+    // Intentar restaurar cola desde disco
+    const restored = loadQueueFromDisk();
+    if (restored && cronQueue.length > 0) {
+      console.log(`🔄 Reanudando procesamiento de cola restaurada...`);
+      // Procesar cola restaurada si no está en proceso
+      if (!isProcessingCron) {
+        processCronQueue();
+      }
+    }
+    
     await initializeAllCronJobs();
     
   }, 2000); // Esperar 2 segundos para que la base de datos esté lista
@@ -10470,14 +10626,56 @@ app.post('/api/cron/clear-queue', authenticateToken, async (req, res) => {
     cronQueue = [];
     isProcessingCron = false;
     
-    
+    // Limpiar tracking y archivos de persistencia
+    processedDevices.clear();
+    pendingDevices.clear();
+    clearPersistenceFiles();
     
     res.json({ 
       message: 'Cola de CRON limpiada exitosamente',
       clearedCount: clearedCount
     });
   } catch (error) {
-    
+    console.error('Error limpiando cola CRON:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para forzar guardado de cola
+app.post('/api/cron/save-queue', authenticateToken, async (req, res) => {
+  try {
+    saveQueueToDisk();
+    res.json({ 
+      message: 'Cola guardada exitosamente',
+      queueLength: cronQueue.length,
+      processedCount: processedDevices.size,
+      pendingCount: pendingDevices.size
+    });
+  } catch (error) {
+    console.error('Error guardando cola:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Ruta para restaurar cola desde disco
+app.post('/api/cron/restore-queue', authenticateToken, async (req, res) => {
+  try {
+    const restored = loadQueueFromDisk();
+    if (restored) {
+      res.json({ 
+        message: 'Cola restaurada exitosamente',
+        queueLength: cronQueue.length,
+        processedCount: processedDevices.size,
+        pendingCount: pendingDevices.size
+      });
+    } else {
+      res.json({ 
+        message: 'No hay datos de cola para restaurar',
+        queueLength: 0
+      });
+    }
+  } catch (error) {
+    console.error('Error restaurando cola:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
