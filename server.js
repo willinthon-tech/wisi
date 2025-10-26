@@ -5566,7 +5566,7 @@ app.get('/api/empleados/horarios', authenticateToken, async (req, res) => {
     }
 
     // Obtener la sala del cargo
-    const salaId = cargo.Departamento.Area.Sala.id;
+    const salaId = cargo.Area.Departamento.Sala.id;
 
     // Obtener las salas del usuario logueado
     const user = await User.findByPk(req.user.id, {
@@ -5698,8 +5698,8 @@ app.get('/api/empleados/debug-filter', authenticateToken, async (req, res) => {
         id: emp.id,
         nombre: emp.nombre,
         cargo: emp.Cargo?.nombre,
-        sala: emp.Cargo?.Departamento?.Area?.Sala?.nombre,
-        salaId: emp.Cargo?.Departamento?.Area?.Sala?.id
+        sala: emp.Cargo?.Area?.Departamento?.Sala?.nombre,
+        salaId: emp.Cargo?.Area?.Departamento?.Sala?.id
       }))
     });
   } catch (error) {
@@ -7018,12 +7018,12 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
           as: 'Cargo',
           include: [
             {
-              model: Departamento,
-              as: 'Departamento',
+              model: Area,
+              as: 'Area',
               include: [
                 {
-                  model: Area,
-                  as: 'Area',
+                  model: Departamento,
+                  as: 'Departamento',
                   include: [
                     {
                       model: Sala,
