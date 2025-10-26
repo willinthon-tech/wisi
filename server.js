@@ -1,5 +1,5 @@
-// Configurar zona horaria para UTC
-process.env.TZ = 'UTC';
+// Configurar zona horaria para GMT-04:00 (Atlantic Time - Canada)
+process.env.TZ = 'America/Halifax';
 
 const express = require('express');
 const path = require('path');
@@ -853,7 +853,7 @@ function startCronForDevice(dispositivo) {
       }
     }, {
       scheduled: true,
-      timezone: "UTC"
+        timezone: "America/Halifax"
     });
     
     
@@ -956,7 +956,7 @@ async function initializeAllCronJobs() {
       executeGlobalSync();
     }, {
       scheduled: true,
-      timezone: "UTC"
+        timezone: "America/Halifax"
     });
     
     activeCronJobs.set('global', globalCronJob);
