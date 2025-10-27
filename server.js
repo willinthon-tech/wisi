@@ -2847,10 +2847,12 @@ app.delete('/api/areas/:id', authenticateToken, async (req, res) => {
     // Verificar si el área tiene relaciones que impidan su eliminación
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
-        SELECT 'Departamentos' as table_name, COUNT(*) as count FROM departamentos WHERE area_id = ?
+        SELECT 'Cargos' as table_name, COUNT(*) as count FROM cargos WHERE area_id = ?
+        UNION ALL
+        SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE cargo_id IN (SELECT id FROM cargos WHERE area_id = ?)
       ) as relations WHERE count > 0
     `, {
-      replacements: [id],
+      replacements: [id, id],
       type: sequelize.QueryTypes.SELECT
     });
 
@@ -3087,12 +3089,14 @@ app.delete('/api/departamentos/:id', authenticateToken, async (req, res) => {
     // Verificar si el departamento tiene relaciones que impidan su eliminación
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
-        SELECT 'Cargos' as table_name, COUNT(*) as count FROM cargos WHERE departamento_id = ?
+        SELECT 'Áreas' as table_name, COUNT(*) as count FROM areas WHERE departamento_id = ?
         UNION ALL
-        SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE cargo_id IN (SELECT id FROM cargos WHERE departamento_id = ?)
+        SELECT 'Cargos' as table_name, COUNT(*) as count FROM cargos WHERE area_id IN (SELECT id FROM areas WHERE departamento_id = ?)
+        UNION ALL
+        SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE cargo_id IN (SELECT id FROM cargos WHERE area_id IN (SELECT id FROM areas WHERE departamento_id = ?))
       ) as relations WHERE count > 0
     `, {
-      replacements: [id, id],
+      replacements: [id, id, id],
       type: sequelize.QueryTypes.SELECT
     });
 
