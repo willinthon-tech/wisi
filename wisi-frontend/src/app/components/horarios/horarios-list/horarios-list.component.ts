@@ -10,6 +10,7 @@ import { AreasService } from '../../../services/areas.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
+import { PlantillasHorariosService } from '../../../services/plantillas-horarios.service';
 
 @Component({
   selector: 'app-horarios-list',
@@ -35,7 +36,6 @@ import { Subscription } from 'rxjs';
               <th>Nombre</th>
               <th>Sala</th>
               <th>Bloques</th>
-              <th>Patrón</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -44,15 +44,16 @@ import { Subscription } from 'rxjs';
               <td>{{ i + 1 }}</td>
               <td>{{ horario.nombre }}</td>
               <td>{{ horario.Sala?.nombre || 'Sin asignar' }}</td>
-              <td>{{ horario.bloques?.length || 0 }} bloques</td>
               <td>
-                <div class="patron-preview">
-                  <span *ngFor="let bloque of horario.bloques; let j = index" 
-                        class="badge me-1" 
-                        [ngClass]="getBloqueBadgeClass(bloque.turno)">
-                    {{ getBloqueText(bloque.turno) }}
+                <div class="patron-preview" *ngIf="horario.bloques && horario.bloques.length > 0">
+                  <span *ngFor="let bloque of getBloquesOrdenados(horario.bloques)" 
+                        class="badge me-1 badge-custom"
+                        [style.backgroundColor]="bloque.PlantillaHorario?.color || '#ffffff'"
+                        [style.color]="getContrastColor(bloque.PlantillaHorario?.color)">
+                    {{ bloque.PlantillaHorario?.codigo || 'N/A' }}
                   </span>
                 </div>
+                <span *ngIf="!horario.bloques || horario.bloques.length === 0" class="text-muted">0 bloques</span>
               </td>
               <td>
                 <button 
@@ -107,6 +108,7 @@ import { Subscription } from 'rxjs';
                   id="salaSelect" 
                   name="salaSelect"
                   [(ngModel)]="nuevoHorario.sala_id"
+                  (ngModelChange)="onSalaChange($event)"
                   class="form-control"
                   required
                 >
@@ -129,8 +131,9 @@ import { Subscription } from 'rxjs';
                     name="cantidadBloques"
                     [(ngModel)]="cantidadBloques"
                     class="form-control"
-                    min="1"
+                    min="0"
                     (change)="onCantidadBloquesChange()"
+                    [disabled]="!nuevoHorario.sala_id"
                     required
                   />
                 </div>
@@ -143,94 +146,20 @@ import { Subscription } from 'rxjs';
                     </div>
                     <div class="bloque-body">
                       <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-12">
                           <div class="form-group">
-                            <label>Hora de Entrada:</label>
-                            <input 
-                              type="time" 
-                              [(ngModel)]="bloque.hora_entrada"
-                              name="hora_entrada_{{i}}"
-                              class="form-control"
-                              [disabled]="bloque.turno === 'LIBRE' || bloque.turno === 'PERMISO' || bloque.turno === 'SUSPENDIDO'"
-                              [required]="bloque.turno !== 'LIBRE' && bloque.turno !== 'PERMISO' && bloque.turno !== 'SUSPENDIDO'"
-                            />
-                          </div>
-                        </div>
-                        <div class="col-md-4">
-                          <div class="form-group">
-                            <label>Hora de Salida:</label>
-                            <input 
-                              type="time" 
-                              [(ngModel)]="bloque.hora_salida"
-                              name="hora_salida_{{i}}"
-                              class="form-control"
-                              [disabled]="bloque.turno === 'LIBRE' || bloque.turno === 'PERMISO' || bloque.turno === 'SUSPENDIDO'"
-                              [required]="bloque.turno !== 'LIBRE' && bloque.turno !== 'PERMISO' && bloque.turno !== 'SUSPENDIDO'"
-                            />
-                          </div>
-                        </div>
-                        <div class="col-md-4">
-                          <div class="form-group">
-                            <label>Turno:</label>
+                            <label>Plantilla de Horario:</label>
                             <select 
-                              [(ngModel)]="bloque.turno"
-                              name="turno_{{i}}"
+                              [(ngModel)]="bloque.plantilla_horario_id"
+                              name="plantilla_horario_{{i}}"
                               class="form-control"
-                              (change)="onTurnoChange(bloque)"
+                              [disabled]="!nuevoHorario.sala_id"
                               required
                             >
-                              <option value="">Seleccione turno</option>
-                              <option value="DIURNO">Diurno</option>
-                              <option value="NOCTURNO">Nocturno</option>
-                              <option value="LIBRE">Libre</option>
-                              <option value="PERMISO">Permiso</option>
-                              <option value="SUSPENDIDO">Suspendido</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <!-- Campos de Descanso -->
-                      <div class="row mt-3">
-                        <div class="col-md-4">
-                          <div class="form-group">
-                            <label>Entrada Descanso:</label>
-                            <input 
-                              type="time" 
-                              [(ngModel)]="bloque.hora_entrada_descanso"
-                              name="hora_entrada_descanso_{{i}}"
-                              class="form-control"
-                              [disabled]="isDescansoDisabled(bloque)"
-                              [required]="bloque.tiene_descanso === 'true'"
-                            />
-                          </div>
-                        </div>
-                        <div class="col-md-4">
-                          <div class="form-group">
-                            <label>Salida Descanso:</label>
-                            <input 
-                              type="time" 
-                              [(ngModel)]="bloque.hora_salida_descanso"
-                              name="hora_salida_descanso_{{i}}"
-                              class="form-control"
-                              [disabled]="isDescansoDisabled(bloque)"
-                              [required]="bloque.tiene_descanso === 'true'"
-                            />
-                          </div>
-                        </div>
-                        <div class="col-md-4">
-                          <div class="form-group">
-                            <label>Descanso:</label>
-                            <select 
-                              [(ngModel)]="bloque.tiene_descanso"
-                              name="tiene_descanso_{{i}}"
-                              class="form-control"
-                              [disabled]="bloque.turno === 'LIBRE' || bloque.turno === 'PERMISO' || bloque.turno === 'SUSPENDIDO'"
-                              (change)="onDescansoChange(bloque)"
-                            >
-                              <option value="">Seleccione una opción</option>
-                              <option value="false">No</option>
-                              <option value="true">Sí</option>
+                              <option value="">Seleccione una plantilla</option>
+                              <option *ngFor="let p of plantillasSala" [value]="p.id">
+                                {{ p.codigo }} - {{ p.nombre || 'Sin descripción' }}
+                              </option>
                             </select>
                           </div>
                         </div>
@@ -633,6 +562,17 @@ import { Subscription } from 'rxjs';
       font-weight: 500;
     }
 
+    .badge-custom {
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      display: inline-block;
+      min-width: 32px;
+      text-align: center;
+    }
+
     .badge-diurno {
       background-color: #ffc107 !important;
       color: #000 !important;
@@ -739,6 +679,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   
   cantidadBloques = 1;
   bloques: any[] = [];
+  plantillasSala: any[] = [];
 
   private permissionsSubscription?: Subscription;
 
@@ -752,7 +693,8 @@ export class HorariosListComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private plantillasService: PlantillasHorariosService
   ) {}
 
   ngOnInit(): void {
@@ -766,8 +708,16 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   }
 
   isFormValid(): boolean {
-    // Validación básica del formulario
-    return !!(this.nuevoHorario.nombre && this.nuevoHorario.sala_id && this.bloques.length > 0);
+    // En creación se requiere al menos 1 bloque; en edición se permite 0 bloques
+    if (this.selectedHorario) {
+      return !!(this.nuevoHorario.nombre && this.nuevoHorario.sala_id);
+    }
+    return !!(
+      this.nuevoHorario.nombre &&
+      this.nuevoHorario.sala_id &&
+      this.bloques.length > 0 &&
+      this.bloques.every(b => !!b.plantilla_horario_id)
+    );
   }
 
   ngOnDestroy(): void {
@@ -812,7 +762,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   }
 
   loadUserSalas(): void {
-    this.areasService.getUserDepartamentos().subscribe({
+    this.areasService.getUserSalas().subscribe({
       next: (salas: any[]) => {
         this.userSalas = salas;
       },
@@ -828,27 +778,35 @@ export class HorariosListComponent implements OnInit, OnDestroy {
       nombre: '',
       sala_id: null
     };
-    this.cantidadBloques = 1;
+    this.cantidadBloques = 0;
     this.bloques = [];
-    this.onCantidadBloquesChange();
+    this.plantillasSala = [];
+  }
+
+  onSalaChange(value: any): void {
+    this.plantillasSala = [];
+    this.cantidadBloques = 0;
+    this.bloques = [];
+    if (value) {
+      // cargar plantillas por sala
+      this.plantillasService.getPlantillasHorariosBySala(value).subscribe({
+        next: (pls) => {
+          this.plantillasSala = pls || [];
+        },
+        error: () => {}
+      });
+    }
   }
 
   onCantidadBloquesChange(): void {
-    const cantidad = Math.max(1, this.cantidadBloques);
+    const cantidad = Math.max(0, this.cantidadBloques || 0);
     this.cantidadBloques = cantidad;
-    
     // Ajustar array de bloques
     while (this.bloques.length < cantidad) {
       this.bloques.push({
-        hora_entrada: '',
-        hora_salida: '',
-        turno: '',
-        hora_entrada_descanso: '',
-        hora_salida_descanso: '',
-        tiene_descanso: ''
+        plantilla_horario_id: ''
       });
     }
-    
     while (this.bloques.length > cantidad) {
       this.bloques.pop();
     }
@@ -895,59 +853,33 @@ export class HorariosListComponent implements OnInit, OnDestroy {
 
 
   createHorario(): void {
-    if (!this.nuevoHorario.nombre || !this.nuevoHorario.sala_id || this.bloques.length === 0) {
-      
-      return;
-    }
-
-    // Validar que todos los bloques tengan datos
-    const bloquesInvalidos = this.bloques.some(bloque => {
-      if (!bloque.turno) return true;
-      // Si no es libre, permiso o suspendido, debe tener horas
-      if (bloque.turno !== 'LIBRE' && bloque.turno !== 'PERMISO' && bloque.turno !== 'SUSPENDIDO') {
-        const tieneHorasBasicas = !bloque.hora_entrada || !bloque.hora_salida;
-        // Si tiene descanso activado, debe tener horas de descanso
-        if (bloque.tiene_descanso === 'true') {
-          const tieneHorasDescanso = !bloque.hora_entrada_descanso || !bloque.hora_salida_descanso;
-          return tieneHorasBasicas || tieneHorasDescanso;
-        }
-        return tieneHorasBasicas;
-      }
-      return false;
-    });
-
-    if (bloquesInvalidos) {
-      
+    if (!this.isFormValid()) {
       return;
     }
 
     const horarioData = {
       ...this.nuevoHorario,
       bloques: this.bloques.map((bloque, index) => ({
-        ...bloque,
+        plantilla_horario_id: bloque.plantilla_horario_id,
         orden: index + 1
       }))
     };
 
     if (this.selectedHorario && this.nuevoHorario.id) {
       this.horariosService.updateHorario(this.nuevoHorario.id, horarioData).subscribe({
-        next: (response) => {
+        next: () => {
           this.loadHorarios();
           this.closeSalaSelector();
         },
-        error: (error) => {
-          
-        }
+        error: () => {}
       });
     } else {
       this.horariosService.createHorario(horarioData).subscribe({
-        next: (response) => {
+        next: () => {
           this.loadHorarios();
           this.closeSalaSelector();
         },
-        error: (error) => {
-          
-        }
+        error: () => {}
       });
     }
   }
@@ -959,17 +891,12 @@ export class HorariosListComponent implements OnInit, OnDestroy {
       nombre: horario.nombre,
       sala_id: horario.sala_id
     };
-    
-    // Cargar bloques existentes y convertir boolean a string para el select
-    this.bloques = horario.bloques ? [...horario.bloques] : [];
-    this.bloques.forEach(bloque => {
-      // Convertir boolean a string para el select de descanso
-      if (typeof bloque.tiene_descanso === 'boolean') {
-        bloque.tiene_descanso = bloque.tiene_descanso ? 'true' : 'false';
-      }
-    });
+    this.onSalaChange(this.nuevoHorario.sala_id);
+    // Convertir bloques existentes al nuevo formato
+    this.bloques = (horario.bloques || []).map((b: any) => ({
+      plantilla_horario_id: b.plantilla_horario_id
+    }));
     this.cantidadBloques = this.bloques.length;
-    
     this.showSalaModal = true;
   }
 
@@ -1040,6 +967,7 @@ export class HorariosListComponent implements OnInit, OnDestroy {
   }
 
   getBloqueBadgeClass(turno: string): string {
+    if (!turno) return 'badge-secondary';
     const clases: { [key: string]: string } = {
       'DIURNO': 'badge-diurno',
       'NOCTURNO': 'badge-nocturno',
@@ -1048,5 +976,24 @@ export class HorariosListComponent implements OnInit, OnDestroy {
       'SUSPENDIDO': 'badge-suspendido'
     };
     return clases[turno] || 'badge-secondary';
+  }
+
+  getBloquesOrdenados(bloques: any[]): any[] {
+    if (!bloques || !Array.isArray(bloques)) {
+      return [];
+    }
+    return [...bloques].sort((a, b) => (a.orden || 0) - (b.orden || 0));
+  }
+
+  getContrastColor(hexColor: string): string {
+    if (!hexColor || hexColor === '#ffffff') return '#000000';
+    // Convertir hex a RGB
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    // Calcular luminosidad relativa
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    // Si es claro, usar texto negro; si es oscuro, usar texto blanco
+    return luminance > 0.5 ? '#000000' : '#ffffff';
   }
 }

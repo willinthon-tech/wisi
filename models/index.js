@@ -113,6 +113,7 @@ const Cron = require('./Cron')(sequelize);
 const HorarioEmpleado = require('./HorarioEmpleado')(sequelize);
 const NovedadMaquinaRegistro = require('./NovedadMaquinaRegistro')(sequelize);
 const Llave = require('./Llave')(sequelize);
+const PlantillaHorario = require('./PlantillaHorario')(sequelize);
 
 // Asociaciones para NovedadMaquinaRegistro
 NovedadMaquinaRegistro.belongsTo(Libro, { foreignKey: 'libro_id', onDelete: 'RESTRICT' });
@@ -179,6 +180,10 @@ Horario.hasMany(Bloque, { foreignKey: 'horario_id', as: 'bloques', onDelete: 'RE
 Llave.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 Sala.hasMany(Llave, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
 
+// Asociaciones para PlantillaHorario
+PlantillaHorario.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Sala.hasMany(PlantillaHorario, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+
 // Asociaciones para ControlLlaveRegistro
 ControlLlaveRegistro.belongsTo(Libro, { foreignKey: 'libro_id', as: 'Libro', onDelete: 'RESTRICT' });
 ControlLlaveRegistro.belongsTo(Llave, { foreignKey: 'llave_id', as: 'Llave', onDelete: 'CASCADE' });
@@ -199,7 +204,7 @@ Empleado.hasMany(NovedadMesaRegistro, { foreignKey: 'empleado_id', as: 'NovedadM
 // Sincronizar base de datos
 const syncDatabase = async () => {
   try {
-    await sequelize.sync({ force: false }); // Cambiar a true para recrear tablas
+    await sequelize.sync({ alter: true }); // aplicar cambios de esquema sin perder datos
     
     
     // Insertar datos iniciales si no existen
@@ -369,6 +374,7 @@ module.exports = {
   Llave,
   ControlLlaveRegistro,
   NovedadMesaRegistro,
+  PlantillaHorario,
   syncDatabase
 };
 

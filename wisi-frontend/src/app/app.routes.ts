@@ -97,6 +97,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'plantillas',
+    loadComponent: () => import('./components/plantillas-horarios/plantillas-horarios-list/plantillas-horarios-list.component').then(m => m.PlantillasHorariosListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'maquinas',
     loadComponent: () => import('./components/maquinas/maquinas.component').then(m => m.MaquinasComponent),
     canActivate: [AuthGuard]

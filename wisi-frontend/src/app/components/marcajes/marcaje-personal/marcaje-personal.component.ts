@@ -2,6 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EmpleadosService } from '../../../services/empleados.service';
+import { AreasService } from '../../../services/areas.service';
+import { DepartamentosService } from '../../../services/departamentos.service';
+import { CargosService } from '../../../services/cargos.service';
 import { AuthService } from '../../../services/auth.service';
 import { MarcajesService } from '../../../services/marcajes.service';
 import { HorariosService } from '../../../services/horarios.service';
@@ -16,23 +19,70 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
     <div class="marcaje-personal-container">
 
       <div class="filters-section">
-        <div class="date-filters">
-          <div class="filter-group">
-            <label for="grupo">Grupo:</label>
-            <select 
-              id="grupo"
-              [(ngModel)]="grupoSeleccionado" 
-              name="grupo"
-              class="form-select"
-              (change)="cargarDatos()">
-              <option value="salas">Salas</option>
-              <option value="areas">Areas</option>
-              <option value="departamentos">Departamentos</option>
-              <option value="cargos">Cargos</option>
+        <div class="date-filters row g-3">
+          <div class="filter-group col-sm-3">
+            <label for="salaSelect">Sala:</label>
+            <select id="salaSelect" class="form-select"
+                    [(ngModel)]="selectedSalaId"
+                    (change)="onSalaChange()">
+              <option [ngValue]="null">Todo</option>
+              <option *ngFor="let s of userSalas" [ngValue]="s.id">{{ s.nombre }}</option>
             </select>
           </div>
+          <div class="filter-group col-sm-3">
+            <label for="deptoSelect">Departamento:</label>
+            <select id="deptoSelect" class="form-select"
+                    [(ngModel)]="selectedDepartamentoId"
+                    [disabled]="!selectedSalaId"
+                    (change)="onDepartamentoChange()">
+              <option [ngValue]="null">Todo</option>
+              <option *ngFor="let d of departamentosFiltrados" [ngValue]="d.id">{{ d.nombre }}</option>
+            </select>
+          </div>
+          <div class="filter-group col-sm-3">
+            <label for="areaSelect">Área:</label>
+            <select id="areaSelect" class="form-select"
+                    [(ngModel)]="selectedAreaId"
+                    [disabled]="!selectedDepartamentoId"
+                    (change)="onAreaChange()">
+              <option [ngValue]="null">Todo</option>
+              <option *ngFor="let a of areasFiltradas" [ngValue]="a.id">{{ a.nombre }}</option>
+            </select>
+          </div>
+          <div class="filter-group col-sm-3">
+            <label for="cargoSelect">Cargo:</label>
+            <select id="cargoSelect" class="form-select"
+                    [(ngModel)]="selectedCargoId"
+                    [disabled]="!selectedAreaId"
+                    (change)="onCargoChange()">
+              <option [ngValue]="null">Todo</option>
+              <option *ngFor="let c of cargosFiltrados" [ngValue]="c.id">{{ c.nombre }}</option>
+            </select>
+          </div>
+
+          <div class="filter-group col-sm-3">
+            <label for="sexoSelect">Sexo:</label>
+            <select id="sexoSelect" class="form-select"
+                    [(ngModel)]="selectedSexo"
+                    [disabled]="!selectedSalaId"
+                    (change)="onSexoChange()">
+              <option [ngValue]="null">Todo</option>
+              <option [ngValue]="'Femenino'">Femenino</option>
+              <option [ngValue]="'Masculino'">Masculino</option>
+            </select>
+          </div>
+
+          <div class="filter-group col-sm-3">
+            <label for="searchInput">Buscar (cédula o nombre):</label>
+            <input id="searchInput" type="text" class="form-input"
+                   placeholder="Ej: 1234 o Aida"
+                   [(ngModel)]="searchText"
+                   [disabled]="!selectedSalaId"
+                   (keyup)="onSearchChange()" />
+          </div>
           
-          <div class="filter-group">
+          
+          <div class="filter-group col-sm-3">
             <label for="fechaDesde">Desde:</label>
             <input 
               type="date" 
@@ -43,7 +93,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               (change)="cargarDatos()">
           </div>
           
-          <div class="filter-group">
+          <div class="filter-group col-sm-3">
             <label for="fechaHasta">Hasta:</label>
             <input 
               type="date" 
@@ -54,21 +104,32 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               (change)="cargarDatos()">
           </div>
           
-          <button class="btn-primary" (click)="cargarDatos()" [disabled]="loading">
-            {{ loading ? 'Cargando...' : 'Actualizar' }}
+          <div class="filter-group col-sm-3 d-flex align-items-end">
+          <button class="btn-primary w-100" (click)="cargarDatos()" [disabled]="loading">
+            {{ loading ? 'Cargando...' : 'Filtrar' }}
           </button>
+          </div>
         </div>
+        
+        <!-- Aviso cuando el usuario no tiene salas asignadas -->
+        <div *ngIf="!loading && userSalas?.length === 0" 
+             style="margin-top: 12px; padding: 12px; border-radius: 8px; background:#fff3cd; color:#856404; border:1px solid #ffeeba;">
+          <strong>Sin salas asignadas:</strong> no verás empleados hasta que te asignen una sala.
+          Revisa en <em>Super Config → Usuarios</em> o solicita al administrador.
+        </div>
+        
+        
       </div>
 
 
-      <div class="grupos-container" *ngIf="!loading && grupos.length > 0">
+      <div class="grupos-container" *ngIf="!loading && hasSearched && grupos.length > 0">
         <div class="grupo-card" *ngFor="let grupo of grupos">
           <div class="grupo-header">
             <h3>{{ grupo.nombre }}</h3>
             <span class="empleados-count">{{ grupo.empleados.length }} empleado(s)</span>
           </div>
           
-          <div class="grupo-table-container">
+          <div class="grupo-table-container" *ngIf="grupo.empleados.length > 0">
             <div class="table-wrapper">
               <table class="horario-table">
                 <thead>
@@ -138,7 +199,11 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
                                getBloqueHorario(empleado, dia)?.turno === 'SUSPENDIDO' ? 'SUSPENDIDO' : '' }}
                           </span>
                           <span *ngIf="!isSinHorario(empleado, dia) && !isTurnoLibre(getBloqueHorario(empleado, dia)?.turno)">
-                            {{ getHorarioInfo(empleado, dia, 'Entrada') }}
+                            <span class="badge-plantilla-horario" 
+                                  [style.backgroundColor]="getBloqueHorario(empleado, dia)?.PlantillaHorario?.color || '#ffffff'"
+                                  [style.color]="getContrastColorPlantilla(getBloqueHorario(empleado, dia)?.PlantillaHorario?.color)">
+                              {{ getBloqueHorario(empleado, dia)?.PlantillaHorario?.codigo || 'N/A' }}
+                            </span>
                           </span>
                         </div>
                       </td>
@@ -190,6 +255,10 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               </table>
             </div>
           </div>
+          <div class="no-registros-grupo" *ngIf="grupo.empleados.length === 0">
+            <i class="fas fa-user-slash"></i>
+            <p>No hay registros</p>
+          </div>
         </div>
       </div>
 
@@ -198,7 +267,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
         <p>Cargando empleados...</p>
       </div>
 
-      <div class="empty-state" *ngIf="!loading && grupos.length === 0">
+      <div class="empty-state" *ngIf="!loading && hasSearched && grupos.length === 0">
         <i class="fas fa-users"></i>
         <p>No hay empleados asignados a tu sede</p>
       </div>
@@ -220,7 +289,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
             <!-- Columna 1: Información del empleado -->
             <div class="col-md-6">
               <div class="empleado-info-section">
-                <h5>{{ empleadoSeleccionado.Cargo?.Departamento?.Area?.Sala?.nombre || 'Sin sala asignada' }}</h5>
+                <h5>{{ empleadoSeleccionado.Cargo?.Area?.Departamento?.Sala?.nombre || 'Sin sala asignada' }}</h5>
                 <div class="row">
                   <!-- Columna de la foto -->
                   <div class="col-md-4">
@@ -239,8 +308,8 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
                     <div class="info-basica">
                       <h4>{{ empleadoSeleccionado.nombre }}</h4>
                       <p><strong>Cédula:</strong> {{ empleadoSeleccionado.cedula }}</p>
-                      <p><strong>Área:</strong> {{ empleadoSeleccionado.Cargo?.Departamento?.Area?.nombre || 'Sin área' }}</p>
-                      <p><strong>Departamento:</strong> {{ empleadoSeleccionado.Cargo?.Departamento?.nombre || 'Sin departamento' }}</p>
+                      <p><strong>Área:</strong> {{ empleadoSeleccionado.Cargo?.Area?.nombre || 'Sin área' }}</p>
+                      <p><strong>Departamento:</strong> {{ empleadoSeleccionado.Cargo?.Area?.Departamento?.nombre || 'Sin departamento' }}</p>
                       <p><strong>Cargo:</strong> {{ empleadoSeleccionado.Cargo?.nombre || 'Sin cargo' }}</p>
                       <p><strong>Sexo:</strong> {{ empleadoSeleccionado.sexo || 'No especificado' }}</p>
                     </div>
@@ -391,10 +460,8 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
     }
 
     .date-filters {
-      display: flex;
-      gap: 20px;
-      align-items: end;
-      flex-wrap: wrap;
+      /* Usamos layout de Bootstrap row; sin gap personalizado */
+      gap: 0;
     }
 
     .filter-group {
@@ -820,6 +887,17 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
       vertical-align: middle !important;
     }
 
+    .badge-plantilla-horario {
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      display: inline-block;
+      min-width: 40px;
+      text-align: center;
+    }
+
     /* Estilos para turnos */
     .turno-diurno {
       background-color: #b3d9ff !important;
@@ -917,6 +995,20 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
       color: #6c757d;
       font-size: 16px;
       margin: 0;
+    }
+
+    .no-registros-grupo {
+      text-align: center;
+      padding: 30px 20px;
+      color: #6c757d;
+      background: white;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+    }
+    .no-registros-grupo i {
+      font-size: 28px;
+      margin-bottom: 10px;
+      display: block;
     }
 
     /* Estilos para tarjetas de grupos */
@@ -1532,7 +1624,9 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
 })
 export class MarcajePersonalComponent implements OnInit {
   empleados: any[] = [];
+  empleadosFiltrados: any[] = [];
   grupos: any[] = [];
+  userSalas: any[] = [];
   diasDelMes: Date[] = [];
   mesesAgrupados: { nombre: string, dias: Date[], colspan: number }[] = [];
   fechaDesde: string = '';
@@ -1540,6 +1634,20 @@ export class MarcajePersonalComponent implements OnInit {
   grupoSeleccionado: string = 'salas';
   loading = false;
   marcajesPorEmpleado: Map<string, any[]> = new Map();
+  hasSearched = false;
+  // Filtros jerárquicos
+  selectedSalaId: number | null = null;
+  selectedDepartamentoId: number | null = null;
+  selectedAreaId: number | null = null;
+  selectedCargoId: number | null = null;
+  selectedSexo: string | null = null;
+  searchText: string = '';
+  departamentosAll: any[] = [];
+  areasAll: any[] = [];
+  cargosAll: any[] = [];
+  departamentosFiltrados: any[] = [];
+  areasFiltradas: any[] = [];
+  cargosFiltrados: any[] = [];
   
   // Propiedades para el modal
   mostrarModal = false;
@@ -1559,20 +1667,59 @@ export class MarcajePersonalComponent implements OnInit {
     private marcajesService: MarcajesService,
     private horariosService: HorariosService,
     private errorModalService: ErrorModalService,
-    private confirmModalService: ConfirmModalService
+    private confirmModalService: ConfirmModalService,
+    private areasService: AreasService,
+    private departamentosService: DepartamentosService,
+    private cargosService: CargosService
   ) {}
 
   ngOnInit() {
-    // Establecer fechas por defecto (hoy hasta un mes adelante)
-    const hoy = new Date();
-    const enUnMes = new Date();
-    enUnMes.setMonth(hoy.getMonth() + 1);
-    
-    this.fechaDesde = hoy.toISOString().split('T')[0];
-    this.fechaHasta = enUnMes.toISOString().split('T')[0];
-    
-    this.generarDiasDelMes();
-    this.cargarDatos();
+    // Cargar salas del usuario primero, luego cargar datos de empleados
+    this.cargarSalasUsuario(() => {
+      // Establecer fechas por defecto (hoy hasta un mes adelante)
+      const hoy = new Date();
+      const enUnMes = new Date();
+      enUnMes.setMonth(hoy.getMonth() + 1);
+      this.fechaDesde = hoy.toISOString().split('T')[0];
+      this.fechaHasta = enUnMes.toISOString().split('T')[0];
+      this.generarDiasDelMes();
+      this.cargarCatalogosFiltros();
+      // No cargar datos hasta que el usuario seleccione filtros y presione Actualizar
+    });
+  }
+
+  private cargarCatalogosFiltros() {
+    // Cargar catálogos base para filtros
+    this.departamentosService.getDepartamentos().subscribe({
+      next: (deps: any[]) => {
+        this.departamentosAll = deps || [];
+        this.actualizarListasCascada();
+      },
+      error: () => { this.departamentosAll = []; this.actualizarListasCascada(); }
+    });
+
+    this.areasService.getAreas().subscribe({
+      next: (areas: any[]) => {
+        this.areasAll = areas || [];
+        this.actualizarListasCascada();
+      },
+      error: () => { this.areasAll = []; this.actualizarListasCascada(); }
+    });
+
+    this.cargosService.getCargos().subscribe({
+      next: (cargos: any[]) => {
+        this.cargosAll = cargos || [];
+        this.actualizarListasCascada();
+      },
+      error: () => { this.cargosAll = []; this.actualizarListasCascada(); }
+    });
+  }
+
+  private cargarSalasUsuario(done?: () => void) {
+    this.areasService.getUserSalas().subscribe({
+      next: (salas: any[]) => { this.userSalas = salas || []; if (done) done(); },
+      error: () => { this.userSalas = []; if (done) done(); }
+    });
   }
 
   private generarDiasDelMes() {
@@ -1608,6 +1755,7 @@ export class MarcajePersonalComponent implements OnInit {
       
       return;
     }
+    this.hasSearched = true;
 
     this.loading = true;
     this.generarDiasDelMes();
@@ -1616,6 +1764,7 @@ export class MarcajePersonalComponent implements OnInit {
     this.empleadosService.getEmpleados().subscribe({
       next: (response) => {
         this.empleados = response || [];
+        this.aplicarFiltrosCascada();
         
         // Cargar horarios para todos los empleados primero
         this.cargarHorariosYMarcajes();
@@ -1626,6 +1775,72 @@ export class MarcajePersonalComponent implements OnInit {
         this.loading = false;
       }
     });
+  }
+
+  // Eventos de cascada
+  onSalaChange() {
+    this.selectedDepartamentoId = null;
+    this.selectedAreaId = null;
+    this.selectedCargoId = null;
+    this.actualizarListasCascada();
+    this.aplicarFiltrosCascada();
+  }
+
+  onDepartamentoChange() {
+    this.selectedAreaId = null;
+    this.selectedCargoId = null;
+    this.actualizarListasCascada();
+    this.aplicarFiltrosCascada();
+  }
+
+  onAreaChange() {
+    this.selectedCargoId = null;
+    this.actualizarListasCascada();
+    this.aplicarFiltrosCascada();
+  }
+
+  onCargoChange() {
+    this.aplicarFiltrosCascada();
+  }
+
+  onSexoChange() {
+    this.aplicarFiltrosCascada();
+  }
+
+  onSearchChange() {
+    this.aplicarFiltrosCascada();
+  }
+
+  private actualizarListasCascada() {
+    // Filtrar departamentos por sala
+    this.departamentosFiltrados = (this.departamentosAll || []).filter(d => !this.selectedSalaId || d.sala_id === this.selectedSalaId);
+    // Filtrar áreas por departamento
+    this.areasFiltradas = (this.areasAll || []).filter(a => !this.selectedDepartamentoId || a.departamento_id === this.selectedDepartamentoId);
+    // Filtrar cargos por área
+    this.cargosFiltrados = (this.cargosAll || []).filter(c => !this.selectedAreaId || c.area_id === this.selectedAreaId);
+  }
+
+  private aplicarFiltrosCascada() {
+    this.empleadosFiltrados = (this.empleados || []).filter(e => this.empleadoCoincideFiltros(e));
+  }
+
+  private empleadoCoincideFiltros(empleado: any): boolean {
+    const salaId = empleado?.Cargo?.Area?.Departamento?.Sala?.id || empleado?.Cargo?.Area?.Departamento?.sala_id;
+    const departamentoId = empleado?.Cargo?.Area?.Departamento?.id;
+    const areaId = empleado?.Cargo?.Area?.id;
+    const cargoId = empleado?.Cargo?.id;
+    const sexo = empleado?.sexo || 'No especificado';
+    const term = (this.searchText || '').trim().toLowerCase();
+    const nombre = (empleado?.nombre || '').toLowerCase();
+    const cedula = (empleado?.cedula || '').toString().toLowerCase();
+
+    if (this.selectedSalaId && salaId !== this.selectedSalaId) return false;
+    if (this.selectedDepartamentoId && departamentoId !== this.selectedDepartamentoId) return false;
+    if (this.selectedAreaId && areaId !== this.selectedAreaId) return false;
+    if (this.selectedCargoId && cargoId !== this.selectedCargoId) return false;
+    if (this.selectedSexo && sexo !== this.selectedSexo) return false;
+    if (term && !(nombre.includes(term) || cedula.includes(term))) return false;
+    return true;
   }
 
   cargarHorariosYMarcajes() {
@@ -1639,7 +1854,8 @@ export class MarcajePersonalComponent implements OnInit {
 
     // Contador para saber cuándo terminar
     let empleadosProcesados = 0;
-    const totalEmpleados = this.empleados.filter(e => e.id).length;
+    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+    const totalEmpleados = base.filter(e => e.id).length;
 
     if (totalEmpleados === 0) {
       this.agruparEmpleados();
@@ -1648,7 +1864,7 @@ export class MarcajePersonalComponent implements OnInit {
     }
 
     // Cargar horarios y marcajes para cada empleado
-    this.empleados.forEach(empleado => {
+    base.forEach(empleado => {
       if (empleado.id) {
         // Cargar horarios del empleado
         this.empleadosService.getHorariosEmpleado(empleado.id).subscribe({
@@ -1804,30 +2020,56 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   agruparPorSalas() {
-    const gruposMap = new Map();
-    
-    this.empleados.forEach(empleado => {
-      const salaNombre = empleado.Cargo?.Departamento?.Area?.Sala?.nombre || 'Sin Sala';
-      
-      if (!gruposMap.has(salaNombre)) {
-        gruposMap.set(salaNombre, {
-          nombre: salaNombre,
-          empleados: []
-        });
+    const gruposMap = new Map<number, { nombre: string; empleados: any[] }>();
+    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+
+    // Si hay sala seleccionada, mostrar solo esa sala
+    if (this.selectedSalaId) {
+      const salaKey = Number(this.selectedSalaId);
+      const salaSel = this.userSalas?.find(s => s.id === salaKey);
+      const nombreSala = salaSel?.nombre || 'Sala seleccionada';
+      gruposMap.set(salaKey, { nombre: nombreSala, empleados: [] });
+
+      base.forEach(empleado => {
+        const sala = empleado.Cargo?.Area?.Departamento?.Sala;
+        if (sala?.id === salaKey) {
+          gruposMap.get(salaKey)!.empleados.push(empleado);
+        }
+      });
+
+      this.grupos = Array.from(gruposMap.values());
+      return;
+    }
+
+    // Sin sala seleccionada: sembrar todas las salas del usuario y luego poblar empleados
+    if (this.userSalas && this.userSalas.length > 0) {
+      this.userSalas.forEach(s => {
+        if (!gruposMap.has(s.id)) {
+          gruposMap.set(s.id, { nombre: s.nombre, empleados: [] });
+        }
+      });
+    }
+
+    base.forEach(empleado => {
+      const sala = empleado.Cargo?.Area?.Departamento?.Sala;
+      if (!sala || !sala.id) return;
+      const key = sala.id as number;
+      if (!gruposMap.has(key)) {
+        gruposMap.set(key, { nombre: sala.nombre, empleados: [] });
       }
-      
-      gruposMap.get(salaNombre).empleados.push(empleado);
+      gruposMap.get(key)!.empleados.push(empleado);
     });
-    
+
     this.grupos = Array.from(gruposMap.values());
   }
 
   agruparPorAreas() {
     const gruposMap = new Map();
     
-    this.empleados.forEach(empleado => {
-      const sala = empleado.Cargo?.Departamento?.Area?.Sala?.nombre || 'Sin Sala';
-      const area = empleado.Cargo?.Departamento?.Area?.nombre || 'Sin Area';
+    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+    base.forEach(empleado => {
+      const sala = empleado.Cargo?.Area?.Departamento?.Sala?.nombre || 'Sin Sala';
+      const area = empleado.Cargo?.Area?.nombre || 'Sin Area';
       const nombreCompleto = `${sala} - ${area}`;
       
       if (!gruposMap.has(nombreCompleto)) {
@@ -1846,10 +2088,11 @@ export class MarcajePersonalComponent implements OnInit {
   agruparPorDepartamentos() {
     const gruposMap = new Map();
     
-    this.empleados.forEach(empleado => {
-      const sala = empleado.Cargo?.Departamento?.Area?.Sala?.nombre || 'Sin Sala';
-      const area = empleado.Cargo?.Departamento?.Area?.nombre || 'Sin Area';
-      const departamento = empleado.Cargo?.Departamento?.nombre || 'Sin Departamento';
+    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+    base.forEach(empleado => {
+      const sala = empleado.Cargo?.Area?.Departamento?.Sala?.nombre || 'Sin Sala';
+      const area = empleado.Cargo?.Area?.nombre || 'Sin Area';
+      const departamento = empleado.Cargo?.Area?.Departamento?.nombre || 'Sin Departamento';
       const nombreCompleto = `${sala} - ${area} - ${departamento}`;
       
       if (!gruposMap.has(nombreCompleto)) {
@@ -1868,10 +2111,11 @@ export class MarcajePersonalComponent implements OnInit {
   agruparPorCargos() {
     const gruposMap = new Map();
     
-    this.empleados.forEach(empleado => {
-      const sala = empleado.Cargo?.Departamento?.Area?.Sala?.nombre || 'Sin Sala';
-      const area = empleado.Cargo?.Departamento?.Area?.nombre || 'Sin Area';
-      const departamento = empleado.Cargo?.Departamento?.nombre || 'Sin Departamento';
+    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+    base.forEach(empleado => {
+      const sala = empleado.Cargo?.Area?.Departamento?.Sala?.nombre || 'Sin Sala';
+      const area = empleado.Cargo?.Area?.nombre || 'Sin Area';
+      const departamento = empleado.Cargo?.Area?.Departamento?.nombre || 'Sin Departamento';
       const cargo = empleado.Cargo?.nombre || 'Sin Cargo';
       const nombreCompleto = `${sala} - ${area} - ${departamento} - ${cargo}`;
       
@@ -2107,40 +2351,56 @@ export class MarcajePersonalComponent implements OnInit {
     return marcajesDelDia;
   }
 
-  // Calcular marcajes según el turno con lógica inteligente
+  // Calcular marcajes según la plantilla de horario con lógica inteligente
   calcularMarcajesDelDia(empleado: any, dia: Date, bloque: any): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
-    const marcajes = this.getMarcajesDelDia(empleado, dia);
-    
-    
-    
-    if (marcajes.length === 0) {
-      
+    // Obtener horas de la plantilla (PlantillaHorario)
+    const plantilla = bloque?.PlantillaHorario;
+    if (!plantilla || !plantilla.hora_entrada || !plantilla.hora_salida) {
       return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
     }
 
-    let marcajesAnalizados;
+    const horaEntradaPlantilla = this.convertirHoraAMinutos(plantilla.hora_entrada);
+    const horaSalidaPlantilla = this.convertirHoraAMinutos(plantilla.hora_salida);
+    const tieneDescanso = !!(plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida);
+    
+    let marcajesParaAnalizar: any[] = [];
+    let esTurnoNocturno = false;
 
-    if (bloque.turno === 'NOCTURNO') {
-      // Turno nocturno: manejar marcajes que cruzan medianoche
+    // Determinar si es turno nocturno (hora_entrada > hora_salida)
+    if (horaEntradaPlantilla > horaSalidaPlantilla) {
+      // Turno nocturno: entrada del día actual, salida del día siguiente
+      esTurnoNocturno = true;
+      const marcajesHoy = this.getMarcajesDelDia(empleado, dia);
       const diaSiguiente = new Date(dia);
       diaSiguiente.setDate(diaSiguiente.getDate() + 1);
-      const marcajesSiguiente = this.getMarcajesDelDia(empleado, diaSiguiente);
-      
-      // Combinar marcajes del día actual y siguiente para turno nocturno
-      const todosMarcajes = [...marcajes, ...marcajesSiguiente];
-      
-      if (todosMarcajes.length > 0) {
-        marcajesAnalizados = this.analizarMarcajesInteligente(todosMarcajes, bloque, 'NOCTURNO');
-      } else {
-        marcajesAnalizados = { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
-      }
+      const marcajesManana = this.getMarcajesDelDia(empleado, diaSiguiente);
+      marcajesParaAnalizar = [...marcajesHoy, ...marcajesManana].sort((a, b) => 
+        new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
+      );
     } else {
-      // Turno diurno: análisis inteligente
-      marcajesAnalizados = this.analizarMarcajesInteligente(marcajes, bloque, 'DIURNO');
+      // Turno diurno: todos los marcajes del mismo día
+      marcajesParaAnalizar = this.getMarcajesDelDia(empleado, dia);
     }
 
+    if (marcajesParaAnalizar.length === 0) {
+      return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
+    }
+
+    // Crear objeto bloque con horas de plantilla para usar en asignación inteligente
+    const bloqueConPlantilla = {
+      hora_entrada: plantilla.hora_entrada,
+      hora_salida: plantilla.hora_salida,
+      hora_entrada_descanso: plantilla.hora_descanso_entrada || '',
+      hora_salida_descanso: plantilla.hora_descanso_salida || '',
+      tiene_descanso: tieneDescanso,
+      turno: esTurnoNocturno ? 'NOCTURNO' : 'DIURNO'
+    };
+
+    // Analizar marcajes usando la lógica inteligente
+    const marcajesAnalizados = this.analizarMarcajesInteligente(marcajesParaAnalizar, bloqueConPlantilla, bloqueConPlantilla.turno);
+
     // Aplicar validaciones de diferencias de tiempo
-    const marcajesConValidacion = this.validarDiferenciasTiempo(marcajesAnalizados, bloque);
+    const marcajesConValidacion = this.validarDiferenciasTiempo(marcajesAnalizados, bloqueConPlantilla);
     
     return marcajesConValidacion;
   }
@@ -2173,13 +2433,17 @@ export class MarcajePersonalComponent implements OnInit {
     const entradaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entrada, marcajesUsados);
     asignaciones.entrada = entradaAsignada;
 
-    // Asignar entrada descanso (más cercano a hora_entrada_descanso)
-    const entradaDescansoAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entradaDescanso, marcajesUsados);
-    asignaciones.entradaDescanso = entradaDescansoAsignada;
+    // Asignar entrada descanso solo si hay descanso definido en la plantilla
+    if (bloque.tiene_descanso && horasProgramadas.entradaDescanso > 0) {
+      const entradaDescansoAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entradaDescanso, marcajesUsados);
+      asignaciones.entradaDescanso = entradaDescansoAsignada;
 
-    // Asignar salida descanso (más cercano a hora_salida_descanso)
-    const salidaDescansoAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salidaDescanso, marcajesUsados);
-    asignaciones.salidaDescanso = salidaDescansoAsignada;
+      // Asignar salida descanso solo si hay descanso definido
+      if (horasProgramadas.salidaDescanso > 0) {
+        const salidaDescansoAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salidaDescanso, marcajesUsados);
+        asignaciones.salidaDescanso = salidaDescansoAsignada;
+      }
+    }
 
     // Asignar salida (más cercano a hora_salida)
     const salidaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salida, marcajesUsados);
@@ -2278,15 +2542,9 @@ export class MarcajePersonalComponent implements OnInit {
           resultado.salida = horaMarcaje;
         }
       } else {
-        // Múltiples marcajes en nocturno
-        resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
-        resultado.salida = this.formatearHora(new Date(marcajesOrdenados[marcajesOrdenados.length - 1].event_time).toTimeString().split(' ')[0]);
-        
-        // Si hay descanso y suficientes marcajes
-        if (bloque.tiene_descanso && marcajesOrdenados.length >= 4) {
-          resultado.entradaDescanso = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
-          resultado.salidaDescanso = this.formatearHora(new Date(marcajesOrdenados[2].event_time).toTimeString().split(' ')[0]);
-        }
+        // Múltiples marcajes en nocturno: usar asignación inteligente
+        const marcajesAsignados = this.asignarMarcajesInteligente(marcajesOrdenados, bloque);
+        return marcajesAsignados;
       }
     } else {
       // Lógica para turno diurno
@@ -2322,20 +2580,10 @@ export class MarcajePersonalComponent implements OnInit {
           resultado.salida = horaMarcaje;
           
         }
-      } else if (marcajesOrdenados.length === 2) {
-        // Dos marcajes: entrada y salida
-        resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
-        resultado.salida = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
-        
-      } else if (marcajesOrdenados.length >= 4 && bloque.tiene_descanso) {
-        // Cuatro o más marcajes con descanso: asignación inteligente
+      } else {
+        // Dos o más marcajes en diurno: usar asignación inteligente según proximidad
         const marcajesAsignados = this.asignarMarcajesInteligente(marcajesOrdenados, bloque);
         return marcajesAsignados;
-      } else {
-        // Tres marcajes o más sin descanso: entrada, salida
-        resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
-        resultado.salida = this.formatearHora(new Date(marcajesOrdenados[marcajesOrdenados.length - 1].event_time).toTimeString().split(' ')[0]);
-        
       }
     }
 
@@ -2344,12 +2592,21 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Calcular resumen de horas trabajadas
   calcularResumenHoras(marcajes: { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string }, bloque: any): { texto: string, claseColor: string } {
+    // Usar horas de PlantillaHorario si están disponibles, sino usar las del bloque
+    const plantilla = bloque?.PlantillaHorario;
+    const horaEntrada = plantilla?.hora_entrada || bloque?.hora_entrada || '';
+    const horaSalida = plantilla?.hora_salida || bloque?.hora_salida || '';
+    const horaEntradaDescanso = plantilla?.hora_descanso_entrada || bloque?.hora_entrada_descanso || '';
+    const horaSalidaDescanso = plantilla?.hora_descanso_salida || bloque?.hora_salida_descanso || '';
+    const tieneDescanso = bloque?.tiene_descanso || !!(horaEntradaDescanso && horaSalidaDescanso);
+    
     // Calcular horas programadas
-    const horaEntradaProgramada = this.convertirHoraAMinutos(bloque.hora_entrada);
-    const horaSalidaProgramada = this.convertirHoraAMinutos(bloque.hora_salida);
+    const horaEntradaProgramada = this.convertirHoraAMinutos(horaEntrada);
+    const horaSalidaProgramada = this.convertirHoraAMinutos(horaSalida);
     
     let horasATrabajar;
-    if (bloque.turno === 'NOCTURNO') {
+    const esNocturno = bloque?.turno === 'NOCTURNO' || horaEntradaProgramada > horaSalidaProgramada;
+    if (esNocturno) {
       // Para turno nocturno: la salida es al día siguiente
       // Si la salida es menor que la entrada, significa que cruza medianoche
       if (horaSalidaProgramada < horaEntradaProgramada) {
@@ -2366,9 +2623,9 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Calcular horas de descanso programadas
     let horasDeDescanso = 0;
-    if (bloque.tiene_descanso) {
-      const entradaDescansoProgramada = this.convertirHoraAMinutos(bloque.hora_entrada_descanso);
-      const salidaDescansoProgramada = this.convertirHoraAMinutos(bloque.hora_salida_descanso);
+    if (tieneDescanso && horaEntradaDescanso && horaSalidaDescanso) {
+      const entradaDescansoProgramada = this.convertirHoraAMinutos(horaEntradaDescanso);
+      const salidaDescansoProgramada = this.convertirHoraAMinutos(horaSalidaDescanso);
       horasDeDescanso = salidaDescansoProgramada - entradaDescansoProgramada;
       
     }
@@ -2383,7 +2640,7 @@ export class MarcajePersonalComponent implements OnInit {
       
       // Calcular horas totales trabajadas (incluyendo descanso)
       let horasTotales;
-      if (bloque.turno === 'NOCTURNO') {
+      if (esNocturno) {
         // Para turno nocturno: manejar cruce de medianoche
         if (horaSalidaReal < horaEntradaReal) {
           // La salida es al día siguiente
@@ -2397,13 +2654,13 @@ export class MarcajePersonalComponent implements OnInit {
         horasTotales = horaSalidaReal - horaEntradaReal;
       }
       
-      if (bloque.tiene_descanso && marcajes.entradaDescanso !== 'Sin marcaje' && marcajes.salidaDescanso !== 'Sin marcaje') {
+      if (tieneDescanso && marcajes.entradaDescanso !== 'Sin marcaje' && marcajes.salidaDescanso !== 'Sin marcaje') {
         // Con descanso real: horas trabajadas = totalidad - horas descansadas
         const entradaDescansoReal = this.convertirHoraAMinutos(marcajes.entradaDescanso);
         const salidaDescansoReal = this.convertirHoraAMinutos(marcajes.salidaDescanso);
         
         // Calcular horas de descanso considerando cruce de medianoche para turnos nocturnos
-        if (bloque.turno === 'NOCTURNO' && salidaDescansoReal < entradaDescansoReal) {
+        if (esNocturno && salidaDescansoReal < entradaDescansoReal) {
           // El descanso cruza medianoche
           horasDescansadas = (24 * 60 - entradaDescansoReal) + salidaDescansoReal;
           
@@ -2414,7 +2671,7 @@ export class MarcajePersonalComponent implements OnInit {
         
         horasTrabajadas = horasTotales - horasDescansadas;
         
-      } else if (bloque.tiene_descanso) {
+      } else if (tieneDescanso) {
         // Sin descanso real pero con descanso programado: asumir que tomó el descanso programado
         horasDescansadas = horasDeDescanso; // Asumir que tomó el descanso programado
         horasTrabajadas = horasTotales - horasDescansadas;
@@ -2597,12 +2854,17 @@ export class MarcajePersonalComponent implements OnInit {
         break;
       case 'Entrada':
         // Mostrar horario completo: entrada - entrada almuerzo - salida almuerzo - salida
-        const horaEntrada = this.formatearHora(bloque.hora_entrada || '');
-        const horaSalida = this.formatearHora(bloque.hora_salida || '');
+        // Usar horas de PlantillaHorario si están disponibles
+        const plantillaHorario = bloque?.PlantillaHorario;
+        const horaEntrada = this.formatearHora(plantillaHorario?.hora_entrada || bloque?.hora_entrada || '');
+        const horaSalida = this.formatearHora(plantillaHorario?.hora_salida || bloque?.hora_salida || '');
+        const horaEntradaDescanso = plantillaHorario?.hora_descanso_entrada || bloque?.hora_entrada_descanso || '';
+        const horaSalidaDescanso = plantillaHorario?.hora_descanso_salida || bloque?.hora_salida_descanso || '';
+        const tieneDescanso = bloque?.tiene_descanso || !!(horaEntradaDescanso && horaSalidaDescanso);
         
-        if (bloque.tiene_descanso && bloque.hora_entrada_descanso && bloque.hora_salida_descanso) {
-          const entradaDescanso = this.formatearHora(bloque.hora_entrada_descanso);
-          const salidaDescanso = this.formatearHora(bloque.hora_salida_descanso);
+        if (tieneDescanso && horaEntradaDescanso && horaSalidaDescanso) {
+          const entradaDescanso = this.formatearHora(horaEntradaDescanso);
+          const salidaDescanso = this.formatearHora(horaSalidaDescanso);
           resultado = `${horaEntrada} - ${entradaDescanso} - ${salidaDescanso} - ${horaSalida}`;
         } else {
           resultado = `${horaEntrada} - Sin descanso - ${horaSalida}`;
@@ -2614,9 +2876,13 @@ export class MarcajePersonalComponent implements OnInit {
         const marcajesDescanso = this.calcularMarcajesDelDia(empleado, dia, bloque);
         
         
+        // Obtener información de descanso de la plantilla si está disponible
+        const plantillaDescanso = bloque?.PlantillaHorario;
+        const tieneDescansoPlantilla = !!(plantillaDescanso?.hora_descanso_entrada && plantillaDescanso?.hora_descanso_salida);
+        
         if (marcajesDescanso.entrada !== 'Sin marcaje' && marcajesDescanso.salida !== 'Sin marcaje') {
           // Mostrar marcajes reales con formato según si hay descanso programado
-          if (bloque.tiene_descanso) {
+          if (tieneDescansoPlantilla) {
             // Si hay descanso programado, verificar si hay códigos de error
             if (marcajesDescanso.entradaDescanso === 'DNM' || marcajesDescanso.salidaDescanso === 'DNM') {
               resultado = `${marcajesDescanso.entrada} - DNM - ${marcajesDescanso.salida}`;
@@ -2740,13 +3006,13 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   cargarHorariosPorSala() {
-    if (!this.empleadoSeleccionado?.Cargo?.Departamento?.Area?.Sala?.id) {
+    if (!this.empleadoSeleccionado?.Cargo?.Area?.Departamento?.Sala?.id) {
       this.horariosDisponibles = [];
       
       return;
     }
 
-    const salaId = this.empleadoSeleccionado.Cargo.Departamento.Area.Sala.id;
+    const salaId = this.empleadoSeleccionado.Cargo.Area.Departamento.Sala.id;
     
 
     this.horariosService.getHorariosBySala(salaId).subscribe({
@@ -2968,5 +3234,17 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Recargar todos los datos de la vista principal
     this.cargarDatos();
+  }
+
+  getContrastColorPlantilla(hexColor: string): string {
+    if (!hexColor || hexColor === '#ffffff') return '#000000';
+    // Convertir hex a RGB
+    const r = parseInt(hexColor.slice(1, 3), 16);
+    const g = parseInt(hexColor.slice(3, 5), 16);
+    const b = parseInt(hexColor.slice(5, 7), 16);
+    // Calcular luminosidad relativa
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    // Si es claro, usar texto negro; si es oscuro, usar texto blanco
+    return luminance > 0.5 ? '#000000' : '#ffffff';
   }
 }

@@ -81,6 +81,7 @@ const {
   Llave,
   ControlLlaveRegistro,
   NovedadMesaRegistro,
+  PlantillaHorario,
   syncDatabase 
 } = require('./models');
 const { Op } = require('sequelize');
@@ -3457,12 +3458,30 @@ app.get('/api/horarios', authenticateToken, async (req, res) => {
       }));
     }
     
-    // Obtener bloques para cada horario
+    // Obtener bloques para cada horario con sus plantillas
     for (let horario of horarios) {
       const bloques = await Bloque.findAll({
         where: { horario_id: horario.id },
         order: [['orden', 'ASC']]
       });
+      
+      // Obtener información de plantillas para cada bloque
+      for (let bloque of bloques) {
+        const plantilla = await PlantillaHorario.findByPk(bloque.plantilla_horario_id);
+        if (plantilla) {
+          bloque.dataValues.PlantillaHorario = {
+            id: plantilla.id,
+            codigo: plantilla.codigo,
+            nombre: plantilla.nombre,
+            color: plantilla.color || '#ffffff',
+            hora_entrada: plantilla.hora_entrada,
+            hora_salida: plantilla.hora_salida,
+            hora_descanso_entrada: plantilla.hora_descanso_entrada,
+            hora_descanso_salida: plantilla.hora_descanso_salida
+          };
+        }
+      }
+      
       horario.bloques = bloques;
     }
     
@@ -3498,13 +3517,8 @@ app.post('/api/horarios', authenticateToken, async (req, res) => {
       const bloque = bloques[i];
       await Bloque.create({
         horario_id: horario.id,
-        hora_entrada: bloque.hora_entrada,
-        hora_salida: bloque.hora_salida,
-        turno: bloque.turno,
-        orden: i + 1,
-        hora_entrada_descanso: bloque.hora_entrada_descanso || null,
-        hora_salida_descanso: bloque.hora_salida_descanso || null,
-        tiene_descanso: bloque.tiene_descanso === 'true' ? true : false
+        plantilla_horario_id: bloque.plantilla_horario_id,
+        orden: i + 1
       });
     }
 
@@ -3555,13 +3569,8 @@ app.put('/api/horarios/:id', authenticateToken, async (req, res) => {
         const bloque = bloques[i];
         await Bloque.create({
           horario_id: id,
-          hora_entrada: bloque.hora_entrada,
-          hora_salida: bloque.hora_salida,
-          turno: bloque.turno,
-          orden: i + 1,
-          hora_entrada_descanso: bloque.hora_entrada_descanso || null,
-          hora_salida_descanso: bloque.hora_salida_descanso || null,
-          tiene_descanso: bloque.tiene_descanso === 'true' ? true : false
+          plantilla_horario_id: bloque.plantilla_horario_id,
+          orden: i + 1
         });
       }
     }
@@ -3693,6 +3702,27 @@ app.get('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, re
       }],
       order: [['primer_dia', 'DESC']]
     });
+
+    // Agregar información de PlantillaHorario a cada bloque
+    for (let horarioEmp of horariosEmpleado) {
+      if (horarioEmp.Horario && horarioEmp.Horario.bloques) {
+        for (let bloque of horarioEmp.Horario.bloques) {
+          const plantilla = await PlantillaHorario.findByPk(bloque.plantilla_horario_id);
+          if (plantilla) {
+            bloque.dataValues.PlantillaHorario = {
+              id: plantilla.id,
+              codigo: plantilla.codigo,
+              nombre: plantilla.nombre,
+              color: plantilla.color || '#ffffff',
+              hora_entrada: plantilla.hora_entrada,
+              hora_salida: plantilla.hora_salida,
+              hora_descanso_entrada: plantilla.hora_descanso_entrada,
+              hora_descanso_salida: plantilla.hora_descanso_salida
+            };
+          }
+        }
+      }
+    }
 
     res.json(horariosEmpleado);
   } catch (error) {
@@ -3841,6 +3871,262 @@ app.delete('/api/empleados/:empleadoId/horarios/:horarioEmpleadoId', authenticat
     res.json({ message: 'Horario eliminado correctamente' });
   } catch (error) {
     
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// RUTAS PARA PLANTILLAS HORARIOS
+// =============================================
+
+// Obtener todas las plantillas horarios
+app.get('/api/plantillas-horarios', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let plantillas;
+    
+    if (userLevel === 'TODO') {
+      const results = await sequelize.query(`
+        SELECT ph.*, s.nombre as sala_nombre 
+        FROM plantillas_horarios ph 
+        LEFT JOIN salas s ON ph.sala_id = s.id 
+        ORDER BY ph.created_at DESC
+      `, {
+        type: sequelize.QueryTypes.SELECT
+      });
+      
+      plantillas = results.map(row => ({
+        id: row.id,
+        nombre: row.nombre,
+        sala_id: row.sala_id,
+        codigo: row.codigo,
+        hora_entrada: row.hora_entrada,
+        hora_salida: row.hora_salida,
+        hora_descanso_entrada: row.hora_descanso_entrada,
+        hora_descanso_salida: row.hora_descanso_salida,
+        color: row.color,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        Sala: {
+          id: row.sala_id,
+          nombre: row.sala_nombre
+        }
+      }));
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: UserSala,
+          attributes: ['id', 'nombre']
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      plantillas = await PlantillaHorario.findAll({
+        where: { sala_id: userSalaIds },
+        order: [['created_at', 'DESC']],
+        raw: true
+      });
+      
+      // Obtener salas por separado
+      const salaIds = [...new Set(plantillas.map(p => p.sala_id))];
+      const salas = await Sala.findAll({
+        where: { id: salaIds },
+        attributes: ['id', 'nombre']
+      });
+      
+      // Mapear salas a plantillas
+      const salasMap = {};
+      salas.forEach(sala => {
+        salasMap[sala.id] = sala;
+      });
+      
+      plantillas = plantillas.map(plantilla => ({
+        ...plantilla,
+        Sala: salasMap[plantilla.sala_id]
+      }));
+    }
+    
+    res.json(plantillas);
+  } catch (error) {
+    console.error('Error al obtener plantillas horarios:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear una nueva plantilla horario
+app.post('/api/plantillas-horarios', authenticateToken, async (req, res) => {
+  try {
+    const { nombre, sala_id, codigo, hora_entrada, hora_salida, hora_descanso_entrada, hora_descanso_salida, color } = req.body;
+    
+    if (!nombre || !sala_id || !codigo) {
+      return res.status(400).json({ message: 'Nombre, sala y código son requeridos' });
+    }
+
+    // Verificar que la sala existe
+    const sala = await Sala.findByPk(sala_id);
+    if (!sala) {
+      return res.status(404).json({ message: 'Sala no encontrada' });
+    }
+
+    // Verificar permisos de sala para usuarios no TODO
+    if (req.user.nivel !== 'TODO') {
+      const user = await User.findByPk(req.user.id, {
+        include: [{
+          model: Sala,
+          through: UserSala,
+          where: { id: sala_id }
+        }]
+      });
+
+      if (!user || user.Salas.length === 0) {
+        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+      }
+    }
+
+    const plantilla = await PlantillaHorario.create({
+      nombre,
+      sala_id,
+      codigo: codigo || null,
+      hora_entrada,
+      hora_salida,
+      hora_descanso_entrada: hora_descanso_entrada || null,
+      hora_descanso_salida: hora_descanso_salida || null,
+      color: color || '#ffffff'
+    });
+
+    res.status(201).json(plantilla);
+  } catch (error) {
+    console.error('Error al crear plantilla horario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar una plantilla horario
+app.put('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, sala_id, codigo, hora_entrada, hora_salida, hora_descanso_entrada, hora_descanso_salida, color } = req.body;
+    
+    if (!nombre || !sala_id || !codigo) {
+      return res.status(400).json({ message: 'Nombre, sala y código son requeridos' });
+    }
+
+    const plantilla = await PlantillaHorario.findByPk(id);
+    if (!plantilla) {
+      return res.status(404).json({ message: 'Plantilla horario no encontrada' });
+    }
+    if (req.user.nivel !== 'TODO') {
+      const user = await User.findByPk(req.user.id, {
+        include: [{
+          model: Sala,
+          through: UserSala,
+          where: { id: sala_id }
+        }]
+      });
+
+      if (!user || user.Salas.length === 0) {
+        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+      }
+    }
+
+    await plantilla.update({
+      nombre,
+      sala_id,
+      codigo: codigo || null,
+      hora_entrada,
+      hora_salida,
+      hora_descanso_entrada: hora_descanso_entrada || null,
+      hora_descanso_salida: hora_descanso_salida || null,
+      color: color || '#ffffff'
+    });
+
+    res.json(plantilla);
+  } catch (error) {
+    console.error('Error al actualizar plantilla horario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar una plantilla horario
+app.delete('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const plantilla = await PlantillaHorario.findByPk(id);
+    if (!plantilla) {
+      return res.status(404).json({ message: 'Plantilla horario no encontrada' });
+    }
+
+    // Verificar permisos de sala para usuarios no TODO
+    if (req.user.nivel !== 'TODO') {
+      const user = await User.findByPk(req.user.id, {
+        include: [{
+          model: Sala,
+          through: UserSala,
+          where: { id: plantilla.sala_id }
+        }]
+      });
+
+      if (!user || user.Salas.length === 0) {
+        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+      }
+    }
+
+    await plantilla.destroy();
+    res.json({ message: 'Plantilla horario eliminada correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar plantilla horario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener una plantilla horario específica
+app.get('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const plantilla = await PlantillaHorario.findByPk(id, {
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }]
+    });
+
+    if (!plantilla) {
+      return res.status(404).json({ message: 'Plantilla horario no encontrada' });
+    }
+
+    res.json(plantilla);
+  } catch (error) {
+    console.error('Error al obtener plantilla horario:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener plantillas horarios por sala
+app.get('/api/plantillas-horarios/sala/:salaId', authenticateToken, async (req, res) => {
+  try {
+    const { salaId } = req.params;
+    
+    const plantillas = await PlantillaHorario.findAll({
+      where: { sala_id: salaId },
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }],
+      order: [['nombre', 'ASC']]
+    });
+
+    res.json(plantillas);
+  } catch (error) {
+    console.error('Error al obtener plantillas horarios por sala:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -6574,18 +6860,22 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
           {
             model: Cargo,
             as: 'Cargo',
+            required: true,
             include: [
               {
                 model: Area,
                 as: 'Area',
+                required: true,
                 include: [
                   {
                     model: Departamento,
                     as: 'Departamento',
+                    required: true,
                     include: [
                       {
                         model: Sala,
                         as: 'Sala',
+                        required: true,
                         attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                       }
                     ]
@@ -6626,20 +6916,23 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
         {
           model: Cargo,
           as: 'Cargo',
+          required: true,
           include: [
             {
               model: Area,
               as: 'Area',
+              required: true,
               include: [
                 {
                   model: Departamento,
                   as: 'Departamento',
+                  required: true,
                   include: [
                     {
                       model: Sala,
                       as: 'Sala',
-                        required: false,
-                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
+                      required: true,
+                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                     }
                   ]
                 }

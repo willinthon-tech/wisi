@@ -40,6 +40,11 @@ export class AreasService {
   getUserDepartamentos(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/user/departamentos`);
   }
+
+  // Obtener salas del usuario
+  getUserSalas(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/user/salas`);
+  }
 }
 
 
