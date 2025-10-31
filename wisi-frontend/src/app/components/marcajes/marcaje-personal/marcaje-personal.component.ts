@@ -10,6 +10,8 @@ import { MarcajesService } from '../../../services/marcajes.service';
 import { HorariosService } from '../../../services/horarios.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
+import { ExcepcionesHorariosService } from '../../../services/excepciones-horarios.service';
+import { PlantillasHorariosService } from '../../../services/plantillas-horarios.service';
 
 @Component({
   selector: 'app-marcaje-personal',
@@ -89,8 +91,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               id="fechaDesde"
               [(ngModel)]="fechaDesde" 
               name="fechaDesde"
-              class="form-input"
-              (change)="cargarDatos()">
+              class="form-input">
           </div>
           
           <div class="filter-group col-sm-3">
@@ -100,8 +101,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               id="fechaHasta"
               [(ngModel)]="fechaHasta" 
               name="fechaHasta"
-              class="form-input"
-              (change)="cargarDatos()">
+              class="form-input">
           </div>
           
           <div class="filter-group col-sm-3 d-flex align-items-end">
@@ -190,20 +190,28 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
                           [attr.rowspan]="(isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)) ? 3 : 1">
                         <div class="horario-data" 
                              [class.libre-vertical]="isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)">
-                          <span *ngIf="isSinHorario(empleado, dia)">
-                            SIN HORARIO
+                          <span *ngIf="isSinHorario(empleado, dia)" class="sin-horario-wrapper">
+                            <span>SIN HORARIO</span>
+                            <button class="btn-add-dia"
+                                    [ngClass]="hasExcepcion(empleado, dia) ? 'ex-present' : 'ex-empty'"
+                                    title="Excepción del día"
+                                    (click)="abrirModalExcepcion(empleado, dia)">M</button>
                           </span>
                           <span *ngIf="!isSinHorario(empleado, dia) && isTurnoLibre(getBloqueHorario(empleado, dia)?.turno)">
                             {{ getBloqueHorario(empleado, dia)?.turno === 'LIBRE' ? 'LIBRE' : 
                                getBloqueHorario(empleado, dia)?.turno === 'PERMISO' ? 'PERMISO' : 
                                getBloqueHorario(empleado, dia)?.turno === 'SUSPENDIDO' ? 'SUSPENDIDO' : '' }}
                           </span>
-                          <span *ngIf="!isSinHorario(empleado, dia) && !isTurnoLibre(getBloqueHorario(empleado, dia)?.turno)">
+                          <span *ngIf="!isSinHorario(empleado, dia) && !isTurnoLibre(getBloqueHorario(empleado, dia)?.turno)" class="con-horario-wrapper">
                             <span class="badge-plantilla-horario" 
                                   [style.backgroundColor]="getBloqueHorario(empleado, dia)?.PlantillaHorario?.color || '#ffffff'"
                                   [style.color]="getContrastColorPlantilla(getBloqueHorario(empleado, dia)?.PlantillaHorario?.color)">
                               {{ getBloqueHorario(empleado, dia)?.PlantillaHorario?.codigo || 'N/A' }}
                             </span>
+                            <button class="btn-add-dia mini"
+                                    [ngClass]="hasExcepcion(empleado, dia) ? 'ex-present' : 'ex-empty'"
+                                    title="Excepción del día"
+                                    (click)="abrirModalExcepcion(empleado, dia)">M</button>
                           </span>
                         </div>
                       </td>
@@ -255,9 +263,86 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               </table>
             </div>
           </div>
+
+          <!-- Tabla de excepciones asignadas -->
+          <div class="horarios-asignados">
+            <h5>Excepciones Asignadas</h5>
+            <div *ngIf="excepcionesEmpleado.length === 0" class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Plantilla</th>
+                    <th>Descripción</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td colspan="4" style="text-align:center;color:#6c757d;">Sin excepciones registradas</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-responsive" *ngIf="excepcionesEmpleado.length > 0">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Plantilla</th>
+                    <th>Descripción</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let ex of excepcionesEmpleado">
+                    <td>{{ ex.fecha | date:'dd/MM/yyyy' }}</td>
+                    <td>
+                      <span class="badge me-1"
+                            [style.backgroundColor]="ex?.PlantillaHorario?.color || '#6c757d'"
+                            [style.color]="getContrastColorPlantilla(ex?.PlantillaHorario?.color || '#6c757d')">
+                        {{ ex?.PlantillaHorario?.codigo || ex.plantilla_horario_id }}</span>
+                    </td>
+                    <td>{{ ex.motivo || '-' }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-danger" (click)="eliminarExcepcionDirecta(ex)">Eliminar</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
           <div class="no-registros-grupo" *ngIf="grupo.empleados.length === 0">
             <i class="fas fa-user-slash"></i>
             <p>No hay registros</p>
+          </div>
+        </div>
+        
+        <!-- Modal Excepción de Horario -->
+        <div class="modal-backdrop" *ngIf="showExcepcionModal">
+          <div class="modal-card">
+            <div class="modal-header">
+              <h5>Asignar horario al día</h5>
+              <button class="btn-close" (click)="cerrarModalExcepcion()">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-2"><strong>Empleado:</strong> {{ modalEmpleado?.nombre }} ({{ modalEmpleado?.cedula }})</div>
+              <div class="mb-2"><strong>Fecha:</strong> {{ modalFecha }}</div>
+              <label>Plantilla:</label>
+              <select class="form-select" [(ngModel)]="selectedPlantillaId" (ngModelChange)="onPlantillaSeleccionChange($event)">
+                <option [ngValue]="null">Selecciona una plantilla</option>
+                <option *ngFor="let p of modalPlantillas; trackBy: trackByPlantillaId" [ngValue]="p.id">
+                  {{ p.codigo }} - {{ p.nombre }}
+                </option>
+                <option *ngIf="isEditExcepcion && canEliminarExcepcion()" [ngValue]="'__delete__'">Eliminar Registro</option>
+              </select>
+              <div *ngIf="modalPlantillas.length === 0" class="mt-2" style="font-size: 12px; color: #dc3545;">
+                ⚠ No hay plantillas disponibles para esta sala
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-secondary" (click)="cerrarModalExcepcion()">Cerrar</button>
+            </div>
           </div>
         </div>
       </div>
@@ -353,7 +438,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               </div>
             </div>
           </div>
-
+      
           <!-- Tabla de horarios asignados -->
           <div class="horarios-asignados" *ngIf="horariosEmpleado.length > 0">
             <h5>Horarios Asignados</h5>
@@ -375,8 +460,9 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
                       <div class="patron-preview" *ngIf="horarioEmp.Horario?.bloques">
                         <span *ngFor="let bloque of getBloquesOrdenados(horarioEmp.Horario.bloques); let j = index" 
                               class="badge me-1" 
-                              [ngClass]="getBloqueBadgeClass(bloque.turno)">
-                          {{ getBloqueText(bloque.turno) }}
+                              [style.backgroundColor]="bloque?.PlantillaHorario?.color || '#ffc107'"
+                              [style.color]="getContrastColorPlantilla(bloque?.PlantillaHorario?.color || '#ffc107')">
+                          {{ bloque?.PlantillaHorario?.codigo || getBloqueText(getTurnoFromBloque(bloque)) }}
                         </span>
                       </div>
                     </td>
@@ -386,7 +472,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
                               [class.btn-secondary]="!esHorarioMasReciente(horarioEmp.id)"
                               [disabled]="!esHorarioMasReciente(horarioEmp.id)"
                               (click)="eliminarHorarioEmpleado(horarioEmp.id)">
-                        Cerrar
+                        Eliminar
                       </button>
                     </td>
                   </tr>
@@ -400,6 +486,58 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
             <i class="fas fa-clock"></i>
             <p>No hay horarios asignados para este empleado</p>
           </div>
+
+      <!-- Tabla de Excepciones Asignadas -->
+      <div class="horarios-asignados">
+        <h5>Excepciones Asignadas</h5>
+        <div class="table-responsive" *ngIf="(excepcionesEmpleado?.length || 0) > 0; else noEx">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Plantilla</th>
+                <th>Descripción</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let ex of excepcionesEmpleado">
+                <td>{{ ex.fecha | date:'dd/MM/yyyy' }}</td>
+                <td>
+                  <span class="badge me-1"
+                        [style.backgroundColor]="ex?.PlantillaHorario?.color || '#6c757d'"
+                        [style.color]="getContrastColorPlantilla(ex?.PlantillaHorario?.color || '#6c757d')">
+                    {{ ex?.PlantillaHorario?.codigo || ex.plantilla_horario_id }}
+                  </span>
+                </td>
+                <td>{{ ex?.PlantillaHorario?.nombre || ex.motivo || '-' }}</td>
+                <td>
+                  <button class="btn btn-sm btn-danger" (click)="eliminarExcepcionDirecta(ex)">Eliminar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noEx>
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Plantilla</th>
+                  <th>Descripción</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="4" style="text-align:center;color:#6c757d;">Sin excepciones registradas</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </ng-template>
+      </div>
 
           <!-- Botón Cerrar -->
           <div class="modal-footer">
@@ -900,7 +1038,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
 
     /* Estilos para turnos */
     .turno-diurno {
-      background-color: #b3d9ff !important;
+      background-color: transparent !important; /* sin fondo azul */
     }
 
     .turno-nocturno {
@@ -1251,6 +1389,117 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
       font-size: 16px;
     }
 
+    /* Estilos del modal de excepción día a día */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 60px;
+      z-index: 1100;
+    }
+    .modal-card {
+      width: min(800px, 96%);
+      background: #ffffff;
+      color: #212529;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+    .modal-card .modal-header {
+      background: #f8f9fa;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .modal-card .modal-body {
+      padding: 16px;
+    }
+    .modal-card .modal-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      padding: 12px 16px;
+      border-top: 1px solid #e9ecef;
+      background: #f8f9fa;
+    }
+    .btn-close {
+      appearance: none;
+      border: none;
+      background: transparent;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 4px 8px;
+      color: #6c757d;
+    }
+    .btn-primary {
+      background: #0d6efd;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-secondary {
+      background: #e9ecef;
+      color: #212529;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    .form-select, .form-input {
+      width: 100%;
+      border: 1px solid #ced4da;
+      border-radius: 6px;
+      padding: 8px 10px;
+      background: #fff;
+      color: #212529;
+    }
+    .mt-2 { margin-top: 8px; }
+    .mb-2 { margin-bottom: 8px; }
+
+    /* Botón + dentro de celdas */
+    .btn-add-dia {
+      margin-left: 8px;
+      background: #6c757d; /* gris por defecto */
+      color: #fff; /* texto blanco */
+      border: none;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-add-dia.mini { padding: 0 6px; font-size: 12px; }
+
+    /* Colocar el botón debajo del texto en SIN HORARIO */
+    .sin-horario-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .sin-horario-wrapper .btn-add-dia {
+      margin-left: 0; /* evitar separación lateral */
+    }
+
+    /* Estados del botón de excepción */
+    .btn-add-dia.ex-empty {
+      background: #6c757d; /* gris */
+      color: #ffffff;
+    }
+    .btn-add-dia.ex-present {
+      background: #28a745; /* verde activo, igual al header */
+      color: #ffffff;
+    }
+
     .form-row {
       display: flex;
       gap: 15px;
@@ -1307,6 +1556,10 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
     .btn-danger {
       background-color: #dc3545;
       color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      cursor: pointer;
     }
 
     .btn-danger:hover {
@@ -1634,6 +1887,7 @@ export class MarcajePersonalComponent implements OnInit {
   grupoSeleccionado: string = 'salas';
   loading = false;
   marcajesPorEmpleado: Map<string, any[]> = new Map();
+  excepcionesMap: Map<string, any> = new Map();
   hasSearched = false;
   // Filtros jerárquicos
   selectedSalaId: number | null = null;
@@ -1652,10 +1906,26 @@ export class MarcajePersonalComponent implements OnInit {
   // Propiedades para el modal
   mostrarModal = false;
   empleadoSeleccionado: any = null;
+  // Modal excepción (día a día)
+  showExcepcionModal = false;
+  savingExcepcion = false;
+  modalEmpleado: any = null;
+  modalFecha: string = '';
+  modalPlantillas: any[] = [];
+  selectedPlantillaId: any | null = null;
+  // Evitar que el select dispare onChange al abrir el modal (por el valor inicial)
+  suppressPlantillaChange = false;
+  // Guardar la plantilla actual de la excepción (si la hay) para evitar guardar si no cambió
+  plantillaExcepcionActualId: number | null = null;
+  
+  // edición de excepción
+  isEditExcepcion = false;
+  excepcionId: number | null = null;
   
   // Propiedades para horarios
   horariosDisponibles: any[] = [];
   horariosEmpleado: any[] = [];
+  excepcionesEmpleado: any[] = [];
   nuevoHorario = {
     primer_dia: '',
     horario_id: ''
@@ -1670,7 +1940,9 @@ export class MarcajePersonalComponent implements OnInit {
     private confirmModalService: ConfirmModalService,
     private areasService: AreasService,
     private departamentosService: DepartamentosService,
-    private cargosService: CargosService
+    private cargosService: CargosService,
+    private excepcionesService: ExcepcionesHorariosService,
+    private plantillasService: PlantillasHorariosService
   ) {}
 
   ngOnInit() {
@@ -1685,6 +1957,272 @@ export class MarcajePersonalComponent implements OnInit {
       this.generarDiasDelMes();
       this.cargarCatalogosFiltros();
       // No cargar datos hasta que el usuario seleccione filtros y presione Actualizar
+    });
+  }
+
+  abrirModalExcepcion(empleado: any, dia: Date) {
+    this.suppressPlantillaChange = true;
+    this.modalEmpleado = empleado;
+    this.modalFecha = new Date(dia).toISOString().split('T')[0];
+    this.selectedPlantillaId = null;
+    this.plantillaExcepcionActualId = null;
+    this.isEditExcepcion = false;
+    this.excepcionId = null;
+    this.modalPlantillas = [];
+    
+    // Intentar obtener sala_id de diferentes formas
+    let salaId = empleado?.Cargo?.Area?.Departamento?.Sala?.id;
+    if (!salaId && empleado?.Cargo?.Area?.Departamento) {
+      salaId = empleado.Cargo.Area.Departamento.sala_id || empleado?.Cargo?.Area?.Departamento?.sala_id;
+    }
+    
+    console.log('=== Abriendo modal excepción ===');
+    console.log('Empleado:', empleado?.nombre);
+    console.log('Fecha:', this.modalFecha);
+    console.log('Sala ID encontrado:', salaId);
+    console.log('Estructura empleado:', {
+      Cargo: empleado?.Cargo,
+      Area: empleado?.Cargo?.Area,
+      Departamento: empleado?.Cargo?.Area?.Departamento,
+      Sala: empleado?.Cargo?.Area?.Departamento?.Sala
+    });
+    
+    // Función auxiliar para cargar plantillas y mostrar modal
+    const cargarYMostrar = (plantillas: any[]) => {
+      console.log('Plantillas finales a mostrar:', plantillas);
+      this.modalPlantillas = Array.isArray(plantillas) ? plantillas : [];
+      console.log('modalPlantillas después de asignar:', this.modalPlantillas);
+      console.log('Cantidad de plantillas:', this.modalPlantillas.length);
+      // Prefill si ya existe una excepción para esa fecha
+      const key = `${empleado?.id}|${this.modalFecha}`;
+      const ex = this.excepcionesMap.get(key);
+      if (ex) {
+        this.isEditExcepcion = true;
+        this.excepcionId = ex.id;
+        this.selectedPlantillaId = ex.plantilla_horario_id || ex.PlantillaHorario?.id || null;
+        this.plantillaExcepcionActualId = this.selectedPlantillaId;
+        
+      }
+      this.showExcepcionModal = true;
+      // Liberar supresión luego de pintar el modal
+      setTimeout(() => { this.suppressPlantillaChange = false; }, 0);
+    };
+    
+    // Intentar cargar por sala primero, luego todas como fallback
+    if (salaId) {
+      console.log('Intentando cargar plantillas por sala:', salaId);
+      this.plantillasService.getBySala(salaId).subscribe({
+        next: (list: any[]) => {
+          console.log('Respuesta API por sala:', list);
+          const plantillas = Array.isArray(list) ? list : [];
+          if (plantillas.length > 0) {
+            cargarYMostrar(plantillas);
+          } else {
+            console.log('No hay plantillas para esta sala, cargando todas...');
+            this.plantillasService.getPlantillasHorarios().subscribe({
+              next: (todas: any[]) => {
+                console.log('Respuesta API todas las plantillas:', todas);
+                cargarYMostrar(Array.isArray(todas) ? todas : []);
+              },
+              error: (err) => {
+                console.error('Error cargando todas las plantillas:', err);
+                cargarYMostrar([]);
+              }
+            });
+          }
+        },
+        error: (err) => {
+          console.error('Error cargando plantillas por sala:', err);
+          console.log('Fallback: cargando todas las plantillas...');
+          this.plantillasService.getPlantillasHorarios().subscribe({
+            next: (todas: any[]) => {
+              console.log('Respuesta API todas las plantillas (fallback):', todas);
+              cargarYMostrar(Array.isArray(todas) ? todas : []);
+            },
+            error: (err2) => {
+              console.error('Error cargando todas las plantillas (fallback):', err2);
+              cargarYMostrar([]);
+            }
+          });
+        }
+      });
+    } else {
+      console.log('No se encontró sala_id, cargando todas las plantillas...');
+      this.plantillasService.getPlantillasHorarios().subscribe({
+        next: (todas: any[]) => {
+          console.log('Respuesta API todas las plantillas:', todas);
+          cargarYMostrar(Array.isArray(todas) ? todas : []);
+        },
+        error: (err) => {
+          console.error('Error cargando todas las plantillas:', err);
+          cargarYMostrar([]);
+        }
+      });
+    }
+  }
+
+  cerrarModalExcepcion() {
+    if (this.savingExcepcion) return;
+    this.showExcepcionModal = false;
+  }
+
+  trackByPlantillaId(index: number, item: any): any {
+    return item?.id || index;
+  }
+
+  guardarExcepcion() {
+    if (!this.modalEmpleado || !this.modalFecha || !this.selectedPlantillaId) return;
+    this.savingExcepcion = true;
+    if (this.isEditExcepcion && this.excepcionId) {
+      this.excepcionesService.actualizar(this.excepcionId, {
+        plantilla_horario_id: this.selectedPlantillaId
+      }).subscribe({
+        next: () => {
+          this.savingExcepcion = false;
+          this.showExcepcionModal = false;
+          // Actualización optimista del mapa para reflejar inmediatamente
+          const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+          const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
+          this.excepcionesMap.set(key, {
+            id: this.excepcionId,
+            empleado_id: this.modalEmpleado.id,
+            fecha: this.modalFecha,
+            plantilla_horario_id: this.selectedPlantillaId,
+            PlantillaHorario: plantilla
+          });
+          this.plantillaExcepcionActualId = this.selectedPlantillaId as number;
+          // no recarga completa
+        },
+        error: () => { this.savingExcepcion = false; }
+      });
+    } else {
+      this.excepcionesService.crear({
+        empleado_id: this.modalEmpleado.id,
+        fecha: this.modalFecha,
+        plantilla_horario_id: this.selectedPlantillaId
+      }).subscribe({
+        next: (res) => {
+          this.savingExcepcion = false;
+          this.showExcepcionModal = false;
+          // Actualización optimista del mapa para reflejar inmediatamente
+          const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+          const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
+          this.excepcionesMap.set(key, {
+            id: res?.id,
+            empleado_id: this.modalEmpleado.id,
+            fecha: this.modalFecha,
+            plantilla_horario_id: this.selectedPlantillaId,
+            PlantillaHorario: plantilla
+          });
+          this.isEditExcepcion = true;
+          this.excepcionId = res?.id || this.excepcionId;
+          this.plantillaExcepcionActualId = this.selectedPlantillaId as number;
+          // no recarga completa
+        },
+        error: (err) => {
+          if (err && err.status === 409) {
+            const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+            const ex = this.excepcionesMap.get(key);
+            if (ex && ex.id) {
+              this.excepcionesService.actualizar(ex.id, { plantilla_horario_id: this.selectedPlantillaId }).subscribe({
+                next: () => {
+                  this.savingExcepcion = false;
+                  this.showExcepcionModal = false;
+                  const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
+                  this.excepcionesMap.set(key, {
+                    id: ex.id,
+                    empleado_id: this.modalEmpleado.id,
+                    fecha: this.modalFecha,
+                    plantilla_horario_id: this.selectedPlantillaId,
+                    PlantillaHorario: plantilla
+                  });
+                },
+                error: () => { this.savingExcepcion = false; }
+              });
+              return;
+            }
+          }
+          this.savingExcepcion = false;
+        }
+      });
+    }
+  }
+
+  onPlantillaSeleccionChange(value: any) {
+    if (this.suppressPlantillaChange) {
+      return;
+    }
+    if (value === null || typeof value === 'undefined') {
+      return; // placeholder, no hacer nada
+    }
+    if (value === '__delete__') {
+      // opción especial para eliminar
+      this.eliminarExcepcion();
+      return;
+    }
+    // asignación/edición inmediata
+    this.selectedPlantillaId = value as number;
+    // Si no cambió respecto a la plantilla actual, no hacer nada
+    if (this.plantillaExcepcionActualId && this.selectedPlantillaId === this.plantillaExcepcionActualId) {
+      return;
+    }
+    // Re-evaluar si existe excepción para asegurar PUT y no POST
+    if (this.modalEmpleado && this.modalFecha) {
+      const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+      const ex = this.excepcionesMap.get(key);
+      if (ex) {
+        this.isEditExcepcion = true;
+        this.excepcionId = ex.id;
+      }
+    }
+    this.guardarExcepcion();
+  }
+
+  canEliminarExcepcion(): boolean {
+    if (!this.isEditExcepcion || !this.modalEmpleado || !this.modalFecha) {
+      return false;
+    }
+    const dia = new Date(this.modalFecha);
+    const horarioActivo = this.getHorarioActivoParaFecha(this.modalEmpleado, dia);
+    if (!horarioActivo || !horarioActivo.bloques || horarioActivo.bloques.length === 0) {
+      // No existe horario base para ese día
+      return false;
+    }
+    const diasDesdeInicio = this.calcularDiasDesdeInicio(dia, this.modalEmpleado, horarioActivo);
+    if (diasDesdeInicio < 0) {
+      // Día anterior al inicio del horario
+      return false;
+    }
+    const indiceBloque = diasDesdeInicio % horarioActivo.bloques.length;
+    return indiceBloque >= 0 && indiceBloque < horarioActivo.bloques.length;
+  }
+
+  eliminarExcepcion() {
+    // Permitir eliminar incluso si no se detectó el modo edición, usando el mapa
+    if ((!this.isEditExcepcion || !this.excepcionId) && this.modalEmpleado && this.modalFecha) {
+      const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+      const ex = this.excepcionesMap.get(key);
+      if (ex && ex.id) {
+        this.isEditExcepcion = true;
+        this.excepcionId = ex.id;
+      }
+    }
+    if (!this.isEditExcepcion || !this.excepcionId) { return; }
+    if (this.savingExcepcion) { return; }
+    this.savingExcepcion = true;
+    this.excepcionesService.eliminar(this.excepcionId).subscribe({
+      next: () => {
+        this.savingExcepcion = false;
+        this.showExcepcionModal = false;
+        // Remover de forma optimista la excepción del mapa
+        const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+        this.excepcionesMap.delete(key);
+        // Reset selección del select por si quedó en "Eliminar Registro"
+        this.selectedPlantillaId = null;
+        this.plantillaExcepcionActualId = null;
+        // no recarga completa
+      },
+      error: () => { this.savingExcepcion = false; }
     });
   }
 
@@ -1886,9 +2424,8 @@ export class MarcajePersonalComponent implements OnInit {
                   
                   // Cuando todos los empleados estén procesados, agrupar
                   if (empleadosProcesados === totalEmpleados) {
-                    
-                    this.agruparEmpleados();
-                    this.loading = false;
+                    // Cargar excepciones del rango visible
+                    this.cargarExcepcionesRango();
                   }
                 },
                 error: (error) => {
@@ -1906,8 +2443,7 @@ export class MarcajePersonalComponent implements OnInit {
             } else {
               empleadosProcesados++;
               if (empleadosProcesados === totalEmpleados) {
-                this.agruparEmpleados();
-                this.loading = false;
+                this.cargarExcepcionesRango();
               }
             }
           },
@@ -1917,13 +2453,43 @@ export class MarcajePersonalComponent implements OnInit {
             empleadosProcesados++;
             
             if (empleadosProcesados === totalEmpleados) {
-              this.agruparEmpleados();
-              this.loading = false;
+              this.cargarExcepcionesRango();
             }
           }
         });
       }
     });
+  }
+
+  private cargarExcepcionesRango() {
+    this.excepcionesMap.clear();
+    this.excepcionesService.listar(undefined, this.fechaDesde, this.fechaHasta).subscribe({
+      next: (ex: any[]) => {
+        (ex || []).forEach(e => {
+          const key = `${e.empleado_id}|${e.fecha}`;
+          this.excepcionesMap.set(key, e);
+        });
+        this.agruparEmpleados();
+        this.loading = false;
+      },
+      error: () => {
+        this.agruparEmpleados();
+        this.loading = false;
+      }
+    });
+  }
+
+  private formatDateLocalYYYYMMDD(d: Date): string {
+    const y = d.getFullYear();
+    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+    const day = d.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  hasExcepcion(empleado: any, dia: Date): boolean {
+    const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+    const key = `${empleado?.id}|${fechaStr}`;
+    return this.excepcionesMap.has(key);
   }
 
   cargarMarcajesYAgrupar() {
@@ -2216,6 +2782,33 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Función para obtener el bloque de horario para un día específico
   getBloqueHorario(empleado: any, dia: Date): any {
+    // Prioridad: excepción de horario por día
+    const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+    const key = `${empleado?.id}|${fechaStr}`;
+    const ex = this.excepcionesMap.get(key);
+    if (ex && ex.PlantillaHorario) {
+      // Construir bloque virtual con la plantilla de la excepción
+      const plantilla = ex.PlantillaHorario;
+      const turno = this.convertirHoraAMinutos(plantilla.hora_entrada) > this.convertirHoraAMinutos(plantilla.hora_salida) ? 'NOCTURNO' : 'DIURNO';
+      return {
+        orden: 1,
+        turno,
+        PlantillaHorario: plantilla,
+        hora_entrada: plantilla.hora_entrada,
+        hora_salida: plantilla.hora_salida,
+        hora_entrada_descanso: plantilla.hora_descanso_entrada,
+        hora_salida_descanso: plantilla.hora_descanso_salida,
+        tiene_descanso: !!(plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida)
+      };
+    } else if (ex && ex.plantilla_horario_id) {
+      // Si API no incluyó include, al menos marcar como diurno por defecto
+      return {
+        orden: 1,
+        turno: 'DIURNO',
+        PlantillaHorario: null
+      };
+    }
+
     // Obtener el horario activo para este día
     const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
     
@@ -2936,6 +3529,12 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Verificar si es sin horario (fechas anteriores a la fecha de inicio)
   isSinHorario(empleado: any, dia: Date): boolean {
+    // Si hay una excepción para ese día, NO es "sin horario"
+    const fechaStrCheck = this.formatDateLocalYYYYMMDD(new Date(dia));
+    const keyCheck = `${empleado?.id}|${fechaStrCheck}`;
+    if (this.excepcionesMap.has(keyCheck)) {
+      return false;
+    }
     // Verificar si el empleado tiene horarios asignados
     if (!empleado.horariosEmpleado || empleado.horariosEmpleado.length === 0) {
       
@@ -2987,6 +3586,7 @@ export class MarcajePersonalComponent implements OnInit {
     this.resetearFormulario();
     this.cargarHorariosPorSala();
     this.cargarHorariosEmpleado();
+    this.cargarExcepcionesEmpleado();
   }
 
   cerrarModal() {
@@ -3048,6 +3648,33 @@ export class MarcajePersonalComponent implements OnInit {
     });
   }
 
+  private cargarExcepcionesEmpleado() {
+    if (!this.empleadoSeleccionado?.id) return;
+    this.excepcionesService.listar(this.empleadoSeleccionado.id).subscribe({
+      next: (ex: any[]) => {
+        const lista = Array.isArray(ex) ? ex : [];
+        // Ordenar desc por fecha (más reciente primero)
+        this.excepcionesEmpleado = lista.sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+      },
+      error: () => { this.excepcionesEmpleado = []; }
+    });
+  }
+
+  eliminarExcepcionDirecta(ex: any) {
+    if (!ex || !ex.id) return;
+    this.excepcionesService.eliminar(ex.id).subscribe({
+      next: () => {
+        // quitar de la lista del modal
+        this.excepcionesEmpleado = (this.excepcionesEmpleado || []).filter((e: any) => e.id !== ex.id);
+        // quitar del mapa de la vista principal
+        const key = `${this.empleadoSeleccionado?.id}|${ex.fecha}`;
+        this.excepcionesMap.delete(key);
+        // refrescar agrupación para reflejar en la grilla general si está abierta
+        this.agruparEmpleados();
+      }
+    });
+  }
+
   calcularFechaMinimaPermitida() {
     if (this.horariosEmpleado.length === 0) {
       // Si no hay horarios asignados, permitir cualquier fecha
@@ -3095,12 +3722,19 @@ export class MarcajePersonalComponent implements OnInit {
 
     this.empleadosService.asignarHorarioEmpleado(this.empleadoSeleccionado.id, horarioData).subscribe({
       next: (response) => {
-        
-        
+        // Actualización local en caliente con el elemento creado que retorna la API
+        const nuevo = {
+          id: response?.id,
+          primer_dia: response?.primer_dia,
+          Horario: response?.Horario
+        };
+        const lista = Array.isArray(this.horariosEmpleado) ? [...this.horariosEmpleado] : [];
+        lista.push(nuevo);
+        // Ordenar por fecha de inicio ascendente
+        this.horariosEmpleado = lista.sort((a: any, b: any) => new Date(a.primer_dia).getTime() - new Date(b.primer_dia).getTime());
+
         this.resetearFormulario();
-        this.cargarHorariosEmpleado(); // Recargar la lista del modal
-        
-        // ✅ ACTUALIZAR LA VISTA PRINCIPAL
+        // Reflejar cambios en la vista principal
         this.actualizarVistaPrincipal();
       },
       error: (error) => {
@@ -3145,9 +3779,8 @@ export class MarcajePersonalComponent implements OnInit {
 
     this.empleadosService.eliminarHorarioEmpleado(this.empleadoSeleccionado.id, horarioEmpleadoId).subscribe({
       next: (response) => {
-        
-        
-        this.cargarHorariosEmpleado();
+        // Remover localmente
+        this.horariosEmpleado = (this.horariosEmpleado || []).filter((he: any) => he.id !== horarioEmpleadoId);
         this.actualizarVistaPrincipal();
       },
       error: (error) => {
@@ -3200,6 +3833,29 @@ export class MarcajePersonalComponent implements OnInit {
     return clases[turno] || 'badge-secondary';
   }
 
+  getTurnoFromBloque(bloque: any): string {
+    if (!bloque) { return ''; }
+    // Si ya viene el campo turno, úsalo
+    if (bloque.turno) { return bloque.turno; }
+    const plantilla = bloque.PlantillaHorario;
+    if (plantilla && typeof plantilla.codigo === 'string') {
+      const code = (plantilla.codigo || '').toUpperCase();
+      if (code === 'L' || code === 'LIBRE') { return 'LIBRE'; }
+    }
+    // Inferir por horas si es nocturno
+    const entrada = plantilla?.hora_entrada;
+    const salida = plantilla?.hora_salida;
+    if (entrada && salida) {
+      const toMinutes = (t: string) => {
+        const [h, m] = t.split(':').map((x: string) => parseInt(x, 10));
+        return h * 60 + m;
+      };
+      return toMinutes(entrada) > toMinutes(salida) ? 'NOCTURNO' : 'DIURNO';
+    }
+    // Por defecto considerarlo diurno (trabajo)
+    return 'DIURNO';
+  }
+
   // Método para ordenar los bloques según el campo 'orden'
   getBloquesOrdenados(bloques: any[]): any[] {
     if (!bloques || !Array.isArray(bloques)) {
@@ -3230,10 +3886,27 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Función para actualizar la vista principal después de modificar horarios
   actualizarVistaPrincipal() {
-    
-    
-    // Recargar todos los datos de la vista principal
-    this.cargarDatos();
+    // Copiar los horarios del modal al empleado en la lista principal
+    if (this.empleadoSeleccionado?.id) {
+      const idx = this.empleados.findIndex(e => e.id === this.empleadoSeleccionado.id);
+      if (idx >= 0) {
+        this.empleados[idx] = {
+          ...this.empleados[idx],
+          horariosEmpleado: Array.isArray(this.horariosEmpleado) ? [...this.horariosEmpleado] : []
+        };
+      }
+      // Si existe en la lista filtrada, actualizar también la referencia
+      const idxF = this.empleadosFiltrados.findIndex(e => e.id === this.empleadoSeleccionado.id);
+      if (idxF >= 0) {
+        this.empleadosFiltrados[idxF] = {
+          ...this.empleadosFiltrados[idxF],
+          horariosEmpleado: Array.isArray(this.horariosEmpleado) ? [...this.horariosEmpleado] : []
+        };
+      }
+    }
+    // Regenerar días (por si cambió el rango con el botón Filtrar) y reagrupar
+    this.generarDiasDelMes();
+    this.agruparEmpleados();
   }
 
   getContrastColorPlantilla(hexColor: string): string {

@@ -40,5 +40,10 @@ export class PlantillasHorariosService {
   getPlantillasHorariosBySala(salaId: number): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/sala/${salaId}`);
   }
+
+  // Alias simple usado en componentes
+  getBySala(salaId: number): Observable<any[]> {
+    return this.getPlantillasHorariosBySala(salaId);
+  }
 }
 

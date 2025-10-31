@@ -82,6 +82,7 @@ const {
   ControlLlaveRegistro,
   NovedadMesaRegistro,
   PlantillaHorario,
+  ExcepcionHorario,
   syncDatabase 
 } = require('./models');
 const { Op } = require('sequelize');
@@ -3638,6 +3639,78 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// =============================================
+// EXCEPCIONES DE HORARIO (colocado ANTES de /api/horarios/:id para evitar colisión)
+// =============================================
+app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
+  try {
+    const { empleado_id, desde, hasta } = req.query;
+    const where = {};
+    if (empleado_id) where.empleado_id = empleado_id;
+    if (desde && hasta) where.fecha = { [Op.between]: [desde, hasta] };
+    if (desde && !hasta) where.fecha = { [Op.gte]: desde };
+    if (!desde && hasta) where.fecha = { [Op.lte]: hasta };
+
+    const excepciones = await ExcepcionHorario.findAll({
+      where,
+      include: [
+        { model: Empleado, attributes: ['id', 'nombre', 'cedula', 'cargo_id'] },
+        { model: PlantillaHorario }
+      ],
+      order: [['fecha', 'ASC']]
+    });
+    res.json(excepciones);
+  } catch (error) {
+    console.error('Error al listar excepciones (pre-route):', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+app.post('/api/horarios/excepciones', authenticateToken, async (req, res) => {
+  try {
+    const { empleado_id, fecha, plantilla_horario_id, motivo } = req.body;
+    if (!empleado_id || !fecha || !plantilla_horario_id) {
+      return res.status(400).json({ message: 'empleado_id, fecha y plantilla_horario_id son requeridos' });
+    }
+    const existente = await ExcepcionHorario.findOne({ where: { empleado_id, fecha } });
+    if (existente) return res.status(409).json({ message: 'Ya existe una excepción para ese día' });
+    const nueva = await ExcepcionHorario.create({ empleado_id, fecha, plantilla_horario_id, motivo, created_by: req.user.id });
+    res.status(201).json(nueva);
+  } catch (error) {
+    console.error('Error al crear excepción (pre-route):', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+app.put('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { plantilla_horario_id, motivo } = req.body;
+    const ex = await ExcepcionHorario.findByPk(id);
+    if (!ex) return res.status(404).json({ message: 'Excepción no encontrada' });
+    if (typeof plantilla_horario_id !== 'undefined') ex.plantilla_horario_id = plantilla_horario_id;
+    if (typeof motivo !== 'undefined') ex.motivo = motivo;
+    await ex.save();
+    res.json(ex);
+  } catch (error) {
+    console.error('Error al actualizar excepción (pre-route):', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+app.delete('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const ex = await ExcepcionHorario.findByPk(id);
+    if (!ex) return res.status(404).json({ message: 'Excepción no encontrada' });
+    await ex.destroy();
+    res.json({ message: 'Excepción eliminada' });
+  } catch (error) {
+    console.error('Error al eliminar excepción (pre-route):', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // Obtener un horario específico con sus bloques
 app.get('/api/horarios/:id', authenticateToken, async (req, res) => {
   try {
@@ -3783,6 +3856,25 @@ app.post('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, r
         order: [['orden', 'ASC']]
       }]
     });
+
+    // Enriquecer cada bloque con su PlantillaHorario (igual que en GET horarios de empleado)
+    if (horarioCompleto && Array.isArray(horarioCompleto.bloques)) {
+      for (let bloque of horarioCompleto.bloques) {
+        const plantilla = await PlantillaHorario.findByPk(bloque.plantilla_horario_id);
+        if (plantilla) {
+          bloque.dataValues.PlantillaHorario = {
+            id: plantilla.id,
+            codigo: plantilla.codigo,
+            nombre: plantilla.nombre,
+            color: plantilla.color || '#ffffff',
+            hora_entrada: plantilla.hora_entrada,
+            hora_salida: plantilla.hora_salida,
+            hora_descanso_entrada: plantilla.hora_descanso_entrada,
+            hora_descanso_salida: plantilla.hora_descanso_salida
+          };
+        }
+      }
+    }
 
     res.json({
       id: horarioEmpleado.id,
@@ -4127,6 +4219,101 @@ app.get('/api/plantillas-horarios/sala/:salaId', authenticateToken, async (req, 
     res.json(plantillas);
   } catch (error) {
     console.error('Error al obtener plantillas horarios por sala:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// RUTAS PARA EXCEPCIONES DE HORARIO (día a día)
+// =============================================
+
+// Ping/Debug para verificar que las rutas estén cargadas
+app.get('/api/horarios/excepciones/ping', (req, res) => {
+  res.json({ ok: true, message: 'excepciones route loaded' });
+});
+
+// Listar excepciones por empleado y rango
+app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
+  try {
+    const { empleado_id, desde, hasta } = req.query;
+    const where = {};
+    if (empleado_id) where.empleado_id = empleado_id;
+    if (desde && hasta) where.fecha = { [Op.between]: [desde, hasta] };
+    if (desde && !hasta) where.fecha = { [Op.gte]: desde };
+    if (!desde && hasta) where.fecha = { [Op.lte]: hasta };
+
+    const excepciones = await ExcepcionHorario.findAll({
+      where,
+      include: [
+        { model: Empleado, attributes: ['id', 'nombre', 'cedula', 'cargo_id'] },
+        { model: PlantillaHorario }
+      ],
+      order: [['fecha', 'ASC']]
+    });
+    res.json(excepciones);
+  } catch (error) {
+    console.error('Error al listar excepciones:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear excepción
+app.post('/api/horarios/excepciones', authenticateToken, async (req, res) => {
+  try {
+    const { empleado_id, fecha, plantilla_horario_id, motivo } = req.body;
+    if (!empleado_id || !fecha || !plantilla_horario_id) {
+      return res.status(400).json({ message: 'empleado_id, fecha y plantilla_horario_id son requeridos' });
+    }
+
+    // Validaciones básicas
+    const empleado = await Empleado.findByPk(empleado_id, { include: [{ model: Cargo, include: [{ model: Area, include: [{ model: Departamento, include: [Sala] }] }] }] });
+    if (!empleado) return res.status(404).json({ message: 'Empleado no encontrado' });
+    const plantilla = await PlantillaHorario.findByPk(plantilla_horario_id);
+    if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada' });
+
+    // Restricción única (empleado_id, fecha)
+    const existente = await ExcepcionHorario.findOne({ where: { empleado_id, fecha } });
+    if (existente) return res.status(409).json({ message: 'Ya existe una excepción para ese día' });
+
+    const nueva = await ExcepcionHorario.create({ empleado_id, fecha, plantilla_horario_id, motivo, created_by: req.user.id });
+    res.status(201).json(nueva);
+  } catch (error) {
+    console.error('Error al crear excepción:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar excepción
+app.put('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { plantilla_horario_id, motivo } = req.body;
+    const ex = await ExcepcionHorario.findByPk(id);
+    if (!ex) return res.status(404).json({ message: 'Excepción no encontrada' });
+    if (plantilla_horario_id) {
+      const plantilla = await PlantillaHorario.findByPk(plantilla_horario_id);
+      if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada' });
+      ex.plantilla_horario_id = plantilla_horario_id;
+    }
+    if (typeof motivo !== 'undefined') ex.motivo = motivo;
+    await ex.save();
+    res.json(ex);
+  } catch (error) {
+    console.error('Error al actualizar excepción:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar excepción
+app.delete('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const ex = await ExcepcionHorario.findByPk(id);
+    if (!ex) return res.status(404).json({ message: 'Excepción no encontrada' });
+    await ex.destroy();
+    res.json({ message: 'Excepción eliminada' });
+  } catch (error) {
+    console.error('Error al eliminar excepción:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
