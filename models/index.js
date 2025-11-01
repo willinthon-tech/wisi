@@ -140,20 +140,20 @@ Drop.belongsTo(Mesa, { foreignKey: 'mesa_id', onDelete: 'RESTRICT' });
 Mesa.hasMany(Drop, { foreignKey: 'mesa_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Departamento
-Departamento.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
-Sala.hasMany(Departamento, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
+Departamento.belongsTo(Sala, { foreignKey: 'sala_id', as: 'Sala', onDelete: 'RESTRICT' });
+Sala.hasMany(Departamento, { foreignKey: 'sala_id', as: 'Departamentos', onDelete: 'RESTRICT' });
 
 // Asociaciones para Area
-Area.belongsTo(Departamento, { foreignKey: 'departamento_id', onDelete: 'RESTRICT' });
-Departamento.hasMany(Area, { foreignKey: 'departamento_id', onDelete: 'RESTRICT' });
+Area.belongsTo(Departamento, { foreignKey: 'departamento_id', as: 'Departamento', onDelete: 'RESTRICT' });
+Departamento.hasMany(Area, { foreignKey: 'departamento_id', as: 'Areas', onDelete: 'RESTRICT' });
 
 // Asociaciones para Cargo
-Cargo.belongsTo(Area, { foreignKey: 'area_id', onDelete: 'RESTRICT' });
-Area.hasMany(Cargo, { foreignKey: 'area_id', onDelete: 'RESTRICT' });
+Cargo.belongsTo(Area, { foreignKey: 'area_id', as: 'Area', onDelete: 'RESTRICT' });
+Area.hasMany(Cargo, { foreignKey: 'area_id', as: 'Cargos', onDelete: 'RESTRICT' });
 
 // Asociaciones para Empleado
-Empleado.belongsTo(Cargo, { foreignKey: 'cargo_id', onDelete: 'RESTRICT' });
-Cargo.hasMany(Empleado, { foreignKey: 'cargo_id', onDelete: 'RESTRICT' });
+Empleado.belongsTo(Cargo, { foreignKey: 'cargo_id', as: 'Cargo', onDelete: 'RESTRICT' });
+Cargo.hasMany(Empleado, { foreignKey: 'cargo_id', as: 'Empleados', onDelete: 'RESTRICT' });
 
 // Asociaciones para HorarioEmpleado
 HorarioEmpleado.belongsTo(Empleado, { foreignKey: 'empleado_id', onDelete: 'RESTRICT' });

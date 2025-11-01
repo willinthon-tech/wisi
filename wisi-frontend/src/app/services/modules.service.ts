@@ -80,4 +80,9 @@ export class ModulesService {
   getRangosModuleId(): number | null {
     return this.getModuleIdByName('Rangos');
   }
+
+  // Obtener módulos actuales
+  getCurrentModules(): Module[] {
+    return this.modulesSubject.value;
+  }
 }

@@ -16,7 +16,7 @@ import { ErrorModalService, ErrorModalData } from '../../../services/error-modal
         </div>
         <div class="modal-body">
           <p class="error-message">{{ modalData?.message }}</p>
-          <div class="entity-info">
+          <div class="entity-info" *ngIf="modalData?.entity">
             <strong>{{ modalData?.entity?.tipo }}:</strong> {{ modalData?.entity?.nombre }} (ID: {{ modalData?.entity?.id }})
           </div>
           <div class="relations-section" *ngIf="modalData && modalData.relations && modalData.relations.length > 0">
@@ -31,7 +31,7 @@ import { ErrorModalService, ErrorModalData } from '../../../services/error-modal
           <div class="help-text" *ngIf="modalData?.helpText">
             <p>{{ modalData?.helpText }}</p>
           </div>
-          <div class="help-text" *ngIf="!modalData?.helpText">
+          <div class="help-text" *ngIf="!modalData?.helpText && modalData?.relations && (modalData?.relations?.length ?? 0) > 0">
             <p>Para eliminar este elemento, primero debe eliminar todos los elementos asociados listados arriba.</p>
           </div>
         </div>

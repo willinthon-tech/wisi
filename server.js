@@ -7369,23 +7369,28 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
     }
 
     // Obtener el empleado con sus relaciones
+    // Estructura correcta: Empleado -> Cargo -> Area -> Departamento -> Sala
     const empleadoCompleto = await Empleado.findByPk(empleado.id, {
       include: [
         {
           model: Cargo,
           as: 'Cargo',
+          required: false,
           include: [
             {
-              model: Departamento,
-              as: 'Departamento',
+              model: Area,
+              as: 'Area',
+              required: false,
               include: [
                 {
-                  model: Area,
-                  as: 'Area',
+                  model: Departamento,
+                  as: 'Departamento',
+                  required: false,
                   include: [
                     {
                       model: Sala,
                       as: 'Sala',
+                      required: false,
                       attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                     }
                   ]
@@ -7399,8 +7404,12 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
 
     res.status(201).json(empleadoCompleto);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('Error al crear empleado:', error);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ 
+      message: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

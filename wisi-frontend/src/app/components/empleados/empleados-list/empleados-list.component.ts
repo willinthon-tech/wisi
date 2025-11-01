@@ -24,7 +24,8 @@ import { PermissionsService } from '../../../services/permissions.service';
 import { ModulesService } from '../../../services/modules.service';
 import { TareasAutomaticasService } from '../../../services/tareas-automaticas.service';
 import { AuthService } from '../../../services/auth.service';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
+import { take, filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-empleados-list',
@@ -51,7 +52,7 @@ import { Subscription } from 'rxjs';
       </div>
       
       <!-- Filtro de empleados -->
-      <div class="filter-container" *ngIf="!loading && permissionsLoaded">
+      <div class="filter-container" *ngIf="!loading">
         <div class="search-input-wrapper">
           <input 
             type="text" 
@@ -62,15 +63,14 @@ import { Subscription } from 'rxjs';
         </div>
       </div>
       
-      <div *ngIf="loading || !permissionsLoaded" class="loading-indicator">
+      <div *ngIf="loading" class="loading-indicator">
         <div class="spinner-border" role="status">
           <span class="visually-hidden">Cargando...</span>
         </div>
-        <p *ngIf="!permissionsLoaded">Cargando permisos...</p>
-        <p *ngIf="permissionsLoaded && loading">Cargando empleados...</p>
+        <p>Cargando empleados...</p>
       </div>
       
-      <div class="table-wrapper" *ngIf="!loading && permissionsLoaded">
+      <div class="table-wrapper" *ngIf="!loading">
         <table class="table table-striped table-hover">
           <thead class="table-dark">
             <tr>
@@ -1452,14 +1452,59 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Forzar carga de permisos inmediatamente
-    this.permissionsService.forceReloadPermissions();
+    // Verificar y cargar módulos si es necesario (necesarios para verificar permisos)
+    const currentModules = this.modulesService.getCurrentModules();
+    if (!currentModules || currentModules.length === 0) {
+      this.modulesService.loadModules();
+    }
+    
+    // Verificar si los permisos ya están cargados (para cuando se navega desde otra vista)
+    const currentPermissions = this.permissionsService.getCurrentPermissions();
+    
+    // Función auxiliar para verificar si todo está listo y cargar
+    const checkAndLoad = () => {
+      const modules = this.modulesService.getCurrentModules();
+      if (modules && modules.length > 0 && currentPermissions && currentPermissions.length > 0) {
+        if (!this.permissionsLoaded) {
+          this.permissionsLoaded = true;
+          this.loadEmpleados();
+        }
+      } else if (!modules || modules.length === 0) {
+        // Si los módulos no están cargados, esperar a que se carguen
+        this.modulesService.modules$.pipe(filter(m => m.length > 0), take(1)).subscribe(() => {
+          if (!this.permissionsLoaded && currentPermissions && currentPermissions.length > 0) {
+            this.permissionsLoaded = true;
+            this.loadEmpleados();
+          }
+        });
+      }
+    };
+    
+    if (currentPermissions && currentPermissions.length > 0) {
+      // Si los permisos ya están cargados, verificar módulos
+      checkAndLoad();
+    } else {
+      // Forzar carga de permisos si no están cargados
+      this.permissionsService.forceReloadPermissions();
+    }
     
     // Esperar a que los permisos estén cargados antes de cargar empleados
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(permissions => {
       if (permissions && permissions.length > 0) {
-        this.permissionsLoaded = true;
-        this.loadEmpleados();
+        if (!this.permissionsLoaded) {
+          // Verificar que los módulos también estén cargados
+          const modules = this.modulesService.getCurrentModules();
+          if (modules && modules.length > 0) {
+            this.permissionsLoaded = true;
+            this.loadEmpleados();
+          } else {
+            // Esperar a que se carguen los módulos
+            this.modulesService.modules$.pipe(filter(m => m.length > 0), take(1)).subscribe(() => {
+              this.permissionsLoaded = true;
+              this.loadEmpleados();
+            });
+          }
+        }
       }
     });
     
@@ -1470,7 +1515,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         this.permissionsLoaded = true;
         this.loadEmpleados();
       }
-    }, 2000);
+    }, 500); // Reducido a 500ms para carga más rápida
     
     // Esperar a que el usuario esté disponible antes de cargar tareas
     this.authService.currentUser$.subscribe(user => {
@@ -2593,44 +2638,86 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           if (index !== -1) {
             // Actualizar el empleado en la lista con los datos completos
             this.empleados[index] = empleado;
-            
           }
           
-          // Crear tareas automáticas para la edición
-          await this.crearTareasEditarEmpleado(empleado, dispositivosAnteriores, dispositivosNuevos);
-          
+          // Cerrar el modal primero para que el usuario vea que la operación fue exitosa
           this.closeCargoSelector();
+          
           // Pequeño delay para asegurar que el backend haya procesado los cambios
           setTimeout(() => {
             this.loadEmpleados();
           }, 500);
           
+          // Crear tareas automáticas para la edición (en background, no bloquea la UI)
+          try {
+            await this.crearTareasEditarEmpleado(empleado, dispositivosAnteriores, dispositivosNuevos);
+          } catch (error) {
+            // Los errores en la creación de tareas no deben afectar al usuario
+            console.error('Error al crear tareas automáticas:', error);
+          }
         },
         error: (error) => {
-          
+          console.error('Error al actualizar empleado:', error);
+          this.errorModalService.showErrorModal({
+            title: 'Error',
+            message: 'No se pudo actualizar el empleado. Por favor, intente nuevamente.'
+          });
         }
       });
     } else {
       // Crear nuevo empleado
       
       this.empleadosService.createEmpleado(this.toEmpleadoData(this.nuevoEmpleado)).subscribe({
-        next: async (empleado) => {
-          
+        next: (empleado) => {
+          // El empleado se creó exitosamente - verificar que realmente tenga datos
+          if (!empleado || !empleado.id) {
+            console.error('Error: El empleado se creó pero no se recibieron datos completos', empleado);
+            this.errorModalService.showErrorModal({
+              title: 'Error',
+              message: 'El empleado se creó pero hubo un problema al obtener los datos. Por favor, recarga la página.'
+            });
+            return;
+          }
           
           // Recargar la lista completa de empleados para obtener las relaciones de dispositivos
-          
           this.loadEmpleados();
           
-          // Crear tareas automáticas para el nuevo empleado
-          
-          
-          await this.crearTareasNuevoEmpleado(empleado, this.nuevoEmpleado.dispositivos || []);
-          
+          // Cerrar el modal primero para que el usuario vea que la operación fue exitosa
           this.closeCargoSelector();
           
+          // Crear tareas automáticas para el nuevo empleado (en background, no bloquea la UI)
+          // No usar async/await aquí para evitar que errores en tareas afecten el flujo principal
+          this.crearTareasNuevoEmpleado(empleado, this.nuevoEmpleado.dispositivos || []).catch(error => {
+            // Los errores en la creación de tareas no deben afectar al usuario
+            console.error('Error al crear tareas automáticas (no crítico):', error);
+          });
         },
-        error: (error) => {
+        error: (error: any) => {
+          console.error('Error al crear empleado:', error);
           
+          // Verificar que el error realmente indica que falló la creación
+          // Si el status es 201 o cualquier 2xx, el empleado se creó exitosamente
+          if (error?.status >= 200 && error?.status < 300) {
+            // Si es un status de éxito, el empleado se creó correctamente
+            console.warn('El empleado se creó exitosamente pero hubo un warning en la respuesta:', error);
+            this.loadEmpleados();
+            this.closeCargoSelector();
+            return;
+          }
+          
+          // Solo mostrar error si realmente falló la creación (status 4xx o 5xx)
+          const errorMessage = error?.error?.message || error?.message || 'No se pudo crear el empleado. Por favor, intente nuevamente.';
+          
+          // Limpiar cualquier modal de error previo antes de mostrar uno nuevo
+          this.errorModalService.hideErrorModal();
+          
+          // Pequeño delay para asegurar que se limpie el modal anterior
+          setTimeout(() => {
+            this.errorModalService.showErrorModal({
+              title: 'Error al crear empleado',
+              message: errorMessage
+            });
+          }, 100);
         }
       });
     }
@@ -2875,7 +2962,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // Obtener información de los dispositivos
-      const dispositivos = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds).toPromise();
+      const dispositivos = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds));
       
 
       // Obtener ID del usuario logueado
@@ -2884,7 +2971,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       // Si no se pudo obtener del token, obtener del backend
       if (!user) {
         try {
-          const userData = await this.empleadosService.getCurrentUser().toPromise();
+          const userData = await firstValueFrom(this.empleadosService.getCurrentUser());
           user = { id: userData.id };
           
         } catch (error) {
@@ -2896,7 +2983,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
         // Obtener información completa del empleado con relaciones
-        const empleadoCompleto = await this.tareasAutomaticasService.getEmpleadoById(empleado.id).toPromise();
+        const empleadoCompleto = await firstValueFrom(this.tareasAutomaticasService.getEmpleadoById(empleado.id));
         
         
         
@@ -2958,7 +3045,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       
       
       // Crear todas las tareas
-      const resultados = await this.tareasAutomaticasService.createMultipleTareas(tareas).toPromise();
+      const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));
       
       
       
@@ -2966,8 +3053,12 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       // Actualizar contador de tareas
       this.loadTareasCount();
       
-    } catch (error) {
-      
+    } catch (error: any) {
+      // Los errores en la creación de tareas no deben impedir la creación/eliminación del empleado
+      // Solo logueamos el error sin mostrar al usuario
+      console.error('Error al crear tareas automáticas (no crítico):', error);
+      // Asegurarnos de que no se muestre ningún modal de error por errores en tareas
+      // Estos errores son no críticos y no deben afectar la UX
     }
   }
 
@@ -2982,8 +3073,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Obtener información completa del empleado con relaciones ANTES de eliminarlo
-      const empleadoCompleto = await this.tareasAutomaticasService.getEmpleadoById(empleado.id).toPromise();
+      // Usar el empleado que ya tenemos, no intentar obtenerlo después de eliminarlo
+      const empleadoCompleto = empleado;
       
       
       
@@ -2992,7 +3083,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       
 
       // Obtener información de los dispositivos
-      const dispositivos = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds).toPromise();
+      const dispositivos = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds));
       
 
       // Obtener ID del usuario logueado
@@ -3052,7 +3143,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       
       
       // Crear todas las tareas
-      const resultados = await this.tareasAutomaticasService.createMultipleTareas(tareas).toPromise();
+      const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));
       
       
       
@@ -3060,8 +3151,12 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       // Actualizar contador de tareas
       this.loadTareasCount();
       
-    } catch (error) {
-      
+    } catch (error: any) {
+      // Los errores en la creación de tareas no deben impedir la creación/eliminación del empleado
+      // Solo logueamos el error sin mostrar al usuario
+      console.error('Error al crear tareas automáticas (no crítico):', error);
+      // Asegurarnos de que no se muestre ningún modal de error por errores en tareas
+      // Estos errores son no críticos y no deben afectar la UX
     }
   }
 
@@ -3099,7 +3194,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
       // 1. Crear tareas de ELIMINACIÓN para dispositivos que se quitan
       if (dispositivosQueSeQuitan.length > 0) {
-        const dispositivosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosQueSeQuitan).toPromise();
+        const dispositivosData = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosQueSeQuitan));
         
         if (dispositivosData && dispositivosData.length > 0) {
           for (const dispositivo of dispositivosData) {
@@ -3148,7 +3243,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
       // 2. Crear tareas de AGREGAR para dispositivos nuevos
       if (dispositivosQueSeAgregan.length > 0) {
-        const dispositivosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosQueSeAgregan).toPromise();
+        const dispositivosData = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosQueSeAgregan));
         
         if (dispositivosData && dispositivosData.length > 0) {
           for (const dispositivo of dispositivosData) {
@@ -3198,7 +3293,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       // 3. Crear tareas de EDITAR para dispositivos que permanecen
       
       if (dispositivosQuePermanecen.length > 0) {
-        const dispositivosData = await this.tareasAutomaticasService.getDispositivosByIds(dispositivosQuePermanecen).toPromise();
+        const dispositivosData = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosQuePermanecen));
         
         
         if (dispositivosData && dispositivosData.length > 0) {
@@ -3265,8 +3360,12 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         
       }
       
-    } catch (error) {
-      
+    } catch (error: any) {
+      // Los errores en la creación de tareas no deben impedir la creación/eliminación del empleado
+      // Solo logueamos el error sin mostrar al usuario
+      console.error('Error al crear tareas automáticas (no crítico):', error);
+      // Asegurarnos de que no se muestre ningún modal de error por errores en tareas
+      // Estos errores son no críticos y no deben afectar la UX
     }
   }
 
