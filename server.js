@@ -5952,12 +5952,15 @@ app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
     const cargos = await Cargo.findAll({
       include: [{
         model: Area,
+        as: 'Area',
         attributes: ['id', 'nombre'],
         include: [{
           model: Departamento,
+          as: 'Departamento',
           attributes: ['id', 'nombre'],
           include: [{
             model: Sala,
+            as: 'Sala',
             attributes: ['id', 'nombre'],
             where: {
               id: {
@@ -5978,7 +5981,8 @@ app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
     
     res.json(cargos);
   } catch (error) {
-    
+    console.error('Error en GET /api/empleados/cargos:', error);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
