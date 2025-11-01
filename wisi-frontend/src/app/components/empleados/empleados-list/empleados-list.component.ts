@@ -76,11 +76,36 @@ import { take, filter } from 'rxjs/operators';
             <tr>
               <th>N°</th>
               <th>Foto</th>
-              <th>Nombre</th>
-              <th>Cédula</th>
-              <th>Cargo</th>
-              <th>Edad</th>
-              <th>Antigüedad</th>
+              <th (click)="sortBy('nombre')" class="sortable-header" title="Haz clic para ordenar">
+                Nombre
+                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'nombre' && sortDirection === 'asc'"></i>
+                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'nombre' && sortDirection === 'desc'"></i>
+                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'nombre'"></i>
+              </th>
+              <th (click)="sortBy('cedula')" class="sortable-header" title="Haz clic para ordenar">
+                Cédula
+                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'cedula' && sortDirection === 'asc'"></i>
+                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'cedula' && sortDirection === 'desc'"></i>
+                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'cedula'"></i>
+              </th>
+              <th (click)="sortBy('cargo')" class="sortable-header" title="Haz clic para ordenar">
+                Cargo
+                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'cargo' && sortDirection === 'asc'"></i>
+                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'cargo' && sortDirection === 'desc'"></i>
+                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'cargo'"></i>
+              </th>
+              <th (click)="sortBy('edad')" class="sortable-header" title="Haz clic para ordenar">
+                Edad
+                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'edad' && sortDirection === 'asc'"></i>
+                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'edad' && sortDirection === 'desc'"></i>
+                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'edad'"></i>
+              </th>
+              <th (click)="sortBy('antiguedad')" class="sortable-header" title="Haz clic para ordenar">
+                Antigüedad
+                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'antiguedad' && sortDirection === 'asc'"></i>
+                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'antiguedad' && sortDirection === 'desc'"></i>
+                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'antiguedad'"></i>
+              </th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -92,9 +117,11 @@ import { take, filter } from 'rxjs/operators';
                   *ngIf="empleado.foto" 
                   [src]="'data:image/jpeg;base64,' + empleado.foto" 
                   alt="Foto del empleado"
-                  class="employee-photo"
+                  class="employee-photo clickable-photo"
+                  (click)="verDetalleEmpleado(empleado)"
+                  title="Haz clic para ver detalles"
                 />
-                <span *ngIf="!empleado.foto" class="no-photo">Sin foto</span>
+                <span *ngIf="!empleado.foto" class="no-photo clickable-photo" (click)="verDetalleEmpleado(empleado)" title="Haz clic para ver detalles">Sin foto</span>
               </td>
               <td>{{ empleado.nombre }}</td>
               <td>{{ empleado.cedula }}</td>
@@ -136,6 +163,84 @@ import { take, filter } from 'rxjs/operators';
       <div *ngIf="empleadosFiltrados.length === 0" class="no-data">
         <p *ngIf="filtroTexto">No se encontraron empleados que coincidan con "{{ filtroTexto }}"</p>
         <p *ngIf="!filtroTexto">No hay empleados registrados</p>
+      </div>
+
+      <!-- Modal para ver detalles del empleado -->
+      <div *ngIf="showDetalleModal" class="modal-overlay" (click)="closeDetalleModal()">
+        <div class="modal-content detalle-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Detalles del Empleado</h3>
+            <button class="close-btn" (click)="closeDetalleModal()">&times;</button>
+          </div>
+          <div class="modal-body detalle-body">
+            <div *ngIf="empleadoDetalle" class="detalle-container">
+              <!-- Foto del empleado -->
+              <div class="detalle-foto-section">
+                <img 
+                  *ngIf="empleadoDetalle.foto" 
+                  [src]="'data:image/jpeg;base64,' + empleadoDetalle.foto" 
+                  alt="Foto del empleado"
+                  class="detalle-foto"
+                />
+                <div *ngIf="!empleadoDetalle.foto" class="detalle-foto-placeholder">
+                  <i class="fas fa-user"></i>
+                  <span>Sin foto</span>
+                </div>
+              </div>
+
+              <!-- Información del empleado -->
+              <div class="detalle-info">
+                <div class="info-row">
+                  <span class="info-label">Nombre completo:</span>
+                  <span class="info-value">{{ empleadoDetalle.nombre }}</span>
+                </div>
+
+                <div class="info-row">
+                  <span class="info-label">Cédula:</span>
+                  <span class="info-value">{{ empleadoDetalle.cedula }}</span>
+                </div>
+
+                <div class="info-row">
+                  <span class="info-label">Cargo:</span>
+                  <span class="info-value">{{ empleadoDetalle.Cargo?.nombre || 'Sin asignar' }}</span>
+                </div>
+
+                <div class="info-row">
+                  <span class="info-label">Área:</span>
+                  <span class="info-value">{{ empleadoDetalle.Cargo?.Area?.nombre || 'Sin asignar' }}</span>
+                </div>
+
+                <div class="info-row">
+                  <span class="info-label">Departamento:</span>
+                  <span class="info-value">{{ empleadoDetalle.Cargo?.Area?.Departamento?.nombre || 'Sin asignar' }}</span>
+                </div>
+
+                <div class="info-row">
+                  <span class="info-label">Sala:</span>
+                  <span class="info-value">{{ empleadoDetalle.Cargo?.Area?.Departamento?.Sala?.nombre || 'Sin asignar' }}</span>
+                </div>
+
+                <div class="info-row">
+                  <span class="info-label">Edad:</span>
+                  <span class="info-value">{{ calcularEdad(empleadoDetalle.fecha_cumpleanos) }}</span>
+                </div>
+
+                <div class="info-row">
+                  <span class="info-label">Antigüedad:</span>
+                  <span class="info-value">{{ calcularAntiguedad(empleadoDetalle.fecha_ingreso) }}</span>
+                </div>
+
+                <div class="info-row">
+                  <span class="info-label">Sexo:</span>
+                  <span class="info-value">{{ empleadoDetalle.sexo || 'No especificado' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="closeDetalleModal()">Cerrar</button>
+          </div>
+        </div>
       </div>
 
       <!-- Modal para crear empleado -->
@@ -250,7 +355,8 @@ import { take, filter } from 'rxjs/operators';
                     class="form-control cedula-input"
                     [class.is-invalid]="cedulaError"
                     [disabled]="selectedEmpleado"
-                    [placeholder]="selectedEmpleado ? 'Ingrese la cédula' : 'Ingrese el número de cédula'"
+                    [placeholder]="selectedEmpleado ? 'Cédula (solo lectura)' : 'Ingrese el número de cédula'"
+                    [readonly]="selectedEmpleado"
                     required
                   />
                 </div>
@@ -550,6 +656,46 @@ import { take, filter } from 'rxjs/operators';
       z-index: 10;
     }
 
+    .sortable-header {
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s;
+      position: relative;
+    }
+
+    .sortable-header:hover {
+      background-color: #495057;
+    }
+
+    .sort-icon {
+      margin-left: 8px;
+      font-size: 14px;
+      display: inline-block !important;
+      opacity: 0.85;
+      color: #ffffff !important;
+      transition: all 0.2s;
+      width: auto !important;
+      height: auto !important;
+      visibility: visible !important;
+    }
+
+    .sortable-header:hover .sort-icon {
+      opacity: 1 !important;
+      color: #fff !important;
+      transform: scale(1.15);
+    }
+
+    .sort-icon.fa-sort-up,
+    .sort-icon.fa-sort-down {
+      opacity: 1 !important;
+      color: #fff !important;
+      font-weight: bold;
+    }
+
+    th.sortable-header {
+      position: relative;
+    }
+
     .table td {
       padding: 12px;
       vertical-align: middle;
@@ -569,10 +715,22 @@ import { take, filter } from 'rxjs/operators';
       border: 2px solid #e9ecef;
     }
 
+    .clickable-photo {
+      cursor: pointer;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+
+    .clickable-photo:hover {
+      transform: scale(1.1);
+      opacity: 0.9;
+    }
+
     .no-photo {
       color: #6c757d;
       font-style: italic;
       font-size: 12px;
+      padding: 8px;
+      display: inline-block;
     }
 
     .btn-sm {
@@ -765,6 +923,118 @@ import { take, filter } from 'rxjs/operators';
     .btn.disabled:hover {
       transform: none;
       box-shadow: none;
+    }
+
+    .modal-footer {
+      padding: 15px 20px;
+      border-top: 1px solid #e9ecef;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Estilos para el modal de detalles */
+    .detalle-modal {
+      max-width: 1000px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .detalle-body {
+      padding: 30px !important;
+    }
+
+    @media (max-width: 768px) {
+      .detalle-container {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .detalle-foto-section {
+        width: 100%;
+      }
+    }
+
+    .detalle-container {
+      display: flex;
+      flex-direction: row;
+      gap: 40px;
+      align-items: center;
+    }
+
+    .detalle-foto-section {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-shrink: 0;
+      width: 400px;
+    }
+
+    .detalle-foto {
+      width: 380px;
+      height: 380px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 6px solid #28a745;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .detalle-foto-placeholder {
+      width: 380px;
+      height: 380px;
+      border-radius: 50%;
+      background: #e9ecef;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      border: 6px solid #6c757d;
+      color: #6c757d;
+      font-size: 80px;
+    }
+
+    .detalle-foto-placeholder i {
+      margin-bottom: 10px;
+    }
+
+    .detalle-foto-placeholder span {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .detalle-info {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .info-row {
+      display: flex;
+      padding: 12px 0;
+      border-bottom: 1px solid #e9ecef;
+      align-items: flex-start;
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: #495057;
+      min-width: 160px;
+      margin-right: 15px;
+      font-size: 14px;
+    }
+
+    .info-value {
+      color: #212529;
+      font-size: 14px;
+      flex: 1;
+      word-break: break-word;
     }
 
     .hidden-file-input {
@@ -1332,12 +1602,16 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   empleados: any[] = [];
   empleadosFiltrados: any[] = [];
   filtroTexto: string = '';
+  sortColumn: string = '';
+  sortDirection: 'asc' | 'desc' = 'asc';
   userCargos: any[] = [];
   userDispositivos: any[] = [];
   tareasCount: number = 0;
   dispositivosAnteriores: number[] = [];
   dispositivosNuevos: number[] = [];
   showCargoModal = false;
+  showDetalleModal = false;
+  empleadoDetalle: any = null;
   loading: boolean = false;
   permissionsLoaded: boolean = false;
   selectedEmpleado: any = null;
@@ -1433,8 +1707,16 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   // Helper para convertir EmpleadoForm a Partial<Empleado>
   private toEmpleadoData(form: EmpleadoForm): any {
-    // Combinar tipo y número de cédula
-    const cedulaCompleta = (form.cedula_tipo || 'V') + (form.cedula || '');
+    // IMPORTANTE: La cédula debe manejarse exactamente como está en la BD
+    // Solo agregar V/E si es un empleado NUEVO y la cédula no tiene V/E
+    let cedulaCompleta = form.cedula || '';
+    
+    // Solo agregar V/E si es un empleado NUEVO (id es null) y la cédula no empieza con V o E
+    if (form.id === null && cedulaCompleta && !cedulaCompleta.match(/^[VE]/i)) {
+      cedulaCompleta = (form.cedula_tipo || 'V') + cedulaCompleta;
+    }
+    // Si es edición (id no es null), usar la cédula tal cual (ya viene con V/E de la BD)
+    // Si ya tiene V/E, usarla tal cual (evitar duplicación)
     
     const data = {
       id: form.id || undefined,
@@ -1567,6 +1849,106 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         empleado.Cargo?.Area?.Departamento?.Sala?.nombre?.toLowerCase().includes(filtro)
       );
     }
+    
+    // Aplicar ordenamiento si está activo
+    this.aplicarOrdenamiento();
+  }
+
+  sortBy(column: string): void {
+    // Si ya está ordenando por esta columna, cambiar la dirección
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      // Si no, empezar ordenando ascendente
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+    
+    // Aplicar el ordenamiento
+    this.aplicarOrdenamiento();
+  }
+
+  aplicarOrdenamiento(): void {
+    if (!this.sortColumn) {
+      return;
+    }
+
+    this.empleadosFiltrados.sort((a, b) => {
+      let valueA: any;
+      let valueB: any;
+
+      switch (this.sortColumn) {
+        case 'nombre':
+          valueA = (a.nombre || '').toLowerCase();
+          valueB = (b.nombre || '').toLowerCase();
+          break;
+        
+        case 'cedula':
+          valueA = (a.cedula || '').toLowerCase();
+          valueB = (b.cedula || '').toLowerCase();
+          break;
+        
+        case 'cargo':
+          valueA = (a.Cargo?.nombre || '').toLowerCase();
+          valueB = (b.Cargo?.nombre || '').toLowerCase();
+          break;
+        
+        case 'edad':
+          // Calcular edad numérica para ordenar
+          valueA = this.calcularEdadNumero(a.fecha_cumpleanos);
+          valueB = this.calcularEdadNumero(b.fecha_cumpleanos);
+          break;
+        
+        case 'antiguedad':
+          // Calcular antigüedad en días para ordenar
+          valueA = this.calcularAntiguedadDias(a.fecha_ingreso);
+          valueB = this.calcularAntiguedadDias(b.fecha_ingreso);
+          break;
+        
+        default:
+          return 0;
+      }
+
+      // Comparar valores
+      if (valueA < valueB) {
+        return this.sortDirection === 'asc' ? -1 : 1;
+      }
+      if (valueA > valueB) {
+        return this.sortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }
+
+  calcularEdadNumero(fechaCumpleanos: string): number {
+    if (!fechaCumpleanos) return 0;
+    const hoy = new Date();
+    const cumpleanos = new Date(fechaCumpleanos);
+    let edad = hoy.getFullYear() - cumpleanos.getFullYear();
+    const mes = hoy.getMonth() - cumpleanos.getMonth();
+    if (mes < 0 || (mes === 0 && hoy.getDate() < cumpleanos.getDate())) {
+      edad--;
+    }
+    return edad;
+  }
+
+  calcularAntiguedadDias(fechaIngreso: string): number {
+    if (!fechaIngreso) return 0;
+    const hoy = new Date();
+    const ingreso = new Date(fechaIngreso);
+    const diffTime = hoy.getTime() - ingreso.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  }
+
+  verDetalleEmpleado(empleado: any): void {
+    this.empleadoDetalle = empleado;
+    this.showDetalleModal = true;
+  }
+
+  closeDetalleModal(): void {
+    this.showDetalleModal = false;
+    this.empleadoDetalle = null;
   }
 
   showCargoSelector(): void {
@@ -2548,9 +2930,19 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     const currentCargo = normalizeCargoId(current.cargo_id);
     const cargoChanged = originalCargo !== currentCargo && currentCargo !== null;
     
-    // Para cédula, comparar la cédula completa (tipo + número)
+    // Para cédula, comparar la cédula completa
+    // original.cedula viene de la BD tal cual está (puede tener V/E o no)
     const originalCedulaCompleta = original.cedula || '';
-    const currentCedulaCompleta = (current.cedula_tipo || 'V') + (current.cedula || '');
+    
+    // current.cedula en el form: 
+    // - Si es nuevo (original.id === null), puede no tener V/E, así que hay que agregarla para comparar
+    // - Si es edición (original.id !== null), ya viene completa tal cual de la BD (sin dividir)
+    let currentCedulaCompleta = current.cedula || '';
+    if (original.id === null && currentCedulaCompleta && !currentCedulaCompleta.match(/^[VE]/i)) {
+      // Es nuevo, agregar V/E si no la tiene
+      currentCedulaCompleta = (current.cedula_tipo || 'V') + currentCedulaCompleta;
+    }
+    // Si es edición, current.cedula ya viene completa de la BD (con o sin V/E), comparar directamente
     
     const basicFieldsChanged = 
       original.nombre !== current.nombre ||
@@ -2775,16 +3167,30 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     }
     
     this.selectedEmpleado = empleado;
-    // Extraer tipo de cédula y número
+    // La cédula del backend viene EXACTAMENTE como está en la BD (puede tener V/E o no)
+    // En el formulario de edición, el campo está deshabilitado, así que mostramos la cédula completa
+    // tal cual está en la BD (sin dividirla)
     const cedulaCompleta = empleado.cedula || '';
-    const cedulaTipo = cedulaCompleta.charAt(0) || 'V';
-    const cedulaNumero = cedulaCompleta.substring(1) || '';
+    
+    // Para edición, mostrar la cédula completa tal cual en el campo
+    // (el selector V/E no se muestra en edición según el HTML)
+    // Pero mantener cedula_tipo por si acaso se necesita para validaciones internas
+    let cedulaTipo = 'V'; // Por defecto (no se usa en edición)
+    let cedulaNumero = cedulaCompleta; // Mostrar completa en edición
+    
+    if (cedulaCompleta && cedulaCompleta.match(/^[VE]/i)) {
+      // Si tiene V/E, extraer para referencia interna
+      cedulaTipo = cedulaCompleta.charAt(0).toUpperCase();
+      cedulaNumero = cedulaCompleta.substring(1);
+    }
+    // Si NO tiene V/E en la BD, mostrar la cédula completa tal cual
+    // IMPORTANTE: En edición, mostrar la cédula completa (con o sin V/E) como está en la BD
 
     this.nuevoEmpleado = {
       id: empleado.id,
       foto: empleado.foto || '',
       nombre: empleado.nombre,
-      cedula: cedulaNumero,
+      cedula: cedulaCompleta, // MOSTRAR LA CÉDULA COMPLETA TAL CUAL EN LA BD (con o sin V/E)
       cedula_tipo: cedulaTipo,
       fecha_ingreso: empleado.fecha_ingreso,
       fecha_cumpleanos: empleado.fecha_cumpleanos,
