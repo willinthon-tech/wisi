@@ -305,7 +305,6 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       </div>
 
       <div class="empty-state" *ngIf="!loading && hasSearched && (grupos.length === 0 || todosLosGruposEstanVacios())">
-        <i class="fas fa-users"></i>
         <p>No hay registros</p>
       </div>
     </div>
@@ -1143,7 +1142,8 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
 
     .empty-state p {
       color: #6c757d;
-      font-size: 16px;
+      font-size: 24px;
+      font-weight: 500;
       margin: 0;
     }
 
