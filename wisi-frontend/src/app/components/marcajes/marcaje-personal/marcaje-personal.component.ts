@@ -2681,9 +2681,7 @@ export class MarcajePersonalComponent implements OnInit {
   filtrarMarcajesLocalmente(): void {
     this.marcajesPorEmpleado.clear();
     
-    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 
-      ? this.empleadosFiltrados 
-      : this.empleados;
+    const base = this.obtenerBaseEmpleados();
     
     if (base.length === 0) {
       this.agruparEmpleados();
@@ -2717,9 +2715,7 @@ export class MarcajePersonalComponent implements OnInit {
   cargarMarcajesPorRango() {
     this.marcajesPorEmpleado.clear();
     
-    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 
-      ? this.empleadosFiltrados 
-      : this.empleados;
+    const base = this.obtenerBaseEmpleados();
     
     if (base.length === 0) {
       this.agruparEmpleados();
@@ -2914,7 +2910,7 @@ export class MarcajePersonalComponent implements OnInit {
 
     // Contador para saber cuándo terminar
     let empleadosProcesados = 0;
-    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+    const base = this.obtenerBaseEmpleados();
     const totalEmpleados = base.filter(e => e.id).length;
 
     if (totalEmpleados === 0) {
@@ -3109,7 +3105,7 @@ export class MarcajePersonalComponent implements OnInit {
 
   agruparPorSalas() {
     const gruposMap = new Map<number, { nombre: string; empleados: any[] }>();
-    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+    const base = this.obtenerBaseEmpleados();
 
     // Si hay sala seleccionada (por radio buttons o por filtro), mostrar solo esa sala
     const salaSeleccionada = this.selectedSalaForDataLoad || this.selectedSalaId;
@@ -3155,7 +3151,7 @@ export class MarcajePersonalComponent implements OnInit {
   agruparPorAreas() {
     const gruposMap = new Map();
     
-    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+    const base = this.obtenerBaseEmpleados();
     base.forEach(empleado => {
       const sala = empleado.Cargo?.Area?.Departamento?.Sala?.nombre || 'Sin Sala';
       const area = empleado.Cargo?.Area?.nombre || 'Sin Area';
@@ -3177,7 +3173,7 @@ export class MarcajePersonalComponent implements OnInit {
   agruparPorDepartamentos() {
     const gruposMap = new Map();
     
-    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+    const base = this.obtenerBaseEmpleados();
     base.forEach(empleado => {
       const sala = empleado.Cargo?.Area?.Departamento?.Sala?.nombre || 'Sin Sala';
       const area = empleado.Cargo?.Area?.nombre || 'Sin Area';
@@ -3200,7 +3196,7 @@ export class MarcajePersonalComponent implements OnInit {
   agruparPorCargos() {
     const gruposMap = new Map();
     
-    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
+    const base = this.obtenerBaseEmpleados();
     base.forEach(empleado => {
       const sala = empleado.Cargo?.Area?.Departamento?.Sala?.nombre || 'Sin Sala';
       const area = empleado.Cargo?.Area?.nombre || 'Sin Area';
@@ -3219,6 +3215,26 @@ export class MarcajePersonalComponent implements OnInit {
     });
     
     this.grupos = Array.from(gruposMap.values());
+  }
+
+  tieneFiltrosAplicados(): boolean {
+    // Verificar si hay algún filtro aplicado (excepto la sala por defecto si no hay otros filtros)
+    return !!(
+      this.selectedDepartamentoId ||
+      this.selectedAreaId ||
+      this.selectedCargoId ||
+      this.selectedSexo ||
+      (this.searchText && this.searchText.trim().length > 0)
+    );
+  }
+
+  obtenerBaseEmpleados(): any[] {
+    // Si hay filtros aplicados, usar siempre empleadosFiltrados (incluso si está vacío)
+    // Si no hay filtros, usar empleadosFiltrados si tiene datos, sino empleados
+    if (this.tieneFiltrosAplicados()) {
+      return this.empleadosFiltrados || [];
+    }
+    return (this.empleadosFiltrados && this.empleadosFiltrados.length > 0) ? this.empleadosFiltrados : this.empleados;
   }
 
   todosLosGruposEstanVacios(): boolean {
