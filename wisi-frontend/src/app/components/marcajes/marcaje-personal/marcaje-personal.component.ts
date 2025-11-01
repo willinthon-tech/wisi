@@ -20,22 +20,33 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
   template: `
     <div class="marcaje-personal-container">
 
+      <!-- Bloque superior: Selección de sala con radio buttons -->
+      <div class="sala-selector-section">
+        <div class="sala-selector-container">
+          <label class="sala-selector-label">Seleccionar Sala:</label>
+          <div class="radio-buttons-group">
+            <label class="radio-option" *ngFor="let sala of userSalas">
+              <input 
+                type="radio" 
+                name="salaSelector" 
+                [value]="sala.id"
+                [checked]="selectedSalaForDataLoad === sala.id"
+                (change)="onSalaSelectorChange(sala.id)"
+                class="radio-input">
+              <span class="radio-label">{{ sala.nombre }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bloque inferior: Filtros locales -->
       <div class="filters-section">
         <div class="date-filters row g-3">
-          <div class="filter-group col-sm-3">
-            <label for="salaSelect">Sala:</label>
-            <select id="salaSelect" class="form-select"
-                    [(ngModel)]="selectedSalaId"
-                    (change)="onSalaChange()">
-              <option [ngValue]="null">Todo</option>
-              <option *ngFor="let s of userSalas" [ngValue]="s.id">{{ s.nombre }}</option>
-            </select>
-          </div>
           <div class="filter-group col-sm-3">
             <label for="deptoSelect">Departamento:</label>
             <select id="deptoSelect" class="form-select"
                     [(ngModel)]="selectedDepartamentoId"
-                    [disabled]="!selectedSalaId"
+                    [disabled]="!selectedSalaForDataLoad"
                     (change)="onDepartamentoChange()">
               <option [ngValue]="null">Todo</option>
               <option *ngFor="let d of departamentosFiltrados" [ngValue]="d.id">{{ d.nombre }}</option>
@@ -66,7 +77,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
             <label for="sexoSelect">Sexo:</label>
             <select id="sexoSelect" class="form-select"
                     [(ngModel)]="selectedSexo"
-                    [disabled]="!selectedSalaId"
+                    [disabled]="!selectedSalaForDataLoad"
                     (change)="onSexoChange()">
               <option [ngValue]="null">Todo</option>
               <option [ngValue]="'Femenino'">Femenino</option>
@@ -79,7 +90,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
             <input id="searchInput" type="text" class="form-input"
                    placeholder="Ej: 1234 o Aida"
                    [(ngModel)]="searchText"
-                   [disabled]="!selectedSalaId"
+                   [disabled]="!selectedSalaForDataLoad"
                    (keyup)="onSearchChange()" />
           </div>
           
@@ -91,7 +102,11 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
               id="fechaDesde"
               [(ngModel)]="fechaDesde" 
               name="fechaDesde"
-              class="form-input">
+              class="form-input"
+              [disabled]="!selectedSalaForDataLoad"
+              [min]="fechaMinimaFiltro"
+              [max]="fechaMaximaFiltro"
+              (change)="onFiltroLocalChange()">
           </div>
           
           <div class="filter-group col-sm-3">
@@ -101,13 +116,11 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
               id="fechaHasta"
               [(ngModel)]="fechaHasta" 
               name="fechaHasta"
-              class="form-input">
-          </div>
-          
-          <div class="filter-group col-sm-3 d-flex align-items-end">
-          <button class="btn-primary w-100" (click)="cargarDatos()" [disabled]="loading">
-            {{ loading ? 'Cargando...' : 'Filtrar' }}
-          </button>
+              class="form-input"
+              [disabled]="!selectedSalaForDataLoad"
+              [min]="fechaMinimaFiltro"
+              [max]="fechaMaximaFiltro"
+              (change)="onFiltroLocalChange()">
           </div>
         </div>
         
@@ -539,6 +552,69 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       margin: 0;
       color: #666;
       font-size: 16px;
+    }
+
+    .sala-selector-section {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .sala-selector-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .sala-selector-label {
+      font-weight: bold;
+      color: #333;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .radio-buttons-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 10px 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      transition: all 0.3s;
+      background: #f9f9f9;
+    }
+
+    .radio-option:hover {
+      border-color: #4CAF50;
+      background: #f0f8f0;
+    }
+
+    .radio-input {
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+      accent-color: #4CAF50;
+    }
+
+    .radio-option:has(.radio-input:checked) {
+      border-color: #4CAF50;
+      background: #e8f5e8;
+      font-weight: 600;
+    }
+
+    .radio-label {
+      font-size: 14px;
+      color: #333;
+      user-select: none;
     }
 
     .filters-section {
@@ -1808,6 +1884,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
 })
 export class MarcajePersonalComponent implements OnInit {
   empleados: any[] = [];
+  empleadosCompletos: any[] = []; // Todos los empleados de la sala seleccionada (sin filtros)
   empleadosFiltrados: any[] = [];
   grupos: any[] = [];
   userSalas: any[] = [];
@@ -1815,12 +1892,18 @@ export class MarcajePersonalComponent implements OnInit {
   mesesAgrupados: { nombre: string, dias: Date[], colspan: number }[] = [];
   fechaDesde: string = '';
   fechaHasta: string = '';
+  fechaMinimaFiltro: string = ''; // Fecha más antigua encontrada (límite mínimo para filtros)
+  fechaMaximaFiltro: string = ''; // 4 meses adelante (límite máximo para filtros)
   grupoSeleccionado: string = 'salas';
   loading = false;
   marcajesPorEmpleado: Map<string, any[]> = new Map();
+  marcajesCompletos: Map<string, any[]> = new Map(); // Todos los marcajes sin filtros de fecha
   excepcionesMap: Map<string, any> = new Map();
+  excepcionesCompletas: Map<string, any> = new Map(); // Todas las excepciones sin filtros de fecha
   hasSearched = false;
-  // Filtros jerárquicos
+  // Selección de sala para cargar datos (radio buttons)
+  selectedSalaForDataLoad: number | null = null;
+  // Filtros jerárquicos (para filtrar datos locales)
   selectedSalaId: number | null = null;
   selectedDepartamentoId: number | null = null;
   selectedAreaId: number | null = null;
@@ -2014,13 +2097,16 @@ export class MarcajePersonalComponent implements OnInit {
           // Actualización optimista del mapa para reflejar inmediatamente
           const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
           const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
-          this.excepcionesMap.set(key, {
+          const excepcionActualizada = {
             id: this.excepcionId,
             empleado_id: this.modalEmpleado.id,
             fecha: this.modalFecha,
             plantilla_horario_id: this.selectedPlantillaId,
             PlantillaHorario: plantilla
-          });
+          };
+          this.excepcionesMap.set(key, excepcionActualizada);
+          // También actualizar el mapa de excepciones completas
+          this.excepcionesCompletas.set(key, excepcionActualizada);
           this.plantillaExcepcionActualId = this.selectedPlantillaId as number;
           // no recarga completa
         },
@@ -2038,13 +2124,16 @@ export class MarcajePersonalComponent implements OnInit {
           // Actualización optimista del mapa para reflejar inmediatamente
           const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
           const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
-          this.excepcionesMap.set(key, {
+          const excepcionCreada = {
             id: res?.id,
             empleado_id: this.modalEmpleado.id,
             fecha: this.modalFecha,
             plantilla_horario_id: this.selectedPlantillaId,
             PlantillaHorario: plantilla
-          });
+          };
+          this.excepcionesMap.set(key, excepcionCreada);
+          // También actualizar el mapa de excepciones completas
+          this.excepcionesCompletas.set(key, excepcionCreada);
           this.isEditExcepcion = true;
           this.excepcionId = res?.id || this.excepcionId;
           this.plantillaExcepcionActualId = this.selectedPlantillaId as number;
@@ -2060,13 +2149,16 @@ export class MarcajePersonalComponent implements OnInit {
                   this.savingExcepcion = false;
                   this.showExcepcionModal = false;
                   const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
-                  this.excepcionesMap.set(key, {
+                  const excepcionActualizada = {
                     id: ex.id,
                     empleado_id: this.modalEmpleado.id,
                     fecha: this.modalFecha,
                     plantilla_horario_id: this.selectedPlantillaId,
                     PlantillaHorario: plantilla
-                  });
+                  };
+                  this.excepcionesMap.set(key, excepcionActualizada);
+                  // También actualizar el mapa de excepciones completas
+                  this.excepcionesCompletas.set(key, excepcionActualizada);
                 },
                 error: () => { this.savingExcepcion = false; }
               });
@@ -2148,6 +2240,8 @@ export class MarcajePersonalComponent implements OnInit {
         // Remover de forma optimista la excepción del mapa
         const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
         this.excepcionesMap.delete(key);
+        // También eliminar del mapa de excepciones completas
+        this.excepcionesCompletas.delete(key);
         // Reset selección del select por si quedó en "Eliminar Registro"
         this.selectedPlantillaId = null;
         this.plantillaExcepcionActualId = null;
@@ -2219,6 +2313,466 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
+  // Nuevo método: cuando se selecciona una sala en el bloque superior (radio buttons)
+  onSalaSelectorChange(salaId: number) {
+    if (!salaId) {
+      // Si se deselecciona, limpiar datos
+      this.selectedSalaForDataLoad = null;
+      this.empleadosCompletos = [];
+      this.excepcionesCompletas.clear();
+      this.empleadosFiltrados = [];
+      this.grupos = [];
+      this.hasSearched = false;
+      this.selectedSalaId = null;
+      this.selectedDepartamentoId = null;
+      this.selectedAreaId = null;
+      this.selectedCargoId = null;
+      this.selectedSexo = null;
+      this.searchText = '';
+      return;
+    }
+    
+    this.selectedSalaForDataLoad = salaId;
+    this.loading = true;
+    this.hasSearched = false;
+    
+    // Limpiar filtros locales
+    this.selectedSalaId = null;
+    this.selectedDepartamentoId = null;
+    this.selectedAreaId = null;
+    this.selectedCargoId = null;
+    this.selectedSexo = null;
+    this.searchText = '';
+    
+    // Limpiar fechas para que se calculen dinámicamente después de cargar los datos
+    this.fechaDesde = '';
+    this.fechaHasta = '';
+    this.fechaMinimaFiltro = '';
+    this.fechaMaximaFiltro = '';
+    
+    // Cargar todos los datos de la sala
+    this.cargarDatosCompletosPorSala(salaId);
+  }
+
+  // Cargar todos los datos (horarios y excepciones) sin filtros de fecha
+  cargarDatosCompletosPorSala(salaId: number) {
+    // Primero, obtener todos los empleados de esa sala
+    this.empleadosService.getEmpleados().subscribe({
+      next: (response) => {
+        const todosEmpleados = response || [];
+        // Filtrar empleados por sala
+        this.empleadosCompletos = todosEmpleados.filter((emp: any) => {
+          const cargo = emp?.Cargo;
+          if (!cargo) return false;
+          const area = cargo.Area;
+          if (!area) return false;
+          const departamento = area.Departamento;
+          if (!departamento) return false;
+          const sala = departamento.Sala;
+          const salaIdEmp = sala?.id || departamento.sala_id;
+          return salaIdEmp === salaId;
+        });
+        
+        // Si no hay empleados, mostrar mensaje y terminar
+        if (this.empleadosCompletos.length === 0) {
+          this.loading = false;
+          this.hasSearched = true;
+          this.grupos = [];
+          return;
+        }
+        
+        // Cargar horarios para todos los empleados
+        this.cargarHorariosCompletos().then(() => {
+          // Cargar todas las excepciones sin filtros de fecha
+          this.cargarExcepcionesCompletas().then(() => {
+            // Calcular fechas mínima y máxima para cargar todos los marcajes
+            this.calcularFechasLimiteCompletas().then(() => {
+              // Cargar todos los marcajes para el rango completo
+              this.cargarMarcajesCompletos().then(() => {
+                // Aplicar filtros locales iniciales para mostrar los datos
+                this.aplicarFiltrosLocales();
+              });
+            });
+          });
+        });
+      },
+      error: (error) => {
+        console.error('Error cargando empleados:', error);
+        this.loading = false;
+      }
+    });
+  }
+
+  // Cargar horarios para todos los empleados completos
+  async cargarHorariosCompletos(): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.empleadosCompletos.length === 0) {
+        resolve();
+        return;
+      }
+      
+      let empleadosProcesados = 0;
+      const totalEmpleados = this.empleadosCompletos.filter(e => e.id).length;
+      
+      if (totalEmpleados === 0) {
+        resolve();
+        return;
+      }
+      
+      this.empleadosCompletos.forEach(empleado => {
+        if (empleado.id) {
+          this.empleadosService.getHorariosEmpleado(empleado.id).subscribe({
+            next: (horarios) => {
+              empleado.horariosEmpleado = horarios || [];
+              empleadosProcesados++;
+              if (empleadosProcesados === totalEmpleados) {
+                resolve();
+              }
+            },
+            error: () => {
+              empleado.horariosEmpleado = [];
+              empleadosProcesados++;
+              if (empleadosProcesados === totalEmpleados) {
+                resolve();
+              }
+            }
+          });
+        } else {
+          empleadosProcesados++;
+          if (empleadosProcesados === totalEmpleados) {
+            resolve();
+          }
+        }
+      });
+    });
+  }
+
+  // Cargar todas las excepciones sin filtros de fecha
+  async cargarExcepcionesCompletas(): Promise<void> {
+    return new Promise((resolve) => {
+      this.excepcionesCompletas.clear();
+      
+      // Obtener todos los IDs de empleados de la sala
+      const empleadoIds = this.empleadosCompletos.map(e => e.id).filter(id => id);
+      
+      if (empleadoIds.length === 0) {
+        resolve();
+        return;
+      }
+      
+      // Cargar excepciones sin filtros de fecha (pasar undefined para desde y hasta)
+      this.excepcionesService.listar(undefined, undefined, undefined).subscribe({
+        next: (ex: any[]) => {
+          // Filtrar solo las excepciones de los empleados de la sala
+          (ex || []).forEach(e => {
+            if (empleadoIds.includes(e.empleado_id)) {
+              const key = `${e.empleado_id}|${e.fecha}`;
+              this.excepcionesCompletas.set(key, e);
+            }
+          });
+          resolve();
+        },
+        error: () => {
+          resolve();
+        }
+      });
+    });
+  }
+
+  // Calcular fechas límite completas para cargar todos los marcajes
+  async calcularFechasLimiteCompletas(): Promise<void> {
+    return new Promise((resolve) => {
+      let fechaMin: string | null = null;
+      
+      // Buscar la fecha más antigua en las excepciones
+      this.excepcionesCompletas.forEach((ex) => {
+        if (!fechaMin || ex.fecha < fechaMin) {
+          fechaMin = ex.fecha;
+        }
+      });
+      
+      // Buscar la fecha más antigua en los horarios (primer_dia)
+      this.empleadosCompletos.forEach((emp) => {
+        if (emp.horariosEmpleado && Array.isArray(emp.horariosEmpleado)) {
+          emp.horariosEmpleado.forEach((hor: any) => {
+            if (hor.primer_dia) {
+              const fechaHorario = typeof hor.primer_dia === 'string' 
+                ? hor.primer_dia.split('T')[0] 
+                : new Date(hor.primer_dia).toISOString().split('T')[0];
+              if (!fechaMin || fechaHorario < fechaMin) {
+                fechaMin = fechaHorario;
+              }
+            }
+          });
+        }
+      });
+      
+      // Si encontramos una fecha mínima, usarla como límite; si no, usar hace 2 años desde hoy
+      if (fechaMin) {
+        this.fechaMinimaFiltro = fechaMin;
+      } else {
+        const hoy = new Date();
+        const haceDosAños = new Date();
+        haceDosAños.setFullYear(hoy.getFullYear() - 2);
+        this.fechaMinimaFiltro = haceDosAños.toISOString().split('T')[0];
+      }
+      
+      // Fecha máxima: siempre 4 meses después de la fecha actual
+      const hoy = new Date();
+      const enCuatroMeses = new Date();
+      enCuatroMeses.setMonth(hoy.getMonth() + 4);
+      this.fechaMaximaFiltro = enCuatroMeses.toISOString().split('T')[0];
+      
+      resolve();
+    });
+  }
+
+  // Cargar todos los marcajes para el rango completo (sin filtros de fecha)
+  async cargarMarcajesCompletos(): Promise<void> {
+    return new Promise((resolve) => {
+      this.marcajesCompletos.clear();
+      
+      const empleadosConCedula = this.empleadosCompletos.filter(e => e.cedula);
+      const totalEmpleados = empleadosConCedula.length;
+      
+      if (totalEmpleados === 0 || !this.fechaMinimaFiltro || !this.fechaMaximaFiltro) {
+        resolve();
+        return;
+      }
+      
+      let empleadosProcesados = 0;
+      
+      empleadosConCedula.forEach(empleado => {
+        this.marcajesService.getMarcajes({
+          employee_no: empleado.cedula,
+          fecha_inicio: this.fechaMinimaFiltro,
+          fecha_fin: this.fechaMaximaFiltro
+        }).subscribe({
+          next: (response) => {
+            this.marcajesCompletos.set(empleado.cedula, response.attlogs || []);
+            empleadosProcesados++;
+            if (empleadosProcesados === totalEmpleados) {
+              resolve();
+            }
+          },
+          error: () => {
+            this.marcajesCompletos.set(empleado.cedula, []);
+            empleadosProcesados++;
+            if (empleadosProcesados === totalEmpleados) {
+              resolve();
+            }
+          }
+        });
+      });
+    });
+  }
+
+  // Aplicar filtros locales sin llamar al backend
+  aplicarFiltrosLocales() {
+    if (!this.selectedSalaForDataLoad || this.empleadosCompletos.length === 0) {
+      this.loading = false;
+      return;
+    }
+    
+    // Si no hay fechas establecidas, calcular rango dinámico basado en los datos cargados
+    if (!this.fechaDesde || !this.fechaHasta) {
+      let fechaMin: string | null = null;
+      
+      // Buscar la fecha más antigua en las excepciones
+      this.excepcionesCompletas.forEach((ex) => {
+        if (!fechaMin || ex.fecha < fechaMin) {
+          fechaMin = ex.fecha;
+        }
+      });
+      
+      // Buscar la fecha más antigua en los horarios (primer_dia)
+      this.empleadosCompletos.forEach((emp) => {
+        if (emp.horariosEmpleado && Array.isArray(emp.horariosEmpleado)) {
+          emp.horariosEmpleado.forEach((hor: any) => {
+            if (hor.primer_dia) {
+              const fechaHorario = typeof hor.primer_dia === 'string' 
+                ? hor.primer_dia.split('T')[0] 
+                : new Date(hor.primer_dia).toISOString().split('T')[0];
+              if (!fechaMin || fechaHorario < fechaMin) {
+                fechaMin = fechaHorario;
+              }
+            }
+          });
+        }
+      });
+      
+      // Si encontramos una fecha mínima, usarla como límite; si no, usar hace 2 años desde hoy
+      let fechaMinPermitida: string;
+      if (fechaMin) {
+        fechaMinPermitida = fechaMin;
+        this.fechaMinimaFiltro = fechaMin; // Guardar como límite mínimo
+      } else {
+        const hoy = new Date();
+        const haceDosAños = new Date();
+        haceDosAños.setFullYear(hoy.getFullYear() - 2);
+        fechaMinPermitida = haceDosAños.toISOString().split('T')[0];
+        this.fechaMinimaFiltro = fechaMinPermitida; // Guardar como límite mínimo
+      }
+      
+      // Fecha máxima: siempre 4 meses después de la fecha actual
+      const hoy = new Date();
+      const enCuatroMeses = new Date();
+      enCuatroMeses.setMonth(hoy.getMonth() + 4);
+      this.fechaMaximaFiltro = enCuatroMeses.toISOString().split('T')[0];
+      
+      // Establecer rango inicial basado en el día actual del mes
+      const diaActual = hoy.getDate();
+      let fechaInicioInicial: Date;
+      let fechaFinInicial: Date;
+      
+      if (diaActual > 15) {
+        // Si el día es mayor a 15: desde el 16 del mes actual hasta el último día del mes
+        fechaInicioInicial = new Date(hoy.getFullYear(), hoy.getMonth(), 16);
+        fechaFinInicial = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0); // Último día del mes
+      } else {
+        // Si el día es menor o igual a 15: desde el 1 del mes actual hasta el 15
+        fechaInicioInicial = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+        fechaFinInicial = new Date(hoy.getFullYear(), hoy.getMonth(), 15);
+      }
+      
+      // Asegurarse de que las fechas iniciales estén dentro de los límites permitidos
+      const fechaMinPermitidaDate = new Date(fechaMinPermitida);
+      const fechaMaxPermitidaDate = new Date(this.fechaMaximaFiltro);
+      
+      // Si la fecha de inicio inicial es menor que la mínima permitida, usar la mínima permitida
+      if (fechaInicioInicial < fechaMinPermitidaDate) {
+        fechaInicioInicial = new Date(fechaMinPermitidaDate);
+      }
+      
+      // Si la fecha fin inicial es mayor que la máxima permitida, usar la máxima permitida
+      if (fechaFinInicial > fechaMaxPermitidaDate) {
+        fechaFinInicial = new Date(fechaMaxPermitidaDate);
+      }
+      
+      // Establecer las fechas iniciales
+      this.fechaDesde = fechaInicioInicial.toISOString().split('T')[0];
+      this.fechaHasta = fechaFinInicial.toISOString().split('T')[0];
+    }
+    
+    this.hasSearched = true;
+    this.loading = true;
+    
+    // Generar días del mes basado en las fechas seleccionadas
+    this.generarDiasDelMes();
+    this.generarMesesAgrupados();
+    
+    // Filtrar empleados localmente
+    this.empleados = [...this.empleadosCompletos];
+    this.aplicarFiltrosCascada();
+    
+    // Filtrar excepciones por rango de fechas localmente
+    this.excepcionesMap.clear();
+    this.excepcionesCompletas.forEach((ex, key) => {
+      if (ex.fecha >= this.fechaDesde && ex.fecha <= this.fechaHasta) {
+        this.excepcionesMap.set(key, ex);
+      }
+    });
+    
+    // Filtrar marcajes localmente de los marcajes completos ya cargados
+    this.filtrarMarcajesLocalmente();
+  }
+
+  // Filtrar marcajes localmente de los marcajes completos ya cargados
+  filtrarMarcajesLocalmente(): void {
+    this.marcajesPorEmpleado.clear();
+    
+    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 
+      ? this.empleadosFiltrados 
+      : this.empleados;
+    
+    if (base.length === 0) {
+      this.agruparEmpleados();
+      this.loading = false;
+      return;
+    }
+    
+    // Si tenemos marcajes completos cargados, filtrarlos localmente
+    if (this.marcajesCompletos.size > 0) {
+      base.forEach(empleado => {
+        if (empleado.cedula) {
+          const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
+          // Filtrar marcajes por rango de fechas
+          const marcajesFiltrados = marcajesCompletos.filter((marcaje: any) => {
+            const fechaMarcaje = marcaje.fecha ? marcaje.fecha.split('T')[0] : null;
+            if (!fechaMarcaje) return false;
+            return fechaMarcaje >= this.fechaDesde && fechaMarcaje <= this.fechaHasta;
+          });
+          this.marcajesPorEmpleado.set(empleado.cedula, marcajesFiltrados);
+        }
+      });
+      this.agruparEmpleados();
+      this.loading = false;
+    } else {
+      // Si no hay marcajes completos cargados (caso de fallback), usar el método anterior
+      this.cargarMarcajesPorRango();
+    }
+  }
+
+  // Cargar marcajes solo para el rango de fechas seleccionado (método fallback si no hay marcajes completos)
+  cargarMarcajesPorRango() {
+    this.marcajesPorEmpleado.clear();
+    
+    const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 
+      ? this.empleadosFiltrados 
+      : this.empleados;
+    
+    if (base.length === 0) {
+      this.agruparEmpleados();
+      this.loading = false;
+      return;
+    }
+    
+    // Si hay empleados con cédula, cargar marcajes; si no, mostrar directamente
+    const empleadosConCedula = base.filter(e => e.cedula);
+    const totalEmpleados = empleadosConCedula.length;
+    
+    if (totalEmpleados === 0) {
+      // Si no hay empleados con cédula, mostrar igualmente los empleados con horarios
+      this.agruparEmpleados();
+      this.loading = false;
+      return;
+    }
+    
+    let empleadosProcesados = 0;
+    
+    empleadosConCedula.forEach(empleado => {
+      this.marcajesService.getMarcajes({
+        employee_no: empleado.cedula,
+        fecha_inicio: this.fechaDesde,
+        fecha_fin: this.fechaHasta
+      }).subscribe({
+        next: (response) => {
+          this.marcajesPorEmpleado.set(empleado.cedula, response.attlogs || []);
+          empleadosProcesados++;
+          if (empleadosProcesados === totalEmpleados) {
+            this.agruparEmpleados();
+            this.loading = false;
+          }
+        },
+        error: () => {
+          this.marcajesPorEmpleado.set(empleado.cedula, []);
+          empleadosProcesados++;
+          if (empleadosProcesados === totalEmpleados) {
+            this.agruparEmpleados();
+            this.loading = false;
+          }
+        }
+      });
+    });
+  }
+
+  // Cuando cambian los filtros locales (sin cargar del backend)
+  onFiltroLocalChange() {
+    if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+      this.aplicarFiltrosLocales();
+    }
+  }
+
   cargarDatos() {
     if (!this.fechaDesde || !this.fechaHasta) {
       
@@ -2252,37 +2806,70 @@ export class MarcajePersonalComponent implements OnInit {
     this.selectedAreaId = null;
     this.selectedCargoId = null;
     this.actualizarListasCascada();
-    this.aplicarFiltrosCascada();
+    // Si tenemos datos completos, aplicar filtros locales
+    if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+      this.aplicarFiltrosLocales();
+    } else {
+      this.aplicarFiltrosCascada();
+    }
   }
 
   onDepartamentoChange() {
     this.selectedAreaId = null;
     this.selectedCargoId = null;
     this.actualizarListasCascada();
-    this.aplicarFiltrosCascada();
+    // Si tenemos datos completos, aplicar filtros locales
+    if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+      this.aplicarFiltrosLocales();
+    } else {
+      this.aplicarFiltrosCascada();
+    }
   }
 
   onAreaChange() {
     this.selectedCargoId = null;
     this.actualizarListasCascada();
-    this.aplicarFiltrosCascada();
+    // Si tenemos datos completos, aplicar filtros locales
+    if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+      this.aplicarFiltrosLocales();
+    } else {
+      this.aplicarFiltrosCascada();
+    }
   }
 
   onCargoChange() {
-    this.aplicarFiltrosCascada();
+    // Si tenemos datos completos, aplicar filtros locales
+    if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+      this.aplicarFiltrosLocales();
+    } else {
+      this.aplicarFiltrosCascada();
+    }
   }
 
   onSexoChange() {
-    this.aplicarFiltrosCascada();
+    // Si tenemos datos completos, aplicar filtros locales
+    if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+      this.aplicarFiltrosLocales();
+    } else {
+      this.aplicarFiltrosCascada();
+    }
   }
 
   onSearchChange() {
-    this.aplicarFiltrosCascada();
+    // Si tenemos datos completos, aplicar filtros locales
+    if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+      this.aplicarFiltrosLocales();
+    } else {
+      this.aplicarFiltrosCascada();
+    }
   }
 
   private actualizarListasCascada() {
+    // Usar selectedSalaId si está seleccionado, si no usar selectedSalaForDataLoad
+    const salaParaFiltrar = this.selectedSalaId || this.selectedSalaForDataLoad;
+    
     // Filtrar departamentos por sala
-    this.departamentosFiltrados = (this.departamentosAll || []).filter(d => !this.selectedSalaId || d.sala_id === this.selectedSalaId);
+    this.departamentosFiltrados = (this.departamentosAll || []).filter(d => !salaParaFiltrar || d.sala_id === salaParaFiltrar);
     // Filtrar áreas por departamento
     this.areasFiltradas = (this.areasAll || []).filter(a => !this.selectedDepartamentoId || a.departamento_id === this.selectedDepartamentoId);
     // Filtrar cargos por área
@@ -2290,7 +2877,9 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   private aplicarFiltrosCascada() {
-    this.empleadosFiltrados = (this.empleados || []).filter(e => this.empleadoCoincideFiltros(e));
+    // Si tenemos datos completos cargados, usar esos; si no, usar empleados normales
+    const baseEmpleados = this.empleadosCompletos.length > 0 ? this.empleadosCompletos : this.empleados;
+    this.empleadosFiltrados = (baseEmpleados || []).filter(e => this.empleadoCoincideFiltros(e));
   }
 
   private empleadoCoincideFiltros(empleado: any): boolean {
@@ -2303,7 +2892,9 @@ export class MarcajePersonalComponent implements OnInit {
     const nombre = (empleado?.nombre || '').toLowerCase();
     const cedula = (empleado?.cedula || '').toString().toLowerCase();
 
-    if (this.selectedSalaId && salaId !== this.selectedSalaId) return false;
+    // Si estamos en modo local (con selectedSalaForDataLoad), no filtrar por sala aquí
+    // ya que todos los empleadosCompletos ya son de esa sala
+    if (!this.selectedSalaForDataLoad && this.selectedSalaId && salaId !== this.selectedSalaId) return false;
     if (this.selectedDepartamentoId && departamentoId !== this.selectedDepartamentoId) return false;
     if (this.selectedAreaId && areaId !== this.selectedAreaId) return false;
     if (this.selectedCargoId && cargoId !== this.selectedCargoId) return false;
@@ -2520,9 +3111,10 @@ export class MarcajePersonalComponent implements OnInit {
     const gruposMap = new Map<number, { nombre: string; empleados: any[] }>();
     const base = this.empleadosFiltrados && this.empleadosFiltrados.length > 0 ? this.empleadosFiltrados : this.empleados;
 
-    // Si hay sala seleccionada, mostrar solo esa sala
-    if (this.selectedSalaId) {
-      const salaKey = Number(this.selectedSalaId);
+    // Si hay sala seleccionada (por radio buttons o por filtro), mostrar solo esa sala
+    const salaSeleccionada = this.selectedSalaForDataLoad || this.selectedSalaId;
+    if (salaSeleccionada) {
+      const salaKey = Number(salaSeleccionada);
       const salaSel = this.userSalas?.find(s => s.id === salaKey);
       const nombreSala = salaSel?.nombre || 'Sala seleccionada';
       gruposMap.set(salaKey, { nombre: nombreSala, empleados: [] });
