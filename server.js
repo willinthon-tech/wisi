@@ -2697,10 +2697,14 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
         where: {},
         include: [{
           model: Departamento,
+          as: 'Departamento',
           attributes: ['id', 'nombre'],
+          required: false,
           include: [{
             model: Sala,
-            attributes: ['id', 'nombre']
+            as: 'Sala',
+            attributes: ['id', 'nombre'],
+            required: false
           }]
         }],
         order: [['created_at', 'DESC']]
@@ -2727,10 +2731,14 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
         },
         include: [{
           model: Departamento,
+          as: 'Departamento',
           attributes: ['id', 'nombre'],
+          required: false,
           include: [{
             model: Sala,
-            attributes: ['id', 'nombre']
+            as: 'Sala',
+            attributes: ['id', 'nombre'],
+            required: false
           }]
         }],
         order: [['created_at', 'DESC']]
@@ -2780,10 +2788,14 @@ app.post('/api/areas', authenticateToken, async (req, res) => {
     const areaConDepartamento = await Area.findByPk(area.id, {
       include: [{
         model: Departamento,
+        as: 'Departamento',
         attributes: ['id', 'nombre'],
+        required: false,
         include: [{
           model: Sala,
-          attributes: ['id', 'nombre']
+          as: 'Sala',
+          attributes: ['id', 'nombre'],
+          required: false
         }]
       }]
     });
@@ -2821,10 +2833,14 @@ app.put('/api/areas/:id', authenticateToken, async (req, res) => {
     const areaActualizada = await Area.findByPk(area.id, {
       include: [{
         model: Departamento,
+        as: 'Departamento',
         attributes: ['id', 'nombre'],
+        required: false,
         include: [{
           model: Sala,
-          attributes: ['id', 'nombre']
+          as: 'Sala',
+          attributes: ['id', 'nombre'],
+          required: false
         }]
       }]
     });
@@ -2895,10 +2911,14 @@ app.get('/api/user/areas', authenticateToken, async (req, res) => {
         where: {},
         include: [{
           model: Departamento,
+          as: 'Departamento',
           attributes: ['id', 'nombre'],
+          required: false,
           include: [{
             model: Sala,
-            attributes: ['id', 'nombre']
+            as: 'Sala',
+            attributes: ['id', 'nombre'],
+            required: false
           }]
         }],
         order: [['created_at', 'DESC']]
@@ -2925,10 +2945,14 @@ app.get('/api/user/areas', authenticateToken, async (req, res) => {
         },
         include: [{
           model: Departamento,
+          as: 'Departamento',
           attributes: ['id', 'nombre'],
+          required: false,
           include: [{
             model: Sala,
-            attributes: ['id', 'nombre']
+            as: 'Sala',
+            attributes: ['id', 'nombre'],
+            required: false
           }]
         }],
         order: [['created_at', 'DESC']]
@@ -2955,7 +2979,9 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
         where: {},
         include: [{
           model: Sala,
-          attributes: ['id', 'nombre']
+          as: 'Sala',
+          attributes: ['id', 'nombre'],
+          required: false
         }],
         order: [['created_at', 'DESC']]
       });
@@ -2981,7 +3007,9 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
         },
         include: [{
           model: Sala,
-          attributes: ['id', 'nombre']
+          as: 'Sala',
+          attributes: ['id', 'nombre'],
+          required: false
         }],
         order: [['created_at', 'DESC']]
       });
@@ -3030,7 +3058,9 @@ app.post('/api/departamentos', authenticateToken, async (req, res) => {
     const departamentoConSala = await Departamento.findByPk(departamento.id, {
       include: [{
         model: Sala,
-        attributes: ['id', 'nombre']
+        as: 'Sala',
+        attributes: ['id', 'nombre'],
+        required: false
       }]
     });
 
@@ -3067,7 +3097,9 @@ app.put('/api/departamentos/:id', authenticateToken, async (req, res) => {
     const departamentoActualizado = await Departamento.findByPk(departamento.id, {
       include: [{
         model: Sala,
-        attributes: ['id', 'nombre']
+        as: 'Sala',
+        attributes: ['id', 'nombre'],
+        required: false
       }]
     });
 
@@ -3139,7 +3171,9 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
         where: {},
         include: [{
           model: Sala,
-          attributes: ['id', 'nombre']
+          as: 'Sala',
+          attributes: ['id', 'nombre'],
+          required: false
         }],
         order: [['created_at', 'DESC']]
       });
@@ -3165,7 +3199,9 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
         },
         include: [{
           model: Sala,
-          attributes: ['id', 'nombre']
+          as: 'Sala',
+          attributes: ['id', 'nombre'],
+          required: false
         }],
         order: [['created_at', 'DESC']]
       });
@@ -3193,14 +3229,17 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
           model: Area,
           as: 'Area',
           attributes: ['id', 'nombre'],
+          required: false,
           include: [{
             model: Departamento,
             as: 'Departamento',
             attributes: ['id', 'nombre'],
+            required: false,
             include: [{
               model: Sala,
               as: 'Sala',
-              attributes: ['id', 'nombre']
+              attributes: ['id', 'nombre'],
+              required: false
             }]
           }]
         }],
@@ -3227,15 +3266,18 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
           as: 'Area',
           where: {},
           attributes: ['id', 'nombre'],
+          required: false,
           include: [{
             model: Departamento,
             as: 'Departamento',
             where: {sala_id: userSalaIds},
             attributes: ['id', 'nombre'],
+            required: false,
             include: [{
               model: Sala,
               as: 'Sala',
-              attributes: ['id', 'nombre']
+              attributes: ['id', 'nombre'],
+              required: false
             }]
           }]
         }],
@@ -3287,13 +3329,19 @@ app.post('/api/cargos', authenticateToken, async (req, res) => {
     const cargoConArea = await Cargo.findByPk(cargo.id, {
       include: [{
         model: Area,
+        as: 'Area',
         attributes: ['id', 'nombre'],
+        required: false,
         include: [{
           model: Departamento,
+          as: 'Departamento',
           attributes: ['id', 'nombre'],
+          required: false,
           include: [{
             model: Sala,
-            attributes: ['id', 'nombre']
+            as: 'Sala',
+            attributes: ['id', 'nombre'],
+            required: false
           }]
         }]
       }]
@@ -3332,13 +3380,19 @@ app.put('/api/cargos/:id', authenticateToken, async (req, res) => {
     const cargoActualizado = await Cargo.findByPk(cargo.id, {
       include: [{
         model: Area,
+        as: 'Area',
         attributes: ['id', 'nombre'],
+        required: false,
         include: [{
           model: Departamento,
+          as: 'Departamento',
           attributes: ['id', 'nombre'],
+          required: false,
           include: [{
             model: Sala,
-            attributes: ['id', 'nombre']
+            as: 'Sala',
+            attributes: ['id', 'nombre'],
+            required: false
           }]
         }]
       }]
@@ -4273,7 +4327,28 @@ app.post('/api/horarios/excepciones', authenticateToken, async (req, res) => {
     }
 
     // Validaciones básicas
-    const empleado = await Empleado.findByPk(empleado_id, { include: [{ model: Cargo, include: [{ model: Area, include: [{ model: Departamento, include: [Sala] }] }] }] });
+    const empleado = await Empleado.findByPk(empleado_id, { 
+      include: [{ 
+        model: Cargo, 
+        as: 'Cargo',
+        required: false,
+        include: [{ 
+          model: Area, 
+          as: 'Area',
+          required: false,
+          include: [{ 
+            model: Departamento, 
+            as: 'Departamento',
+            required: false,
+            include: [{
+              model: Sala,
+              as: 'Sala',
+              required: false
+            }] 
+          }] 
+        }] 
+      }] 
+    });
     if (!empleado) return res.status(404).json({ message: 'Empleado no encontrado' });
     const plantilla = await PlantillaHorario.findByPk(plantilla_horario_id);
     if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada' });
@@ -6799,17 +6874,25 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
           attributes: ['id', 'nombre'],
           include: [{
             model: Cargo,
+            as: 'Cargo',
             attributes: ['id', 'nombre'],
+            required: false,
             include: [{
-              model: Departamento,
+              model: Area,
+              as: 'Area',
               attributes: ['id', 'nombre'],
+              required: false,
               include: [{
-                model: Area,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre'],
-            where: { id: userSalaIds }
+                model: Departamento,
+                as: 'Departamento',
+                attributes: ['id', 'nombre'],
+                required: false,
+                include: [{
+                  model: Sala,
+                  as: 'Sala',
+                  attributes: ['id', 'nombre'],
+                  where: { id: userSalaIds },
+                  required: false
                 }]
               }]
             }]
