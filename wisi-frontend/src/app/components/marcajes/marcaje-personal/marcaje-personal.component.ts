@@ -127,7 +127,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       </div>
 
 
-      <div class="grupos-container" *ngIf="!loading && hasSearched && grupos.length > 0">
+      <div class="grupos-container" *ngIf="!loading && hasSearched && grupos.length > 0 && !todosLosGruposEstanVacios()">
         <div class="grupo-card" *ngFor="let grupo of grupos">
           <div class="grupo-header">
             <h3>{{ grupo.nombre }}</h3>
@@ -304,9 +304,9 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
         <p>Cargando empleados...</p>
       </div>
 
-      <div class="empty-state" *ngIf="!loading && hasSearched && grupos.length === 0">
+      <div class="empty-state" *ngIf="!loading && hasSearched && (grupos.length === 0 || todosLosGruposEstanVacios())">
         <i class="fas fa-users"></i>
-        <p>No hay empleados asignados a tu sede</p>
+        <p>No hay registros</p>
       </div>
     </div>
 
@@ -3219,6 +3219,14 @@ export class MarcajePersonalComponent implements OnInit {
     });
     
     this.grupos = Array.from(gruposMap.values());
+  }
+
+  todosLosGruposEstanVacios(): boolean {
+    // Verificar si todos los grupos tienen 0 empleados
+    if (!this.grupos || this.grupos.length === 0) {
+      return false;
+    }
+    return this.grupos.every(grupo => !grupo.empleados || grupo.empleados.length === 0);
   }
 
   formatMonth(fecha: Date): string {
