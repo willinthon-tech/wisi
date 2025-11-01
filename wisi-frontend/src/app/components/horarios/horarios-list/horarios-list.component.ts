@@ -35,7 +35,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
               <th>N°</th>
               <th>Nombre</th>
               <th>Sala</th>
-              <th>Bloques</th>
+              <th>Horarios Asignados</th>
               <th>Acciones</th>
             </tr>
           </thead>

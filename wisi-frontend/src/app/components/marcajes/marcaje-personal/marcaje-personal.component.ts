@@ -111,14 +111,6 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
           </div>
         </div>
         
-        <!-- Aviso cuando el usuario no tiene salas asignadas -->
-        <div *ngIf="!loading && userSalas?.length === 0" 
-             style="margin-top: 12px; padding: 12px; border-radius: 8px; background:#fff3cd; color:#856404; border:1px solid #ffeeba;">
-          <strong>Sin salas asignadas:</strong> no verás empleados hasta que te asignen una sala.
-          Revisa en <em>Super Config → Usuarios</em> o solicita al administrador.
-        </div>
-        
-        
       </div>
 
 
@@ -187,9 +179,9 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
                           [class]="getTurnoClass(empleado, dia)"
-                          [attr.rowspan]="(isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)) ? 3 : 1">
+                          [attr.rowspan]="isSinHorario(empleado, dia) ? 3 : 1">
                         <div class="horario-data" 
-                             [class.libre-vertical]="isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)">
+                             [class.libre-vertical]="isSinHorario(empleado, dia)">
                           <span *ngIf="isSinHorario(empleado, dia)" class="sin-horario-wrapper">
                             <span>SIN HORARIO</span>
                             <button class="btn-add-dia"
@@ -197,12 +189,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                                     title="Excepción del día"
                                     (click)="abrirModalExcepcion(empleado, dia)">M</button>
                           </span>
-                          <span *ngIf="!isSinHorario(empleado, dia) && isTurnoLibre(getBloqueHorario(empleado, dia)?.turno)">
-                            {{ getBloqueHorario(empleado, dia)?.turno === 'LIBRE' ? 'LIBRE' : 
-                               getBloqueHorario(empleado, dia)?.turno === 'PERMISO' ? 'PERMISO' : 
-                               getBloqueHorario(empleado, dia)?.turno === 'SUSPENDIDO' ? 'SUSPENDIDO' : '' }}
-                          </span>
-                          <span *ngIf="!isSinHorario(empleado, dia) && !isTurnoLibre(getBloqueHorario(empleado, dia)?.turno)" class="con-horario-wrapper">
+                          <span *ngIf="!isSinHorario(empleado, dia)" class="con-horario-wrapper">
                             <span class="badge-plantilla-horario" 
                                   [style.backgroundColor]="getBloqueHorario(empleado, dia)?.PlantillaHorario?.color || '#ffffff'"
                                   [style.color]="getContrastColorPlantilla(getBloqueHorario(empleado, dia)?.PlantillaHorario?.color)">
@@ -227,7 +214,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
                           [class]="getTurnoClass(empleado, dia)"
-                          [style.display]="(isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)) ? 'none' : 'table-cell'">
+                          [style.display]="isSinHorario(empleado, dia) ? 'none' : 'table-cell'">
                         <div class="horario-data">
                           {{ getHorarioInfo(empleado, dia, 'Descanso') }}
                         </div>
@@ -244,7 +231,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
                           [class]="getTurnoClass(empleado, dia)"
-                          [style.display]="(isTurnoLibre(getBloqueHorario(empleado, dia)?.turno) || isSinHorario(empleado, dia)) ? 'none' : 'table-cell'">
+                          [style.display]="isSinHorario(empleado, dia) ? 'none' : 'table-cell'">
                         <div class="horario-data" [innerHTML]="getHorarioInfo(empleado, dia, 'Salida')">
                         </div>
                         
@@ -264,54 +251,6 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
             </div>
           </div>
 
-          <!-- Tabla de excepciones asignadas -->
-          <div class="horarios-asignados">
-            <h5>Excepciones Asignadas</h5>
-            <div *ngIf="excepcionesEmpleado.length === 0" class="table-responsive">
-              <table class="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Plantilla</th>
-                    <th>Descripción</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td colspan="4" style="text-align:center;color:#6c757d;">Sin excepciones registradas</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="table-responsive" *ngIf="excepcionesEmpleado.length > 0">
-              <table class="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Plantilla</th>
-                    <th>Descripción</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let ex of excepcionesEmpleado">
-                    <td>{{ ex.fecha | date:'dd/MM/yyyy' }}</td>
-                    <td>
-                      <span class="badge me-1"
-                            [style.backgroundColor]="ex?.PlantillaHorario?.color || '#6c757d'"
-                            [style.color]="getContrastColorPlantilla(ex?.PlantillaHorario?.color || '#6c757d')">
-                        {{ ex?.PlantillaHorario?.codigo || ex.plantilla_horario_id }}</span>
-                    </td>
-                    <td>{{ ex.motivo || '-' }}</td>
-                    <td>
-                      <button class="btn btn-sm btn-danger" (click)="eliminarExcepcionDirecta(ex)">Eliminar</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
           <div class="no-registros-grupo" *ngIf="grupo.empleados.length === 0">
             <i class="fas fa-user-slash"></i>
             <p>No hay registros</p>
@@ -328,9 +267,9 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
             <div class="modal-body">
               <div class="mb-2"><strong>Empleado:</strong> {{ modalEmpleado?.nombre }} ({{ modalEmpleado?.cedula }})</div>
               <div class="mb-2"><strong>Fecha:</strong> {{ modalFecha }}</div>
-              <label>Plantilla:</label>
+              <label>Horarios:</label>
               <select class="form-select" [(ngModel)]="selectedPlantillaId" (ngModelChange)="onPlantillaSeleccionChange($event)">
-                <option [ngValue]="null">Selecciona una plantilla</option>
+                <option [ngValue]="null">Seleccione un horario</option>
                 <option *ngFor="let p of modalPlantillas; trackBy: trackByPlantillaId" [ngValue]="p.id">
                   {{ p.codigo }} - {{ p.nombre }}
                 </option>
@@ -406,7 +345,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
             <!-- Columna 2: Formulario para asignar horario -->
             <div class="col-md-6">
               <div class="formulario-horario">
-                <h5>Asignar Nuevo Horario</h5>
+                <h5>Asignar nuevo ciclo de horario</h5>
                 <div class="form-group">
                   <label for="primerDia">Primer Día de Trabajo:</label>
                   <input type="date" 
@@ -416,12 +355,12 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                          class="form-control">
                 </div>
                 <div class="form-group">
-                  <label for="horarioSelect">Horario:</label>
+                  <label for="horarioSelect">Ciclo:</label>
                   <select id="horarioSelect"
                           [(ngModel)]="nuevoHorario.horario_id"
                           class="form-control"
                           (change)="cargarHorariosPorSala()">
-                    <option value="">Seleccionar horario...</option>
+                    <option value="">Seleccionar ciclo...</option>
                     <option *ngFor="let horario of horariosDisponibles" 
                             [value]="horario.id">
                       {{ horario.nombre }}
@@ -440,14 +379,14 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
           </div>
       
           <!-- Tabla de horarios asignados -->
-          <div class="horarios-asignados" *ngIf="horariosEmpleado.length > 0">
-            <h5>Horarios Asignados</h5>
-            <div class="table-responsive">
+          <div class="horarios-asignados">
+            <h5>Horario Repetitivo ( Ciclo )</h5>
+            <div class="table-responsive" *ngIf="(horariosEmpleado?.length || 0) > 0; else noHorarios">
               <table class="table table-striped">
                 <thead>
                   <tr>
                     <th>Fecha de Inicio</th>
-                    <th>Horario</th>
+                    <th>Ciclo</th>
                     <th>Bloques</th>
                     <th>Acciones</th>
                   </tr>
@@ -479,23 +418,36 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                 </tbody>
               </table>
             </div>
-          </div>
-
-          <!-- Mensaje cuando no hay horarios -->
-          <div class="no-horarios" *ngIf="horariosEmpleado.length === 0">
-            <i class="fas fa-clock"></i>
-            <p>No hay horarios asignados para este empleado</p>
+            <ng-template #noHorarios>
+              <div class="table-responsive">
+                <table class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Fecha de Inicio</th>
+                      <th>Ciclo</th>
+                      <th>Bloques</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td colspan="4" style="text-align:center;color:#6c757d;">Sin Registros</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </ng-template>
           </div>
 
       <!-- Tabla de Excepciones Asignadas -->
       <div class="horarios-asignados">
-        <h5>Excepciones Asignadas</h5>
+        <h5>Horario Individual ( Dia )</h5>
         <div class="table-responsive" *ngIf="(excepcionesEmpleado?.length || 0) > 0; else noEx">
           <table class="table table-striped">
             <thead>
               <tr>
                 <th>Fecha</th>
-                <th>Plantilla</th>
+                <th>Horario</th>
                 <th>Descripción</th>
                 <th>Acciones</th>
               </tr>
@@ -524,14 +476,14 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
               <thead>
                 <tr>
                   <th>Fecha</th>
-                  <th>Plantilla</th>
+                  <th>Horario</th>
                   <th>Descripción</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="4" style="text-align:center;color:#6c757d;">Sin excepciones registradas</td>
+                  <td colspan="4" style="text-align:center;color:#6c757d;">Sin Registros</td>
                 </tr>
               </tbody>
             </table>
@@ -1036,25 +988,9 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       text-align: center;
     }
 
-    /* Estilos para turnos */
-    .turno-diurno {
-      background-color: transparent !important; /* sin fondo azul */
-    }
-
-    .turno-nocturno {
-      background-color: #c7a2ff !important;
-    }
-
-    .turno-libre {
-      background-color: #a8d5a8 !important;
-    }
-
-    .turno-permiso {
-      background-color: #ffb366 !important;
-    }
-
-    .turno-suspendido {
-      background-color: #ff9999 !important;
+    /* Estilos para celdas con y sin horario */
+    .con-horario {
+      background-color: transparent !important;
     }
 
     .sin-horario {
@@ -1086,8 +1022,8 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       background-color: #ffffff !important;
     }
 
-    /* Asegurar que las celdas LIBRE tengan la altura correcta */
-    .turno-libre {
+    /* Celdas que ocupan múltiples filas (libre, permiso, suspendido, sin horario) */
+    .dia-cell[rowspan="3"] {
       height: 135px;
       vertical-align: middle;
     }
@@ -1632,14 +1568,9 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       border: 1px solid #ddd;
     }
 
-    .bloque-item.turno-diurno {
-      background-color: #e3f2fd;
-      border-color: #2196f3;
-    }
-
-    .bloque-item.turno-nocturno {
-      background-color: #f3e5f5;
-      border-color: #9c27b0;
+    /* Los bloques ahora se manejan dinámicamente con plantillas */
+    .bloque-item {
+      /* Estilos dinámicos según plantilla */
     }
 
     .bloque-horas {
@@ -3522,10 +3453,7 @@ export class MarcajePersonalComponent implements OnInit {
     return resultado;
   }
 
-  // Verificar si un turno es de tipo "libre" (no requiere marcajes)
-  isTurnoLibre(turno: string): boolean {
-    return turno === 'LIBRE' || turno === 'PERMISO' || turno === 'SUSPENDIDO';
-  }
+  // Esta función ya no se usa - ahora todo es dinámico según las plantillas
 
   // Verificar si es sin horario (fechas anteriores a la fecha de inicio)
   isSinHorario(empleado: any, dia: Date): boolean {
@@ -3554,26 +3482,14 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Obtener clase CSS para el turno
   getTurnoClass(empleado: any, dia: Date): string {
-    const bloque = this.getBloqueHorario(empleado, dia);
-    if (!bloque) {
-      // Si no hay bloque (fechas anteriores a la fecha de inicio), no aplicar clase especial
+    // Solo distinguir entre sin horario y con horario
+    // El resto es dinámico según las plantillas
+    if (this.isSinHorario(empleado, dia)) {
       return 'sin-horario';
     }
-
-    switch (bloque.turno) {
-      case 'DIURNO':
-        return 'turno-diurno';
-      case 'NOCTURNO':
-        return 'turno-nocturno';
-      case 'LIBRE':
-        return 'turno-libre';
-      case 'PERMISO':
-        return 'turno-permiso';
-      case 'SUSPENDIDO':
-        return 'turno-suspendido';
-      default:
-        return '';
-    }
+    
+    // Si tiene horario, retornar clase genérica
+    return 'con-horario';
   }
 
   // Métodos para el modal
