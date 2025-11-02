@@ -735,6 +735,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
   };
 
   private permissionsSubscription?: Subscription;
+  private modulesSubscription?: Subscription;
 
   constructor(
     private authService: AuthService,
@@ -753,9 +754,20 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
     // Cargar módulos primero
     this.modulesService.loadModules();
     
+    // Suscribirse a cambios en módulos para detectar cuando se cargan
+    this.modulesSubscription = this.modulesService.modules$.subscribe((modules) => {
+      if (modules.length > 0) {
+        // Los módulos se han cargado, forzar detección de cambios
+        this.cdr.detectChanges();
+      }
+    });
+    
     this.loadPlantillas();
+    
+    // Suscribirse a cambios en permisos
     this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {
-      // Los permisos se actualizan automáticamente
+      // Los permisos se actualizan, forzar detección de cambios
+      this.cdr.detectChanges();
     });
   }
 
@@ -955,6 +967,9 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
     if (this.permissionsSubscription) {
       this.permissionsSubscription.unsubscribe();
     }
+    if (this.modulesSubscription) {
+      this.modulesSubscription.unsubscribe();
+    }
   }
 
   // Métodos para manejo del input de color
@@ -1017,14 +1032,62 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
   }
 
   canAdd(): boolean {
+    // Verificar que los módulos se hayan cargado primero
+    const modules = this.modulesService.getCurrentModules();
+    if (modules.length === 0) {
+      // Si los módulos no se han cargado aún, retornar true temporalmente
+      // para evitar deshabilitar botones mientras se cargan
+      return true;
+    }
+    
+    // Verificar si el módulo existe
+    const moduleId = this.modulesService.getModuleIdByName('Plantillas Horarios');
+    if (!moduleId) {
+      // Si el módulo no existe en la BD, permitir acceso por defecto
+      // (esto puede pasar si el módulo aún no se ha creado en la BD)
+      return true;
+    }
+    
     return this.permissionsService.canAddByName('Plantillas Horarios');
   }
 
   canEdit(): boolean {
+    // Verificar que los módulos se hayan cargado primero
+    const modules = this.modulesService.getCurrentModules();
+    if (modules.length === 0) {
+      // Si los módulos no se han cargado aún, retornar true temporalmente
+      // para evitar deshabilitar botones mientras se cargan
+      return true;
+    }
+    
+    // Verificar si el módulo existe
+    const moduleId = this.modulesService.getModuleIdByName('Plantillas Horarios');
+    if (!moduleId) {
+      // Si el módulo no existe en la BD, permitir acceso por defecto
+      // (esto puede pasar si el módulo aún no se ha creado en la BD)
+      return true;
+    }
+    
     return this.permissionsService.canEditByName('Plantillas Horarios');
   }
 
   canDelete(): boolean {
+    // Verificar que los módulos se hayan cargado primero
+    const modules = this.modulesService.getCurrentModules();
+    if (modules.length === 0) {
+      // Si los módulos no se han cargado aún, retornar true temporalmente
+      // para evitar deshabilitar botones mientras se cargan
+      return true;
+    }
+    
+    // Verificar si el módulo existe
+    const moduleId = this.modulesService.getModuleIdByName('Plantillas Horarios');
+    if (!moduleId) {
+      // Si el módulo no existe en la BD, permitir acceso por defecto
+      // (esto puede pasar si el módulo aún no se ha creado en la BD)
+      return true;
+    }
+    
     return this.permissionsService.canDeleteByName('Plantillas Horarios');
   }
 
