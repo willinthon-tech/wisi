@@ -13,7 +13,7 @@ import { PwaService } from '../../services/pwa.service';
           <i class="fas fa-download"></i>
         </div>
         <div class="banner-text">
-          <h6>Instalar WISI System</h6>
+          <h6>Instalar Wisi Space</h6>
           <p>Instala la aplicación para un acceso más rápido y funcionalidad offline</p>
         </div>
         <div class="banner-actions">
