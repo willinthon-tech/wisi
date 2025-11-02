@@ -242,12 +242,17 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                         </div>
                       </td>
                       <td *ngFor="let dia of diasDelMes; let i = index" 
-                          class="dia-cell" 
+                          class="dia-cell calculo-cell" 
                           [class]="getTurnoClass(empleado, dia)"
                           [style.display]="isSinHorario(empleado, dia) ? 'none' : 'table-cell'">
-                        <div class="horario-data" [innerHTML]="getHorarioInfo(empleado, dia, 'Salida')">
+                        <div class="row calculo-row">
+                          <div class="col-6 calculo-col-trabajadas" [class]="getCalculoClaseTrabajadas(empleado, dia)">
+                            {{ getCalculoHorasTrabajadas(empleado, dia) }}
+                          </div>
+                          <div class="col-6 calculo-col-descansadas" [class]="getCalculoClaseDescansadas(empleado, dia)">
+                            {{ getCalculoHorasDescansadas(empleado, dia) }}
+                          </div>
                         </div>
-                        
                       </td>
                     </tr>
                     <tr class="separador-verde">
@@ -1050,6 +1055,62 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       align-items: center !important;
       justify-content: center !important;
       vertical-align: middle !important;
+    }
+
+    /* Quitar padding de las celdas de cálculo */
+    .dia-cell.calculo-cell {
+      padding: 0 !important;
+    }
+
+    .dia-cell.calculo-cell.con-horario {
+      padding: 0 !important;
+    }
+
+    .dia-cell.calculo-cell.sin-horario {
+      padding: 0 !important;
+    }
+
+    /* Estilos para la fila de cálculo */
+    .calculo-row {
+      margin: 0 !important;
+      width: 100% !important;
+      display: flex !important;
+      height: 100% !important;
+    }
+
+    .calculo-col-trabajadas,
+    .calculo-col-descansadas {
+      font-size: 18px !important;
+      font-weight: normal !important;
+      font-family: 'Arial', sans-serif !important;
+      padding: 4px 2px !important;
+      text-align: center !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      flex: 0 0 50% !important;
+      max-width: 50% !important;
+    }
+
+    /* Estilos para fondos de cálculo - verde y rojo claritos */
+    .col-6.calculo-col-trabajadas.bg-calculo-success {
+      background-color: #D4F5D4 !important; /* Verde súper clarito */
+      color: #000000 !important; /* Texto negro */
+    }
+
+    .col-6.calculo-col-trabajadas.bg-calculo-danger {
+      background-color: #FFE0E5 !important; /* Rojo súper clarito */
+      color: #000000 !important; /* Texto negro */
+    }
+
+    .col-6.calculo-col-descansadas.bg-calculo-success {
+      background-color: #D4F5D4 !important; /* Verde súper clarito */
+      color: #000000 !important; /* Texto negro */
+    }
+
+    .col-6.calculo-col-descansadas.bg-calculo-danger {
+      background-color: #FFE0E5 !important; /* Rojo súper clarito */
+      color: #000000 !important; /* Texto negro */
     }
 
     .badge-plantilla-horario {
@@ -3861,53 +3922,270 @@ export class MarcajePersonalComponent implements OnInit {
     // Verificar si hay marcajes reales
     const tieneMarcajes = marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje';
     
-    // Si no hay marcajes, mostrar: HorasATrabajar - 00:00 - HorasDeDescanso - 00:00
+    // Si no hay marcajes, mostrar solo: 00:00 - 00:00 (segundo y cuarto valor)
     if (!tieneMarcajes) {
-      const texto = `${this.formatearMinutosAHora(horasATrabajar)} - 00:00 - ${this.formatearMinutosAHora(horasDeDescanso)} - 00:00`;
+      const texto = `00:00 - 00:00`;
       return { texto, claseColor: '' };
     }
     
-    // Determinar colores individuales para cada grupo
-    let claseColorTrabajadas = '';
-    let claseColorDescansadas = '';
+    // Determinar colores de fondo para cada grupo
+    let claseFondoTrabajadas = '';
+    let claseFondoDescansadas = '';
     
     if (tieneMarcajes) {
-      // Color para horas trabajadas (segundo grupo)
+      // Color de fondo para horas trabajadas (primer valor)
       if (horasTrabajadas < horasATrabajar) {
-        claseColorTrabajadas = 'text-danger';
+        claseFondoTrabajadas = 'bg-calculo-danger'; // Fondo rojo clarito
         
       } else if (horasTrabajadas > horasATrabajar) {
-        claseColorTrabajadas = 'text-success';
+        claseFondoTrabajadas = 'bg-calculo-success'; // Fondo verde clarito
         
       }
       
-      // Color para horas descansadas (cuarto grupo) - solo si hay descanso programado
+      // Color de fondo para horas descansadas (segundo valor) - solo si hay descanso programado
       if (horasDeDescanso > 0) {
         if (horasDescansadas > horasDeDescanso) {
-          claseColorDescansadas = 'text-danger';
+          claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo clarito
           
         } else if (horasDescansadas < horasDeDescanso) {
-          claseColorDescansadas = 'text-success';
+          claseFondoDescansadas = 'bg-calculo-success'; // Fondo verde clarito
           
         }
       }
     }
     
-    // Solo mostrar logs cuando hay marcajes reales
-    if (tieneMarcajes) {
-      
-      
-      
-    }
-    
-    // Construir texto con colores individuales y espacios consistentes usando &nbsp;
+    // Construir texto solo con el segundo (trabajado) y cuarto (descansado) valor
+    // Cada valor va en su propio span con fondo si corresponde
     const separador = '&nbsp;-&nbsp;';
-    const texto = `${horasATrabajarFormateadas}${separador}` +
-                 `${claseColorTrabajadas ? `<span class="${claseColorTrabajadas}">${horasTrabajadasFormateadas}</span>` : horasTrabajadasFormateadas}${separador}` +
-                 `${horasDeDescansoFormateadas}${separador}` +
-                 `${claseColorDescansadas ? `<span class="${claseColorDescansadas}">${horasDescansadasFormateadas}</span>` : horasDescansadasFormateadas}`;
+    const trabajadasHtml = claseFondoTrabajadas 
+      ? `<span class="${claseFondoTrabajadas}">${horasTrabajadasFormateadas}</span>`
+      : horasTrabajadasFormateadas;
+    
+    const descansadasHtml = claseFondoDescansadas 
+      ? `<span class="${claseFondoDescansadas}">${horasDescansadasFormateadas}</span>`
+      : horasDescansadasFormateadas;
+    
+    const texto = `${trabajadasHtml}${separador}${descansadasHtml}`;
     
     return { texto, claseColor: '' };
+  }
+
+  // Obtener solo las horas trabajadas para el cálculo
+  getCalculoHorasTrabajadas(empleado: any, dia: Date): string {
+    const bloque = this.getBloqueHorario(empleado, dia);
+    if (!bloque || this.isSinHorario(empleado, dia)) {
+      return '00:00';
+    }
+    const valores = this.getCalculoValores(empleado, dia, bloque);
+    return valores.horasTrabajadas;
+  }
+
+  // Obtener solo las horas descansadas para el cálculo
+  getCalculoHorasDescansadas(empleado: any, dia: Date): string {
+    const bloque = this.getBloqueHorario(empleado, dia);
+    if (!bloque || this.isSinHorario(empleado, dia)) {
+      return '00:00';
+    }
+    const valores = this.getCalculoValores(empleado, dia, bloque);
+    return valores.horasDescansadas;
+  }
+
+  // Obtener la clase CSS para horas trabajadas
+  getCalculoClaseTrabajadas(empleado: any, dia: Date): string {
+    const bloque = this.getBloqueHorario(empleado, dia);
+    if (!bloque || this.isSinHorario(empleado, dia)) {
+      return '';
+    }
+    const resumenCalculo = this.getCalculoClases(empleado, dia, bloque);
+    return resumenCalculo.claseTrabajadas;
+  }
+
+  // Obtener la clase CSS para horas descansadas
+  getCalculoClaseDescansadas(empleado: any, dia: Date): string {
+    const bloque = this.getBloqueHorario(empleado, dia);
+    if (!bloque || this.isSinHorario(empleado, dia)) {
+      return '';
+    }
+    const resumenCalculo = this.getCalculoClases(empleado, dia, bloque);
+    return resumenCalculo.claseDescansadas;
+  }
+
+  // Método auxiliar para obtener los valores calculados
+  getCalculoValores(empleado: any, dia: Date, bloque: any): { horasTrabajadas: string, horasDescansadas: string } {
+    const marcajesCalculo = this.calcularMarcajesDelDia(empleado, dia, bloque);
+    const plantilla = bloque?.PlantillaHorario;
+    const horaEntrada = plantilla?.hora_entrada || bloque?.hora_entrada || '';
+    const horaSalida = plantilla?.hora_salida || bloque?.hora_salida || '';
+    const horaEntradaDescanso = plantilla?.hora_descanso_entrada || bloque?.hora_entrada_descanso || '';
+    const horaSalidaDescanso = plantilla?.hora_descanso_salida || bloque?.hora_salida_descanso || '';
+    const tieneDescanso = bloque?.tiene_descanso || !!(horaEntradaDescanso && horaSalidaDescanso);
+    
+    const horaEntradaProgramada = this.convertirHoraAMinutos(horaEntrada);
+    const horaSalidaProgramada = this.convertirHoraAMinutos(horaSalida);
+    
+    let horasATrabajar;
+    const esNocturno = bloque?.turno === 'NOCTURNO' || horaEntradaProgramada > horaSalidaProgramada;
+    if (esNocturno) {
+      if (horaSalidaProgramada < horaEntradaProgramada) {
+        horasATrabajar = (24 * 60 - horaEntradaProgramada) + horaSalidaProgramada;
+      } else {
+        horasATrabajar = horaSalidaProgramada - horaEntradaProgramada;
+      }
+    } else {
+      horasATrabajar = horaSalidaProgramada - horaEntradaProgramada;
+    }
+    
+    let horasDeDescanso = 0;
+    if (tieneDescanso && horaEntradaDescanso && horaSalidaDescanso) {
+      const entradaDescansoProgramada = this.convertirHoraAMinutos(horaEntradaDescanso);
+      const salidaDescansoProgramada = this.convertirHoraAMinutos(horaSalidaDescanso);
+      if (esNocturno && salidaDescansoProgramada < entradaDescansoProgramada) {
+        horasDeDescanso = (24 * 60 - entradaDescansoProgramada) + salidaDescansoProgramada;
+      } else {
+        horasDeDescanso = salidaDescansoProgramada - entradaDescansoProgramada;
+      }
+    }
+    
+    let horasTrabajadas = 0;
+    let horasDescansadas = 0;
+    
+    const tieneMarcajes = marcajesCalculo.entrada !== 'Sin marcaje' && marcajesCalculo.salida !== 'Sin marcaje' && marcajesCalculo.salida !== 'SNM';
+    
+    if (tieneMarcajes) {
+      const horaEntradaReal = this.convertirHoraAMinutos(marcajesCalculo.entrada);
+      const horaSalidaReal = this.convertirHoraAMinutos(marcajesCalculo.salida);
+      
+      let horasTotales;
+      if (esNocturno) {
+        if (horaSalidaReal < horaEntradaReal) {
+          horasTotales = (24 * 60 - horaEntradaReal) + horaSalidaReal;
+        } else {
+          horasTotales = horaSalidaReal - horaEntradaReal;
+        }
+      } else {
+        horasTotales = horaSalidaReal - horaEntradaReal;
+      }
+      
+      if (tieneDescanso && marcajesCalculo.entradaDescanso !== 'Sin marcaje' && marcajesCalculo.salidaDescanso !== 'Sin marcaje') {
+        const entradaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.entradaDescanso);
+        const salidaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.salidaDescanso);
+        
+        if (esNocturno && salidaDescansoReal < entradaDescansoReal) {
+          horasDescansadas = (24 * 60 - entradaDescansoReal) + salidaDescansoReal;
+        } else {
+          horasDescansadas = salidaDescansoReal - entradaDescansoReal;
+        }
+        horasTrabajadas = horasTotales - horasDescansadas;
+      } else if (tieneDescanso) {
+        horasDescansadas = horasDeDescanso;
+        horasTrabajadas = horasTotales - horasDescansadas;
+      } else {
+        horasTrabajadas = horasTotales;
+        horasDescansadas = 0;
+      }
+    }
+    
+    return {
+      horasTrabajadas: this.formatearMinutosAHora(horasTrabajadas),
+      horasDescansadas: this.formatearMinutosAHora(horasDescansadas)
+    };
+  }
+
+  // Método auxiliar para obtener las clases CSS sin generar el texto
+  getCalculoClases(empleado: any, dia: Date, bloque: any): { claseTrabajadas: string, claseDescansadas: string } {
+    const marcajesCalculo = this.calcularMarcajesDelDia(empleado, dia, bloque);
+    const plantilla = bloque?.PlantillaHorario;
+    const horaEntrada = plantilla?.hora_entrada || bloque?.hora_entrada || '';
+    const horaSalida = plantilla?.hora_salida || bloque?.hora_salida || '';
+    const horaEntradaDescanso = plantilla?.hora_descanso_entrada || bloque?.hora_entrada_descanso || '';
+    const horaSalidaDescanso = plantilla?.hora_descanso_salida || bloque?.hora_salida_descanso || '';
+    const tieneDescanso = bloque?.tiene_descanso || !!(horaEntradaDescanso && horaSalidaDescanso);
+    
+    const horaEntradaProgramada = this.convertirHoraAMinutos(horaEntrada);
+    const horaSalidaProgramada = this.convertirHoraAMinutos(horaSalida);
+    
+    let horasATrabajar;
+    const esNocturno = bloque?.turno === 'NOCTURNO' || horaEntradaProgramada > horaSalidaProgramada;
+    if (esNocturno) {
+      if (horaSalidaProgramada < horaEntradaProgramada) {
+        horasATrabajar = (24 * 60 - horaEntradaProgramada) + horaSalidaProgramada;
+      } else {
+        horasATrabajar = horaSalidaProgramada - horaEntradaProgramada;
+      }
+    } else {
+      horasATrabajar = horaSalidaProgramada - horaEntradaProgramada;
+    }
+    
+    let horasDeDescanso = 0;
+    if (tieneDescanso && horaEntradaDescanso && horaSalidaDescanso) {
+      const entradaDescansoProgramada = this.convertirHoraAMinutos(horaEntradaDescanso);
+      const salidaDescansoProgramada = this.convertirHoraAMinutos(horaSalidaDescanso);
+      if (esNocturno && salidaDescansoProgramada < entradaDescansoProgramada) {
+        horasDeDescanso = (24 * 60 - entradaDescansoProgramada) + salidaDescansoProgramada;
+      } else {
+        horasDeDescanso = salidaDescansoProgramada - entradaDescansoProgramada;
+      }
+    }
+    
+    let horasTrabajadas = 0;
+    let horasDescansadas = 0;
+    
+    const tieneMarcajes = marcajesCalculo.entrada !== 'Sin marcaje' && marcajesCalculo.salida !== 'Sin marcaje' && marcajesCalculo.salida !== 'SNM';
+    
+    if (tieneMarcajes) {
+      const horaEntradaReal = this.convertirHoraAMinutos(marcajesCalculo.entrada);
+      const horaSalidaReal = this.convertirHoraAMinutos(marcajesCalculo.salida);
+      
+      let horasTotales;
+      if (esNocturno) {
+        if (horaSalidaReal < horaEntradaReal) {
+          horasTotales = (24 * 60 - horaEntradaReal) + horaSalidaReal;
+        } else {
+          horasTotales = horaSalidaReal - horaEntradaReal;
+        }
+      } else {
+        horasTotales = horaSalidaReal - horaEntradaReal;
+      }
+      
+      if (tieneDescanso && marcajesCalculo.entradaDescanso !== 'Sin marcaje' && marcajesCalculo.salidaDescanso !== 'Sin marcaje') {
+        const entradaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.entradaDescanso);
+        const salidaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.salidaDescanso);
+        
+        if (esNocturno && salidaDescansoReal < entradaDescansoReal) {
+          horasDescansadas = (24 * 60 - entradaDescansoReal) + salidaDescansoReal;
+        } else {
+          horasDescansadas = salidaDescansoReal - entradaDescansoReal;
+        }
+        horasTrabajadas = horasTotales - horasDescansadas;
+      } else if (tieneDescanso) {
+        horasDescansadas = horasDeDescanso;
+        horasTrabajadas = horasTotales - horasDescansadas;
+      } else {
+        horasTrabajadas = horasTotales;
+        horasDescansadas = 0;
+      }
+    }
+    
+    let claseFondoTrabajadas = '';
+    let claseFondoDescansadas = '';
+    
+    if (tieneMarcajes) {
+      if (horasTrabajadas < horasATrabajar) {
+        claseFondoTrabajadas = 'bg-calculo-danger';
+      } else if (horasTrabajadas > horasATrabajar) {
+        claseFondoTrabajadas = 'bg-calculo-success';
+      }
+      
+      if (horasDeDescanso > 0) {
+        if (horasDescansadas > horasDeDescanso) {
+          claseFondoDescansadas = 'bg-calculo-danger';
+        } else if (horasDescansadas < horasDeDescanso) {
+          claseFondoDescansadas = 'bg-calculo-success';
+        }
+      }
+    }
+    
+    return { claseTrabajadas: claseFondoTrabajadas, claseDescansadas: claseFondoDescansadas };
   }
 
   // Validar diferencias de tiempo entre marcajes
