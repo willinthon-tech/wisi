@@ -2712,12 +2712,17 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
           model: Departamento,
           as: 'Departamento',
           attributes: ['id', 'nombre'],
-          required: false,
+          required: true,
+          where: {
+            sala_id: {
+              [Op.in]: userSalaIds
+            }
+          },
           include: [{
             model: Sala,
             as: 'Sala',
             attributes: ['id', 'nombre'],
-            required: false
+            required: true
           }]
         }],
         order: [['created_at', 'DESC']]
@@ -2926,12 +2931,17 @@ app.get('/api/user/areas', authenticateToken, async (req, res) => {
           model: Departamento,
           as: 'Departamento',
           attributes: ['id', 'nombre'],
-          required: false,
+          required: true,
+          where: {
+            sala_id: {
+              [Op.in]: userSalaIds
+            }
+          },
           include: [{
             model: Sala,
             as: 'Sala',
             attributes: ['id', 'nombre'],
-            required: false
+            required: true
           }]
         }],
         order: [['created_at', 'DESC']]
@@ -2988,7 +2998,7 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
           model: Sala,
           as: 'Sala',
           attributes: ['id', 'nombre'],
-          required: false
+          required: true
         }],
         order: [['created_at', 'DESC']]
       });
@@ -3239,24 +3249,31 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
 
       const userSalaIds = user.Salas.map(sala => sala.id);
       cargos = await Cargo.findAll({
-        where: {},
+        where: {
+          '$Area.Departamento.sala_id$': {
+            [Op.in]: userSalaIds
+          }
+        },
         include: [{
           model: Area,
           as: 'Area',
-          where: {},
           attributes: ['id', 'nombre'],
-          required: false,
+          required: true,
           include: [{
             model: Departamento,
             as: 'Departamento',
-            where: {sala_id: userSalaIds},
             attributes: ['id', 'nombre'],
-            required: false,
+            required: true,
+            where: {
+              sala_id: {
+                [Op.in]: userSalaIds
+              }
+            },
             include: [{
               model: Sala,
               as: 'Sala',
               attributes: ['id', 'nombre'],
-              required: false
+              required: true
             }]
           }]
         }],
