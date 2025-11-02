@@ -1034,7 +1034,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
         this.plantillas = plantillas;
       },
       error: (error) => {
-        console.error('Error al cargar plantillas:', error);
+        
       }
     });
   }
@@ -1057,7 +1057,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
         this.userSalas = salas;
       },
       error: (error: any) => {
-        console.error('Error al cargar salas:', error);
+        
       }
     });
   }
@@ -1078,7 +1078,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
 
   createPlantilla(): void {
     if (!this.isFormValid()) {
-      console.error('Formulario no válido:', this.getValidationMessage());
+      
       return;
     }
 
@@ -1103,7 +1103,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error al actualizar plantilla:', error);
+          
         }
       });
     } else {
@@ -1113,7 +1113,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
           this.closeSalaSelector();
         },
         error: (error) => {
-          console.error('Error al crear plantilla:', error);
+          
         }
       });
     }
@@ -1163,7 +1163,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
         this.plantillas = this.plantillas.filter(plantilla => plantilla.id !== id);
       },
       error: (error) => {
-        console.error('Error al eliminar plantilla:', error);
+        
       }
     });
   }

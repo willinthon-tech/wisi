@@ -14,7 +14,7 @@ function run(sql) {
 }
 
 async function migrate() {
-  console.log('Migrando tabla bloques -> solo horario_id, plantilla_horario_id, orden ...');
+  
   try {
     await run('BEGIN TRANSACTION;');
 
@@ -40,16 +40,18 @@ async function migrate() {
     await run('ALTER TABLE bloques_new RENAME TO bloques;');
 
     await run('COMMIT;');
-    console.log('Migración completada.');
+    
     process.exit(0);
   } catch (err) {
-    console.error('Error en migración:', err);
+    
     try { await run('ROLLBACK;'); } catch {}
     process.exit(1);
   }
 }
 
 migrate();
+
+
 
 
 

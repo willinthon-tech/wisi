@@ -151,6 +151,6 @@ export class PwaInstallComponent implements OnInit, OnDestroy {
 
   private showOfflineMessage() {
     // Mostrar mensaje de modo offline
-    console.log('Aplicación en modo offline');
+    
   }
 }

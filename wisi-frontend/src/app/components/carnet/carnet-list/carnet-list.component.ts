@@ -2317,7 +2317,7 @@ export class CarnetListComponent implements OnInit {
       const carnetCardElement = document.getElementById(carnetId);
       
       if (!carnetCardElement) {
-        console.error('No se encontró el elemento del carnet con ID:', carnetId);
+        
         return;
       }
 

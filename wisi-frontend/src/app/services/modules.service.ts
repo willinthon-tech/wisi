@@ -33,7 +33,7 @@ export class ModulesService {
         this.modulesSubject.next(modules);
       },
       error: (error) => {
-        console.error('Error al cargar módulos:', error);
+        
       }
     });
   }

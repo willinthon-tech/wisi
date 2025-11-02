@@ -1715,10 +1715,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.cronConfig.currentValue = response.currentValue;
         this.cronConfig.isActive = response.isActive;
-        console.log('🔄 Configuración CRON cargada:', response);
+        
       },
       error: (error) => {
-        console.error('❌ Error cargando configuración CRON:', error);
+        
       }
     });
   }
@@ -1744,10 +1744,10 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.queueStatus = response;
         this.loadingQueueStatus = false;
-        console.log('📊 Estado de cola actualizado:', response);
+        
       },
       error: (error) => {
-        console.error('❌ Error obteniendo estado de cola:', error);
+        
         this.loadingQueueStatus = false;
       }
     });
@@ -1772,12 +1772,12 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
   // Método para manejar cambios en el intervalo CRON
   onCronIntervalChange() {
     this.cronConfig.isActive = this.cronConfig.currentValue !== 'Desactivado';
-    console.log('🔄 Intervalo CRON cambiado a:', this.cronConfig.currentValue);
+    
   }
 
   // Método para probar el sistema CRON
   testCronSystem() {
-    console.log('🧪 Probando sistema CRON...');
+    
     // Aquí podrías implementar una prueba del sistema CRON
     alert('🧪 Función de prueba del sistema CRON - En desarrollo');
   }

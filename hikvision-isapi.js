@@ -409,13 +409,7 @@ class HikvisionISAPI {
     try {
       
       
-      console.log(`📸 Body:`, {
-        "searchResultPosition": 0,
-        "maxResults": 100,
-        "faceLibType": "blackFD",
-        "FDID": "1",
-        "FPID": fpid
-      });
+      
       
       const result = await this.makeRequest('/ISAPI/Intelligent/FDLib/FDSearch?format=json', 'POST', {
         "searchResultPosition": 0,

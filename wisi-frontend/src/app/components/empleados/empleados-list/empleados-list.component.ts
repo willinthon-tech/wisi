@@ -1793,7 +1793,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     // Timeout de respaldo para cargar empleados si los permisos no se cargan
     setTimeout(() => {
       if (!this.permissionsLoaded) {
-        console.warn('Permisos no cargados, cargando empleados de todas formas');
+        
         this.permissionsLoaded = true;
         this.loadEmpleados();
       }
@@ -3027,10 +3027,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       
       const dispositivosNuevos = this.nuevoEmpleado.dispositivos || [];
       
-      console.log('Editando empleado - Dispositivos anteriores:', dispositivosAnteriores);
-      console.log('Editando empleado - Dispositivos nuevos:', dispositivosNuevos);
-      console.log('selectedEmpleado.dispositivos raw:', this.selectedEmpleado.dispositivos);
-      console.log('nuevoEmpleado.dispositivos:', this.nuevoEmpleado.dispositivos);
+      
+      
+      
+      
       
       // Verificar datos que se envían al backend
       const empleadoData = this.toEmpleadoData(this.nuevoEmpleado);
@@ -3040,7 +3040,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       this.empleadosService.updateEmpleado(this.selectedEmpleado.id, this.toEmpleadoData(this.nuevoEmpleado)).subscribe({
         next: (empleado) => {
           // El empleado actualizado viene con las relaciones del backend
-          console.log('Empleado actualizado recibido:', empleado);
+          
           
           // Actualizar la lista inmediatamente
           const index = this.empleados.findIndex(e => e.id === empleado.id);
@@ -3064,11 +3064,11 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           // Sin await, sin bloqueo - se ejecuta completamente en background
           this.crearTareasEditarEmpleado(empleado, dispositivosAnteriores, dispositivosNuevos).catch(error => {
             // Los errores en la creación de tareas no deben afectar al usuario
-            console.error('Error al crear tareas automáticas (no crítico):', error);
+            
           });
         },
         error: (error) => {
-          console.error('Error al actualizar empleado:', error);
+          
           this.errorModalService.showErrorModal({
             title: 'Error',
             message: 'No se pudo actualizar el empleado. Por favor, intente nuevamente.'
@@ -3079,13 +3079,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       // Crear nuevo empleado
       // IMPORTANTE: Guardar los dispositivos ANTES de crear porque el formulario se puede resetear
       const dispositivosParaTareas = [...(this.nuevoEmpleado.dispositivos || [])];
-      console.log('Dispositivos guardados antes de crear empleado:', dispositivosParaTareas);
+      
       
       this.empleadosService.createEmpleado(this.toEmpleadoData(this.nuevoEmpleado)).subscribe({
         next: (empleado) => {
           // El empleado se creó exitosamente - verificar que realmente tenga datos
           if (!empleado || !empleado.id) {
-            console.error('Error: El empleado se creó pero no se recibieron datos completos', empleado);
+            
             this.errorModalService.showErrorModal({
               title: 'Error',
               message: 'El empleado se creó pero hubo un problema al obtener los datos. Por favor, recarga la página.'
@@ -3093,8 +3093,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             return;
           }
           
-          console.log('Empleado creado exitosamente:', empleado.id);
-          console.log('Dispositivos que se usarán para crear tareas:', dispositivosParaTareas);
+          
+          
           
           // Agregar el nuevo empleado a la lista inmediatamente para actualización instantánea
           this.empleados.unshift(empleado);
@@ -3111,20 +3111,20 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           if (dispositivosParaTareas.length > 0) {
             this.crearTareasNuevoEmpleado(empleado, dispositivosParaTareas).catch(error => {
               // Los errores en la creación de tareas no deben afectar al usuario
-              console.error('Error al crear tareas automáticas (no crítico):', error);
+              
             });
           } else {
-            console.log('No hay dispositivos asignados al crear el empleado, no se crean tareas');
+            
           }
         },
         error: (error: any) => {
-          console.error('Error al crear empleado:', error);
+          
           
           // Verificar que el error realmente indica que falló la creación
           // Si el status es 201 o cualquier 2xx, el empleado se creó exitosamente
           if (error?.status >= 200 && error?.status < 300) {
             // Si es un status de éxito, el empleado se creó correctamente
-            console.warn('El empleado se creó exitosamente pero hubo un warning en la respuesta:', error);
+            
             this.loadEmpleados();
             this.closeCargoSelector();
             return;
@@ -3325,7 +3325,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         if (empleado && dispositivosIds.length > 0) {
           this.crearTareasEliminarEmpleado(empleado, dispositivosIds).catch(error => {
             // Los errores en la creación de tareas no deben afectar al usuario
-            console.error('Error al crear tareas automáticas (no crítico):', error);
+            
           });
         }
       },
@@ -3400,19 +3400,19 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   // Crear tareas para nuevo empleado
   async crearTareasNuevoEmpleado(empleado: any, dispositivosIds: number[]): Promise<void> {
     try {
-      console.log('Iniciando creación de tareas para nuevo empleado:', empleado.id, 'Dispositivos:', dispositivosIds);
+      
 
       if (!dispositivosIds || dispositivosIds.length === 0) {
-        console.log('No hay dispositivos asignados, no se crean tareas');
+        
         return;
       }
 
       // Obtener información de los dispositivos
       const dispositivos = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds));
-      console.log('Dispositivos obtenidos:', dispositivos);
+      
 
       if (!dispositivos || dispositivos.length === 0) {
-        console.warn('No se encontraron dispositivos para los IDs proporcionados');
+        
         return;
       }
 
@@ -3424,13 +3424,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         try {
           const userData = await firstValueFrom(this.empleadosService.getCurrentUser());
           user = { id: userData.id };
-          console.log('Usuario obtenido del backend:', user);
+          
         } catch (error) {
-          console.error('Error al obtener usuario del backend:', error);
+          
           return;
         }
       } else {
-        console.log('Usuario obtenido del auth service:', user);
+        
       }
 
       // Usar el empleado que ya viene con las relaciones del createEmpleado
@@ -3443,11 +3443,11 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       // Solo intentar obtener el empleado completo si no tiene las relaciones necesarias
       if (!tieneRelaciones) {
         try {
-          console.log('Obteniendo empleado completo del backend...');
+          
           empleadoCompleto = await firstValueFrom(this.tareasAutomaticasService.getEmpleadoById(empleado.id));
-          console.log('Empleado completo obtenido:', empleadoCompleto);
+          
         } catch (error) {
-          console.warn('No se pudo obtener empleado completo, usando datos disponibles:', error);
+          
           // Continuar con el empleado que tenemos
         }
       }
@@ -3513,16 +3513,16 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         }
 
       if (tareas.length === 0) {
-        console.warn('No se generaron tareas para crear');
+        
         return;
       }
 
-      console.log(`Creando ${tareas.length} tareas...`);
+      
       
       // Crear todas las tareas
       const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));
       
-      console.log('Tareas creadas exitosamente:', resultados);
+      
       
       // Actualizar contador de tareas después de crear las tareas
       this.loadTareasCount();
@@ -3530,8 +3530,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     } catch (error: any) {
       // Los errores en la creación de tareas no deben impedir la creación/eliminación del empleado
       // Solo logueamos el error sin mostrar al usuario
-      console.error('Error al crear tareas automáticas (no crítico):', error);
-      console.error('Detalles del error:', error.message, error.stack);
+      
+      
       // Asegurarnos de que no se muestre ningún modal de error por errores en tareas
       // Estos errores son no críticos y no deben afectar la UX
     }
@@ -3629,7 +3629,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     } catch (error: any) {
       // Los errores en la creación de tareas no deben impedir la creación/eliminación del empleado
       // Solo logueamos el error sin mostrar al usuario
-      console.error('Error al crear tareas automáticas (no crítico):', error);
+      
       // Asegurarnos de que no se muestre ningún modal de error por errores en tareas
       // Estos errores son no críticos y no deben afectar la UX
     }
@@ -3638,26 +3638,26 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   // Crear tareas para editar empleado
   async crearTareasEditarEmpleado(empleado: any, dispositivosAnteriores: number[], dispositivosNuevos: number[]): Promise<void> {
     try {
-      console.log('Iniciando creación de tareas para editar empleado:', empleado.id);
-      console.log('Dispositivos anteriores:', dispositivosAnteriores);
-      console.log('Dispositivos nuevos:', dispositivosNuevos);
+      
+      
+      
 
       // Obtener ID del usuario logueado
       const user = this.authService.getCurrentUser();
       if (!user) {
-        console.error('No se pudo obtener el usuario logueado');
+        
         return;
       }
-      console.log('Usuario obtenido:', user.id);
+      
 
       // Calcular dispositivos que se quitan, agregan y permanecen
       const dispositivosQueSeQuitan = dispositivosAnteriores.filter(id => !dispositivosNuevos.includes(id));
       const dispositivosQueSeAgregan = dispositivosNuevos.filter(id => !dispositivosAnteriores.includes(id));
       const dispositivosQuePermanecen = dispositivosAnteriores.filter(id => dispositivosNuevos.includes(id));
       
-      console.log('Dispositivos que se quitan:', dispositivosQueSeQuitan);
-      console.log('Dispositivos que se agregan:', dispositivosQueSeAgregan);
-      console.log('Dispositivos que permanecen:', dispositivosQuePermanecen);
+      
+      
+      
 
       
       
@@ -3716,9 +3716,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
       // 2. Crear tareas de AGREGAR para dispositivos nuevos
       if (dispositivosQueSeAgregan.length > 0) {
-        console.log('Obteniendo información de dispositivos nuevos...');
+        
         const dispositivosData = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosQueSeAgregan));
-        console.log('Dispositivos nuevos obtenidos:', dispositivosData);
+        
         
         if (dispositivosData && dispositivosData.length > 0) {
           // Obtener área y departamento (la estructura puede variar según el backend)
@@ -3828,16 +3828,16 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       
       
       if (tareas.length === 0) {
-        console.log('No hay tareas para crear (ningún cambio en dispositivos)');
+        
         return;
       }
 
-      console.log(`Creando ${tareas.length} tareas para editar empleado...`);
+      
       
       // Crear todas las tareas
       const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));
       
-      console.log('Tareas creadas exitosamente para editar:', resultados);
+      
       
       // Actualizar contador de tareas después de crear las tareas
       this.loadTareasCount();
@@ -3845,8 +3845,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     } catch (error: any) {
       // Los errores en la creación de tareas no deben impedir la creación/eliminación del empleado
       // Solo logueamos el error sin mostrar al usuario
-      console.error('Error al crear tareas automáticas para editar (no crítico):', error);
-      console.error('Detalles del error:', error.message, error.stack);
+      
+      
       // Asegurarnos de que no se muestre ningún modal de error por errores en tareas
       // Estos errores son no críticos y no deben afectar la UX
     }

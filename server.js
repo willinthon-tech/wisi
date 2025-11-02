@@ -128,14 +128,14 @@ function addDeviceToQueue(dispositivo, priority = 1) {
   
   // Verificar si ya está en la cola o ya fue procesado
   if (processedDevices.has(deviceId)) {
-    console.log(`⚠️ Dispositivo ${dispositivo.nombre} ya fue procesado en este ciclo, omitiendo...`);
+    ;
     return false;
   }
   
   // Verificar si ya está en la cola
   const alreadyInQueue = cronQueue.some(item => item.dispositivo.id === deviceId);
   if (alreadyInQueue) {
-    console.log(`⚠️ Dispositivo ${dispositivo.nombre} ya está en la cola, omitiendo...`);
+    ;
     return false;
   }
   
@@ -152,7 +152,7 @@ function addDeviceToQueue(dispositivo, priority = 1) {
   // Guardar estado en disco después de agregar dispositivo
   saveQueueToDisk();
   
-  console.log(`📋 Dispositivo ${dispositivo.nombre} agregado a la cola (posición ${cronQueue.length})`);
+  ;
   return true;
 }
 
@@ -163,9 +163,9 @@ function resetSyncCycle() {
     processedDevices.clear();
     pendingDevices.clear();
     lastSyncCycle = new Date().toISOString();
-    console.log(`🔄 Nuevo ciclo de sincronización iniciado: ${lastSyncCycle}`);
+    ;
   } else {
-    console.log(`⏳ Ciclo anterior aún en proceso, omitiendo reset`);
+    ;
   }
 }
 
@@ -181,9 +181,9 @@ function saveQueueToDisk() {
     };
     
     fs.writeFileSync(QUEUE_FILE, JSON.stringify(queueData, null, 2));
-    console.log(`💾 Cola guardada en disco: ${cronQueue.length} dispositivos, ${processedDevices.size} procesados`);
+    ;
   } catch (error) {
-    console.error('❌ Error guardando cola en disco:', error);
+    ;
   }
 }
 
@@ -203,17 +203,17 @@ function loadQueueFromDisk() {
         pendingDevices = new Set(data.pendingDevices || []);
         lastSyncCycle = data.lastSyncCycle;
         
-        console.log(`📂 Cola restaurada desde disco: ${cronQueue.length} dispositivos, ${processedDevices.size} procesados`);
-        console.log(`🕐 Datos de hace ${Math.round(dataAge / 1000 / 60)} minutos`);
+        ;
+        ;
         
         return true;
       } else {
-        console.log(`⚠️ Datos de cola muy antiguos (${Math.round(dataAge / 1000 / 60)} min), ignorando...`);
+        ;
         return false;
       }
     }
   } catch (error) {
-    console.error('❌ Error cargando cola desde disco:', error);
+    ;
   }
   return false;
 }
@@ -227,9 +227,9 @@ function clearPersistenceFiles() {
     if (fs.existsSync(TRACKING_FILE)) {
       fs.unlinkSync(TRACKING_FILE);
     }
-    console.log('🗑️ Archivos de persistencia limpiados');
+    ;
   } catch (error) {
-    console.error('❌ Error limpiando archivos de persistencia:', error);
+    ;
   }
 }
 
@@ -240,7 +240,7 @@ async function processCronQueue() {
   }
   
   isProcessingCron = true;
-  console.log(`🔄 Iniciando procesamiento de cola CRON con ${cronQueue.length} dispositivos`);
+  ;
   
   while (cronQueue.length > 0) {
     const { dispositivo, timestamp } = cronQueue.shift();
@@ -248,13 +248,13 @@ async function processCronQueue() {
     
     // Actualizar dispositivo actual
     currentProcessingDevice = dispositivo;
-    console.log(`📱 Procesando dispositivo: ${dispositivo.nombre} (${dispositivo.ip_remota})`);
+    ;
     
     try {
       // Verificar salud del dispositivo antes de proceder
       const isHealthy = await checkDeviceHealth(dispositivo);
       if (!isHealthy) {
-        console.log(`❌ Dispositivo ${dispositivo.nombre} no está disponible, saltando...`);
+        ;
         // Marcar como procesado aunque haya fallado
         processedDevices.add(deviceId);
         pendingDevices.delete(deviceId);
@@ -271,9 +271,9 @@ async function processCronQueue() {
       ]);
       
       if (result.error) {
-        console.log(`❌ Error en ${dispositivo.nombre}: ${result.error}`);
+        ;
       } else {
-        console.log(`✅ Sincronización exitosa en ${dispositivo.nombre}: ${result.savedCount || 0} eventos guardados`);
+        ;
       }
       
       // Marcar como procesado exitosamente
@@ -284,11 +284,11 @@ async function processCronQueue() {
       saveQueueToDisk();
       
     } catch (error) {
-      console.log(`❌ Error procesando ${dispositivo.nombre}: ${error.message}`);
+      ;
       
       // Si es un error de timeout, marcar el dispositivo como problemático
       if (error.message === 'Timeout' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
-        console.log(`⏰ Timeout en ${dispositivo.nombre} después de ${CRON_TIMEOUT/1000} segundos`);
+        ;
       }
       
       // Marcar como procesado aunque haya fallado
@@ -305,7 +305,7 @@ async function processCronQueue() {
       const cronValue = cronConfig ? cronConfig.value : '1m';
       const delayMs = timeToMs(cronValue);
       
-      console.log(`⏳ Esperando ${delayMs/1000} segundos antes del siguiente dispositivo...`);
+      ;
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
   }
@@ -316,7 +316,7 @@ async function processCronQueue() {
   
   // Verificar si quedaron dispositivos sin procesar
   if (pendingDevices.size > 0) {
-    console.log(`⚠️ Advertencia: ${pendingDevices.size} dispositivos quedaron sin procesar en este ciclo`);
+    ;
   }
   
   // Guardar estado final
@@ -328,10 +328,10 @@ async function processCronQueue() {
     // Resetear tracking para el próximo ciclo
     processedDevices.clear();
     pendingDevices.clear();
-    console.log(`🔄 Tracking reseteado para el próximo ciclo`);
+    ;
   }
   
-  console.log(`✅ Procesamiento de cola CRON completado. Procesados: ${processedDevices.size}, Pendientes: ${pendingDevices.size}`);
+  ;
 }
 
 // Función para verificar la salud del dispositivo
@@ -394,9 +394,9 @@ async function syncAttendanceFromDevice(dispositivo) {
     if (!fs.existsSync(attlogsDir)) {
       try {
         fs.mkdirSync(attlogsDir, { recursive: true, mode: 0o755 }); // Permisos para Linux
-        console.log(`📁 Directorio attlogs creado: ${attlogsDir}`);
+        ;
       } catch (mkdirError) {
-        console.error(`❌ Error creando directorio attlogs: ${mkdirError.message}`);
+        ;
         // Continuar sin el directorio si no se puede crear
       }
     }
@@ -826,15 +826,7 @@ function timeToCronExpression(timeString) {
 function startCronForDevice(dispositivo) {
   const jobId = `device_${dispositivo.id}`;
   
-  console.log(`🔍 startCronForDevice - Dispositivo recibido:`, {
-    id: dispositivo.id,
-    nombre: dispositivo.nombre,
-    ip_remota: dispositivo.ip_remota,
-    usuario: dispositivo.usuario,
-    clave: dispositivo.clave ? '***' + dispositivo.clave.slice(-3) : 'undefined',
-    cron_activo: dispositivo.cron_activo,
-    cron_tiempo: dispositivo.cron_tiempo
-  });
+  
   
   // Detener CRON existente si existe
   if (activeCronJobs.has(jobId)) {
@@ -881,11 +873,11 @@ async function executeGlobalSync() {
   try {
     // Verificar si ya hay un ciclo en proceso
     if (isProcessingCron) {
-      console.log('⏳ Ciclo de sincronización ya en proceso, omitiendo...');
+      ;
       return;
     }
     
-    console.log('🔄 Iniciando sincronización global...');
+    ;
     
     // Limpiar el tracking del ciclo anterior
     resetSyncCycle();
@@ -900,10 +892,10 @@ async function executeGlobalSync() {
       attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'marcaje_inicio', 'marcaje_fin']
     });
     
-    console.log(`📊 Encontrados ${dispositivos.length} dispositivos para sincronizar`);
+    ;
     
     if (dispositivos.length === 0) {
-      console.log('⚠️ No hay dispositivos activos para sincronizar');
+      ;
       return;
     }
     
@@ -915,17 +907,17 @@ async function executeGlobalSync() {
       }
     }
     
-    console.log(`📋 Agregados ${addedCount} dispositivos a la cola de procesamiento (${dispositivos.length - addedCount} omitidos por duplicados)`);
+    ;
     
     // Procesar cola si no está en proceso
     if (!isProcessingCron && cronQueue.length > 0) {
       processCronQueue();
     } else {
-      console.log('⏳ Cola ya está siendo procesada, dispositivos agregados a la cola');
+      ;
     }
     
   } catch (error) {
-    console.error('❌ Error en sincronización global:', error);
+    ;
   }
 }
 
@@ -1589,10 +1581,7 @@ app.delete('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (r
     }
 
     // Verificar si la sala tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para sala:', {
-      id: id,
-      nombre: sala.nombre
-    });
+    
     
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
@@ -1641,11 +1630,7 @@ app.delete('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (r
     res.json({ message: 'Sala eliminada exitosamente' });
   } catch (error) {
     
-    console.error('❌ Detalles del error:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
+    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2056,7 +2041,7 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
 
     res.json(pages);
   } catch (error) {
-    console.error('Error en POST /api/departamentos:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2460,10 +2445,7 @@ app.delete('/api/libros/:id', authenticateToken, async (req, res) => {
     }
 
     // Verificar si el libro tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para libro:', {
-      id: id,
-      sala_id: libro.sala_id
-    });
+    
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
         SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE libro_id = ?
@@ -2650,10 +2632,7 @@ app.delete('/api/rangos/:id', authenticateToken, async (req, res) => {
     }
     
     // Verificar si el rango tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para rango:', {
-      id: id,
-      nombre: rango.nombre
-    });
+    
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
         SELECT 'Máquinas' as table_name, COUNT(*) as count FROM maquinas WHERE rango_id = ?
@@ -2747,7 +2726,7 @@ app.get('/api/areas', authenticateToken, async (req, res) => {
     
     res.json(areas);
   } catch (error) {
-    console.error('Error en /api/areas:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2802,7 +2781,7 @@ app.post('/api/areas', authenticateToken, async (req, res) => {
 
     res.status(201).json(areaConDepartamento);
   } catch (error) {
-    console.error('Error en POST /api/areas:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2847,7 +2826,7 @@ app.put('/api/areas/:id', authenticateToken, async (req, res) => {
 
     res.json(areaActualizada);
   } catch (error) {
-    console.error('Error en PUT /api/areas/:id:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -2961,7 +2940,7 @@ app.get('/api/user/areas', authenticateToken, async (req, res) => {
     
     res.json(areas);
   } catch (error) {
-    console.error('Error en /api/user/areas:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3017,7 +2996,7 @@ app.get('/api/departamentos', authenticateToken, async (req, res) => {
     
     res.json(departamentos);
   } catch (error) {
-    console.error('Error en /api/departamentos:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3066,7 +3045,7 @@ app.post('/api/departamentos', authenticateToken, async (req, res) => {
 
     res.status(201).json(departamentoConSala);
   } catch (error) {
-    console.error('Error en POST /api/departamentos:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3105,7 +3084,7 @@ app.put('/api/departamentos/:id', authenticateToken, async (req, res) => {
 
     res.json(departamentoActualizado);
   } catch (error) {
-    console.error('Error en PUT /api/departamentos/:id:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3209,7 +3188,7 @@ app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
     
     res.json(departamentos);
   } catch (error) {
-    console.error('Error en /api/user/departamentos:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3287,8 +3266,8 @@ app.get('/api/cargos', authenticateToken, async (req, res) => {
     
     res.json(cargos);
   } catch (error) {
-    console.error('Error en GET /api/cargos:', error);
-    console.error('Stack trace:', error.stack);
+    ;
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3349,7 +3328,7 @@ app.post('/api/cargos', authenticateToken, async (req, res) => {
 
     res.status(201).json(cargoConArea);
   } catch (error) {
-    console.error('Error en POST /api/cargos:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3400,7 +3379,7 @@ app.put('/api/cargos/:id', authenticateToken, async (req, res) => {
 
     res.json(cargoActualizado);
   } catch (error) {
-    console.error('Error en PUT /api/cargos/:id:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3722,7 +3701,7 @@ app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
     });
     res.json(excepciones);
   } catch (error) {
-    console.error('Error al listar excepciones (pre-route):', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3738,7 +3717,7 @@ app.post('/api/horarios/excepciones', authenticateToken, async (req, res) => {
     const nueva = await ExcepcionHorario.create({ empleado_id, fecha, plantilla_horario_id, motivo, created_by: req.user.id });
     res.status(201).json(nueva);
   } catch (error) {
-    console.error('Error al crear excepción (pre-route):', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3754,7 +3733,7 @@ app.put('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => 
     await ex.save();
     res.json(ex);
   } catch (error) {
-    console.error('Error al actualizar excepción (pre-route):', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3767,7 +3746,7 @@ app.delete('/api/horarios/excepciones/:id', authenticateToken, async (req, res) 
     await ex.destroy();
     res.json({ message: 'Excepción eliminada' });
   } catch (error) {
-    console.error('Error al eliminar excepción (pre-route):', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -3967,11 +3946,7 @@ app.delete('/api/empleados/:empleadoId/horarios/:horarioEmpleadoId', authenticat
     }
 
     // Verificar si el horario del empleado tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para horario de empleado:', {
-      horarioEmpleadoId: horarioEmpleadoId,
-      empleadoId: empleadoId,
-      horarioId: horarioEmpleado.horario_id
-    });
+    
     
     // Obtener el empleado para usar su cédula en la consulta
     const empleado = await Empleado.findByPk(empleadoId);
@@ -4108,7 +4083,7 @@ app.get('/api/plantillas-horarios', authenticateToken, async (req, res) => {
     
     res.json(plantillas);
   } catch (error) {
-    console.error('Error al obtener plantillas horarios:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4156,7 +4131,7 @@ app.post('/api/plantillas-horarios', authenticateToken, async (req, res) => {
 
     res.status(201).json(plantilla);
   } catch (error) {
-    console.error('Error al crear plantilla horario:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4202,7 +4177,7 @@ app.put('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
 
     res.json(plantilla);
   } catch (error) {
-    console.error('Error al actualizar plantilla horario:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4235,7 +4210,7 @@ app.delete('/api/plantillas-horarios/:id', authenticateToken, async (req, res) =
     await plantilla.destroy();
     res.json({ message: 'Plantilla horario eliminada correctamente' });
   } catch (error) {
-    console.error('Error al eliminar plantilla horario:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4258,7 +4233,7 @@ app.get('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
 
     res.json(plantilla);
   } catch (error) {
-    console.error('Error al obtener plantilla horario:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4279,7 +4254,7 @@ app.get('/api/plantillas-horarios/sala/:salaId', authenticateToken, async (req, 
 
     res.json(plantillas);
   } catch (error) {
-    console.error('Error al obtener plantillas horarios por sala:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4313,7 +4288,7 @@ app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
     });
     res.json(excepciones);
   } catch (error) {
-    console.error('Error al listar excepciones:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4360,7 +4335,7 @@ app.post('/api/horarios/excepciones', authenticateToken, async (req, res) => {
     const nueva = await ExcepcionHorario.create({ empleado_id, fecha, plantilla_horario_id, motivo, created_by: req.user.id });
     res.status(201).json(nueva);
   } catch (error) {
-    console.error('Error al crear excepción:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4381,7 +4356,7 @@ app.put('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => 
     await ex.save();
     res.json(ex);
   } catch (error) {
-    console.error('Error al actualizar excepción:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4395,7 +4370,7 @@ app.delete('/api/horarios/excepciones/:id', authenticateToken, async (req, res) 
     await ex.destroy();
     res.json({ message: 'Excepción eliminada' });
   } catch (error) {
-    console.error('Error al eliminar excepción:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4577,10 +4552,7 @@ app.delete('/api/mesas/:id', authenticateToken, async (req, res) => {
     }
     
     // Verificar si la mesa tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para mesa:', {
-      id: id,
-      nombre: mesa.nombre
-    });
+    
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
         SELECT 'Drops' as table_name, COUNT(*) as count FROM drops WHERE mesa_id = ?
@@ -4758,10 +4730,7 @@ app.delete('/api/juegos/:id', authenticateToken, async (req, res) => {
     }
     
     // Verificar si el juego tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para juego:', {
-      id: id,
-      nombre: juego.nombre
-    });
+    
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
         SELECT 'Mesas' as table_name, COUNT(*) as count FROM mesas WHERE juego_id = ?
@@ -4965,10 +4934,7 @@ app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
     }
     
     // Verificar si la máquina tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para máquina:', {
-      id: id,
-      nombre: maquina.nombre
-    });
+    
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
         SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE maquina_id = ?
@@ -5468,10 +5434,7 @@ app.delete('/api/llaves/:id', authenticateToken, async (req, res) => {
     }
     
     // Verificar si la llave tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para llave:', {
-      id: id,
-      nombre: llave.nombre
-    });
+    
     
     // Por ahora no hay relaciones, pero se puede agregar en el futuro
     // const relations = await sequelize.query(`
@@ -6056,8 +6019,8 @@ app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
     
     res.json(cargos);
   } catch (error) {
-    console.error('Error en GET /api/empleados/cargos:', error);
-    console.error('Stack trace:', error.stack);
+    ;
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -6758,10 +6721,7 @@ app.delete('/api/drops/:id', authenticateToken, async (req, res) => {
     }
 
     // Verificar si el drop tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para drop:', {
-      id: id,
-      mesa_id: drop.mesa_id
-    });
+    
     
     // No hay relaciones que verificar para drops ya que novedades_maquinas_registros no tiene drop_id
     const relations = [];
@@ -6904,7 +6864,7 @@ app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (
     
     res.json(registros);
   } catch (error) {
-    console.error('Error en novedades-maquinas-registros:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
@@ -7099,10 +7059,7 @@ app.delete('/api/incidencias-generales/:id', authenticateToken, async (req, res)
     }
 
     // Verificar si la incidencia tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para incidencia general:', {
-      id: id,
-      libro_id: incidencia.libro_id
-    });
+    
     
     // Por ahora no hay tablas relacionadas con incidencias_generales
     // Si en el futuro se agregan relaciones, se puede verificar aquí
@@ -7498,8 +7455,8 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
 
     res.status(201).json(empleadoCompleto);
   } catch (error) {
-    console.error('Error al crear empleado:', error);
-    console.error('Stack trace:', error.stack);
+    ;
+    ;
     res.status(500).json({ 
       message: 'Error interno del servidor',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -7628,7 +7585,7 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
 
     res.json(empleadoActualizado);
   } catch (error) {
-    console.error('Error actualizando empleado:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -7676,11 +7633,7 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
     }
 
     // Verificar si el empleado tiene relaciones que impidan su eliminación
-    console.log('🔍 Verificando relaciones para empleado:', {
-      id: id,
-      cedula: empleado.cedula,
-      nombre: empleado.nombre
-    });
+    
     
     const relations = await sequelize.query(`
       SELECT table_name, count FROM (
@@ -7718,11 +7671,7 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Empleado eliminado permanentemente de la base de datos' });
   } catch (error) {
     
-    console.error('❌ Detalles del error:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
+    
     
     // Si es un error de foreign key constraint, devolver información específica
     if (error.name === 'SequelizeForeignKeyConstraintError') {
@@ -7839,24 +7788,7 @@ app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res)
       marcaje_empleado_fin_dispositivo
     } = req.body;
 
-    console.log('🔍 Datos recibidos para crear tarea:', {
-      user_id,
-      numero_cedula_empleado,
-      nombre_empleado,
-      nombre_genero,
-      nombre_cargo,
-      nombre_sala,
-      nombre_area,
-      nombre_departamento,
-      foto_empleado: foto_empleado ? `Base64 (${foto_empleado.length} chars)` : 'null',
-      ip_publica_dispositivo,
-      ip_local_dispositivo,
-      usuario_login_dispositivo,
-      clave_login_dispositivo,
-      accion_realizar,
-      marcaje_empleado_inicio_dispositivo,
-      marcaje_empleado_fin_dispositivo
-    });
+    
 
     // Usar SQLite directamente para evitar problemas con Sequelize
     const sqlite3 = require('sqlite3').verbose();
@@ -10157,7 +10089,7 @@ app.get('/api/cron/config', authenticateToken, async (req, res) => {
       nextRun: isActive ? new Date(Date.now() + intervalMs).toISOString() : null
     });
   } catch (error) {
-    console.error('Error obteniendo configuración CRON:', error);
+    ;
     res.status(500).json({ 
       success: false,
       message: 'Error interno del servidor',
@@ -10248,7 +10180,7 @@ app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error obteniendo estado de cola CRON:', error);
+    ;
     res.status(500).json({ 
       success: false,
       message: 'Error interno del servidor',
@@ -10271,7 +10203,7 @@ let cronConfig = {
 // Función para ejecutar la descarga de imágenes
 async function executeImageDownload() {
   try {
-    console.log('🔄 Ejecutando descarga automática de imágenes...');
+    ;
     
     // Obtener todos los dispositivos (sin filtro de activo)
     const dispositivos = await Dispositivo.findAll({
@@ -10285,7 +10217,7 @@ async function executeImageDownload() {
     });
 
     if (dispositivos.length === 0) {
-      console.log('⚠️ No hay dispositivos activos para descargar imágenes');
+      ;
       return;
     }
 
@@ -10295,7 +10227,7 @@ async function executeImageDownload() {
     // Procesar cada dispositivo
     for (const dispositivo of dispositivos) {
       try {
-        console.log(`📱 Procesando dispositivo: ${dispositivo.nombre}`);
+        ;
         
         // Obtener marcajes recientes (últimas 24 horas)
         const yesterday = new Date();
@@ -10311,7 +10243,7 @@ async function executeImageDownload() {
           limit: 10 // Limitar a 10 marcajes por dispositivo
         });
 
-        console.log(`📊 Encontrados ${marcajes.length} marcajes para ${dispositivo.nombre}`);
+        ;
 
         // Descargar imagen para cada marcaje
         for (const marcaje of marcajes) {
@@ -10323,7 +10255,7 @@ async function executeImageDownload() {
             const imagePath = path.join(attlogsDir, `${marcaje.id}.jpg`);
             
             if (fs.existsSync(imagePath)) {
-              console.log(`✅ Imagen ya existe: ${marcaje.id}.jpg`);
+              ;
               continue;
             }
 
@@ -10363,36 +10295,36 @@ async function executeImageDownload() {
                   // Guardar imagen
                   fs.writeFileSync(imagePath, imageBuffer);
                   imagesDownloaded++;
-                  console.log(`✅ Imagen descargada: ${marcaje.id}.jpg`);
+                  ;
                 } else {
                   imagesErrors++;
-                  console.log(`❌ Error: Buffer vacío para ${marcaje.id}`);
+                  ;
                 }
               } else {
                 imagesErrors++;
-                console.log(`❌ Error descargando imagen ${marcaje.id}: ${imageResponse.status}`);
+                ;
               }
             } else {
-              console.log(`⚠️ Dispositivo ${dispositivo.nombre} no tiene credenciales`);
+              ;
             }
           } catch (imageError) {
             imagesErrors++;
-            console.log(`❌ Error procesando imagen ${marcaje.id}:`, imageError.message);
+            ;
           }
         }
       } catch (deviceError) {
-        console.log(`❌ Error procesando dispositivo ${dispositivo.nombre}:`, deviceError.message);
+        ;
       }
     }
 
-    console.log(`🎯 Descarga completada: ${imagesDownloaded} imágenes descargadas, ${imagesErrors} errores`);
+    ;
     
     // Actualizar configuración
     cronConfig.lastRun = new Date();
     cronConfig.nextRun = new Date(Date.now() + cronConfig.interval);
     
   } catch (error) {
-    console.error('❌ Error en descarga automática:', error);
+    ;
   }
 }
 
@@ -10403,7 +10335,7 @@ function startCron() {
   }
   
   if (cronConfig.enabled) {
-    console.log(`🚀 Iniciando CRON cada ${cronConfig.interval / 1000} segundos`);
+    ;
     cronInterval = setInterval(executeImageDownload, cronConfig.interval);
     
     // Ejecutar inmediatamente la primera vez
@@ -10416,7 +10348,7 @@ function stopCron() {
   if (cronInterval) {
     clearInterval(cronInterval);
     cronInterval = null;
-    console.log('⏹️ CRON detenido');
+    ;
   }
 }
 
@@ -10466,7 +10398,7 @@ app.post('/api/cron/stop', authenticateToken, async (req, res) => {
 });
 
 // Iniciar CRON automáticamente al arrancar el servidor
-console.log('🔄 Iniciando CRON automático...');
+;
 cronConfig.enabled = true;
 cronConfig.interval = 300000; // 5 minutos
 startCron();
@@ -11037,7 +10969,7 @@ app.get('/api/public/novedades-maquinas/:libroId', async (req, res) => {
 app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
   try {
     const { libroId } = req.params;
-    console.log('🔍 Consultando novedades-mesas para libro:', libroId);
+    ;
     const novedades = await NovedadMesaRegistro.findAll({
       where: { libro_id: libroId },
       include: [
@@ -11055,10 +10987,10 @@ app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
       order: [['created_at', 'ASC']]
     });
     
-    console.log('✅ Novedades-mesas encontradas:', novedades.length);
+    ;
     res.json(novedades);
   } catch (error) {
-    console.error('❌ Error en novedades-mesas:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
@@ -11067,7 +10999,7 @@ app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
 app.get('/api/public/control-llaves/:libroId', async (req, res) => {
   try {
     const { libroId } = req.params;
-    console.log('🔍 Consultando control-llaves para libro:', libroId);
+    ;
     const controles = await ControlLlaveRegistro.findAll({
       where: { libro_id: libroId },
       include: [
@@ -11085,10 +11017,10 @@ app.get('/api/public/control-llaves/:libroId', async (req, res) => {
       order: [['created_at', 'ASC']]
     });
     
-    console.log('✅ Control-llaves encontrados:', controles.length);
+    ;
     res.json(controles);
   } catch (error) {
-    console.error('❌ Error en control-llaves:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
@@ -11123,7 +11055,7 @@ app.listen(PORT, () => {
     // Intentar restaurar cola desde disco
     const restored = loadQueueFromDisk();
     if (restored && cronQueue.length > 0) {
-      console.log(`🔄 Reanudando procesamiento de cola restaurada...`);
+      ;
       // Procesar cola restaurada si no está en proceso
       if (!isProcessingCron) {
         processCronQueue();
@@ -11242,7 +11174,7 @@ app.post('/api/cron/clear-queue', authenticateToken, async (req, res) => {
       clearedCount: clearedCount
     });
   } catch (error) {
-    console.error('Error limpiando cola CRON:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -11258,7 +11190,7 @@ app.post('/api/cron/save-queue', authenticateToken, async (req, res) => {
       pendingCount: pendingDevices.size
     });
   } catch (error) {
-    console.error('Error guardando cola:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -11281,7 +11213,7 @@ app.post('/api/cron/restore-queue', authenticateToken, async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('Error restaurando cola:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -11301,7 +11233,7 @@ app.post('/api/cron/reset-system', authenticateToken, async (req, res) => {
     // Limpiar archivos de persistencia
     clearPersistenceFiles();
     
-    console.log('🔄 Sistema CRON reseteado completamente');
+    ;
     
     res.json({ 
       message: 'Sistema CRON reseteado exitosamente',
@@ -11310,7 +11242,7 @@ app.post('/api/cron/reset-system', authenticateToken, async (req, res) => {
       pendingCount: 0
     });
   } catch (error) {
-    console.error('Error reseteando sistema CRON:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -11378,7 +11310,7 @@ app.get('/api/debug/sync-config', authenticateToken, async (req, res) => {
       dispositivosConFechasValidas: debugInfo.filter(d => d.hasValidDates).length
     });
   } catch (error) {
-    console.error('Error obteniendo configuración de debug:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -11458,7 +11390,7 @@ app.get('/api/debug/marques-sync', authenticateToken, async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('Error obteniendo debug de Marques:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -11513,14 +11445,14 @@ app.put('/api/cron/config', authenticateToken, async (req, res) => {
     // Reinicializar CRON global
     await initializeAllCronJobs();
     
-    console.log(`⚙️ Configuración CRON actualizada a: ${value}`);
+    ;
     
     res.json({ 
       message: 'Configuración de CRON actualizada exitosamente',
       value: value
     });
   } catch (error) {
-    console.error('Error actualizando configuración CRON:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -11556,7 +11488,7 @@ app.get('/api/dispositivos/sync-status', authenticateToken, async (req, res) => 
       }
     });
   } catch (error) {
-    console.error('Error obteniendo estado de sincronización:', error);
+    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

@@ -1990,23 +1990,18 @@ export class MarcajePersonalComponent implements OnInit {
       salaId = empleado.Cargo.Area.Departamento.sala_id || empleado?.Cargo?.Area?.Departamento?.sala_id;
     }
     
-    console.log('=== Abriendo modal excepción ===');
-    console.log('Empleado:', empleado?.nombre);
-    console.log('Fecha:', this.modalFecha);
-    console.log('Sala ID encontrado:', salaId);
-    console.log('Estructura empleado:', {
-      Cargo: empleado?.Cargo,
-      Area: empleado?.Cargo?.Area,
-      Departamento: empleado?.Cargo?.Area?.Departamento,
-      Sala: empleado?.Cargo?.Area?.Departamento?.Sala
-    });
+    
+    
+    
+    
+    
     
     // Función auxiliar para cargar plantillas y mostrar modal
     const cargarYMostrar = (plantillas: any[]) => {
-      console.log('Plantillas finales a mostrar:', plantillas);
+      
       this.modalPlantillas = Array.isArray(plantillas) ? plantillas : [];
-      console.log('modalPlantillas después de asignar:', this.modalPlantillas);
-      console.log('Cantidad de plantillas:', this.modalPlantillas.length);
+      
+      
       // Prefill si ya existe una excepción para esa fecha
       const key = `${empleado?.id}|${this.modalFecha}`;
       const ex = this.excepcionesMap.get(key);
@@ -2024,51 +2019,51 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Intentar cargar por sala primero, luego todas como fallback
     if (salaId) {
-      console.log('Intentando cargar plantillas por sala:', salaId);
+      
       this.plantillasService.getBySala(salaId).subscribe({
         next: (list: any[]) => {
-          console.log('Respuesta API por sala:', list);
+          
           const plantillas = Array.isArray(list) ? list : [];
           if (plantillas.length > 0) {
             cargarYMostrar(plantillas);
           } else {
-            console.log('No hay plantillas para esta sala, cargando todas...');
+            
             this.plantillasService.getPlantillasHorarios().subscribe({
               next: (todas: any[]) => {
-                console.log('Respuesta API todas las plantillas:', todas);
+                
                 cargarYMostrar(Array.isArray(todas) ? todas : []);
               },
               error: (err) => {
-                console.error('Error cargando todas las plantillas:', err);
+                
                 cargarYMostrar([]);
               }
             });
           }
         },
         error: (err) => {
-          console.error('Error cargando plantillas por sala:', err);
-          console.log('Fallback: cargando todas las plantillas...');
+          
+          
           this.plantillasService.getPlantillasHorarios().subscribe({
             next: (todas: any[]) => {
-              console.log('Respuesta API todas las plantillas (fallback):', todas);
+              
               cargarYMostrar(Array.isArray(todas) ? todas : []);
             },
             error: (err2) => {
-              console.error('Error cargando todas las plantillas (fallback):', err2);
+              
               cargarYMostrar([]);
             }
           });
         }
       });
     } else {
-      console.log('No se encontró sala_id, cargando todas las plantillas...');
+      
       this.plantillasService.getPlantillasHorarios().subscribe({
         next: (todas: any[]) => {
-          console.log('Respuesta API todas las plantillas:', todas);
+          
           cargarYMostrar(Array.isArray(todas) ? todas : []);
         },
         error: (err) => {
-          console.error('Error cargando todas las plantillas:', err);
+          
           cargarYMostrar([]);
         }
       });
@@ -2397,7 +2392,7 @@ export class MarcajePersonalComponent implements OnInit {
         });
       },
       error: (error) => {
-        console.error('Error cargando empleados:', error);
+        
         this.loading = false;
       }
     });
@@ -2696,8 +2691,8 @@ export class MarcajePersonalComponent implements OnInit {
           const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
           // Filtrar marcajes por rango de fechas
           const marcajesFiltrados = marcajesCompletos.filter((marcaje: any) => {
-            const fechaMarcaje = marcaje.fecha ? marcaje.fecha.split('T')[0] : null;
-            if (!fechaMarcaje) return false;
+            if (!marcaje.event_time) return false;
+            const fechaMarcaje = new Date(marcaje.event_time).toISOString().split('T')[0];
             return fechaMarcaje >= this.fechaDesde && fechaMarcaje <= this.fechaHasta;
           });
           this.marcajesPorEmpleado.set(empleado.cedula, marcajesFiltrados);
