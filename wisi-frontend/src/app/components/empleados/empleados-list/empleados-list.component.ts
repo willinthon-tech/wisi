@@ -78,33 +78,48 @@ import { take, filter } from 'rxjs/operators';
               <th>Foto</th>
               <th (click)="sortBy('nombre')" class="sortable-header" title="Haz clic para ordenar">
                 Nombre
-                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'nombre' && sortDirection === 'asc'"></i>
-                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'nombre' && sortDirection === 'desc'"></i>
-                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'nombre'"></i>
+                <i class="fas sort-icon" 
+                   [ngClass]="{
+                     'fa-sort-up': sortColumn === 'nombre' && sortDirection === 'asc',
+                     'fa-sort-down': sortColumn === 'nombre' && sortDirection === 'desc',
+                     'fa-sort': sortColumn !== 'nombre'
+                   }"></i>
               </th>
               <th (click)="sortBy('cedula')" class="sortable-header" title="Haz clic para ordenar">
                 Cédula
-                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'cedula' && sortDirection === 'asc'"></i>
-                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'cedula' && sortDirection === 'desc'"></i>
-                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'cedula'"></i>
+                <i class="fas sort-icon" 
+                   [ngClass]="{
+                     'fa-sort-up': sortColumn === 'cedula' && sortDirection === 'asc',
+                     'fa-sort-down': sortColumn === 'cedula' && sortDirection === 'desc',
+                     'fa-sort': sortColumn !== 'cedula'
+                   }"></i>
               </th>
               <th (click)="sortBy('cargo')" class="sortable-header" title="Haz clic para ordenar">
                 Cargo
-                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'cargo' && sortDirection === 'asc'"></i>
-                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'cargo' && sortDirection === 'desc'"></i>
-                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'cargo'"></i>
+                <i class="fas sort-icon" 
+                   [ngClass]="{
+                     'fa-sort-up': sortColumn === 'cargo' && sortDirection === 'asc',
+                     'fa-sort-down': sortColumn === 'cargo' && sortDirection === 'desc',
+                     'fa-sort': sortColumn !== 'cargo'
+                   }"></i>
               </th>
               <th (click)="sortBy('edad')" class="sortable-header" title="Haz clic para ordenar">
                 Edad
-                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'edad' && sortDirection === 'asc'"></i>
-                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'edad' && sortDirection === 'desc'"></i>
-                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'edad'"></i>
+                <i class="fas sort-icon" 
+                   [ngClass]="{
+                     'fa-sort-up': sortColumn === 'edad' && sortDirection === 'asc',
+                     'fa-sort-down': sortColumn === 'edad' && sortDirection === 'desc',
+                     'fa-sort': sortColumn !== 'edad'
+                   }"></i>
               </th>
               <th (click)="sortBy('antiguedad')" class="sortable-header" title="Haz clic para ordenar">
                 Antigüedad
-                <i class="fas fa-sort-up sort-icon" *ngIf="sortColumn === 'antiguedad' && sortDirection === 'asc'"></i>
-                <i class="fas fa-sort-down sort-icon" *ngIf="sortColumn === 'antiguedad' && sortDirection === 'desc'"></i>
-                <i class="fas fa-sort sort-icon" *ngIf="sortColumn !== 'antiguedad'"></i>
+                <i class="fas sort-icon" 
+                   [ngClass]="{
+                     'fa-sort-up': sortColumn === 'antiguedad' && sortDirection === 'asc',
+                     'fa-sort-down': sortColumn === 'antiguedad' && sortDirection === 'desc',
+                     'fa-sort': sortColumn !== 'antiguedad'
+                   }"></i>
               </th>
               <th>Acciones</th>
             </tr>
