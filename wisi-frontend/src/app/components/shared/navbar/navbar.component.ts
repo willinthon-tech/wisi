@@ -13,7 +13,7 @@ import { filter } from 'rxjs/operators';
     <header class="navbar">
       <div class="navbar-content">
         <div class="navbar-left">
-          <h1 class="system-title">Sistema WISI</h1>
+          <h1 class="system-title">Wisi Space</h1>
           <div class="user-info-section" *ngIf="currentUser">
             <span class="user-label">Usuario logueado:</span>
             <span class="user-name">{{ currentUser.nombre_apellido }}</span>
