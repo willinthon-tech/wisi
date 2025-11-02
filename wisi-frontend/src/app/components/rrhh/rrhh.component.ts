@@ -126,15 +126,24 @@ import { Subscription } from 'rxjs';
   `,
   styles: [`
     .module-container {
-      min-height: 100vh;
+      height: calc(100vh - 80px);
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 20px;
+      padding: 30px 20px;
+      box-sizing: border-box;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    @media (max-width: 767px) {
+      .module-container {
+        padding: 20px 15px;
+      }
     }
 
     .module-header {
       text-align: center;
       color: white;
-      margin-bottom: 40px;
+      margin-bottom: 30px;
     }
 
     .module-header h1 {
@@ -149,17 +158,38 @@ import { Subscription } from 'rxjs';
       opacity: 0.9;
     }
 
+    @media (max-width: 767px) {
+      .module-header {
+        margin-bottom: 20px;
+      }
+      .module-header h1 {
+        font-size: 32px;
+      }
+      .module-header p {
+        font-size: 16px;
+      }
+    }
+
     .module-content {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .actions-section {
       display: flex;
       gap: 15px;
-      margin-bottom: 40px;
+      margin-bottom: 30px;
       justify-content: center;
       flex-wrap: wrap;
+    }
+
+    @media (max-width: 767px) {
+      .actions-section {
+        margin-bottom: 20px;
+        gap: 10px;
+      }
     }
 
     .action-btn {
@@ -201,18 +231,53 @@ import { Subscription } from 'rxjs';
 
     .feature-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 30px;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 25px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 1200px) {
+      .feature-grid {
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 991px) {
+      .feature-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .feature-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
     }
 
     .feature-card {
       background: white;
       border-radius: 15px;
-      padding: 30px;
+      padding: 30px 25px;
       text-align: center;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
       transition: transform 0.3s ease;
       cursor: pointer;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (min-width: 1201px) {
+      .feature-card {
+        padding: 35px 30px;
+        min-height: 200px;
+      }
     }
 
     .feature-card:hover {
@@ -228,12 +293,61 @@ import { Subscription } from 'rxjs';
       color: #333;
       margin: 0 0 15px 0;
       font-size: 24px;
+      font-weight: bold;
     }
 
     .feature-card p {
       color: #666;
       margin: 0;
       line-height: 1.5;
+      font-size: 15px;
+    }
+
+    @media (min-width: 1201px) {
+      .feature-icon {
+        font-size: 56px;
+        margin-bottom: 25px;
+      }
+      .feature-card h3 {
+        font-size: 26px;
+      }
+      .feature-card p {
+        font-size: 16px;
+      }
+    }
+
+    @media (max-width: 991px) {
+      .feature-card {
+        padding: 30px 20px;
+        min-height: 170px;
+      }
+      .feature-icon {
+        font-size: 44px;
+        margin-bottom: 18px;
+      }
+      .feature-card h3 {
+        font-size: 22px;
+      }
+      .feature-card p {
+        font-size: 14px;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .feature-card {
+        padding: 25px 20px;
+        min-height: 160px;
+      }
+      .feature-icon {
+        font-size: 40px;
+        margin-bottom: 15px;
+      }
+      .feature-card h3 {
+        font-size: 20px;
+      }
+      .feature-card p {
+        font-size: 14px;
+      }
     }
   `]
 })

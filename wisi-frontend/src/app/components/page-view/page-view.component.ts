@@ -10,12 +10,8 @@ import { UserService } from '../../services/user.service';
   imports: [CommonModule],
   template: `
     <div class="page-container">
-      <div class="page-header">
-        <h1 class="page-title">{{ page?.nombre }}</h1>
-        <p class="page-description">{{ page?.descripcion || 'Módulos disponibles' }}</p>
-      </div>
-      
-      <div class="modules-grid" *ngIf="modules.length > 0; else noModules">
+      <div class="page-content">
+        <div class="modules-grid" *ngIf="modules.length > 0">
         <div 
           class="module-card" 
           *ngFor="let module of modules" 
@@ -29,14 +25,7 @@ import { UserService } from '../../services/user.service';
           </div>
         </div>
       </div>
-
-      <ng-template #noModules>
-        <div class="no-modules">
-          <i class="fas fa-folder-open"></i>
-          <h3>No hay módulos disponibles</h3>
-          <p>Esta página no tiene módulos asignados o no tienes acceso a ellos.</p>
-        </div>
-      </ng-template>
+      </div>
     </div>
   `,
   styles: [`
@@ -44,11 +33,25 @@ import { UserService } from '../../services/user.service';
       height: calc(100vh - 80px);
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       font-family: 'Arial', sans-serif;
-      padding: 20px;
-      overflow: hidden;
+      padding: 30px 20px;
+      overflow-x: hidden;
+      overflow-y: auto;
       display: flex;
       flex-direction: column;
+      align-items: center;
       justify-content: center;
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 767px) {
+      .page-container {
+        padding: 20px 15px;
+      }
+    }
+
+    .page-content {
+      max-width: 1400px;
+      width: 100%;
       box-sizing: border-box;
     }
 
@@ -73,28 +76,69 @@ import { UserService } from '../../services/user.service';
 
     .modules-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 25px;
-      max-width: 1000px;
-      margin: 0 auto;
       width: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 1200px) {
+      .modules-grid {
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 991px) {
+      .modules-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .modules-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
     }
 
     .module-card {
       background: white;
-      border-radius: 12px;
+      border-radius: 15px;
       padding: 35px 25px;
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
       cursor: pointer;
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
-      aspect-ratio: 2;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       min-height: 160px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (min-width: 1201px) {
+      .module-card {
+        padding: 40px 30px;
+        min-height: 170px;
+      }
+    }
+
+    @media (max-width: 991px) {
+      .module-card {
+        padding: 30px 20px;
+        min-height: 150px;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .module-card {
+        padding: 25px 20px;
+        min-height: 140px;
+      }
     }
 
     .module-card:hover:not(.disabled) {
@@ -149,28 +193,6 @@ import { UserService } from '../../services/user.service';
       white-space: nowrap;
     }
 
-    .no-modules {
-      text-align: center;
-      color: white;
-      padding: 60px 20px;
-    }
-
-    .no-modules i {
-      font-size: 64px;
-      margin-bottom: 20px;
-      opacity: 0.7;
-    }
-
-    .no-modules h3 {
-      font-size: 24px;
-      margin: 0 0 10px 0;
-    }
-
-    .no-modules p {
-      font-size: 16px;
-      margin: 0;
-      opacity: 0.8;
-    }
   `]
 })
 export class PageViewComponent implements OnInit {

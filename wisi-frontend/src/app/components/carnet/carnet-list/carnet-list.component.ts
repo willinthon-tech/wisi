@@ -11,155 +11,233 @@ import * as htmlToImage from 'html-to-image';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="carnet-container">
-      <!-- Header con filtros -->
-      <div class="header-section">
-        <h2>🎫 Carnets de Empleados</h2>
-        
-        <div class="filters-section">
-          <div class="filter-group">
-            <label for="ladoFilter">Lado del Carnet:</label>
-            <select 
-              id="ladoFilter" 
-              [(ngModel)]="ladoFilter" 
-              (change)="applyFilters()"
-              class="filter-select">
-              <option value="">Todos</option>
-              <option value="frente">De Frente</option>
-              <option value="detras">Detrás</option>
-            </select>
-          </div>
-          
-          <div class="filter-group">
-            <label for="colorFilter">Color:</label>
-            <select 
-              id="colorFilter" 
-              [(ngModel)]="colorFilter" 
-              (change)="applyFilters()"
-              class="filter-select">
-              <option value="">Todos los colores</option>
-              <option value="marron">Marrón</option>
-              <option value="azul">Azul</option>
-              <option value="verde">Verde</option>
-              <option value="naranja">Naranja</option>
-              <option value="morado">Morado</option>
-              <option value="rosado">Rosado</option>
-              <option value="gris">Gris</option>
-              <option value="amarillo">Amarillo</option>
-              <option value="vinotinto">Vinotinto</option>
-            </select>
+      <!-- Bloque superior: Selección de sala con radio buttons -->
+      <div class="sala-selector-section">
+        <div class="sala-selector-container">
+          <label class="sala-selector-label">Seleccionar Sala:</label>
+          <div class="radio-buttons-group">
+            <label class="radio-option" *ngFor="let sala of userSalas">
+              <input 
+                type="radio" 
+                name="salaSelector" 
+                [value]="sala.id"
+                [checked]="selectedSalaForDataLoad === sala.id"
+                (change)="onSalaSelectorChange(sala.id)"
+                class="radio-input">
+              <span class="radio-label">{{ sala.nombre }}</span>
+            </label>
           </div>
         </div>
       </div>
 
-      <!-- Grid de carnets -->
-      <div class="carnets-grid" *ngIf="!loading">
-        <div class="carnet-wrapper" *ngFor="let carnet of filteredEmpleados">
-          <div class="carnet-card" (click)="descargarCarnet(carnet)">
-          
-          <!-- Frente del carnet (solo para empleados) -->
-          <div [id]="getCarnetId(carnet)" *ngIf="carnet.type === 'empleado'">
-            <div [style]="getCarnetFrontStyles(carnet)">
-              <div *ngIf="carnet.sala?.logo">
-                <img [src]="getSalaLogo(carnet.sala.logo)" [alt]="carnet.sala.nombre" [style]="getLogoStyles()"> 
-              </div>
-              <div *ngIf="!carnet.sala?.logo" [style]="getLogoTextStyles()">
-                {{carnet.sala.nombre}}
-              </div>
-                  
-                <div [style]="getHeaderStyles()">
-                </div>
-                
-                <div [style]="getBodyStyles()">
-                  <div [style]="getBlackExtensionStyles()"></div>
-                  
-                  <div [style]="getPhotoContainerStyles()">
-                    <div [style]="getHexagonalPhotoStyles(carnet.color)">
-                      <img *ngIf="carnet.data?.foto" [src]="getEmployeePhoto(carnet.data.foto)" [alt]="carnet.data.nombre" [style]="getPhotoImageStyles()">
-                      <div *ngIf="!carnet.data?.foto" [style]="getPhotoPlaceholderStyles()">👤</div>
-                    </div>
-                  </div>
-                  
-                  <div [style]="getEmployeeNameStyles()">
-                    {{ (carnet.data?.nombre || 'SIN NOMBRE').toUpperCase() }}
-                  </div>
-                  
-                  <div [style]="getBadgeStyles(carnet.color)">
-                    {{ (carnet.data?.Cargo?.nombre || 'SIN CARGO').toUpperCase() }}
-                  </div>
-                  
-                  <div [style]="getEmployeeDetailsStyles()">
-                    <div [style]="getDetailLineStyles()">
-                      <span [style]="getDetailLabelStyles()">Cedula :</span>
-                      <span [style]="getDetailValueStyles()">{{ carnet.data?.cedula || 'SIN CÉDULA' }}</span>
-                    </div>
-                    <div [style]="getDetailLineStyles()">
-                      <span [style]="getDetailLabelStyles()">Departamento :</span>
-                      <span [style]="getDetailValueStyles()">{{ carnet.data?.Cargo?.Departamento?.nombre || 'SIN DEPARTAMENTO' }}</span>
-                    </div>
-                    <div [style]="getDetailLineStyles()">
-                      <span [style]="getDetailLabelStyles()">Área :</span>
-                      <span [style]="getDetailValueStyles()">{{ carnet.data?.Cargo?.Departamento?.Area?.nombre || 'SIN ÁREA' }}</span>
-                    </div>
-                    <div [style]="getDetailLineStyles()">
-                      <span [style]="getDetailLabelStyles()">Ingreso :</span>
-                      <span [style]="getDetailValueStyles()">{{ carnet.data?.fecha_ingreso || 'SIN FECHA' }}</span>
-                    </div>
-                  </div>
-                  
-                  <div [style]="getBarcodeSectionStyles()">
-                    <div [style]="getBarcodeStyles(carnet.color)">
-                      <span *ngFor="let bar of generateBarcodeBars(carnet.data)" 
-                            [style]="getBarcodeBarStyles(bar, carnet.color)">
-                      </span>
-                    </div>
-                  </div>
-                </div>
-            </div>
+      <!-- Bloque de selección de lado del carnet -->
+      <div class="lado-selector-section">
+        <div class="lado-selector-container">
+          <label class="lado-selector-label">Lado del Carnet:</label>
+          <div class="radio-buttons-group">
+            <label class="radio-option">
+              <input 
+                type="radio" 
+                name="ladoCarnet" 
+                value="frente"
+                [checked]="ladoCarnet === 'frente'"
+                (change)="onLadoCarnetChange('frente')"
+                class="radio-input"
+                [disabled]="!selectedSalaForDataLoad">
+              <span class="radio-label">De frente</span>
+            </label>
+            <label class="radio-option">
+              <input 
+                type="radio" 
+                name="ladoCarnet" 
+                value="detras"
+                [checked]="ladoCarnet === 'detras'"
+                (change)="onLadoCarnetChange('detras')"
+                class="radio-input"
+                [disabled]="!selectedSalaForDataLoad">
+              <span class="radio-label">Detrás</span>
+            </label>
           </div>
+        </div>
+      </div>
 
-          <!-- Reverso del carnet (solo para salas - cara trasera) -->
-          <div [id]="getCarnetId(carnet)" *ngIf="carnet.type === 'sala'">
-            <div [style]="getCarnetBackStyles(carnet)">
-              <div [style]="getBackContentStyles()">
-                <p [style]="getIntroTextStyles()">El portador del presente Carnet presta sus servicios Profesionales a:</p>
-                
-                <div [style]="getCompanyInfoStyles()">
-                  <h3 [style]="getCompanyNameStyles()">{{ carnet.data?.nombre_comercial || carnet.sala?.nombre_comercial || 'SIN NOMBRE' }}</h3>
-                  <p [style]="getCompanyRifStyles()">R.I.F.: {{ carnet.data?.rif || carnet.sala?.rif || 'SIN RIF' }}</p>
-                </div>
-                
-                <p [style]="getInstructionTextStyles()">
-                  Se le agradece a las autoridades Civiles, Militares y otros Organismos Públicos, 
-                  brindarle todo su apoyo y colaboración. En caso de emergencia o pérdida, favor avisar al teléfono:
-                </p>
-                
-                <div [style]="getPhoneSectionStyles()">
-                  <p [style]="getPhoneNumberStyles()">{{ carnet.data?.telefono || carnet.sala?.telefono || 'SIN TELÉFONO' }}</p>
-                </div>
-                
-                <p [style]="getAddressTextStyles()">{{ carnet.data?.ubicacion || carnet.sala?.ubicacion || 'SIN UBICACIÓN' }}</p>
-                
-                <div [style]="getEmailSectionStyles(carnet.color)">
-                  <div [style]="getEmailLabelStyles()">Correo:</div>
-                  <div [style]="getEmailAddressStyles()">{{ carnet.data?.correo || carnet.sala?.correo || 'SIN CORREO' }}</div>
-                </div>
+      <!-- Barra de búsqueda (solo para frente) -->
+      <div class="search-section" *ngIf="selectedSalaForDataLoad && ladoCarnet === 'frente'">
+        <div class="search-container">
+          <label for="searchInput" class="search-label">Buscar empleado:</label>
+          <input 
+            id="searchInput" 
+            type="text" 
+            class="search-input"
+            placeholder="Buscar por nombre, cédula o cargo..."
+            [(ngModel)]="searchText"
+            [disabled]="!selectedSalaForDataLoad"
+            (keyup)="onSearchChange()" />
+        </div>
+      </div>
+
+      <!-- Lista de empleados (solo para frente) -->
+      <div class="empleados-list-section" *ngIf="!loading && selectedSalaForDataLoad && ladoCarnet === 'frente' && empleadosMostrados.length > 0">
+        <div class="empleados-grid">
+          <div class="empleado-card" *ngFor="let empleado of empleadosMostrados" (click)="abrirCarnetModal(empleado)">
+            <div class="empleado-foto-container">
+              <img *ngIf="empleado.foto" 
+                   [src]="getEmployeePhoto(empleado.foto)" 
+                   [alt]="empleado.nombre"
+                   class="empleado-foto">
+              <div *ngIf="!empleado.foto" class="empleado-foto-placeholder">
+                <i class="fas fa-user"></i>
               </div>
+            </div>
+            <div class="empleado-info">
+              <div class="empleado-nombre">{{ empleado.nombre }}</div>
+              <div class="empleado-cedula">{{ empleado.cedula }}</div>
+              <div class="empleado-cargo">{{ empleado.Cargo?.nombre || 'Sin cargo' }}</div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Lista de salas (para detrás) -->
+      <div class="sala-card-section" *ngIf="!loading && selectedSalaForDataLoad && ladoCarnet === 'detras'">
+        <div class="sala-card" (click)="abrirCarnetModalSala()">
+          <div class="sala-info">
+            <div class="sala-nombre">{{ salaSeleccionadaParaDetras?.nombre || 'Sala' }}</div>
+          </div>
+        </div>
       </div>
 
       <!-- Loading state -->
       <div class="loading-state" *ngIf="loading">
         <div class="spinner"></div>
-        <p>Cargando carnets...</p>
+        <p>Cargando empleados...</p>
       </div>
 
-      <!-- Empty state -->
-      <div class="empty-state" *ngIf="!loading && filteredEmpleados.length === 0">
-        <h3>No hay carnets para mostrar</h3>
-        <p>No se encontraron empleados con los filtros aplicados</p>
+      <!-- Empty state para frente -->
+      <div class="empty-state" *ngIf="!loading && selectedSalaForDataLoad && ladoCarnet === 'frente' && empleadosMostrados.length === 0">
+        <h3 *ngIf="searchText && empleadosFiltrados.length > 0">No se encontraron empleados con la búsqueda</h3>
+        <h3 *ngIf="!searchText || empleadosFiltrados.length === 0">No hay empleados para mostrar</h3>
+        <p *ngIf="searchText && empleadosFiltrados.length > 0">Intenta con otros términos de búsqueda</p>
+        <p *ngIf="!searchText || empleadosFiltrados.length === 0">No se encontraron empleados para esta sala</p>
+      </div>
+
+      <!-- Modal de carnets -->
+      <div class="modal" [class.show]="showCarnetModal">
+        <div class="modal-content carnet-modal">
+          <button class="btn-close-floating" (click)="cerrarCarnetModal()">×</button>
+          
+          <div class="modal-body">
+            <div class="carnet-modal-container" *ngIf="carnetSeleccionado">
+              <div class="carnet-card-modal" [id]="getCarnetId(carnetSeleccionado)">
+                <!-- Frente del carnet -->
+                <div *ngIf="ladoCarnet === 'frente' && carnetSeleccionado.type === 'empleado'">
+                  <div [style]="getCarnetFrontStyles(carnetSeleccionado)" id="carnet-front-container">
+                    <div *ngIf="carnetSeleccionado.sala?.logo">
+                      <img [src]="getSalaLogo(carnetSeleccionado.sala.logo)" [alt]="carnetSeleccionado.sala.nombre" [style]="getLogoStyles()"> 
+                    </div>
+                    <div *ngIf="!carnetSeleccionado.sala?.logo" [style]="getLogoTextStyles()">
+                      {{carnetSeleccionado.sala.nombre}}
+                    </div>
+                          
+                    <div [style]="getHeaderStyles()">
+                    </div>
+                    
+                    <div [style]="getBodyStyles()">
+                      <div [style]="getBlackExtensionStyles()"></div>
+                      
+                      <div [style]="getPhotoContainerStyles()">
+                        <div [style]="getHexagonalPhotoStyles(carnetSeleccionado.color)">
+                          <img *ngIf="carnetSeleccionado.data?.foto" [src]="getEmployeePhoto(carnetSeleccionado.data.foto)" [alt]="carnetSeleccionado.data.nombre" [style]="getPhotoImageStyles()">
+                          <div *ngIf="!carnetSeleccionado.data?.foto" [style]="getPhotoPlaceholderStyles()">👤</div>
+                        </div>
+                      </div>
+                      
+                      <div [style]="getEmployeeNameStyles()">
+                        {{ (carnetSeleccionado.data?.nombre || 'SIN NOMBRE').toUpperCase() }}
+                      </div>
+                      
+                      <div [style]="getBadgeStyles(carnetSeleccionado.color)">
+                        {{ (carnetSeleccionado.data?.Cargo?.nombre || 'SIN CARGO').toUpperCase() }}
+                      </div>
+                      
+                      <div [style]="getEmployeeDetailsStyles()">
+                        <div [style]="getDetailLineStyles()">
+                          <span [style]="getDetailLabelStyles()">Cedula :</span>
+                          <span [style]="getDetailValueStyles()">{{ carnetSeleccionado.data?.cedula || 'SIN CÉDULA' }}</span>
+                        </div>
+                        <div [style]="getDetailLineStyles()">
+                          <span [style]="getDetailLabelStyles()">Departamento :</span>
+                          <span [style]="getDetailValueStyles()">{{ carnetSeleccionado.data?.Cargo?.Area?.Departamento?.nombre || 'SIN DEPARTAMENTO' }}</span>
+                        </div>
+                        <div [style]="getDetailLineStyles()">
+                          <span [style]="getDetailLabelStyles()">Área :</span>
+                          <span [style]="getDetailValueStyles()">{{ carnetSeleccionado.data?.Cargo?.Area?.nombre || 'SIN ÁREA' }}</span>
+                        </div>
+                        <div [style]="getDetailLineStyles()">
+                          <span [style]="getDetailLabelStyles()">Ingreso :</span>
+                          <span [style]="getDetailValueStyles()">{{ carnetSeleccionado.data?.fecha_ingreso || 'SIN FECHA' }}</span>
+                        </div>
+                      </div>
+                      
+                      <div [style]="getBarcodeSectionStyles()">
+                        <div [style]="getBarcodeStyles(carnetSeleccionado.color)">
+                          <span *ngFor="let bar of generateBarcodeBars(carnetSeleccionado.data)" 
+                                [style]="getBarcodeBarStyles(bar, carnetSeleccionado.color)">
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Reverso del carnet -->
+                <div *ngIf="ladoCarnet === 'detras'">
+                  <div [style]="getCarnetBackStyles(carnetSeleccionado)" id="carnet-back-container">
+                    <div [style]="getBackContentStyles()">
+                      <p [style]="getIntroTextStyles()">El portador del presente Carnet presta sus servicios Profesionales a:</p>
+                      
+                      <div [style]="getCompanyInfoStyles()">
+                        <h3 [style]="getCompanyNameStyles()">{{ carnetSeleccionado.sala?.nombre_comercial || carnetSeleccionado.sala?.nombre || 'SIN NOMBRE' }}</h3>
+                        <p [style]="getCompanyRifStyles()">R.I.F.: {{ carnetSeleccionado.sala?.rif || 'SIN RIF' }}</p>
+                      </div>
+                      
+                      <p [style]="getInstructionTextStyles()">
+                        Se le agradece a las autoridades Civiles, Militares y otros Organismos Públicos, 
+                        brindarle todo su apoyo y colaboración. En caso de emergencia o pérdida, favor avisar al teléfono:
+                      </p>
+                      
+                      <div [style]="getPhoneSectionStyles()">
+                        <p [style]="getPhoneNumberStyles()">{{ carnetSeleccionado.sala?.telefono || 'SIN TELÉFONO' }}</p>
+                      </div>
+                      
+                      <p [style]="getAddressTextStyles()">{{ carnetSeleccionado.sala?.ubicacion || 'SIN UBICACIÓN' }}</p>
+                      
+                      <div [style]="getEmailSectionStyles(carnetSeleccionado.color)">
+                        <div [style]="getEmailLabelStyles()">Correo:</div>
+                        <div [style]="getEmailAddressStyles()">{{ carnetSeleccionado.sala?.correo || 'SIN CORREO' }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Controles de navegación -->
+          <div class="modal-navigation-floating">
+            <button class="btn" *ngIf="ladoCarnet === 'frente'" (click)="carnetAnterior()" [disabled]="!puedeAnteriorCarnet">Anterior</button>
+            <button class="btn" (click)="cambioColorAnterior()" [disabled]="!puedeColorAnterior">←</button>
+            <span class="modal-counter" *ngIf="ladoCarnet === 'frente'">{{ currentCarnetIndex + 1 }} / {{ empleadosFiltrados.length }} - {{ currentColorIndex + 1 }} / {{ colors.length }}</span>
+            <span class="modal-counter" *ngIf="ladoCarnet === 'detras'">{{ currentColorIndex + 1 }} / {{ colors.length }}</span>
+            <button class="btn" (click)="cambioColorSiguiente()" [disabled]="!puedeColorSiguiente">→</button>
+            <button class="btn" *ngIf="ladoCarnet === 'frente'" (click)="carnetSiguiente()" [disabled]="!puedeSiguienteCarnet">Siguiente</button>
+          </div>
+
+          <!-- Acciones -->
+          <div class="modal-actions-floating">
+            <button class="btn" (click)="descargarCarnet(carnetSeleccionado)">Descargar</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -171,7 +249,8 @@ import * as htmlToImage from 'html-to-image';
       min-height: calc(100vh - 120px);
     }
 
-    .header-section {
+    /* Estilos para selección de sala */
+    .sala-selector-section {
       background: white;
       border-radius: 12px;
       padding: 20px;
@@ -179,49 +258,305 @@ import * as htmlToImage from 'html-to-image';
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
 
-    .header-section h2 {
-      margin: 0 0 20px 0;
-      color: #333;
-      font-size: 24px;
-    }
-
-    .filters-section {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-
-    .filter-group {
+    .sala-selector-container {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 15px;
     }
 
-    .filter-group label {
+    .sala-selector-label {
       font-weight: 600;
       color: #333;
-      font-size: 14px;
+      font-size: 16px;
+      margin-bottom: 10px;
     }
 
-    .filter-select {
-      padding: 8px 12px;
+    .radio-buttons-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 8px 16px;
       border: 2px solid #ddd;
-      border-radius: 6px;
+      border-radius: 8px;
+      transition: all 0.3s;
       background: white;
-      font-size: 14px;
-      min-width: 150px;
     }
 
-    .filter-select:focus {
+    .radio-option:hover {
+      border-color: #4CAF50;
+      background: #f0f9f0;
+    }
+
+    .radio-input {
+      margin-right: 8px;
+      cursor: pointer;
+    }
+
+    .radio-input:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .radio-label {
+      font-size: 14px;
+      color: #333;
+      user-select: none;
+    }
+
+    .radio-option input[type="radio"]:checked + .radio-label {
+      font-weight: 600;
+      color: #4CAF50;
+    }
+
+    .radio-option input[type="radio"]:checked ~ *,
+    .radio-option:has(input[type="radio"]:checked) {
+      border-color: #4CAF50;
+      background: #e8f5e9;
+    }
+
+    /* Estilos para selección de lado */
+    .lado-selector-section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .lado-selector-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .lado-selector-label {
+      font-weight: 600;
+      color: #333;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    /* Estilos para barra de búsqueda */
+    .search-section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .search-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .search-label {
+      font-weight: 600;
+      color: #333;
+      font-size: 16px;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+      background: white;
+    }
+
+    .search-input:focus {
       outline: none;
       border-color: #4CAF50;
     }
 
-    .carnets-grid {
+    .search-input:disabled {
+      background: #f5f5f5;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .search-input::placeholder {
+      color: #999;
+    }
+
+    @media (max-width: 768px) {
+      .search-container {
+        flex-direction: column;
+      }
+      
+      .search-label {
+        margin-bottom: 8px;
+      }
+    }
+
+    /* Estilos para lista de empleados */
+    .empleados-list-section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .empleados-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 15px;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 20px;
       margin-top: 20px;
+    }
+
+    .empleado-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 15px;
+      border: none;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      min-height: 220px;
+      justify-content: center;
+    }
+
+    .empleado-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .empleado-foto-container {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      overflow: hidden;
+      margin-bottom: 15px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f5;
+    }
+
+    .empleado-foto {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .empleado-foto-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 40px;
+    }
+
+    .empleado-info {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .empleado-nombre {
+      font-weight: bold;
+      color: #000;
+      font-size: 16px;
+      margin-bottom: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .empleado-cedula {
+      font-size: 14px;
+      color: #333;
+      margin-bottom: 0;
+      font-weight: normal;
+    }
+
+    .empleado-cargo {
+      font-size: 12px;
+      color: #999;
+      font-style: italic;
+    }
+
+    /* Estilos para tarjeta de sala (detrás) */
+    .sala-card-section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .sala-card {
+      display: flex;
+      align-items: center;
+      padding: 20px;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      background: white;
+      cursor: pointer;
+      transition: all 0.3s;
+      gap: 20px;
+    }
+
+    .sala-card:hover {
+      border-color: #4CAF50;
+      transform: translateY(-5px);
+      box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    }
+
+    .sala-icon {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #4CAF50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 32px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .sala-logo-icon {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+
+    .sala-info {
+      flex: 1;
+    }
+
+    .sala-nombre {
+      font-weight: 600;
+      color: #333;
+      font-size: 18px;
+      margin-bottom: 5px;
+    }
+
+    .sala-descripcion {
+      font-size: 14px;
+      color: #666;
     }
 
     .carnet-card {
@@ -816,11 +1151,15 @@ import * as htmlToImage from 'html-to-image';
     }
 
     .carnet-modal {
-      max-width: 90vw;
-      max-height: 90vh;
-      width: 90vw;
-      height: 90vh;
+      max-width: 98vw;
+      max-height: 98vh;
+      width: 98vw;
+      height: 98vh;
       background: #f8f9fa;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
     }
 
     /* Botón de cerrar flotante */
@@ -866,11 +1205,13 @@ import * as htmlToImage from 'html-to-image';
       z-index: 10000;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 15px;
       background: rgba(0, 0, 0, 0.7);
       padding: 10px 20px;
       border-radius: 25px;
       backdrop-filter: blur(10px);
+      min-width: fit-content;
     }
 
     .modal-navigation-floating .btn {
@@ -937,35 +1278,97 @@ import * as htmlToImage from 'html-to-image';
     }
 
     .modal-body {
-      padding: 0 !important;
+      padding: 10px !important;
       margin: 0 !important;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100%;
+      flex: 1;
+      overflow: hidden;
+      min-height: 0;
+      max-height: calc(98vh - 140px);
+      box-sizing: border-box;
     }
 
     .carnet-modal-container {
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 300px;
       width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      padding: 0;
+      overflow: hidden;
+      margin: 0 auto;
+      max-width: 100%;
+      max-height: 100%;
     }
 
     .carnet-card-modal {
       cursor: default !important;
-      /* Usar exactamente los mismos estilos que .carnet-card pero más grande */
       width: 53.98mm;
       height: 85.6mm;
-      margin: 20px;
-      transform: scale(3);
-      transform-origin: center;
+      margin: 0 auto;
+      transform-origin: center center;
+      flex-shrink: 0;
+      position: relative;
+      /* Scale inicial, será sobrescrito por JS o media queries */
+      transform: scale(2);
     }
 
     .carnet-card-modal:hover {
-      transform: scale(3) !important;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+    }
+    
+    /* Ajustar escala responsiva para que no se corte y quepa sin scroll */
+    /* Tamaño del carnet: 53.98mm x 85.6mm ≈ 204px x 323px a 96dpi */
+    /* Ajustamos para que siempre quepa en el espacio disponible */
+    @media (min-width: 1800px) {
+      .carnet-card-modal {
+        transform: scale(2.8);
+      }
+    }
+    
+    @media (min-width: 1400px) and (max-width: 1799px) {
+      .carnet-card-modal {
+        transform: scale(2.5);
+      }
+    }
+    
+    @media (min-width: 1200px) and (max-width: 1399px) {
+      .carnet-card-modal {
+        transform: scale(2.2);
+      }
+    }
+    
+    @media (min-width: 1000px) and (max-width: 1199px) {
+      .carnet-card-modal {
+        transform: scale(2);
+      }
+    }
+    
+    @media (min-width: 800px) and (max-width: 999px) {
+      .carnet-card-modal {
+        transform: scale(1.7);
+      }
+    }
+    
+    @media (min-width: 600px) and (max-width: 799px) {
+      .carnet-card-modal {
+        transform: scale(1.4);
+      }
+    }
+    
+    @media (min-width: 400px) and (max-width: 599px) {
+      .carnet-card-modal {
+        transform: scale(1.1);
+      }
+    }
+    
+    @media (max-width: 399px) {
+      .carnet-card-modal {
+        transform: scale(0.9);
+      }
     }
 
     .carnet-card {
@@ -991,16 +1394,29 @@ import * as htmlToImage from 'html-to-image';
 export class CarnetListComponent implements OnInit {
   empleados: any[] = [];
   salas: any[] = [];
+  userSalas: any[] = [];
+  empleadosFiltrados: any[] = [];
   filteredEmpleados: any[] = [];
   carnetsData: any[] = []; // Combinación de empleados y salas
   loading = true;
   ladoFilter: string = '';
   colorFilter: string = '';
-
+  
+  // Variables para selección de sala y lado
+  selectedSalaForDataLoad: number | null = null;
+  ladoCarnet: string = 'frente';
+  searchText: string = '';
+  empleadosMostrados: any[] = [];
+  salaSeleccionadaParaDetras: any = null;
+  
   // Variables para modal de carnet
   showCarnetModal = false;
   carnetSeleccionado: any = null;
   currentCarnetIndex = -1;
+  currentColorIndex = 0;
+  carnetsDisponibles: any[] = [];
+  colors = ['marron', 'azul', 'verde', 'naranja', 'morado', 'rosado', 'gris', 'amarillo', 'vinotinto'];
+  empleadoActualEnModal: any = null;
 
   constructor(
     private empleadosService: EmpleadosService,
@@ -1008,73 +1424,115 @@ export class CarnetListComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.loadCarnetsData();
+    this.loadUserSalas();
   }
 
-  private loadCarnetsData() {
+  private loadUserSalas() {
     this.loading = true;
+    this.userService.getUserSalas().subscribe({
+      next: (salas: any[]) => {
+        this.userSalas = salas || [];
+        if (this.userSalas.length > 0) {
+          this.selectedSalaForDataLoad = this.userSalas[0].id;
+          this.salaSeleccionadaParaDetras = this.userSalas[0];
+          if (this.ladoCarnet === 'frente') {
+            this.loadEmpleados();
+          } else {
+            this.loading = false;
+          }
+        } else {
+          this.loading = false;
+        }
+      },
+      error: () => {
+        this.userSalas = [];
+        this.loading = false;
+      }
+    });
+  }
+
+  onSalaSelectorChange(salaId: number) {
+    this.selectedSalaForDataLoad = salaId;
+    this.searchText = ''; // Limpiar búsqueda al cambiar de sala
     
-    // Cargar empleados y salas en paralelo
-    Promise.all([
-      this.empleadosService.getEmpleados().toPromise(),
-      this.userService.getUserSalas().toPromise()
-    ]).then(([empleados, salas]) => {
-      
-      this.empleados = empleados || [];
-      this.salas = salas || [];
-      
-      // Crear carnets para cada sala
-      this.carnetsData = [];
-      
-      // Agregar carnets de empleados (solo activos y de salas asignadas al usuario)
-      this.empleados.forEach(empleado => {
-        // Verificar que el empleado esté activo
-        if (empleado.activo !== 1) {
-          return; // Saltar empleados inactivos
-        }
+    // Actualizar sala seleccionada para detrás
+    this.salaSeleccionadaParaDetras = this.userSalas.find(s => s.id === salaId);
+    
+    if (this.ladoCarnet === 'frente') {
+      this.loadEmpleados();
+    }
+  }
+
+  onLadoCarnetChange(lado: string) {
+    this.ladoCarnet = lado;
+    
+    // Si cambiamos a detrás, cargar la sala seleccionada
+    if (lado === 'detras' && this.selectedSalaForDataLoad) {
+      this.salaSeleccionadaParaDetras = this.userSalas.find(s => s.id === this.selectedSalaForDataLoad);
+    }
+    
+    if (this.showCarnetModal) {
+      if (lado === 'frente' && this.empleadoActualEnModal) {
+        this.actualizarCarnetEnModal();
+      } else if (lado === 'detras' && this.salaSeleccionadaParaDetras) {
+        this.actualizarCarnetEnModal();
+      }
+    }
+  }
+
+  private loadEmpleados() {
+    if (!this.selectedSalaForDataLoad) {
+      this.empleadosFiltrados = [];
+      this.empleadosMostrados = [];
+      this.loading = false;
+      return;
+    }
+
+    this.loading = true;
+    this.empleadosService.getEmpleados().subscribe({
+      next: (empleados: any[]) => {
+        this.empleados = empleados || [];
         
-        // Buscar la sala completa con todos sus datos (incluyendo logo)
-        const empleadoSala = empleado?.Cargo?.Departamento?.Area?.Sala;
-        const salaCompleta = this.salas.find(sala => sala.id === empleadoSala?.id);
-        
-        // Solo agregar si la sala está asignada al usuario
-        if (!salaCompleta) {
-          return; // Saltar empleados de salas no asignadas al usuario
-        }
-        
-        // Crear un carnet por cada color para cada empleado
-        const colors = ['marron', 'azul', 'verde', 'naranja', 'morado', 'rosado', 'gris', 'amarillo', 'vinotinto'];
-        colors.forEach(color => {
-          const carnetData = {
-            type: 'empleado',
-            data: empleado,
-            sala: salaCompleta,
-            color: color
-          };
+        // Filtrar empleados activos de la sala seleccionada
+        this.empleadosFiltrados = this.empleados.filter(empleado => {
+          if (empleado.activo !== 1) return false;
           
-          this.carnetsData.push(carnetData);
+          const empleadoSala = empleado?.Cargo?.Area?.Departamento?.Sala;
+          return empleadoSala?.id === this.selectedSalaForDataLoad;
         });
-      });
+        
+        this.aplicarFiltroBusqueda();
+        this.loading = false;
+      },
+      error: () => {
+        this.empleados = [];
+        this.empleadosFiltrados = [];
+        this.empleadosMostrados = [];
+        this.loading = false;
+      }
+    });
+  }
+
+  onSearchChange() {
+    this.aplicarFiltroBusqueda();
+  }
+
+  private aplicarFiltroBusqueda() {
+    if (!this.searchText || this.searchText.trim() === '') {
+      this.empleadosMostrados = [...this.empleadosFiltrados];
+      return;
+    }
+
+    const searchTerm = this.searchText.toLowerCase().trim();
+    
+    this.empleadosMostrados = this.empleadosFiltrados.filter(empleado => {
+      const nombre = (empleado.nombre || '').toLowerCase();
+      const cedula = (empleado.cedula || '').toLowerCase();
+      const cargo = (empleado.Cargo?.nombre || '').toLowerCase();
       
-      // Agregar caras traseras para CADA sala asignada al usuario
-      this.salas.forEach(sala => {
-        // Crear un carnet por cada color para cada sala
-        const colors = ['marron', 'azul', 'verde', 'naranja', 'morado', 'rosado', 'gris', 'amarillo', 'vinotinto'];
-        colors.forEach(color => {
-          this.carnetsData.push({
-            type: 'sala',
-            data: sala, // Usar la información de la sala
-            sala: sala,
-            color: color
-          });
-        });
-      });
-      
-      this.applyFilters();
-      this.loading = false;
-    }).catch(error => {
-      
-      this.loading = false;
+      return nombre.includes(searchTerm) || 
+             cedula.includes(searchTerm) || 
+             cargo.includes(searchTerm);
     });
   }
 
@@ -1099,38 +1557,180 @@ export class CarnetListComponent implements OnInit {
   }
 
   // Métodos para el modal de carnet
-  abrirCarnetModal(carnet: any) {
-    this.carnetSeleccionado = carnet;
-    this.currentCarnetIndex = this.filteredEmpleados.findIndex(c => c === carnet);
+  abrirCarnetModal(empleado: any) {
+    this.empleadoActualEnModal = empleado;
+    
+    // Buscar la sala completa
+    const empleadoSala = empleado?.Cargo?.Area?.Departamento?.Sala;
+    const salaCompleta = this.userSalas.find(s => s.id === empleadoSala?.id) || empleadoSala;
+    
+    // Crear el carnet inicial (siempre frente para empleados)
+    this.carnetSeleccionado = {
+      type: 'empleado',
+      data: empleado,
+      sala: salaCompleta,
+      color: this.colors[this.currentColorIndex]
+    };
+    
+    // Preparar lista de carnets disponibles (todos los empleados de esta sala)
+    this.prepararCarnetsDisponibles();
+    this.currentCarnetIndex = this.empleadosFiltrados.findIndex(e => e.id === empleado.id);
     this.showCarnetModal = true;
+  }
+
+  abrirCarnetModalSala() {
+    if (!this.salaSeleccionadaParaDetras) return;
+    
+    this.empleadoActualEnModal = null;
+    
+    // Crear el carnet de tipo sala (parte trasera)
+    this.carnetSeleccionado = {
+      type: 'sala',
+      data: this.salaSeleccionadaParaDetras,
+      sala: this.salaSeleccionadaParaDetras,
+      color: this.colors[this.currentColorIndex]
+    };
+    
+    // Para detrás, solo hay un carnet por color de la sala
+    this.carnetsDisponibles = this.colors.map(color => ({
+      type: 'sala',
+      data: this.salaSeleccionadaParaDetras,
+      sala: this.salaSeleccionadaParaDetras,
+      color: color
+    }));
+    
+    this.currentCarnetIndex = 0; // Solo hay un "elemento" (la sala)
+    this.showCarnetModal = true;
+  }
+
+  private prepararCarnetsDisponibles() {
+    this.carnetsDisponibles = [];
+    
+    this.empleadosFiltrados.forEach(empleado => {
+      const empleadoSala = empleado?.Cargo?.Area?.Departamento?.Sala;
+      const salaCompleta = this.userSalas.find(s => s.id === empleadoSala?.id) || empleadoSala;
+      
+      if (this.ladoCarnet === 'frente') {
+        this.colors.forEach(color => {
+          this.carnetsDisponibles.push({
+            type: 'empleado',
+            data: empleado,
+            sala: salaCompleta,
+            color: color
+          });
+        });
+      } else {
+        // Para detrás, solo necesitamos un carnet por color (es el mismo para todos)
+        // Pero por consistencia, creamos uno por empleado también
+        this.colors.forEach(color => {
+          this.carnetsDisponibles.push({
+            type: 'sala',
+            data: salaCompleta,
+            sala: salaCompleta,
+            color: color
+          });
+        });
+      }
+    });
+  }
+
+  actualizarCarnetEnModal() {
+    if (this.ladoCarnet === 'detras') {
+      // Para detrás, actualizar con la sala seleccionada
+      if (this.salaSeleccionadaParaDetras) {
+        this.carnetSeleccionado = {
+          type: 'sala',
+          data: this.salaSeleccionadaParaDetras,
+          sala: this.salaSeleccionadaParaDetras,
+          color: this.colors[this.currentColorIndex]
+        };
+      }
+      return;
+    }
+    
+    // Para frente, actualizar con el empleado
+    if (!this.empleadoActualEnModal) return;
+    
+    const empleadoSala = this.empleadoActualEnModal?.Cargo?.Area?.Departamento?.Sala;
+    const salaCompleta = this.userSalas.find(s => s.id === empleadoSala?.id) || empleadoSala;
+    
+    this.carnetSeleccionado = {
+      type: 'empleado',
+      data: this.empleadoActualEnModal,
+      sala: salaCompleta,
+      color: this.colors[this.currentColorIndex]
+    };
+    
+    this.prepararCarnetsDisponibles();
   }
 
   cerrarCarnetModal() {
     this.showCarnetModal = false;
     this.carnetSeleccionado = null;
     this.currentCarnetIndex = -1;
+    this.currentColorIndex = 0;
+    this.empleadoActualEnModal = null;
+    this.carnetsDisponibles = [];
   }
 
-  anteriorCarnet() {
+  carnetAnterior() {
+    if (this.ladoCarnet === 'detras') {
+      // Para detrás, navegamos solo por colores (no hay múltiples salas)
+      return;
+    }
+    
     if (this.currentCarnetIndex > 0) {
       this.currentCarnetIndex--;
-      this.carnetSeleccionado = this.filteredEmpleados[this.currentCarnetIndex];
+      this.currentColorIndex = 0;
+      this.empleadoActualEnModal = this.empleadosFiltrados[this.currentCarnetIndex];
+      this.actualizarCarnetEnModal();
     }
   }
 
-  siguienteCarnet() {
-    if (this.currentCarnetIndex < this.filteredEmpleados.length - 1) {
+  carnetSiguiente() {
+    if (this.ladoCarnet === 'detras') {
+      // Para detrás, navegamos solo por colores (no hay múltiples salas)
+      return;
+    }
+    
+    if (this.currentCarnetIndex < this.empleadosFiltrados.length - 1) {
       this.currentCarnetIndex++;
-      this.carnetSeleccionado = this.filteredEmpleados[this.currentCarnetIndex];
+      this.currentColorIndex = 0;
+      this.empleadoActualEnModal = this.empleadosFiltrados[this.currentCarnetIndex];
+      this.actualizarCarnetEnModal();
+    }
+  }
+
+  cambioColorAnterior() {
+    if (this.currentColorIndex > 0) {
+      this.currentColorIndex--;
+      this.actualizarCarnetEnModal();
+    }
+  }
+
+  cambioColorSiguiente() {
+    if (this.currentColorIndex < this.colors.length - 1) {
+      this.currentColorIndex++;
+      this.actualizarCarnetEnModal();
     }
   }
 
   get puedeAnteriorCarnet(): boolean {
+    if (this.ladoCarnet === 'detras') return false; // No hay navegación entre salas
     return this.currentCarnetIndex > 0;
   }
 
   get puedeSiguienteCarnet(): boolean {
-    return this.currentCarnetIndex < this.filteredEmpleados.length - 1;
+    if (this.ladoCarnet === 'detras') return false; // No hay navegación entre salas
+    return this.currentCarnetIndex < this.empleadosFiltrados.length - 1;
+  }
+
+  get puedeColorAnterior(): boolean {
+    return this.currentColorIndex > 0;
+  }
+
+  get puedeColorSiguiente(): boolean {
+    return this.currentColorIndex < this.colors.length - 1;
   }
 
 
@@ -1183,11 +1783,11 @@ export class CarnetListComponent implements OnInit {
 
   getBadgeStyles(color: string): string {
     const colorHex = this.getColorHex(color);
-    return `background: ${colorHex}; color: white; padding: 1.5mm 12mm; clip-path: polygon(8% 0%, 92% 0%, 100% 50%, 92% 100%, 8% 100%, 0% 50%); margin: 0 auto; font-size: 1.8mm; font-weight: bold; text-align: center; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; display: inline-block;`;
+    return `background: ${colorHex}; color: white; padding: 1.5mm 4mm; clip-path: polygon(8% 0%, 92% 0%, 100% 50%, 92% 100%, 8% 100%, 0% 50%); margin: 0 auto; font-size: 1.8mm; font-weight: bold; text-align: center; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; display: inline-block; width: auto; min-width: fit-content;`;
   }
 
   getEmployeeDetailsStyles(): string {
-    return 'text-align: left; margin-top: 4mm; margin-bottom: 12px; max-width: 40mm; margin-left: auto; margin-right: auto;';
+    return 'text-align: left; margin-top: 6mm; margin-bottom: 1mm; max-width: 40mm; margin-left: auto; margin-right: auto;';
   }
 
   getDetailLineStyles(): string {
@@ -1268,6 +1868,19 @@ export class CarnetListComponent implements OnInit {
 
   getEmailAddressStyles(): string {
     return 'font-size: 2.3mm; font-weight: bold; color: white; margin-top: 1mm; word-break: break-all; line-height: 1.1;';
+  }
+
+  // Estilos para el logo de la sala en el reverso
+  getLogoSectionStyles(): string {
+    return 'text-align: center; margin-bottom: 5mm; margin-top: 2mm;';
+  }
+
+  getSalaLogoStyles(): string {
+    return 'max-width: 30mm; max-height: 30mm; object-fit: contain; margin: 0 auto; display: block;';
+  }
+
+  getSalaLogoPlaceholderStyles(): string {
+    return 'width: 30mm; height: 30mm; background: #e9ecef; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 15mm; color: #6c757d;';
   }
 
 
@@ -1425,8 +2038,8 @@ export class CarnetListComponent implements OnInit {
     ctx.textAlign = 'left';
     const detailsY = height * 0.8;
     ctx.fillText(`Cédula: ${carnet.data?.cedula || 'Sin cédula'}`, 20, detailsY);
-    ctx.fillText(`Departamento: ${carnet.data?.Cargo?.Departamento?.nombre || 'Sin departamento'}`, 20, detailsY + 25);
-    ctx.fillText(`Área: ${carnet.data?.Area?.nombre || 'Sin área'}`, 20, detailsY + 50);
+    ctx.fillText(`Departamento: ${carnet.data?.Cargo?.Area?.Departamento?.nombre || 'Sin departamento'}`, 20, detailsY + 25);
+    ctx.fillText(`Área: ${carnet.data?.Cargo?.Area?.nombre || 'Sin área'}`, 20, detailsY + 50);
     ctx.fillText(`Ingreso: ${carnet.data?.fecha_ingreso || 'Sin fecha'}`, 20, detailsY + 75);
     ctx.fillText(`ID: ${carnet.data?.id || 'Sin ID'}`, 20, detailsY + 100);
     
@@ -1581,8 +2194,8 @@ export class CarnetListComponent implements OnInit {
                       <div class="print-name">${carnetData.data?.nombre || 'Empleado'}</div>
                       <div class="print-details">
                         <div><strong>Cargo:</strong> ${carnetData.data?.Cargo?.nombre || 'Sin cargo'}</div>
-                        <div><strong>Departamento:</strong> ${carnetData.data?.Cargo?.Departamento?.nombre || 'Sin departamento'}</div>
-                        <div><strong>Área:</strong> ${carnetData.data?.Area?.nombre || 'Sin área'}</div>
+                        <div><strong>Departamento:</strong> ${carnetData.data?.Cargo?.Area?.Departamento?.nombre || 'Sin departamento'}</div>
+                        <div><strong>Área:</strong> ${carnetData.data?.Cargo?.Area?.nombre || 'Sin área'}</div>
                         <div><strong>ID:</strong> ${carnetData.data?.id || 'Sin ID'}</div>
                         <div><strong>Color:</strong> ${carnetData.color}</div>
                       </div>
@@ -1645,7 +2258,7 @@ export class CarnetListComponent implements OnInit {
       cedula: empleado.cedula || 'SIN_CEDULA',
       nombre: empleado.nombre || 'SIN_NOMBRE',
       cargo: empleado.Cargo?.nombre || 'SIN_CARGO',
-      sala: empleado.Cargo?.Departamento?.Area?.Sala?.nombre || 'SIN_SALA'
+      sala: empleado.Cargo?.Area?.Departamento?.Sala?.nombre || 'SIN_SALA'
     };
     
     // Crear un string único con la data del empleado
@@ -1678,8 +2291,8 @@ export class CarnetListComponent implements OnInit {
 
   getSalaInfo(empleado: any, field: string): string {
     try {
-      // Ruta: empleado.Cargo.Departamento.Area.Sala
-      const sala = empleado?.Cargo?.Departamento?.Area?.Sala;
+      // Ruta: empleado.Cargo.Area.Departamento.Sala
+      const sala = empleado?.Cargo?.Area?.Departamento?.Sala;
       
       return sala?.[field] || '';
     } catch (error) {
@@ -1699,57 +2312,40 @@ export class CarnetListComponent implements OnInit {
 
   async descargarCarnet(carnet: any) {
     try {
+      // El contenedor principal es el div con class="carnet-card-modal" y el id dinámico
       const carnetId = this.getCarnetId(carnet);
-      const element = document.getElementById(carnetId);
+      const carnetCardElement = document.getElementById(carnetId);
       
-      if (!element) {
-        
+      if (!carnetCardElement) {
+        console.error('No se encontró el elemento del carnet con ID:', carnetId);
         return;
       }
 
-      // Forzar actualización de estilos antes de capturar
+      // Determinar qué contenedor interno usar según el lado del carnet
+      let carnetContainer: HTMLElement | null = null;
       
-      
-      
-      
-      // Forzar re-renderizado del elemento para asegurar estilos correctos
-      element.style.display = 'none';
-      element.offsetHeight; // Trigger reflow
-      element.style.display = '';
-
-      // Verificar que estamos capturando solo el carnet específico
-      
-      
-      
-      
-      // Verificar los estilos aplicados a los elementos con color
-      const badgeElement = element.querySelector('.badge');
-      const photoElement = element.querySelector('.hexagonal-photo');
-      const emailElement = element.querySelector('.email-section');
-      
-      if (badgeElement) {
-        
+      if (this.ladoCarnet === 'frente') {
+        // Para el frente, usar el contenedor con id="carnet-front-container"
+        carnetContainer = carnetCardElement.querySelector('#carnet-front-container') as HTMLElement;
+      } else if (this.ladoCarnet === 'detras') {
+        // Para el reverso, usar el contenedor con id="carnet-back-container"
+        carnetContainer = carnetCardElement.querySelector('#carnet-back-container') as HTMLElement;
       }
-      if (photoElement) {
-        
-      }
-      if (emailElement) {
-        
+      
+      // Si no se encuentra el contenedor interno, usar el contenedor principal
+      if (!carnetContainer) {
+        carnetContainer = carnetCardElement;
       }
 
-      // Capturar el carnet con html-to-image - SOLO el carnet específico
-      const dataUrl = await htmlToImage.toPng(element, {
+      // Capturar el carnet con html-to-image sin modificar estilos
+      const dataUrl = await htmlToImage.toPng(carnetContainer, {
         quality: 1.0, // Máxima calidad
         backgroundColor: '#ffffff',
-        pixelRatio: 20, // Ultra ultra alta resolución (20x)
+        pixelRatio: 20, // Ultra alta resolución (20x)
         cacheBust: true,
-        style: {
-          transform: 'scale(1)',
-          transformOrigin: 'top left'
-        },
         filter: (node) => {
-          // Solo incluir elementos que pertenecen al carnet específico
-          return node === element || element.contains(node);
+          // Solo incluir elementos que pertenecen al carnet
+          return node === carnetContainer || carnetContainer?.contains(node) || false;
         }
       });
 
@@ -1776,3 +2372,5 @@ export class CarnetListComponent implements OnInit {
     }
   }
 }
+
+

@@ -10,41 +10,36 @@ import { UserService } from '../../services/user.service';
   imports: [CommonModule],
   template: `
     <div class="dashboard-container">
-      <main class="dashboard-main">
-        <div class="welcome-header">
-          <h1 class="welcome-title">Bienvenido {{ currentUser?.nombre_apellido }}</h1>
-          <p class="welcome-subtitle">Módulos disponibles</p>
-        </div>
-        
+      <div class="dashboard-content">
         <div class="pages-grid">
-          <!-- Páginas del sistema -->
-          <div 
-            class="page-card" 
-            *ngFor="let page of pages" 
-            (click)="navigateToPage(page.id)"
-            [class.disabled]="!hasAccessToPage(page)">
-            <div class="page-info">
-              <h3 class="page-title">{{ page.nombre }}</h3>
-            </div>
-            <div class="page-status" *ngIf="!hasAccessToPage(page)">
-              <span class="no-access">Sin acceso</span>
-            </div>
+        <!-- Páginas del sistema -->
+        <div 
+          class="page-card" 
+          *ngFor="let page of pages" 
+          (click)="navigateToPage(page.id)"
+          [class.disabled]="!hasAccessToPage(page)">
+          <div class="page-info">
+            <h3 class="page-title">{{ page.nombre }}</h3>
           </div>
-
-          <!-- Super Módulo de Configuración (solo para creador) -->
-          <div 
-            class="page-card super-module super-usuario-card" 
-            (click)="navigateToSuperConfig()"
-            [class.disabled]="!canAccessSuperConfig()">
-            <div class="page-info">
-              <h3 class="page-title">SUPER USUARIO</h3>
-            </div>
-            <div class="page-status" *ngIf="!canAccessSuperConfig()">
-              <span class="no-access">Sin acceso</span>
-            </div>
+          <div class="page-status" *ngIf="!hasAccessToPage(page)">
+            <span class="no-access">Sin acceso</span>
           </div>
         </div>
-      </main>
+
+        <!-- Super Módulo de Configuración (solo para creador) -->
+        <div 
+          class="page-card super-module super-usuario-card" 
+          (click)="navigateToSuperConfig()"
+          [class.disabled]="!canAccessSuperConfig()">
+          <div class="page-info">
+            <h3 class="page-title">SUPER USUARIO</h3>
+          </div>
+          <div class="page-status" *ngIf="!canAccessSuperConfig()">
+            <span class="no-access">Sin acceso</span>
+          </div>
+        </div>
+      </div>
+      </div>
     </div>
   `,
   styles: [`
@@ -52,64 +47,95 @@ import { UserService } from '../../services/user.service';
       height: calc(100vh - 80px);
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       font-family: 'Arial', sans-serif;
-      overflow: hidden;
-    }
-
-    .dashboard-main {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-      height: 100%;
+      padding: 30px 20px;
+      overflow-x: hidden;
+      overflow-y: auto;
       display: flex;
       flex-direction: column;
+      align-items: center;
       justify-content: center;
       box-sizing: border-box;
     }
 
-    .welcome-header {
-      text-align: center;
-      margin-bottom: 30px;
+    @media (max-width: 767px) {
+      .dashboard-container {
+        padding: 20px 15px;
+      }
     }
 
-    .welcome-title {
-      font-size: 32px;
-      font-weight: bold;
-      color: white;
-      margin: 0 0 10px 0;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    .dashboard-content {
+      max-width: 1400px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
-    .welcome-subtitle {
-      font-size: 20px;
-      color: white;
-      margin: 0;
-      opacity: 0.9;
-    }
+
 
     .pages-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 25px;
-      max-width: 1000px;
-      margin: 0 auto;
       width: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (max-width: 1200px) {
+      .pages-grid {
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 991px) {
+      .pages-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .pages-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
     }
 
     .page-card {
       background: white;
-      border-radius: 12px;
+      border-radius: 15px;
       padding: 35px 25px;
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
       cursor: pointer;
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
-      aspect-ratio: 2;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       min-height: 160px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    @media (min-width: 1201px) {
+      .page-card {
+        padding: 40px 30px;
+        min-height: 170px;
+      }
+    }
+
+    @media (max-width: 991px) {
+      .page-card {
+        padding: 30px 20px;
+        min-height: 150px;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .page-card {
+        padding: 25px 20px;
+        min-height: 140px;
+      }
     }
 
     .page-card:hover:not(.disabled) {
@@ -167,12 +193,28 @@ import { UserService } from '../../services/user.service';
     }
 
     .page-title {
-      font-size: 20px;
+      font-size: 24px;
       font-weight: bold;
       color: #333;
       margin: 0;
       text-align: center;
       line-height: 1.1;
+    }
+
+    @media (max-width: 991px) {
+      .page-title {
+        font-size: 22px;
+      }
+    }
+
+    @media (max-width: 767px) {
+      .page-title {
+        font-size: 20px;
+      }
+      .page-card {
+        padding: 35px 25px;
+        min-height: 160px;
+      }
     }
 
     .page-modules {
