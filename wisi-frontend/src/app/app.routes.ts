@@ -8,6 +8,11 @@ export const routes: Routes = [
     pathMatch: 'full'
   },
   {
+    path: 'cumplemes',
+    loadComponent: () => import('./components/cumplemes/cumplemes.component').then(m => m.CumpleMesComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'login',
     loadComponent: () => import('./components/login/login.component').then(m => m.LoginComponent)
   },
