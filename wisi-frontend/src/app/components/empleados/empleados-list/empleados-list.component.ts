@@ -367,6 +367,7 @@ import { take, filter } from 'rxjs/operators';
                     (ngModelChange)="limpiarPuntosCedula(); detectChanges()"
                     (keyup)="validarCedula()"
                     (keypress)="onCedulaKeyPress($event)"
+                    (paste)="onCedulaPaste($event)"
                     class="form-control cedula-input"
                     [class.is-invalid]="cedulaError"
                     [disabled]="selectedEmpleado"
@@ -3970,10 +3971,24 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   limpiarPuntosCedula(): void {
-    // Si no es edición, quitar puntos automáticamente
+    // Si no es edición, permitir solo dígitos (remueve puntos, letras, guiones, etc.)
     if (!this.selectedEmpleado && this.nuevoEmpleado.cedula) {
-      this.nuevoEmpleado.cedula = this.nuevoEmpleado.cedula.replace(/\./g, '');
+      this.nuevoEmpleado.cedula = this.nuevoEmpleado.cedula.replace(/\D+/g, '');
     }
+  }
+
+  onCedulaPaste(event: ClipboardEvent): void {
+    if (this.selectedEmpleado) { return; }
+    event.preventDefault();
+    const clipboard = event.clipboardData?.getData('text') || '';
+    const digitsOnly = clipboard.replace(/\D+/g, '');
+    const target = event.target as HTMLInputElement;
+    const start = target.selectionStart || 0;
+    const end = target.selectionEnd || 0;
+    const current = this.nuevoEmpleado.cedula || '';
+    this.nuevoEmpleado.cedula = current.slice(0, start) + digitsOnly + current.slice(end);
+    this.detectChanges();
+    this.validarCedula();
   }
 
   calcularEdad(fechaNacimiento: string): string {
