@@ -364,7 +364,7 @@ import { take, filter } from 'rxjs/operators';
                     id="cedulaEmpleado" 
                     name="cedulaEmpleado"
                     [(ngModel)]="nuevoEmpleado.cedula"
-                    (ngModelChange)="detectChanges()"
+                    (ngModelChange)="limpiarPuntosCedula(); detectChanges()"
                     (keyup)="validarCedula()"
                     (keypress)="onCedulaKeyPress($event)"
                     class="form-control cedula-input"
@@ -3185,7 +3185,12 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     // La cédula del backend viene EXACTAMENTE como está en la BD (puede tener V/E o no)
     // En el formulario de edición, el campo está deshabilitado, así que mostramos la cédula completa
     // tal cual está en la BD (sin dividirla)
-    const cedulaCompleta = empleado.cedula || '';
+    let cedulaCompleta = empleado.cedula || '';
+    
+    // Quitar puntos de la cédula al cargar para edición
+    if (cedulaCompleta) {
+      cedulaCompleta = cedulaCompleta.replace(/\./g, '');
+    }
     
     // Para edición, mostrar la cédula completa tal cual en el campo
     // (el selector V/E no se muestra en edición según el HTML)
@@ -3205,7 +3210,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       id: empleado.id,
       foto: empleado.foto || '',
       nombre: empleado.nombre,
-      cedula: cedulaCompleta, // MOSTRAR LA CÉDULA COMPLETA TAL CUAL EN LA BD (con o sin V/E)
+      cedula: cedulaCompleta, // MOSTRAR LA CÉDULA COMPLETA TAL CUAL EN LA BD (con o sin V/E, sin puntos)
       cedula_tipo: cedulaTipo,
       fecha_ingreso: empleado.fecha_ingreso,
       fecha_cumpleanos: empleado.fecha_cumpleanos,
@@ -3955,10 +3960,19 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   onCedulaKeyPress(event: KeyboardEvent): void {
-    // Solo permitir números
+    // Solo permitir números - bloquear puntos y otros caracteres
     const charCode = event.which ? event.which : event.keyCode;
+    // Permitir solo números (48-57)
+    // Bloquear punto (46), coma (44) y cualquier otro carácter
     if (charCode < 48 || charCode > 57) {
       event.preventDefault();
+    }
+  }
+
+  limpiarPuntosCedula(): void {
+    // Si no es edición, quitar puntos automáticamente
+    if (!this.selectedEmpleado && this.nuevoEmpleado.cedula) {
+      this.nuevoEmpleado.cedula = this.nuevoEmpleado.cedula.replace(/\./g, '');
     }
   }
 
