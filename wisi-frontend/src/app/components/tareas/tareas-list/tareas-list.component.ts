@@ -830,7 +830,10 @@ export class TareasListComponent implements OnInit {
       // Manejar diferentes tipos de errores
       let errorMessage = 'Error desconocido';
       
-      if (error.status === 401) {
+      // Primero intentar obtener el mensaje del backend
+      if (error.error?.message) {
+        errorMessage = error.error.message;
+      } else if (error.status === 401) {
         errorMessage = 'Error de autenticación: Credenciales inválidas';
       } else if (error.status === 404) {
         errorMessage = 'Usuario no encontrado en el dispositivo';
