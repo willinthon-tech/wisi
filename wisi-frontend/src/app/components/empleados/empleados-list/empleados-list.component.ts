@@ -1645,6 +1645,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   };
   
   hasChanges: boolean = false;
+  // Cambios clave para dispositivos: nombre, cédula o foto
+  keyFieldsChanged: boolean = false;
   
   
   // Método para forzar el mapeo de dispositivos (para testing)
@@ -2971,6 +2973,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     // Comparar foto (solo si se cambió)
     const fotoChanged = current.foto && current.foto !== original.foto;
     
+    // Guardar si cambiaron datos clave que requieren sincronizar al dispositivo
+    this.keyFieldsChanged = (original.nombre !== current.nombre) || (originalCedulaCompleta !== currentCedulaCompleta) || !!fotoChanged;
+
     // Comparar dispositivos
     const dispositivosOriginales = original.dispositivos?.map((d: any) => d.id).sort() || [];
     const dispositivosNuevos = (current.dispositivos || []).sort();
@@ -3078,7 +3083,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           // Crear tareas automáticas para la edición (en background, NO BLOQUEA - se ejecuta en segundo plano)
           // Usar el empleado que viene del update que ya tiene las relaciones
           // Sin await, sin bloqueo - se ejecuta completamente en background
-          this.crearTareasEditarEmpleado(empleado, dispositivosAnteriores, dispositivosNuevos).catch(error => {
+          this.crearTareasEditarEmpleado(empleado, dispositivosAnteriores, dispositivosNuevos, this.keyFieldsChanged).catch(error => {
             // Los errores en la creación de tareas no deben afectar al usuario
             
           });
@@ -3657,7 +3662,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
   }
 
   // Crear tareas para editar empleado
-  async crearTareasEditarEmpleado(empleado: any, dispositivosAnteriores: number[], dispositivosNuevos: number[]): Promise<void> {
+  async crearTareasEditarEmpleado(empleado: any, dispositivosAnteriores: number[], dispositivosNuevos: number[], datosClaveCambiaron: boolean): Promise<void> {
     try {
       
       
@@ -3791,8 +3796,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // 3. Crear tareas de EDITAR para dispositivos que permanecen
-      
-      if (dispositivosQuePermanecen.length > 0) {
+      //    Solo si cambiaron datos clave (nombre, cédula o foto)
+      if (datosClaveCambiaron && dispositivosQuePermanecen.length > 0) {
         const dispositivosData = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosQuePermanecen));
         
         
