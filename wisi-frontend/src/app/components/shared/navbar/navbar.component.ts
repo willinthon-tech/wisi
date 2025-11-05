@@ -293,11 +293,12 @@ export class NavbarComponent implements OnInit {
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: NavigationEnd) => {
-        this.isDashboard = event.url === '/dashboard';
+        const url = (event.urlAfterRedirects || event.url) || '';
+        this.isDashboard = url.split('?')[0].split('#')[0].startsWith('/dashboard');
       });
 
     // Verificar ruta actual
-    this.isDashboard = this.router.url === '/dashboard';
+    this.isDashboard = (this.router.url || '').split('?')[0].split('#')[0].startsWith('/dashboard');
 
     this.authService.currentUser$.subscribe(user => {
       this.currentUser = user;
