@@ -1225,8 +1225,35 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
       next: (response) => {
         this.plantillas = this.plantillas.filter(plantilla => plantilla.id !== id);
       },
-      error: (error) => {
+      error: (error: any) => {
+        // Extraer información del error de forma robusta
+        const errorStatus = error?.status || error?.statusCode || 500;
+        const errorBody = error?.error || error?.body || {};
+        const errorMessage = errorBody?.message || error?.message || '';
+        const relations = errorBody?.relations || [];
+        const plantillaInfo = errorBody?.plantilla || {};
         
+        // Buscar la plantilla en la lista local para obtener su nombre
+        const plantillaLocal = this.plantillas.find(p => p.id === id);
+        
+        // Si es error 400 o 500, mostrar modal (probablemente por relaciones)
+        if (errorStatus === 400 || errorStatus === 500) {
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar la plantilla de horario',
+            message: errorMessage || 'No se puede eliminar la plantilla de horario porque tiene elementos asociados.',
+            entity: {
+              id: id,
+              nombre: plantillaLocal?.nombre || plantillaLocal?.codigo || plantillaInfo?.nombre || 'Plantilla de Horario',
+              tipo: 'Plantilla de Horario'
+            },
+            relations: Array.isArray(relations) && relations.length > 0 ? relations : [
+              { table_name: 'Elementos asociados', count: 'Tiene registros relacionados' }
+            ],
+            helpText: relations.length > 0 
+              ? 'Para eliminar esta plantilla de horario, primero debe eliminar todos los elementos asociados listados arriba.'
+              : 'Para eliminar esta plantilla de horario, primero debe eliminar todos los elementos asociados.'
+          });
+        }
       }
     });
   }

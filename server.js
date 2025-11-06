@@ -3664,16 +3664,43 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
     }
 
     // Verificar si el horario tiene relaciones que impidan su eliminación
-    const relations = await sequelize.query(`
-      SELECT table_name, count FROM (
-        SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?
-        UNION ALL
-        SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE horario_id = ?
-      ) as relations WHERE count > 0
-    `, {
-      replacements: [id, id],
-      type: sequelize.QueryTypes.SELECT
-    });
+    let relations = [];
+    try {
+      relations = await sequelize.query(`
+        SELECT table_name, count FROM (
+          SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?
+          UNION ALL
+          SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE horario_id = ?
+        ) as relations WHERE count > 0
+      `, {
+        replacements: [id, id],
+        type: sequelize.QueryTypes.SELECT
+      });
+    } catch (relationError) {
+      // Si falla la verificación, intentar verificar manualmente
+      try {
+        const horariosEmpleadosCount = await sequelize.query(
+          'SELECT COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?',
+          { replacements: [id], type: sequelize.QueryTypes.SELECT }
+        );
+        const bloquesCount = await sequelize.query(
+          'SELECT COUNT(*) as count FROM bloques WHERE horario_id = ?',
+          { replacements: [id], type: sequelize.QueryTypes.SELECT }
+        );
+        
+        if (horariosEmpleadosCount[0]?.count > 0 || bloquesCount[0]?.count > 0) {
+          relations = [];
+          if (horariosEmpleadosCount[0]?.count > 0) {
+            relations.push({ table_name: 'Horarios de Empleados', count: horariosEmpleadosCount[0].count });
+          }
+          if (bloquesCount[0]?.count > 0) {
+            relations.push({ table_name: 'Bloques', count: bloquesCount[0].count });
+          }
+        }
+      } catch (manualError) {
+        // Error en verificación manual, continuar sin relaciones
+      }
+    }
 
     if (relations.length > 0) {
       return res.status(400).json({ 
@@ -3687,18 +3714,16 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
     }
 
     // Eliminar el horario
-    await horario.destroy();
-
-    res.json({ message: 'Horario eliminado correctamente' });
-  } catch (error) {
-    console.error('Error al eliminar horario:', error);
-    
-    // Si es un error de foreign key constraint, devolver información específica
-    if (error.name === 'SequelizeForeignKeyConstraintError' || error.name === 'SequelizeDatabaseError') {
+    try {
+      await horario.destroy();
+      res.json({ message: 'Horario eliminado correctamente' });
+    } catch (destroyError) {
+      // Cualquier error en destroy() probablemente es por foreign key constraint
       // Intentar obtener las relaciones nuevamente para mostrar información útil
+      const { id } = req.params;
+      let relations = [];
       try {
-        const { id } = req.params;
-        const relations = await sequelize.query(`
+        relations = await sequelize.query(`
           SELECT table_name, count FROM (
             SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?
             UNION ALL
@@ -3708,34 +3733,63 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
           replacements: [id, id],
           type: sequelize.QueryTypes.SELECT
         });
+      } catch (relationError) {
+        // Error al obtener relaciones, continuar sin relaciones
+      }
 
-        // Intentar obtener el horario si no está disponible
-        let horarioInfo = { id: id, nombre: 'Horario' };
-        if (!horario) {
+      // Intentar obtener el horario si no está disponible
+      let horarioInfo = { id: id, nombre: 'Horario' };
+      if (!horario) {
+        try {
           const horarioTemp = await Horario.findByPk(id);
           if (horarioTemp) {
             horarioInfo = { id: horarioTemp.id, nombre: horarioTemp.nombre };
           }
-        } else {
-          horarioInfo = { id: horario.id, nombre: horario.nombre };
-        }
+        } catch (e) {}
+      } else {
+        horarioInfo = { id: horario.id, nombre: horario.nombre };
+      }
+
+      // SIEMPRE devolver error 400 cuando destroy() falla (probablemente por relaciones)
+      return res.status(400).json({
+        message: 'No se puede eliminar el horario porque tiene elementos asociados.',
+        relations: relations.length > 0 ? relations : [{ table_name: 'Elementos asociados', count: 'Tiene registros relacionados' }],
+        horario: horarioInfo
+      });
+    }
+  } catch (error) {
+    // Si llegamos aquí, es un error antes de destroy()
+    // Intentar verificar relaciones y devolver 400 si las hay
+    const { id } = req.params;
+    try {
+      const relations = await sequelize.query(`
+        SELECT table_name, count FROM (
+          SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?
+          UNION ALL
+          SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE horario_id = ?
+        ) as relations WHERE count > 0
+      `, {
+        replacements: [id, id],
+        type: sequelize.QueryTypes.SELECT
+      });
+
+      if (relations.length > 0) {
+        let horarioInfo = { id: id, nombre: 'Horario' };
+        try {
+          const horarioTemp = await Horario.findByPk(id);
+          if (horarioTemp) {
+            horarioInfo = { id: horarioTemp.id, nombre: horarioTemp.nombre };
+          }
+        } catch (e) {}
 
         return res.status(400).json({
           message: 'No se puede eliminar el horario porque tiene elementos asociados.',
-          relations: relations.length > 0 ? relations : [{ table_name: 'Elementos asociados', count: 'Tiene registros relacionados' }],
+          relations: relations,
           horario: horarioInfo
         });
-      } catch (relationError) {
-        const { id } = req.params;
-        return res.status(400).json({
-          message: 'No se puede eliminar el horario porque tiene elementos asociados.',
-          relations: [{ table_name: 'Elementos asociados', count: 'Tiene registros relacionados' }],
-          horario: {
-            id: id,
-            nombre: 'Horario'
-          }
-        });
       }
+    } catch (e) {
+      console.error('Error al verificar relaciones en catch general:', e);
     }
     
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -4270,10 +4324,61 @@ app.delete('/api/plantillas-horarios/:id', authenticateToken, async (req, res) =
       }
     }
 
-    await plantilla.destroy();
-    res.json({ message: 'Plantilla horario eliminada correctamente' });
+    // Verificar si la plantilla tiene relaciones que impidan su eliminación
+    let relations = [];
+    try {
+      relations = await sequelize.query(`
+        SELECT table_name, count FROM (
+          SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE plantilla_horario_id = ?
+          UNION ALL
+          SELECT 'Excepciones de Horario' as table_name, COUNT(*) as count FROM excepciones_horario WHERE plantilla_horario_id = ?
+        ) as relations WHERE count > 0
+      `, {
+        replacements: [id, id],
+        type: sequelize.QueryTypes.SELECT
+      });
+    } catch (relationError) {
+      // Error al verificar relaciones, continuar sin relaciones
+    }
+
+    if (relations.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar la plantilla de horario porque tiene elementos asociados.',
+        relations: relations,
+        plantilla: {
+          id: plantilla.id,
+          nombre: plantilla.nombre || plantilla.codigo || 'Plantilla de Horario'
+        }
+      });
+    }
+
+    // Eliminar la plantilla
+    try {
+      await plantilla.destroy();
+      res.json({ message: 'Plantilla horario eliminada correctamente' });
+    } catch (destroyError) {
+      // Cualquier error en destroy() probablemente es por foreign key constraint
+      const relations = await sequelize.query(`
+        SELECT table_name, count FROM (
+          SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE plantilla_horario_id = ?
+          UNION ALL
+          SELECT 'Excepciones de Horario' as table_name, COUNT(*) as count FROM excepciones_horario WHERE plantilla_horario_id = ?
+        ) as relations WHERE count > 0
+      `, {
+        replacements: [id, id],
+        type: sequelize.QueryTypes.SELECT
+      });
+
+      return res.status(400).json({
+        message: 'No se puede eliminar la plantilla de horario porque tiene elementos asociados.',
+        relations: relations.length > 0 ? relations : [{ table_name: 'Elementos asociados', count: 'Tiene registros relacionados' }],
+        plantilla: {
+          id: plantilla.id,
+          nombre: plantilla.nombre || plantilla.codigo || 'Plantilla de Horario'
+        }
+      });
+    }
   } catch (error) {
-    ;
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
