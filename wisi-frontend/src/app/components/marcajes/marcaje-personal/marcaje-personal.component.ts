@@ -3631,6 +3631,142 @@ export class MarcajePersonalComponent implements OnInit {
     // Aplicar validaciones de diferencias de tiempo
     const marcajesConValidacion = this.validarDiferenciasTiempo(marcajesAnalizados, bloqueConPlantilla);
     
+    // VALIDACIÓN ESPECIAL: Si la entrada del día actual coincide con la salida del día anterior (turno nocturno),
+    // ignorar esa entrada porque es la salida del día anterior, no una entrada válida
+    const marcajesConValidacionNocturna = this.validarEntradaVsSalidaAnterior(empleado, dia, marcajesConValidacion, bloque);
+    
+    return marcajesConValidacionNocturna;
+  }
+
+  // Validar que la entrada del día actual no sea igual a la salida del día anterior (turno nocturno)
+  validarEntradaVsSalidaAnterior(empleado: any, dia: Date, marcajesActuales: { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string }, bloque: any): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
+    // Si no hay entrada marcada, no hay nada que validar
+    if (!marcajesActuales.entrada || marcajesActuales.entrada === 'Sin marcaje') {
+      return marcajesActuales;
+    }
+
+    // Obtener el día anterior
+    const diaAnterior = new Date(dia);
+    diaAnterior.setDate(diaAnterior.getDate() - 1);
+
+    // Obtener el bloque horario del día anterior
+    const bloqueAnterior = this.getBloqueHorario(empleado, diaAnterior);
+    
+    // Si no hay bloque anterior, no hay nada que validar
+    if (!bloqueAnterior) {
+      return marcajesActuales;
+    }
+
+    // Verificar si el turno anterior era nocturno (primero verificar esto para evitar procesar si no es necesario)
+    const plantillaAnterior = bloqueAnterior?.PlantillaHorario;
+    if (!plantillaAnterior || !plantillaAnterior.hora_entrada || !plantillaAnterior.hora_salida) {
+      return marcajesActuales;
+    }
+
+    const horaEntradaAnterior = this.convertirHoraAMinutos(plantillaAnterior.hora_entrada);
+    const horaSalidaAnterior = this.convertirHoraAMinutos(plantillaAnterior.hora_salida);
+    const esTurnoAnteriorNocturno = horaEntradaAnterior > horaSalidaAnterior;
+
+    // Solo validar si el turno anterior era nocturno
+    if (!esTurnoAnteriorNocturno) {
+      return marcajesActuales;
+    }
+
+    // Obtener los marcajes del día anterior (sin procesar validaciones para evitar recursión)
+    // Usar una bandera para evitar recursión infinita
+    const marcajesAnteriores = this.calcularMarcajesDelDiaSinValidacion(empleado, diaAnterior, bloqueAnterior);
+    
+    // Si no hay salida del día anterior, no hay nada que validar
+    if (!marcajesAnteriores.salida || marcajesAnteriores.salida === 'Sin marcaje' || marcajesAnteriores.salida === 'SNM') {
+      return marcajesActuales;
+    }
+
+    // Convertir las horas a minutos para comparar
+    const entradaActualMinutos = this.convertirHoraAMinutos(marcajesActuales.entrada);
+    const salidaAnteriorMinutos = this.convertirHoraAMinutos(marcajesAnteriores.salida);
+
+    // Si la entrada del día actual es igual a la salida del día anterior, invalidar la entrada
+    // Si además no hay salida válida, invalidar también la salida para que se muestre "Sin Registros"
+    if (entradaActualMinutos === salidaAnteriorMinutos && entradaActualMinutos > 0) {
+      // Invalidar la entrada del día actual
+      // Si no hay salida válida o la salida también es inválida, invalidar todo para mostrar "Sin Registros"
+      const tieneSalidaValida = marcajesActuales.salida && 
+                                 marcajesActuales.salida !== 'Sin marcaje' && 
+                                 marcajesActuales.salida !== 'SNM';
+      
+      if (!tieneSalidaValida) {
+        // Si no hay salida válida, invalidar todo para que se muestre "Sin Registros"
+        return {
+          entrada: 'Sin marcaje',
+          entradaDescanso: 'Sin marcaje',
+          salidaDescanso: 'Sin marcaje',
+          salida: 'Sin marcaje'
+        };
+      } else {
+        // Si hay salida válida, solo invalidar la entrada
+        // Pero en este caso, para que se muestre "Sin Registros", también invalidamos la salida
+        // porque la entrada inválida hace que el registro completo sea inválido
+        return {
+          entrada: 'Sin marcaje',
+          entradaDescanso: marcajesActuales.entradaDescanso || 'Sin marcaje',
+          salidaDescanso: marcajesActuales.salidaDescanso || 'Sin marcaje',
+          salida: 'Sin marcaje'
+        };
+      }
+    }
+
+    return marcajesActuales;
+  }
+
+  // Calcular marcajes del día sin aplicar la validación de entrada vs salida anterior (para evitar recursión)
+  calcularMarcajesDelDiaSinValidacion(empleado: any, dia: Date, bloque: any): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
+    // Obtener horas de la plantilla (PlantillaHorario)
+    const plantilla = bloque?.PlantillaHorario;
+    if (!plantilla || !plantilla.hora_entrada || !plantilla.hora_salida) {
+      return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
+    }
+
+    const horaEntradaPlantilla = this.convertirHoraAMinutos(plantilla.hora_entrada);
+    const horaSalidaPlantilla = this.convertirHoraAMinutos(plantilla.hora_salida);
+    const tieneDescanso = !!(plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida);
+    
+    let marcajesParaAnalizar: any[] = [];
+    let esTurnoNocturno = false;
+
+    // Determinar si es turno nocturno (hora_entrada > hora_salida)
+    if (horaEntradaPlantilla > horaSalidaPlantilla) {
+      esTurnoNocturno = true;
+      const marcajesHoy = this.getMarcajesDelDia(empleado, dia);
+      const diaSiguiente = new Date(dia);
+      diaSiguiente.setDate(diaSiguiente.getDate() + 1);
+      const marcajesManana = this.getMarcajesDelDia(empleado, diaSiguiente);
+      marcajesParaAnalizar = [...marcajesHoy, ...marcajesManana].sort((a, b) => 
+        new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
+      );
+    } else {
+      marcajesParaAnalizar = this.getMarcajesDelDia(empleado, dia);
+    }
+
+    if (marcajesParaAnalizar.length === 0) {
+      return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
+    }
+
+    // Crear objeto bloque con horas de plantilla
+    const bloqueConPlantilla = {
+      hora_entrada: plantilla.hora_entrada,
+      hora_salida: plantilla.hora_salida,
+      hora_entrada_descanso: plantilla.hora_descanso_entrada || '',
+      hora_salida_descanso: plantilla.hora_descanso_salida || '',
+      tiene_descanso: tieneDescanso,
+      turno: esTurnoNocturno ? 'NOCTURNO' : 'DIURNO'
+    };
+
+    // Analizar marcajes usando la lógica inteligente
+    const marcajesAnalizados = this.analizarMarcajesInteligente(marcajesParaAnalizar, bloqueConPlantilla, bloqueConPlantilla.turno, dia);
+
+    // Aplicar validaciones de diferencias de tiempo (pero NO la validación de entrada vs salida anterior)
+    const marcajesConValidacion = this.validarDiferenciasTiempo(marcajesAnalizados, bloqueConPlantilla);
+    
     return marcajesConValidacion;
   }
 
@@ -4063,9 +4199,6 @@ export class MarcajePersonalComponent implements OnInit {
     // Usar el mismo método que se usa para mostrar en "Marcaje"
     const marcajeInfo = this.getHorarioInfo(empleado, dia, 'Descanso');
     
-    console.log('=== DEBUG getResultadoTurno ===');
-    console.log('marcajeInfo:', marcajeInfo);
-    
     // Constantes para los rangos
     const HORA_DIURNO_INICIO = 5 * 60; // 5:00 = 300 minutos
     const HORA_DIURNO_FIN = 19 * 60; // 19:00 = 1140 minutos
@@ -4083,7 +4216,6 @@ export class MarcajePersonalComponent implements OnInit {
         marcajeInfoTrimmed.toLowerCase().includes('sin registros') ||
         marcajeInfoTrimmed === 'Sin marcaje' ||
         marcajeInfoTrimmed.toLowerCase() === 'sin marcaje') {
-      console.log('Retornando vacío por Sin Registros');
       return '';
     }
     
@@ -4132,7 +4264,6 @@ export class MarcajePersonalComponent implements OnInit {
     
     // CASO 3: Si solo hay entrada (sin salida) → "ERROR"
     if (tieneEntrada && !tieneSalida) {
-      console.log('Retornando E - Solo entrada sin salida');
       return 'ERROR';
     }
     
@@ -4167,7 +4298,6 @@ export class MarcajePersonalComponent implements OnInit {
         entradaMinutos < HORA_DIURNO_FIN &&
         salidaMinutos > entradaMinutos && 
         salidaMinutos <= HORA_DIURNO_FIN) {
-      console.log('Retornando D - Diurno puro. Entrada:', entradaStr, 'Salida:', salidaStr);
       return 'DIURNO';
     }
     
@@ -4186,12 +4316,10 @@ export class MarcajePersonalComponent implements OnInit {
       const horasDiurnasFormateadas = this.formatearMinutosAHora(horasDiurnas);
       const horasNocturnasFormateadas = this.formatearMinutosAHora(horasNocturnas);
       
-      console.log('Retornando M - Mixto. Entrada:', entradaStr, 'Salida:', salidaStr, 'Resultado:', `( D ) ${horasDiurnasFormateadas} - ( N ) ${horasNocturnasFormateadas}`);
       return `( D ) ${horasDiurnasFormateadas} - ( N ) ${horasNocturnasFormateadas}`;
     }
     
     // Por defecto: Nocturno
-    console.log('Retornando N - Nocturno. Entrada:', entradaStr, 'Salida:', salidaStr);
     return 'NOCTURNO';
   }
 
