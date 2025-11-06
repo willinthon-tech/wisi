@@ -83,6 +83,7 @@ const {
   NovedadMesaRegistro,
   PlantillaHorario,
   ExcepcionHorario,
+  Feriado,
   syncDatabase 
 } = require('./models');
 const { Op } = require('sequelize');
@@ -4545,6 +4546,266 @@ app.delete('/api/horarios/excepciones/:id', authenticateToken, async (req, res) 
     res.json({ message: 'Excepción eliminada' });
   } catch (error) {
     ;
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// =============================================
+// RUTAS PARA FERIADOS
+// =============================================
+
+// Obtener todos los feriados
+app.get('/api/feriados', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    let feriados;
+    
+    if (userLevel === 'TODO') {
+      feriados = await Feriado.findAll({
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['fecha', 'ASC']]
+      });
+    } else {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: UserSala,
+          attributes: ['id', 'nombre']
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      feriados = await Feriado.findAll({
+        where: { sala_id: userSalaIds },
+        include: [{
+          model: Sala,
+          attributes: ['id', 'nombre']
+        }],
+        order: [['fecha', 'ASC']]
+      });
+    }
+    
+    res.json(feriados);
+  } catch (error) {
+    console.error('Error al obtener feriados:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener un feriado específico
+app.get('/api/feriados/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const feriado = await Feriado.findByPk(id, {
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }]
+    });
+
+    if (!feriado) {
+      return res.status(404).json({ message: 'Feriado no encontrado' });
+    }
+
+    res.json(feriado);
+  } catch (error) {
+    console.error('Error al obtener feriado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Obtener feriados por sala
+app.get('/api/feriados/sala/:salaId', authenticateToken, async (req, res) => {
+  try {
+    const { salaId } = req.params;
+    
+    const feriados = await Feriado.findAll({
+      where: { sala_id: salaId },
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }],
+      order: [['fecha', 'ASC']]
+    });
+
+    res.json(feriados);
+  } catch (error) {
+    console.error('Error al obtener feriados por sala:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Crear un nuevo feriado
+app.post('/api/feriados', authenticateToken, async (req, res) => {
+  try {
+    const { nombre, sala_id, fecha } = req.body;
+    
+    if (!nombre || !sala_id || !fecha) {
+      return res.status(400).json({ message: 'Nombre, sala_id y fecha son campos obligatorios' });
+    }
+
+    // Verificar que la sala existe
+    const sala = await Sala.findByPk(sala_id);
+    if (!sala) {
+      return res.status(404).json({ message: 'Sala no encontrada' });
+    }
+
+    // Verificar permisos: solo usuarios TODO o usuarios con acceso a la sala
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'TODO') {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: UserSala,
+          attributes: ['id']
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(s => s.id);
+      if (!userSalaIds.includes(sala_id)) {
+        return res.status(403).json({ message: 'No tienes permiso para crear feriados en esta sala' });
+      }
+    }
+
+    const feriado = await Feriado.create({
+      nombre,
+      sala_id,
+      fecha
+    });
+
+    const feriadoConSala = await Feriado.findByPk(feriado.id, {
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }]
+    });
+
+    res.status(201).json(feriadoConSala);
+  } catch (error) {
+    console.error('Error al crear feriado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar un feriado
+app.put('/api/feriados/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nombre, sala_id, fecha } = req.body;
+    
+    const feriado = await Feriado.findByPk(id);
+    if (!feriado) {
+      return res.status(404).json({ message: 'Feriado no encontrado' });
+    }
+
+    // Verificar permisos
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'TODO') {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: UserSala,
+          attributes: ['id']
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(s => s.id);
+      if (!userSalaIds.includes(feriado.sala_id)) {
+        return res.status(403).json({ message: 'No tienes permiso para editar este feriado' });
+      }
+
+      // Si se está cambiando la sala, verificar que tenga acceso a la nueva sala
+      if (sala_id && sala_id !== feriado.sala_id && !userSalaIds.includes(sala_id)) {
+        return res.status(403).json({ message: 'No tienes permiso para asignar feriados a esta sala' });
+      }
+    }
+
+    // Si se proporciona sala_id, verificar que existe
+    if (sala_id) {
+      const sala = await Sala.findByPk(sala_id);
+      if (!sala) {
+        return res.status(404).json({ message: 'Sala no encontrada' });
+      }
+    }
+
+    await feriado.update({
+      nombre: nombre !== undefined ? nombre : feriado.nombre,
+      sala_id: sala_id !== undefined ? sala_id : feriado.sala_id,
+      fecha: fecha !== undefined ? fecha : feriado.fecha
+    });
+
+    const feriadoActualizado = await Feriado.findByPk(feriado.id, {
+      include: [{
+        model: Sala,
+        attributes: ['id', 'nombre']
+      }]
+    });
+
+    res.json(feriadoActualizado);
+  } catch (error) {
+    console.error('Error al actualizar feriado:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar un feriado
+app.delete('/api/feriados/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const feriado = await Feriado.findByPk(id);
+    
+    if (!feriado) {
+      return res.status(404).json({ message: 'Feriado no encontrado' });
+    }
+
+    // Verificar permisos
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+    
+    if (userLevel !== 'TODO') {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Sala,
+          through: UserSala,
+          attributes: ['id']
+        }]
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      const userSalaIds = user.Salas.map(s => s.id);
+      if (!userSalaIds.includes(feriado.sala_id)) {
+        return res.status(403).json({ message: 'No tienes permiso para eliminar este feriado' });
+      }
+    }
+
+    await feriado.destroy();
+    res.json({ message: 'Feriado eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar feriado:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
