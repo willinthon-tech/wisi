@@ -4130,16 +4130,16 @@ export class MarcajePersonalComponent implements OnInit {
       return '';
     }
     
-    // CASO 3: Si solo hay entrada (sin salida) → "E"
+    // CASO 3: Si solo hay entrada (sin salida) → "ERROR"
     if (tieneEntrada && !tieneSalida) {
       console.log('Retornando E - Solo entrada sin salida');
-      return 'E';
+      return 'ERROR';
     }
     
-    // CASO 4: Si NO tenemos entrada O NO tenemos salida → "E"
+    // CASO 4: Si NO tenemos entrada O NO tenemos salida → "ERROR"
     // (Este caso debería ser raro, pero por seguridad)
     if (!tieneEntrada || !tieneSalida) {
-      return 'E';
+      return 'ERROR';
     }
     
     // Convertir las horas a minutos
@@ -4148,27 +4148,27 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Si las conversiones fallaron, error
     if (isNaN(entradaMinutos) || isNaN(salidaMinutos)) {
-      return 'E';
+      return 'ERROR';
     }
     
     // Determinar si la salida es del día siguiente (salida < entrada)
     const esSalidaDelDiaSiguiente = salidaMinutos < entradaMinutos;
     
-    // CASO 5: Si la salida es del día siguiente (00:00, 01:00, etc.) o > 23:00 → "N"
+    // CASO 5: Si la salida es del día siguiente (00:00, 01:00, etc.) o > 23:00 → "NOCTURNO"
     // PRIORIDAD ABSOLUTA: Verificar esto PRIMERO
     if (esSalidaDelDiaSiguiente || salidaMinutos > HORA_NOCTURNO_FIN) {
-      return 'N';
+      return 'NOCTURNO';
     }
     
     // CASO 6: DIURNO PURO
-    // Si entrada entre 5:00 AM y 7:00 PM (19:00) y salida <= 19:00 → "D"
+    // Si entrada entre 5:00 AM y 7:00 PM (19:00) y salida <= 19:00 → "DIURNO"
     // IMPORTANTE: salida debe ser <= 19:00 (1140 minutos) - esto es CRÍTICO
     if (entradaMinutos >= HORA_DIURNO_INICIO && 
         entradaMinutos < HORA_DIURNO_FIN &&
         salidaMinutos > entradaMinutos && 
         salidaMinutos <= HORA_DIURNO_FIN) {
       console.log('Retornando D - Diurno puro. Entrada:', entradaStr, 'Salida:', salidaStr);
-      return 'D';
+      return 'DIURNO';
     }
     
     // CASO 7: MIXTO
@@ -4186,13 +4186,13 @@ export class MarcajePersonalComponent implements OnInit {
       const horasDiurnasFormateadas = this.formatearMinutosAHora(horasDiurnas);
       const horasNocturnasFormateadas = this.formatearMinutosAHora(horasNocturnas);
       
-      console.log('Retornando M - Mixto. Entrada:', entradaStr, 'Salida:', salidaStr, 'Resultado:', `M ${horasDiurnasFormateadas} - ${horasNocturnasFormateadas}`);
-      return `M ${horasDiurnasFormateadas} - ${horasNocturnasFormateadas}`;
+      console.log('Retornando M - Mixto. Entrada:', entradaStr, 'Salida:', salidaStr, 'Resultado:', `( D ) ${horasDiurnasFormateadas} - ( N ) ${horasNocturnasFormateadas}`);
+      return `( D ) ${horasDiurnasFormateadas} - ( N ) ${horasNocturnasFormateadas}`;
     }
     
     // Por defecto: Nocturno
     console.log('Retornando N - Nocturno. Entrada:', entradaStr, 'Salida:', salidaStr);
-    return 'N';
+    return 'NOCTURNO';
   }
 
   // Método auxiliar para obtener los valores calculados
