@@ -13,6 +13,7 @@ import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { ExcepcionesHorariosService } from '../../../services/excepciones-horarios.service';
 import { PlantillasHorariosService } from '../../../services/plantillas-horarios.service';
+import { FeriadosService } from '../../../services/feriados.service';
 
 @Component({
   selector: 'app-marcaje-personal',
@@ -173,11 +174,78 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
             <h3>{{ grupo.nombre }}</h3>
             <div class="grupo-actions">
               <span class="empleados-count">{{ grupo.empleados.length }} empleado(s)</span>
-              <button class="btn-print-group no-print" (click)="printGrupo(grupo)">🖨️ Imprimir</button>
+              <button class="btn-print-group no-print" (click)="printGrupo(grupo)">Imprimir</button>
             </div>
           </div>
           
-          <div class="grupo-table-container" *ngIf="grupo.empleados.length > 0">
+          <!-- Vista Resumen: Tabla con métricas agregadas -->
+          <div class="grupo-table-container" *ngIf="grupo.empleados.length > 0 && tipoReporte === 'resumen'">
+            <div class="table-wrapper">
+              <table class="horario-table resumen-table">
+                <thead>
+                  <tr class="mes-header">
+                    <th class="empleado-completo-col-empty" rowspan="2">Empleado</th>
+                    <th class="resumen-metric-col">Diurnos</th>
+                    <th class="resumen-metric-col">Nocturnos</th>
+                    <th class="resumen-metric-col">Horas Diurnos</th>
+                    <th class="resumen-metric-col">Horas Nocturnos</th>
+                    <th class="resumen-metric-col">Domingos</th>
+                    <th class="resumen-metric-col">Feriados</th>
+                    <th class="resumen-metric-col" *ngFor="let plantilla of plantillasLibres">
+                      {{ plantilla.nombre }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <ng-container *ngFor="let empleado of grupo.empleados">
+                    <tr>
+                      <td class="empleado-completo-cell">
+                        <div class="empleado-completo">
+                          <div class="empleado-info">
+                            <div class="empleado-nombre">{{ empleado.nombre }}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="resumen-value-cell">
+                        {{ getResumenDiasDiurnosTrabajadosPorEmpleado(empleado) }}
+                      </td>
+                      <td class="resumen-value-cell">
+                        {{ getResumenDiasNocturnosTrabajadosPorEmpleado(empleado) }}
+                      </td>
+                      <td class="resumen-value-cell">
+                        {{ getResumenHorasDiurnosPorEmpleado(empleado) }}
+                      </td>
+                      <td class="resumen-value-cell">
+                        {{ getResumenHorasNocturnoPorEmpleado(empleado) }}
+                      </td>
+                      <td class="resumen-value-cell">
+                        {{ getResumenDomingosTrabajadosPorEmpleado(empleado) }}
+                      </td>
+                      <td class="resumen-value-cell">
+                        {{ getResumenFeriadosTrabajadosPorEmpleado(empleado) }}
+                      </td>
+                      <td class="resumen-value-cell" *ngFor="let plantilla of plantillasLibres">
+                        {{ getResumenDiasPorPlantillaSinHoras(empleado, plantilla.id) }}
+                      </td>
+                    </tr>
+                    <tr class="separador-verde">
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;"></td>
+                      <td style="height: 1px !important; background-color: #28a745; padding: 0; margin: 0; border: none;" *ngFor="let plantilla of plantillasLibres"></td>
+                    </tr>
+                  </ng-container>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Vista Global/Horario: Tabla con días del mes -->
+          <div class="grupo-table-container" *ngIf="grupo.empleados.length > 0 && tipoReporte !== 'resumen'">
             <div class="table-wrapper">
               <table class="horario-table">
                 <thead>
@@ -239,7 +307,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                         <div class="horario-data" 
                              [class.libre-vertical]="isSinHorario(empleado, dia) && tipoReporte !== 'horario'">
                           <span *ngIf="isSinHorario(empleado, dia)" class="sin-horario-wrapper">
-                            <span>SIN HORARIO</span>
+                            <span>{{ tipoReporte === 'horario' ? 'SH' : 'SIN HORARIO' }}</span>
                             <button *ngIf="tipoReporte !== 'horario'" class="btn-add-dia"
                                     [ngClass]="hasExcepcion(empleado, dia) ? 'ex-present' : 'ex-empty'"
                                     title="Excepción del día"
@@ -2059,6 +2127,107 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
         margin-bottom: 20px;
       }
     }
+
+    /* Estilos para la sección de resumen */
+    .resumen-section {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e0e0e0;
+      margin-bottom: 20px;
+      padding: 20px;
+    }
+
+    .resumen-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 15px 20px;
+      border-radius: 8px 8px 0 0;
+      margin: -20px -20px 20px -20px;
+    }
+
+    .resumen-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .resumen-content {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .resumen-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .resumen-label {
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .resumen-value {
+      font-weight: 700;
+      color: #667eea;
+      font-size: 16px;
+    }
+
+    /* Estilos para la tabla de resumen */
+    .resumen-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .resumen-table thead th {
+      background: #38B04A;
+      color: white;
+      padding: 12px 15px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 14px;
+      border: 1px solid #2a8a3a;
+    }
+
+    .resumen-table tbody td {
+      padding: 12px 15px;
+      text-align: center;
+      border: 1px solid #e0e0e0;
+      font-size: 14px;
+    }
+
+    .resumen-table tbody tr:nth-child(even) {
+      background-color: #f8f9fa;
+    }
+
+    .resumen-table tbody tr:hover {
+      background-color: #e9ecef;
+    }
+
+    .resumen-metric-col {
+      min-width: 150px;
+      white-space: normal;
+      word-wrap: break-word;
+    }
+
+    .resumen-value-cell {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .resumen-table .empleado-completo-cell {
+      text-align: left;
+      font-weight: 600;
+      background-color: #f0f0f0;
+    }
   `]
 })
 export class MarcajePersonalComponent implements OnInit {
@@ -2097,6 +2266,10 @@ export class MarcajePersonalComponent implements OnInit {
   cargosFiltrados: any[] = [];
   // Tipo de reporte (global por defecto)
   tipoReporte: 'global' | 'horario' | 'resumen' = 'global';
+  // Feriados para el cálculo de resumen
+  feriados: any[] = [];
+  // Plantillas libres (sin hora_entrada ni hora_salida) para el cálculo de resumen
+  plantillasLibres: any[] = [];
   
   // Propiedades para el modal
   mostrarModal = false;
@@ -2138,6 +2311,7 @@ export class MarcajePersonalComponent implements OnInit {
     private cargosService: CargosService,
     private excepcionesService: ExcepcionesHorariosService,
     private plantillasService: PlantillasHorariosService,
+    private feriadosService: FeriadosService,
     private sanitizer: DomSanitizer
   ) {}
 
@@ -2572,12 +2746,18 @@ export class MarcajePersonalComponent implements OnInit {
         this.cargarHorariosCompletos().then(() => {
           // Cargar todas las excepciones sin filtros de fecha
           this.cargarExcepcionesCompletas().then(() => {
-            // Calcular fechas mínima y máxima para cargar todos los marcajes
-            this.calcularFechasLimiteCompletas().then(() => {
-              // Cargar todos los marcajes para el rango completo
-              this.cargarMarcajesCompletos().then(() => {
-                // Aplicar filtros locales iniciales para mostrar los datos
-                this.aplicarFiltrosLocales();
+            // Cargar feriados y plantillas libres para el cálculo de resumen
+            Promise.all([
+              this.cargarFeriados(),
+              this.cargarPlantillasLibres()
+            ]).then(() => {
+              // Calcular fechas mínima y máxima para cargar todos los marcajes
+              this.calcularFechasLimiteCompletas().then(() => {
+                // Cargar todos los marcajes para el rango completo
+                this.cargarMarcajesCompletos().then(() => {
+                  // Aplicar filtros locales iniciales para mostrar los datos
+                  this.aplicarFiltrosLocales();
+                });
               });
             });
           });
@@ -5449,5 +5629,490 @@ export class MarcajePersonalComponent implements OnInit {
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
     // Si es claro, usar texto negro; si es oscuro, usar texto blanco
     return luminance > 0.5 ? '#000000' : '#ffffff';
+  }
+
+  // Cargar feriados para el cálculo de resumen
+  async cargarFeriados(): Promise<void> {
+    return new Promise((resolve) => {
+      this.feriadosService.getFeriados().subscribe({
+        next: (feriados: any[]) => {
+          this.feriados = feriados || [];
+          resolve();
+        },
+        error: () => {
+          this.feriados = [];
+          resolve();
+        }
+      });
+    });
+  }
+
+  // Cargar plantillas libres (sin hora_entrada ni hora_salida) para el cálculo de resumen
+  async cargarPlantillasLibres(): Promise<void> {
+    return new Promise((resolve) => {
+      this.plantillasService.getPlantillasHorarios().subscribe({
+        next: (plantillas: any[]) => {
+          // Filtrar solo las plantillas que no tienen hora_entrada ni hora_salida
+          this.plantillasLibres = (plantillas || []).filter((p: any) => 
+            !p.hora_entrada && !p.hora_salida
+          );
+          resolve();
+        },
+        error: () => {
+          this.plantillasLibres = [];
+          resolve();
+        }
+      });
+    });
+  }
+
+  // Verificar si una fecha es feriado
+  esFeriado(fecha: Date, salaId: number): boolean {
+    const fechaStr = this.formatDateLocalYYYYMMDD(fecha);
+    return this.feriados.some(f => {
+      const feriadoFecha = f.fecha ? new Date(f.fecha).toISOString().split('T')[0] : '';
+      return feriadoFecha === fechaStr && f.sala_id === salaId;
+    });
+  }
+
+  // Verificar si una plantilla es día libre (sin hora_entrada ni hora_salida)
+  esDiaLibre(bloque: any): boolean {
+    if (!bloque) return false;
+    const plantilla = bloque.PlantillaHorario;
+    if (!plantilla) return false;
+    // Día libre: no tiene hora_entrada ni hora_salida
+    return !plantilla.hora_entrada && !plantilla.hora_salida;
+  }
+
+  // Obtener sala_id de un empleado
+  getSalaId(empleado: any): number | null {
+    return empleado?.Cargo?.Area?.Departamento?.Sala?.id || 
+           empleado?.Cargo?.Area?.Departamento?.sala_id || 
+           null;
+  }
+
+  // Calcular resumen: Días Diurnos Trabajados (por empleado) - basado en el campo Resultado
+  getResumenDiasDiurnosTrabajadosPorEmpleado(empleado: any): number {
+    let count = 0;
+    
+    this.diasDelMes.forEach(dia => {
+      if (!this.isSinHorario(empleado, dia)) {
+        const bloque = this.getBloqueHorario(empleado, dia);
+        if (bloque) {
+          const resultadoHtml = this.getResultadoTurno(empleado, dia);
+          // Convertir SafeHtml a string para verificar contenido
+          const resultadoStr = resultadoHtml ? String(resultadoHtml).toUpperCase() : '';
+          // Verificar si contiene "DIURNO" (puede ser DIURNO puro o mixto con ( D ))
+          if (resultadoStr.includes('DIURNO') || resultadoStr.includes('( D )')) {
+            count++;
+          }
+        }
+      }
+    });
+    
+    return count;
+  }
+
+  // Calcular resumen: Días Nocturnos Trabajados (por empleado) - basado en el campo Resultado
+  getResumenDiasNocturnosTrabajadosPorEmpleado(empleado: any): number {
+    let count = 0;
+    
+    this.diasDelMes.forEach(dia => {
+      if (!this.isSinHorario(empleado, dia)) {
+        const bloque = this.getBloqueHorario(empleado, dia);
+        if (bloque) {
+          const resultadoHtml = this.getResultadoTurno(empleado, dia);
+          // Convertir SafeHtml a string para verificar contenido
+          const resultadoStr = resultadoHtml ? String(resultadoHtml).toUpperCase() : '';
+          // Verificar si contiene "NOCTURNO" (puede ser NOCTURNO puro o mixto con ( N ))
+          if (resultadoStr.includes('NOCTURNO') || resultadoStr.includes('( N )')) {
+            count++;
+          }
+        }
+      }
+    });
+    
+    return count;
+  }
+
+  // Calcular resumen: Horas Diurnos (por empleado) - SOLO de turnos mixtos
+  getResumenHorasDiurnosPorEmpleado(empleado: any): string {
+    let totalMinutos = 0;
+    const HORA_DIURNO_INICIO = 5 * 60; // 5:00 = 300 minutos
+    const HORA_DIURNO_FIN = 19 * 60; // 19:00 = 1140 minutos
+    const HORA_NOCTURNO_FIN = 23 * 60; // 23:00 = 1380 minutos
+    
+    this.diasDelMes.forEach(dia => {
+      if (!this.isSinHorario(empleado, dia)) {
+        const bloque = this.getBloqueHorario(empleado, dia);
+        if (bloque) {
+          const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+          // Verificar si tiene marcajes válidos
+          if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+            const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
+            const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+            
+            if (!isNaN(entradaMinutos) && !isNaN(salidaMinutos)) {
+              // Verificar si es mixto
+              const esMixto = entradaMinutos >= HORA_DIURNO_INICIO && 
+                entradaMinutos < HORA_DIURNO_FIN &&
+                salidaMinutos > HORA_DIURNO_FIN && 
+                salidaMinutos <= HORA_NOCTURNO_FIN;
+              
+              // SOLO contar horas de turnos mixtos
+              if (esMixto) {
+                // Para mixtos: horas diurnas = desde entrada hasta 19:00
+                const horasDiurnasMixto = HORA_DIURNO_FIN - entradaMinutos;
+                totalMinutos += horasDiurnasMixto;
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    return this.formatearMinutosAHora(totalMinutos);
+  }
+
+  // Calcular resumen: Horas Nocturno (por empleado) - SOLO de turnos mixtos
+  getResumenHorasNocturnoPorEmpleado(empleado: any): string {
+    let totalMinutos = 0;
+    const HORA_DIURNO_INICIO = 5 * 60; // 5:00 = 300 minutos
+    const HORA_DIURNO_FIN = 19 * 60; // 19:00 = 1140 minutos
+    const HORA_NOCTURNO_FIN = 23 * 60; // 23:00 = 1380 minutos
+    
+    this.diasDelMes.forEach(dia => {
+      if (!this.isSinHorario(empleado, dia)) {
+        const bloque = this.getBloqueHorario(empleado, dia);
+        if (bloque) {
+          const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+          // Verificar si tiene marcajes válidos
+          if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+            const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
+            const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+            
+            if (!isNaN(entradaMinutos) && !isNaN(salidaMinutos)) {
+              // Verificar si es mixto
+              const esMixto = entradaMinutos >= HORA_DIURNO_INICIO && 
+                entradaMinutos < HORA_DIURNO_FIN &&
+                salidaMinutos > HORA_DIURNO_FIN && 
+                salidaMinutos <= HORA_NOCTURNO_FIN;
+              
+              // SOLO contar horas de turnos mixtos
+              if (esMixto) {
+                // Para mixtos: horas nocturnas = desde 19:00 hasta salida
+                const horasNocturnasMixto = salidaMinutos - HORA_DIURNO_FIN;
+                totalMinutos += horasNocturnasMixto;
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    return this.formatearMinutosAHora(totalMinutos);
+  }
+
+  // Calcular resumen: Días Domingos Trabajados (por empleado) - si tiene registro de diurno, nocturno o mixto
+  getResumenDomingosTrabajadosPorEmpleado(empleado: any): number {
+    let count = 0;
+    
+    this.diasDelMes.forEach(dia => {
+      // Verificar si es domingo (getDay() === 0)
+      if (dia.getDay() === 0) {
+        // Verificar si el empleado trabajó ese día (tiene marcajes de diurno, nocturno o mixto)
+        if (!this.isSinHorario(empleado, dia)) {
+          const bloque = this.getBloqueHorario(empleado, dia);
+          if (bloque) {
+            const resultadoHtml = this.getResultadoTurno(empleado, dia);
+            // Si tiene resultado (DIURNO, NOCTURNO o MIXTO), trabajó
+            if (resultadoHtml) {
+              const resultadoStr = String(resultadoHtml).toUpperCase();
+              // Verificar si contiene DIURNO, NOCTURNO o es mixto (contiene ( D ) o ( N ))
+              if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
+                  resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
+                count++;
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    return count;
+  }
+
+  // Calcular resumen: Días Domingos Trabajados (total global - para compatibilidad)
+  getResumenDomingosTrabajados(): number {
+    let count = 0;
+    const empleadosBase = this.obtenerBaseEmpleados();
+    
+    empleadosBase.forEach(empleado => {
+      count += this.getResumenDomingosTrabajadosPorEmpleado(empleado);
+    });
+    
+    return count;
+  }
+
+  // Calcular resumen: Días trabajados por una plantilla específica sin hora_entrada ni hora_salida
+  // Cuenta incluso si no tiene marcajes (como las plantillas "L" con "Sin Registros")
+  getResumenDiasPorPlantillaSinHoras(empleado: any, plantillaId: number): number {
+    let count = 0;
+    
+    this.diasDelMes.forEach(dia => {
+      const bloque = this.getBloqueHorario(empleado, dia);
+      if (bloque && this.esDiaLibre(bloque)) {
+        // Es plantilla sin hora_entrada ni hora_salida
+        const bloquePlantillaId = bloque?.PlantillaHorario?.id;
+        // Verificar si coincide con la plantilla buscada
+        if (bloquePlantillaId === plantillaId) {
+          // Contar el día si tiene la plantilla asignada (incluso sin marcajes)
+          // Esto incluye casos como "L" con "Sin Registros"
+          count++;
+        }
+      }
+    });
+    
+    return count;
+  }
+
+  // Calcular resumen: Plantillas sin hora entrada/salida (por empleado) - para compatibilidad
+  getResumenLibresTrabajadosPorEmpleado(empleado: any): string {
+    // Si no hay plantillas sin hora_entrada ni hora_salida, retornar vacío
+    if (!this.plantillasLibres || this.plantillasLibres.length === 0) {
+      return '';
+    }
+
+    // Crear un mapa para contar días trabajados por cada plantilla (usando id como clave)
+    const diasPorPlantilla: Map<number, { nombre: string, dias: number }> = new Map();
+    
+    // Inicializar TODAS las plantillas sin hora_entrada ni hora_salida con 0
+    this.plantillasLibres.forEach((plantilla: any) => {
+      const nombre = plantilla.nombre || '';
+      const id = plantilla.id;
+      if (nombre && id) {
+        diasPorPlantilla.set(id, { nombre, dias: 0 });
+      }
+    });
+
+    // Contar días trabajados por cada plantilla
+    this.diasDelMes.forEach(dia => {
+      const bloque = this.getBloqueHorario(empleado, dia);
+      if (bloque && this.esDiaLibre(bloque)) {
+        // Es plantilla sin hora_entrada ni hora_salida
+        const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+        // Si tiene marcajes, trabajó
+        if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+          const plantillaId = bloque?.PlantillaHorario?.id;
+          if (plantillaId && diasPorPlantilla.has(plantillaId)) {
+            const plantillaData = diasPorPlantilla.get(plantillaId);
+            if (plantillaData) {
+              plantillaData.dias = (plantillaData.dias || 0) + 1;
+            }
+          }
+        }
+      }
+    });
+
+    // Construir el string mostrando TODAS las plantillas sin hora_entrada ni hora_salida
+    // Formato: "Libre: 2, Vacaciones: 0, Feriado: 1" (mostrando todas, incluso con 0 días)
+    const resultados: string[] = [];
+    diasPorPlantilla.forEach((data) => {
+      resultados.push(`${data.nombre}: ${data.dias}`);
+    });
+
+    return resultados.length > 0 ? resultados.join(', ') : '';
+  }
+
+  // Calcular resumen: Días Libres Trabajados (por empleado) - para compatibilidad
+  getResumenDiasLibresTrabajadosPorEmpleado(empleado: any): number {
+    let count = 0;
+    
+    this.diasDelMes.forEach(dia => {
+      const bloque = this.getBloqueHorario(empleado, dia);
+      if (bloque && this.esDiaLibre(bloque)) {
+        // Es día libre (plantilla sin hora_entrada ni hora_salida)
+        const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+        // Si tiene marcajes, trabajó en día libre
+        if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+          count++;
+        }
+      }
+    });
+    
+    return count;
+  }
+
+  // Calcular resumen: Días Libres Trabajados (total global - para compatibilidad)
+  getResumenDiasLibresTrabajados(): number {
+    let count = 0;
+    const empleadosBase = this.obtenerBaseEmpleados();
+    
+    empleadosBase.forEach(empleado => {
+      count += this.getResumenDiasLibresTrabajadosPorEmpleado(empleado);
+    });
+    
+    return count;
+  }
+
+  // Calcular resumen: Totales de Nocturnos Trabajadas (horas) (por empleado)
+  getResumenNocturnosTrabajadasPorEmpleado(empleado: any): string {
+    let totalMinutos = 0;
+    const HORA_DIURNO_INICIO = 5 * 60; // 5:00 = 300 minutos
+    const HORA_DIURNO_FIN = 19 * 60; // 19:00 = 1140 minutos
+    const HORA_NOCTURNO_FIN = 23 * 60; // 23:00 = 1380 minutos
+    
+    this.diasDelMes.forEach(dia => {
+      if (!this.isSinHorario(empleado, dia)) {
+        const bloque = this.getBloqueHorario(empleado, dia);
+        if (bloque) {
+          // Verificar si es turno NOCTURNO (usar la propiedad turno del bloque)
+          const esNocturno = bloque.turno === 'NOCTURNO';
+          
+          if (esNocturno) {
+            const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+            // Verificar si tiene marcajes válidos
+            if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+              const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
+              const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+              
+              if (!isNaN(entradaMinutos) && !isNaN(salidaMinutos)) {
+                // Verificar que NO sea mixto (los mixtos se calculan en otro método)
+                // Es mixto si: entrada entre 5:00 y 19:00, y salida > 19:00 pero <= 23:00
+                const esMixto = entradaMinutos >= HORA_DIURNO_INICIO && 
+                  entradaMinutos < HORA_DIURNO_FIN &&
+                  salidaMinutos > HORA_DIURNO_FIN && 
+                  salidaMinutos <= HORA_NOCTURNO_FIN;
+                
+                // Solo contar turnos nocturnos puros (no mixtos)
+                if (!esMixto) {
+                  // Calcular horas trabajadas
+                  const valores = this.getCalculoValores(empleado, dia, bloque);
+                  const horasTrabajadas = this.convertirHoraAMinutos(valores.horasTrabajadas);
+                  if (!isNaN(horasTrabajadas)) {
+                    totalMinutos += horasTrabajadas;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    return this.formatearMinutosAHora(totalMinutos);
+  }
+
+  // Calcular resumen: Totales de Nocturnos Trabajadas (horas) (total global - para compatibilidad)
+  getResumenNocturnosTrabajadas(): string {
+    let totalMinutos = 0;
+    const empleadosBase = this.obtenerBaseEmpleados();
+    
+    empleadosBase.forEach(empleado => {
+      const horasStr = this.getResumenNocturnosTrabajadasPorEmpleado(empleado);
+      const minutos = this.convertirHoraAMinutos(horasStr);
+      if (!isNaN(minutos)) {
+        totalMinutos += minutos;
+      }
+    });
+    
+    return this.formatearMinutosAHora(totalMinutos);
+  }
+
+  // Calcular resumen: Totales de Feriados Trabajados (días) (por empleado) - si trabajó ese día
+  getResumenFeriadosTrabajadosPorEmpleado(empleado: any): number {
+    let count = 0;
+    const salaId = this.getSalaId(empleado);
+    if (!salaId) return 0;
+    
+    this.diasDelMes.forEach(dia => {
+      if (this.esFeriado(dia, salaId)) {
+        // Es feriado - verificar si trabajó (tiene registro de diurno, nocturno o mixto)
+        if (!this.isSinHorario(empleado, dia)) {
+          const bloque = this.getBloqueHorario(empleado, dia);
+          if (bloque) {
+            const resultadoHtml = this.getResultadoTurno(empleado, dia);
+            // Si tiene resultado (DIURNO, NOCTURNO o MIXTO), trabajó en feriado
+            if (resultadoHtml) {
+              const resultadoStr = String(resultadoHtml).toUpperCase();
+              // Verificar si contiene DIURNO, NOCTURNO o es mixto (contiene ( D ) o ( N ))
+              if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
+                  resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
+                count++;
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    return count;
+  }
+
+  // Calcular resumen: Totales de Feriados Trabajados (días) (total global - para compatibilidad)
+  getResumenFeriadosTrabajados(): number {
+    let count = 0;
+    const empleadosBase = this.obtenerBaseEmpleados();
+    
+    empleadosBase.forEach(empleado => {
+      count += this.getResumenFeriadosTrabajadosPorEmpleado(empleado);
+    });
+    
+    return count;
+  }
+
+  // Calcular resumen: Totales de Horas Nocturnas Trabajadas de los Mixtos Totales (por empleado)
+  getResumenHorasNocturnasMixtosPorEmpleado(empleado: any): string {
+    let totalMinutos = 0;
+    const HORA_DIURNO_INICIO = 5 * 60; // 5:00 = 300 minutos
+    const HORA_DIURNO_FIN = 19 * 60; // 19:00 = 1140 minutos
+    const HORA_NOCTURNO_FIN = 23 * 60; // 23:00 = 1380 minutos
+    
+    this.diasDelMes.forEach(dia => {
+      if (!this.isSinHorario(empleado, dia)) {
+        const bloque = this.getBloqueHorario(empleado, dia);
+        if (bloque) {
+          const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+          // Verificar si tiene marcajes válidos
+          if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+            const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
+            const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+            
+            if (!isNaN(entradaMinutos) && !isNaN(salidaMinutos)) {
+              // Verificar si es MIXTO
+              // Es mixto si: entrada entre 5:00 y 19:00, y salida > 19:00 pero <= 23:00
+              const esMixto = entradaMinutos >= HORA_DIURNO_INICIO && 
+                entradaMinutos < HORA_DIURNO_FIN &&
+                salidaMinutos > HORA_DIURNO_FIN && 
+                salidaMinutos <= HORA_NOCTURNO_FIN;
+              
+              if (esMixto) {
+                // Calcular horas nocturnas: desde 19:00 hasta salida
+                const horasNocturnas = salidaMinutos - HORA_DIURNO_FIN;
+                totalMinutos += horasNocturnas;
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    return this.formatearMinutosAHora(totalMinutos);
+  }
+
+  // Calcular resumen: Totales de Horas Nocturnas Trabajadas de los Mixtos Totales (total global - para compatibilidad)
+  getResumenHorasNocturnasMixtos(): string {
+    let totalMinutos = 0;
+    const empleadosBase = this.obtenerBaseEmpleados();
+    
+    empleadosBase.forEach(empleado => {
+      const horasStr = this.getResumenHorasNocturnasMixtosPorEmpleado(empleado);
+      const minutos = this.convertirHoraAMinutos(horasStr);
+      if (!isNaN(minutos)) {
+        totalMinutos += minutos;
+      }
+    });
+    
+    return this.formatearMinutosAHora(totalMinutos);
   }
 }
