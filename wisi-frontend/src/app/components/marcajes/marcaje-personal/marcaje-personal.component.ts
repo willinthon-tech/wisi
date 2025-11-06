@@ -161,7 +161,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                   <ng-container *ngFor="let empleado of grupo.empleados">
                     <!-- Fila de Entrada -->
                     <tr>
-                      <td class="empleado-completo-cell" [attr.rowspan]="3">
+                      <td class="empleado-completo-cell" [attr.rowspan]="4">
                         <div class="empleado-completo">
                           <div class="foto-container">
                             <img *ngIf="empleado.foto" 
@@ -192,7 +192,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
                           [class]="getTurnoClass(empleado, dia)"
-                          [attr.rowspan]="isSinHorario(empleado, dia) ? 3 : 1">
+                          [attr.rowspan]="isSinHorario(empleado, dia) ? 4 : 1">
                         <div class="horario-data" 
                              [class.libre-vertical]="isSinHorario(empleado, dia)">
                           <span *ngIf="isSinHorario(empleado, dia)" class="sin-horario-wrapper">
@@ -238,7 +238,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                     <tr class="fila-calculo" >
                       <td class="horario-cell">
                         <div class="horario-info">
-                          Calculo
+                          Trabajado
                         </div>
                       </td>
                       <td *ngFor="let dia of diasDelMes; let i = index" 
@@ -252,6 +252,23 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                           <div class="col-6 calculo-col-descansadas" [class]="getCalculoClaseDescansadas(empleado, dia)">
                             {{ getCalculoHorasDescansadas(empleado, dia) }}
                           </div>
+                        </div>
+                      </td>
+                    </tr>
+                    
+                    <!-- Fila de Resultado -->
+                    <tr>
+                      <td class="horario-cell">
+                        <div class="horario-info">
+                          Resultado
+                        </div>
+                      </td>
+                      <td *ngFor="let dia of diasDelMes; let i = index" 
+                          class="dia-cell" 
+                          [class]="getTurnoClass(empleado, dia)"
+                          [style.display]="isSinHorario(empleado, dia) ? 'none' : 'table-cell'">
+                        <div class="horario-data">
+                          {{ getResultadoTurno(empleado, dia) }}
                         </div>
                       </td>
                     </tr>
@@ -735,6 +752,8 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       background-color: #4CAF50 !important;
       height: 45px !important;
       min-height: 45px !important;
+      width: 45px !important;
+      min-width: 45px !important;
     }
 
     /* Fijar el encabezado "Empleado" */
@@ -807,6 +826,11 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       border-right: 2px solid #ddd;
     }
 
+    .empleado-completo-cell {
+      vertical-align: top !important;
+      height: 100% !important;
+    }
+
     .empleado-completo-col[colspan="2"] {
       text-align: center;
       font-size: 14px;
@@ -819,6 +843,9 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       align-items: center;
       gap: 8px;
       text-align: center;
+      min-height: 100%;
+      justify-content: flex-start;
+      padding: 10px 5px;
     }
 
     .foto-container {
@@ -826,8 +853,8 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
     }
 
     .foto-real {
-      width: 60px;
-      height: 60px;
+      width: 75px;
+      height: 75px;
       border-radius: 50%;
       object-fit: cover;
       border: 2px solid #e9ecef;
@@ -845,15 +872,15 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
     }
 
     .foto-placeholder {
-      width: 60px;
-      height: 60px;
+      width: 75px;
+      height: 75px;
       background: #e9ecef;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       color: #6c757d;
-      font-size: 20px;
+      font-size: 24px;
       transition: all 0.3s ease;
     }
 
@@ -874,6 +901,9 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       gap: 2px;
       flex: 1;
       text-align: center;
+      align-items: center;
+      width: 100%;
+      justify-content: center;
     }
 
     .empleado-nombre {
@@ -882,6 +912,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       font-size: 14px;
       line-height: 1.2;
       text-align: center;
+      width: 100%;
     }
 
     .empleado-cedula {
@@ -889,6 +920,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       font-size: 12px;
       line-height: 1.2;
       text-align: center;
+      width: 100%;
     }
 
     .empleado-cargo {
@@ -897,6 +929,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       line-height: 1.2;
       text-align: center;
       font-style: italic;
+      width: 100%;
     }
 
     .empleado-completo-col-empty {
@@ -984,25 +1017,25 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
     }
 
     .horario-col, .horario-cell {
-      width: 60px;
-      min-width: 60px;
+      width: 45px;
+      min-width: 45px;
       height: 45px;
       min-height: 45px;
       text-align: left;
     }
 
     .horario-col-empty {
-      width: 60px;
-      min-width: 60px;
+      width: 45px;
+      min-width: 45px;
       border-right: 2px solid rgba(255, 255, 255, 0.3);
     }
 
     .horario-info {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 500;
       color: white !important;
-      padding: 6px;
-      line-height: 1.3;
+      padding: 4px;
+      line-height: 1.2;
       text-align: left;
     }
 
@@ -3679,7 +3712,14 @@ export class MarcajePersonalComponent implements OnInit {
   // Convertir hora HH:MM a minutos para comparación
   convertirHoraAMinutos(hora: string): number {
     if (!hora) return 0;
-    const [horas, minutos] = hora.split(':').map(Number);
+    // Asegurar que sea string y hacer trim
+    const horaStr = String(hora).trim();
+    if (!horaStr || !horaStr.includes(':')) return 0;
+    const partes = horaStr.split(':');
+    if (partes.length < 2) return 0;
+    const horas = Number(partes[0]);
+    const minutos = Number(partes[1]);
+    if (isNaN(horas) || isNaN(minutos)) return 0;
     return horas * 60 + minutos;
   }
 
@@ -4008,6 +4048,151 @@ export class MarcajePersonalComponent implements OnInit {
     }
     const resumenCalculo = this.getCalculoClases(empleado, dia, bloque);
     return resumenCalculo.claseDescansadas;
+  }
+
+  // Calcular el resultado del turno (D, N, M, E, o vacío)
+  // IMPORTANTE: Usar los datos que se muestran en la columna "Marcaje" directamente
+  getResultadoTurno(empleado: any, dia: Date): string {
+    const bloque = this.getBloqueHorario(empleado, dia);
+    const sinHorario = this.isSinHorario(empleado, dia);
+    
+    if (!bloque || sinHorario) {
+      return '';
+    }
+
+    // Usar el mismo método que se usa para mostrar en "Marcaje"
+    const marcajeInfo = this.getHorarioInfo(empleado, dia, 'Descanso');
+    
+    console.log('=== DEBUG getResultadoTurno ===');
+    console.log('marcajeInfo:', marcajeInfo);
+    
+    // Constantes para los rangos
+    const HORA_DIURNO_INICIO = 5 * 60; // 5:00 = 300 minutos
+    const HORA_DIURNO_FIN = 19 * 60; // 19:00 = 1140 minutos
+    const HORA_NOCTURNO_FIN = 23 * 60; // 23:00 = 1380 minutos
+    
+    // CASO 1: Si NO hay registro en entrada Y NO hay registro en salida → Campo vacío
+    const marcajeInfoTrimmed = marcajeInfo ? String(marcajeInfo).trim() : '';
+    
+    // Validar casos especiales: Sin Registros, Sin horario, vacío
+    // Verificar múltiples variaciones para asegurar que se detecte correctamente
+    if (!marcajeInfoTrimmed || 
+        marcajeInfoTrimmed === 'Sin Registros' || 
+        marcajeInfoTrimmed === 'Sin horario' ||
+        marcajeInfoTrimmed.toLowerCase().includes('sin registro') ||
+        marcajeInfoTrimmed.toLowerCase().includes('sin registros') ||
+        marcajeInfoTrimmed === 'Sin marcaje' ||
+        marcajeInfoTrimmed.toLowerCase() === 'sin marcaje') {
+      console.log('Retornando vacío por Sin Registros');
+      return '';
+    }
+    
+    // Parsear el string que se muestra en "Marcaje"
+    // Formato esperado: 
+    // - "HH:MM - Sin descanso - HH:MM" (entrada y salida)
+    // - "HH:MM - DNM - HH:MM" (con descanso)
+    // - "HH:MM - Sin descanso - SNM" (sin salida marcada)
+    // - "HH:MM" (solo entrada, sin salida)
+    let entradaStr = '';
+    let salidaStr = '';
+    let tieneEntrada = false;
+    let tieneSalida = false;
+    
+    // Si contiene " - ", es formato con entrada y posible salida
+    if (marcajeInfoTrimmed.includes(' - ')) {
+      const partes = marcajeInfoTrimmed.split(' - ');
+      entradaStr = partes[0]?.trim() || '';
+      
+      // Validar si entrada es válida (formato HH:MM)
+      if (entradaStr && entradaStr.match(/^\d{1,2}:\d{2}$/)) {
+        tieneEntrada = true;
+      }
+      
+      // La salida está en la última parte - verificar si es válida
+      const ultimaParte = partes[partes.length - 1]?.trim() || '';
+      
+      // Si la última parte tiene formato HH:MM (no es "SNM", "SDNM", etc.), es salida válida
+      if (ultimaParte && ultimaParte.match(/^\d{1,2}:\d{2}$/)) {
+        salidaStr = ultimaParte;
+        tieneSalida = true;
+      }
+    } else {
+      // Si no tiene " - ", verificar si es solo entrada (HH:MM)
+      if (marcajeInfoTrimmed.match(/^\d{1,2}:\d{2}$/)) {
+        entradaStr = marcajeInfoTrimmed;
+        tieneEntrada = true;
+        tieneSalida = false;
+      }
+    }
+    
+    // CASO 2: Si NO hay entrada Y NO hay salida → Campo vacío
+    if (!tieneEntrada && !tieneSalida) {
+      return '';
+    }
+    
+    // CASO 3: Si solo hay entrada (sin salida) → "E"
+    if (tieneEntrada && !tieneSalida) {
+      console.log('Retornando E - Solo entrada sin salida');
+      return 'E';
+    }
+    
+    // CASO 4: Si NO tenemos entrada O NO tenemos salida → "E"
+    // (Este caso debería ser raro, pero por seguridad)
+    if (!tieneEntrada || !tieneSalida) {
+      return 'E';
+    }
+    
+    // Convertir las horas a minutos
+    const entradaMinutos = this.convertirHoraAMinutos(entradaStr);
+    const salidaMinutos = this.convertirHoraAMinutos(salidaStr);
+    
+    // Si las conversiones fallaron, error
+    if (isNaN(entradaMinutos) || isNaN(salidaMinutos)) {
+      return 'E';
+    }
+    
+    // Determinar si la salida es del día siguiente (salida < entrada)
+    const esSalidaDelDiaSiguiente = salidaMinutos < entradaMinutos;
+    
+    // CASO 5: Si la salida es del día siguiente (00:00, 01:00, etc.) o > 23:00 → "N"
+    // PRIORIDAD ABSOLUTA: Verificar esto PRIMERO
+    if (esSalidaDelDiaSiguiente || salidaMinutos > HORA_NOCTURNO_FIN) {
+      return 'N';
+    }
+    
+    // CASO 6: DIURNO PURO
+    // Si entrada entre 5:00 AM y 7:00 PM (19:00) y salida <= 19:00 → "D"
+    // IMPORTANTE: salida debe ser <= 19:00 (1140 minutos) - esto es CRÍTICO
+    if (entradaMinutos >= HORA_DIURNO_INICIO && 
+        entradaMinutos < HORA_DIURNO_FIN &&
+        salidaMinutos > entradaMinutos && 
+        salidaMinutos <= HORA_DIURNO_FIN) {
+      console.log('Retornando D - Diurno puro. Entrada:', entradaStr, 'Salida:', salidaStr);
+      return 'D';
+    }
+    
+    // CASO 7: MIXTO
+    // Si entrada entre 5:00 AM y 7:00 PM, salida > 19:00 pero <= 23:00 → "M {diurnas} - {nocturnas}"
+    // IMPORTANTE: salida debe ser > 19:00 (1140) y <= 23:00 (1380)
+    if (entradaMinutos >= HORA_DIURNO_INICIO && 
+        entradaMinutos < HORA_DIURNO_FIN &&
+        salidaMinutos > HORA_DIURNO_FIN && 
+        salidaMinutos <= HORA_NOCTURNO_FIN) {
+      // Calcular horas diurnas: desde entrada hasta 19:00
+      const horasDiurnas = HORA_DIURNO_FIN - entradaMinutos;
+      // Calcular horas nocturnas: desde 19:00 hasta salida
+      const horasNocturnas = salidaMinutos - HORA_DIURNO_FIN;
+      
+      const horasDiurnasFormateadas = this.formatearMinutosAHora(horasDiurnas);
+      const horasNocturnasFormateadas = this.formatearMinutosAHora(horasNocturnas);
+      
+      console.log('Retornando M - Mixto. Entrada:', entradaStr, 'Salida:', salidaStr, 'Resultado:', `M ${horasDiurnasFormateadas} - ${horasNocturnasFormateadas}`);
+      return `M ${horasDiurnasFormateadas} - ${horasNocturnasFormateadas}`;
+    }
+    
+    // Por defecto: Nocturno
+    console.log('Retornando N - Nocturno. Entrada:', entradaStr, 'Salida:', salidaStr);
+    return 'N';
   }
 
   // Método auxiliar para obtener los valores calculados
