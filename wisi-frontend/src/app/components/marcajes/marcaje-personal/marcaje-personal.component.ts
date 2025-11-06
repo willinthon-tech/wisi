@@ -4275,12 +4275,12 @@ export class MarcajePersonalComponent implements OnInit {
         // Si llegó más de 20 minutos antes
         if (diferencia < -TOLERANCIA_MINUTOS) {
           const diferenciaAbsoluta = Math.abs(diferencia);
-          const diferenciaFormateada = this.formatearDiferenciaMinutos(diferenciaAbsoluta);
+          const diferenciaFormateada = this.formatearDiferenciaHHMM(diferenciaAbsoluta);
           alertas.push(`<span style="font-weight: bold;">Ent Ant (${diferenciaFormateada})</span>`);
         }
         // Si llegó más de 20 minutos después
         else if (diferencia > TOLERANCIA_MINUTOS) {
-          const diferenciaFormateada = this.formatearDiferenciaMinutos(diferencia);
+          const diferenciaFormateada = this.formatearDiferenciaHHMM(diferencia);
           alertas.push(`<span style="color: red; font-weight: bold;">Ent Des (${diferenciaFormateada})</span>`);
         }
       }
@@ -4289,32 +4289,53 @@ export class MarcajePersonalComponent implements OnInit {
     // Validar salida
     if (marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM' && horaSalidaProgramada > 0) {
       const salidaRealMinutos = this.convertirHoraAMinutos(marcajes.salida);
+      const entradaRealMinutos = marcajes.entrada && marcajes.entrada !== 'Sin marcaje' 
+        ? this.convertirHoraAMinutos(marcajes.entrada) 
+        : horaEntradaProgramada;
       
       if (salidaRealMinutos > 0) {
-        // Para turnos nocturnos, la salida puede ser del día siguiente
-        // Necesitamos ajustar la comparación
-        const esTurnoNocturno = horaEntradaProgramada > horaSalidaProgramada;
+        // Determinar si realmente cruza medianoche basándose en los marcajes reales
+        // Si la salida real es menor que la entrada real, significa que cruzó medianoche
+        const cruzaMedianocheReal = salidaRealMinutos < entradaRealMinutos;
+        const esTurnoNocturnoProgramado = horaEntradaProgramada > horaSalidaProgramada;
+        
         let diferencia: number;
         
-        if (esTurnoNocturno) {
-          // Para turno nocturno: tanto la salida programada como la real están en el día siguiente
-          // La diferencia es simplemente: salida real - salida programada
-          // Si la salida real es menor que la entrada programada, definitivamente es del día siguiente
-          diferencia = salidaRealMinutos - horaSalidaProgramada;
+        if (cruzaMedianocheReal) {
+          // La salida real es del día siguiente (cruza medianoche)
+          // Ajustar la salida programada si también cruza medianoche
+          if (esTurnoNocturnoProgramado) {
+            // Ambas cruzan medianoche: comparación directa
+            diferencia = salidaRealMinutos - horaSalidaProgramada;
+          } else {
+            // La programada no cruza pero la real sí: ajustar
+            // La salida programada está en el mismo día, pero la real está al día siguiente
+            // Diferencia = (24*60 - horaSalidaProgramada) + salidaRealMinutos - (24*60 - horaEntradaProgramada) - (horaEntradaProgramada - horaSalidaProgramada)
+            // Simplificado: salidaRealMinutos - horaSalidaProgramada (pero considerando el cruce)
+            diferencia = salidaRealMinutos - horaSalidaProgramada;
+          }
+        } else if (esTurnoNocturnoProgramado && !cruzaMedianocheReal) {
+          // La programada cruza medianoche pero la real NO cruza (salió antes)
+          // Ajustar: la salida programada está al día siguiente, pero la real está el mismo día
+          // Necesitamos comparar correctamente
+          // Si la salida real es mayor que la entrada real, está el mismo día
+          // La diferencia debe considerar que la programada esperaba cruzar medianoche
+          const salidaProgramadaAjustada = horaSalidaProgramada + (24 * 60); // Ajustar al día siguiente
+          diferencia = salidaRealMinutos - salidaProgramadaAjustada;
         } else {
-          // Turno diurno: diferencia simple
+          // Ninguna cruza medianoche: diferencia simple
           diferencia = salidaRealMinutos - horaSalidaProgramada;
         }
         
         // Si salió más de 20 minutos antes
         if (diferencia < -TOLERANCIA_MINUTOS) {
           const diferenciaAbsoluta = Math.abs(diferencia);
-          const diferenciaFormateada = this.formatearDiferenciaMinutos(diferenciaAbsoluta);
+          const diferenciaFormateada = this.formatearDiferenciaHHMM(diferenciaAbsoluta);
           alertas.push(`<span style="color: red; font-weight: bold;">Sal Ant (${diferenciaFormateada})</span>`);
         }
         // Si salió más de 20 minutos después
         else if (diferencia > TOLERANCIA_MINUTOS) {
-          const diferenciaFormateada = this.formatearDiferenciaMinutos(diferencia);
+          const diferenciaFormateada = this.formatearDiferenciaHHMM(diferencia);
           alertas.push(`<span style="font-weight: bold;">Sal Des (${diferenciaFormateada})</span>`);
         }
       }
@@ -4336,6 +4357,15 @@ export class MarcajePersonalComponent implements OnInit {
         return `${horas}h ${minutosRestantes} min`;
       }
     }
+  }
+
+  // Formatear diferencia a HH:MM siempre (con padding 2 dígitos)
+  private formatearDiferenciaHHMM(minutos: number): string {
+    const horas = Math.floor(minutos / 60);
+    const minutosRestantes = minutos % 60;
+    const hh = horas.toString().padStart(2, '0');
+    const mm = minutosRestantes.toString().padStart(2, '0');
+    return `${hh}:${mm}`;
   }
 
   // Calcular el resultado del turno (D, N, M, E, o vacío)
