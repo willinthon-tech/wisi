@@ -127,12 +127,54 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
         
       </div>
 
+      <!-- Bloque: Selección de tipo de reporte -->
+      <div class="sala-selector-section">
+        <div class="sala-selector-container">
+          <label class="sala-selector-label">Seleccionar tipo de reporte:</label>
+          <div class="radio-buttons-group">
+            <label class="radio-option">
+              <input 
+                type="radio" 
+                name="tipoReporteSelector" 
+                value="global"
+                [checked]="tipoReporte === 'global'"
+                (change)="onTipoReporteChange('global')"
+                class="radio-input">
+              <span class="radio-label">Global</span>
+            </label>
+            <label class="radio-option">
+              <input 
+                type="radio" 
+                name="tipoReporteSelector" 
+                value="horario"
+                [checked]="tipoReporte === 'horario'"
+                (change)="onTipoReporteChange('horario')"
+                class="radio-input">
+              <span class="radio-label">Horario</span>
+            </label>
+            <label class="radio-option">
+              <input 
+                type="radio" 
+                name="tipoReporteSelector" 
+                value="resumen"
+                [checked]="tipoReporte === 'resumen'"
+                (change)="onTipoReporteChange('resumen')"
+                class="radio-input">
+              <span class="radio-label">Resumen</span>
+            </label>
+          </div>
+        </div>
+      </div>
 
-      <div class="grupos-container" *ngIf="!loading && hasSearched && grupos.length > 0 && !todosLosGruposEstanVacios()">
+
+      <div class="grupos-container printable" *ngIf="!loading && hasSearched && grupos.length > 0 && !todosLosGruposEstanVacios()">
         <div class="grupo-card" *ngFor="let grupo of grupos">
           <div class="grupo-header">
             <h3>{{ grupo.nombre }}</h3>
-            <span class="empleados-count">{{ grupo.empleados.length }} empleado(s)</span>
+            <div class="grupo-actions">
+              <span class="empleados-count">{{ grupo.empleados.length }} empleado(s)</span>
+              <button class="btn-print-group no-print" (click)="printGrupo(grupo)">🖨️ Imprimir</button>
+            </div>
           </div>
           
           <div class="grupo-table-container" *ngIf="grupo.empleados.length > 0">
@@ -140,7 +182,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
               <table class="horario-table">
                 <thead>
                   <tr class="mes-header">
-                    <th class="empleado-completo-col-empty" [attr.colspan]="2" [attr.rowspan]="3">Empleado</th>
+                    <th class="empleado-completo-col-empty" [attr.colspan]="tipoReporte === 'horario' ? 1 : 2" [attr.rowspan]="3">Empleado</th>
                     <th *ngFor="let mes of mesesAgrupados" 
                         [attr.colspan]="mes.colspan" 
                         class="mes-group-col">
@@ -162,9 +204,9 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                   <ng-container *ngFor="let empleado of grupo.empleados">
                     <!-- Fila de Entrada -->
                     <tr>
-                      <td class="empleado-completo-cell" [attr.rowspan]="4">
+                      <td class="empleado-completo-cell" [attr.rowspan]="tipoReporte === 'horario' ? null : 4">
                         <div class="empleado-completo">
-                          <div class="foto-container">
+                          <div class="foto-container" *ngIf="tipoReporte !== 'horario'">
                             <img *ngIf="empleado.foto" 
                                  [src]="getFotoUrl(empleado.foto)" 
                                  [alt]="empleado.nombre"
@@ -180,12 +222,12 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                           </div>
                           <div class="empleado-info">
                             <div class="empleado-nombre">{{ empleado.nombre }}</div>
-                            <div class="empleado-cedula">{{ empleado.cedula }}</div>
-                            <div class="empleado-cargo">{{ empleado.Cargo?.nombre || 'Sin cargo' }}</div>
+                            <div class="empleado-cedula" *ngIf="tipoReporte !== 'horario'">{{ empleado.cedula }}</div>
+                            <div class="empleado-cargo" *ngIf="tipoReporte !== 'horario'">{{ empleado.Cargo?.nombre || 'Sin cargo' }}</div>
                           </div>
                         </div>
                       </td>
-                      <td class="horario-cell">
+                      <td class="horario-cell" *ngIf="tipoReporte !== 'horario'">
                         <div class="horario-info">
                           Horario
                         </div>
@@ -193,12 +235,12 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                       <td *ngFor="let dia of diasDelMes; let i = index" 
                           class="dia-cell" 
                           [class]="getTurnoClass(empleado, dia)"
-                          [attr.rowspan]="isSinHorario(empleado, dia) ? 4 : 1">
+                          [attr.rowspan]="tipoReporte === 'horario' ? null : (isSinHorario(empleado, dia) ? 4 : 1)">
                         <div class="horario-data" 
-                             [class.libre-vertical]="isSinHorario(empleado, dia)">
+                             [class.libre-vertical]="isSinHorario(empleado, dia) && tipoReporte !== 'horario'">
                           <span *ngIf="isSinHorario(empleado, dia)" class="sin-horario-wrapper">
                             <span>SIN HORARIO</span>
-                            <button class="btn-add-dia"
+                            <button *ngIf="tipoReporte !== 'horario'" class="btn-add-dia"
                                     [ngClass]="hasExcepcion(empleado, dia) ? 'ex-present' : 'ex-empty'"
                                     title="Excepción del día"
                                     (click)="abrirModalExcepcion(empleado, dia)">M</button>
@@ -209,7 +251,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                                   [style.color]="getContrastColorPlantilla(getBloqueHorario(empleado, dia)?.PlantillaHorario?.color)">
                               {{ getBloqueHorario(empleado, dia)?.PlantillaHorario?.codigo || 'N/A' }}
                             </span>
-                            <button class="btn-add-dia mini"
+                            <button *ngIf="tipoReporte !== 'horario'" class="btn-add-dia mini"
                                     [ngClass]="hasExcepcion(empleado, dia) ? 'ex-present' : 'ex-empty'"
                                     title="Excepción del día"
                                     (click)="abrirModalExcepcion(empleado, dia)">M</button>
@@ -219,7 +261,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                     </tr>
                     
                     <!-- Fila de Marcaje -->
-                    <tr>
+                    <tr *ngIf="tipoReporte !== 'horario'">
                       <td class="horario-cell">
                         <div class="horario-info">
                           Marcaje
@@ -236,7 +278,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                     </tr>
                     
                     <!-- Fila de Calculo -->
-                    <tr class="fila-calculo" >
+                    <tr class="fila-calculo" *ngIf="tipoReporte !== 'horario'">
                       <td class="horario-cell">
                         <div class="horario-info">
                           Trabajado
@@ -258,7 +300,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                     </tr>
                     
                     <!-- Fila de Resultado -->
-                    <tr>
+                    <tr *ngIf="tipoReporte !== 'horario'">
                       <td class="horario-cell">
                         <div class="horario-info">
                           Resultado
@@ -715,6 +757,8 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       scrollbar-width: none; /* Firefox */
       -ms-overflow-style: none; /* Internet Explorer 10+ */
     }
+
+    /* Revert: el scroll vertical vuelve a la página completa */
 
     .table-wrapper::-webkit-scrollbar {
       display: none; /* Chrome, Safari, Edge */
@@ -1306,6 +1350,38 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       border-radius: 20px;
       font-size: 12px;
       font-weight: 500;
+    }
+
+    .grupo-actions { display: flex; align-items: center; gap: 10px; }
+    .btn-print-group {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-print-group:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+    
+
+    /* Reglas de impresión: solo imprimir el contenedor .printable */
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      /* Ocultar navbars y encabezados superiores de toda la app */
+      app-navbar, .navbar, header, .topbar, .toolbar, .page-header, .layout-navbar, .site-header {
+        display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important;
+      }
+      /* Ocultar cualquier control de la app no relevante */
+      .no-print, .btn, .button, .actions, .grupo-actions { display: none !important; }
+      /* Mostrar únicamente el contenedor printable */
+      body * { visibility: hidden !important; }
+      .printable, .printable * { visibility: visible !important; }
+      .printable { position: absolute; left: 0; top: 0; width: 100%; }
     }
 
     .grupo-table-container {
@@ -2019,6 +2095,8 @@ export class MarcajePersonalComponent implements OnInit {
   departamentosFiltrados: any[] = [];
   areasFiltradas: any[] = [];
   cargosFiltrados: any[] = [];
+  // Tipo de reporte (global por defecto)
+  tipoReporte: 'global' | 'horario' | 'resumen' = 'global';
   
   // Propiedades para el modal
   mostrarModal = false;
@@ -2076,6 +2154,16 @@ export class MarcajePersonalComponent implements OnInit {
       this.cargarCatalogosFiltros();
       // No cargar datos hasta que el usuario seleccione filtros y presione Actualizar
     });
+  }
+
+  onTipoReporteChange(tipo: 'global' | 'horario' | 'resumen') {
+    this.tipoReporte = tipo;
+    // La vista actual corresponde a "Global". Las otras vistas se podrán implementar más adelante.
+  }
+
+  printGrupo(grupo: any): void {
+    // Abrir diálogo de impresión del navegador con todas las opciones nativas
+    window.print();
   }
 
   abrirModalExcepcion(empleado: any, dia: Date) {

@@ -74,3 +74,41 @@ app-root {
 .fa-building:before { content: '\f1ad'; }
 .fa-cog:before { content: '\f013'; }
 .fa-cube:before { content: '\f1b2'; }
+
+/* ========== Reglas globales de impresión ========== */
+@media print {
+  /* Mantener colores */
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* Ocultar navbars/headers globales de la app */
+  app-navbar, header, nav, .navbar, .topbar, .toolbar, .page-header, .layout-navbar, .site-header {
+    display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important;
+  }
+  /* Ocultar controles comunes */
+  .no-print, .btn, .button, .actions { display: none !important; }
+  /* Mostrar únicamente el contenedor marcado como printable */
+  body * { visibility: hidden !important; }
+  .printable, .printable * { visibility: visible !important; }
+  /* Permitir paginación natural: nada absoluto para que imprima en múltiples páginas */
+  .printable { position: static !important; left: auto !important; top: auto !important; width: auto !important; overflow: visible !important; }
+
+  /* Evitar estilos sticky en impresión: volver a flujo normal */
+  .printable .horario-table th,
+  .printable .horario-table td,
+  .printable .mes-header th,
+  .printable .dia-header th,
+  .printable .dia-semana-header th,
+  .printable .empleado-completo-cell,
+  .printable .horario-cell {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+  }
+
+  /* Reglas de salto de página para tablas largas */
+  .printable table { page-break-after: auto; }
+  .printable tr    { page-break-inside: avoid; page-break-after: auto; }
+  .printable td,
+  .printable th    { page-break-inside: avoid; }
+
+  /* No forzamos tamaño/orientación para que el navegador muestre todas las opciones */
+}
