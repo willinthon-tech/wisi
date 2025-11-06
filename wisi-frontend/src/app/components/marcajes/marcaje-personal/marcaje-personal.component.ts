@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { EmpleadosService } from '../../../services/empleados.service';
 import { AreasService } from '../../../services/areas.service';
 import { DepartamentosService } from '../../../services/departamentos.service';
@@ -267,9 +268,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
                           class="dia-cell" 
                           [class]="getTurnoClass(empleado, dia)"
                           [style.display]="isSinHorario(empleado, dia) ? 'none' : 'table-cell'">
-                        <div class="horario-data">
-                          {{ getResultadoTurno(empleado, dia) }}
-                        </div>
+                        <div class="horario-data" [innerHTML]="getResultadoTurno(empleado, dia)"></div>
                       </td>
                     </tr>
                     <tr class="separador-verde">
@@ -2050,7 +2049,8 @@ export class MarcajePersonalComponent implements OnInit {
     private departamentosService: DepartamentosService,
     private cargosService: CargosService,
     private excepcionesService: ExcepcionesHorariosService,
-    private plantillasService: PlantillasHorariosService
+    private plantillasService: PlantillasHorariosService,
+    private sanitizer: DomSanitizer
   ) {}
 
   ngOnInit() {
@@ -4186,14 +4186,104 @@ export class MarcajePersonalComponent implements OnInit {
     return resumenCalculo.claseDescansadas;
   }
 
+  // Calcular alertas de marcaje (Ent Ant Hora, Ent Des Hora, Sal Ant Hora, Sal Des Hora)
+  calcularAlertasMarcaje(empleado: any, dia: Date, bloque: any): string {
+    const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+    const plantilla = bloque?.PlantillaHorario;
+    
+    // Si no hay plantilla o marcajes, no hay alertas
+    if (!plantilla || !marcajes) {
+      return '';
+    }
+
+    // Obtener horas programadas
+    const horaEntradaProgramada = this.convertirHoraAMinutos(plantilla.hora_entrada);
+    const horaSalidaProgramada = this.convertirHoraAMinutos(plantilla.hora_salida);
+    
+    const alertas: string[] = [];
+    const TOLERANCIA_MINUTOS = 20;
+
+    // Validar entrada
+    if (marcajes.entrada && marcajes.entrada !== 'Sin marcaje' && horaEntradaProgramada > 0) {
+      const entradaRealMinutos = this.convertirHoraAMinutos(marcajes.entrada);
+      
+      if (entradaRealMinutos > 0) {
+        const diferencia = entradaRealMinutos - horaEntradaProgramada;
+        
+        // Si llegó más de 20 minutos antes
+        if (diferencia < -TOLERANCIA_MINUTOS) {
+          const diferenciaAbsoluta = Math.abs(diferencia);
+          const diferenciaFormateada = this.formatearDiferenciaMinutos(diferenciaAbsoluta);
+          alertas.push(`<span style="font-weight: bold;">Ent Ant (${diferenciaFormateada})</span>`);
+        }
+        // Si llegó más de 20 minutos después
+        else if (diferencia > TOLERANCIA_MINUTOS) {
+          const diferenciaFormateada = this.formatearDiferenciaMinutos(diferencia);
+          alertas.push(`<span style="color: red; font-weight: bold;">Ent Des (${diferenciaFormateada})</span>`);
+        }
+      }
+    }
+
+    // Validar salida
+    if (marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM' && horaSalidaProgramada > 0) {
+      const salidaRealMinutos = this.convertirHoraAMinutos(marcajes.salida);
+      
+      if (salidaRealMinutos > 0) {
+        // Para turnos nocturnos, la salida puede ser del día siguiente
+        // Necesitamos ajustar la comparación
+        const esTurnoNocturno = horaEntradaProgramada > horaSalidaProgramada;
+        let diferencia: number;
+        
+        if (esTurnoNocturno) {
+          // Para turno nocturno: tanto la salida programada como la real están en el día siguiente
+          // La diferencia es simplemente: salida real - salida programada
+          // Si la salida real es menor que la entrada programada, definitivamente es del día siguiente
+          diferencia = salidaRealMinutos - horaSalidaProgramada;
+        } else {
+          // Turno diurno: diferencia simple
+          diferencia = salidaRealMinutos - horaSalidaProgramada;
+        }
+        
+        // Si salió más de 20 minutos antes
+        if (diferencia < -TOLERANCIA_MINUTOS) {
+          const diferenciaAbsoluta = Math.abs(diferencia);
+          const diferenciaFormateada = this.formatearDiferenciaMinutos(diferenciaAbsoluta);
+          alertas.push(`<span style="color: red; font-weight: bold;">Sal Ant (${diferenciaFormateada})</span>`);
+        }
+        // Si salió más de 20 minutos después
+        else if (diferencia > TOLERANCIA_MINUTOS) {
+          const diferenciaFormateada = this.formatearDiferenciaMinutos(diferencia);
+          alertas.push(`<span style="font-weight: bold;">Sal Des (${diferenciaFormateada})</span>`);
+        }
+      }
+    }
+
+    return alertas.join(' - ');
+  }
+
+  // Formatear diferencia de minutos a formato legible (ej: "30 min", "1h 15 min")
+  formatearDiferenciaMinutos(minutos: number): string {
+    if (minutos < 60) {
+      return `${minutos} min`;
+    } else {
+      const horas = Math.floor(minutos / 60);
+      const minutosRestantes = minutos % 60;
+      if (minutosRestantes === 0) {
+        return `${horas}h`;
+      } else {
+        return `${horas}h ${minutosRestantes} min`;
+      }
+    }
+  }
+
   // Calcular el resultado del turno (D, N, M, E, o vacío)
   // IMPORTANTE: Usar los datos que se muestran en la columna "Marcaje" directamente
-  getResultadoTurno(empleado: any, dia: Date): string {
+  getResultadoTurno(empleado: any, dia: Date): SafeHtml {
     const bloque = this.getBloqueHorario(empleado, dia);
     const sinHorario = this.isSinHorario(empleado, dia);
     
     if (!bloque || sinHorario) {
-      return '';
+      return this.sanitizer.bypassSecurityTrustHtml('');
     }
 
     // Usar el mismo método que se usa para mostrar en "Marcaje"
@@ -4216,7 +4306,7 @@ export class MarcajePersonalComponent implements OnInit {
         marcajeInfoTrimmed.toLowerCase().includes('sin registros') ||
         marcajeInfoTrimmed === 'Sin marcaje' ||
         marcajeInfoTrimmed.toLowerCase() === 'sin marcaje') {
-      return '';
+      return this.sanitizer.bypassSecurityTrustHtml('');
     }
     
     // Parsear el string que se muestra en "Marcaje"
@@ -4259,18 +4349,18 @@ export class MarcajePersonalComponent implements OnInit {
     
     // CASO 2: Si NO hay entrada Y NO hay salida → Campo vacío
     if (!tieneEntrada && !tieneSalida) {
-      return '';
+      return this.sanitizer.bypassSecurityTrustHtml('');
     }
     
     // CASO 3: Si solo hay entrada (sin salida) → "ERROR"
     if (tieneEntrada && !tieneSalida) {
-      return 'ERROR';
+      return this.sanitizer.bypassSecurityTrustHtml('<span style="font-weight: bold;">ERROR</span>');
     }
     
     // CASO 4: Si NO tenemos entrada O NO tenemos salida → "ERROR"
     // (Este caso debería ser raro, pero por seguridad)
     if (!tieneEntrada || !tieneSalida) {
-      return 'ERROR';
+      return this.sanitizer.bypassSecurityTrustHtml('<span style="font-weight: bold;">ERROR</span>');
     }
     
     // Convertir las horas a minutos
@@ -4279,32 +4369,35 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Si las conversiones fallaron, error
     if (isNaN(entradaMinutos) || isNaN(salidaMinutos)) {
-      return 'ERROR';
+      return this.sanitizer.bypassSecurityTrustHtml('<span style="font-weight: bold;">ERROR</span>');
     }
     
     // Determinar si la salida es del día siguiente (salida < entrada)
     const esSalidaDelDiaSiguiente = salidaMinutos < entradaMinutos;
     
+    // Calcular alertas de marcaje
+    const alertas = this.calcularAlertasMarcaje(empleado, dia, bloque);
+    
+    let resultadoTexto = '';
+    
     // CASO 5: Si la salida es del día siguiente (00:00, 01:00, etc.) o > 23:00 → "NOCTURNO"
     // PRIORIDAD ABSOLUTA: Verificar esto PRIMERO
     if (esSalidaDelDiaSiguiente || salidaMinutos > HORA_NOCTURNO_FIN) {
-      return 'NOCTURNO';
+      resultadoTexto = '<span style="font-weight: bold;">NOCTURNO</span>';
     }
-    
     // CASO 6: DIURNO PURO
     // Si entrada entre 5:00 AM y 7:00 PM (19:00) y salida <= 19:00 → "DIURNO"
     // IMPORTANTE: salida debe ser <= 19:00 (1140 minutos) - esto es CRÍTICO
-    if (entradaMinutos >= HORA_DIURNO_INICIO && 
+    else if (entradaMinutos >= HORA_DIURNO_INICIO && 
         entradaMinutos < HORA_DIURNO_FIN &&
         salidaMinutos > entradaMinutos && 
         salidaMinutos <= HORA_DIURNO_FIN) {
-      return 'DIURNO';
+      resultadoTexto = '<span style="font-weight: bold;">DIURNO</span>';
     }
-    
     // CASO 7: MIXTO
     // Si entrada entre 5:00 AM y 7:00 PM, salida > 19:00 pero <= 23:00 → "M {diurnas} - {nocturnas}"
     // IMPORTANTE: salida debe ser > 19:00 (1140) y <= 23:00 (1380)
-    if (entradaMinutos >= HORA_DIURNO_INICIO && 
+    else if (entradaMinutos >= HORA_DIURNO_INICIO && 
         entradaMinutos < HORA_DIURNO_FIN &&
         salidaMinutos > HORA_DIURNO_FIN && 
         salidaMinutos <= HORA_NOCTURNO_FIN) {
@@ -4316,11 +4409,19 @@ export class MarcajePersonalComponent implements OnInit {
       const horasDiurnasFormateadas = this.formatearMinutosAHora(horasDiurnas);
       const horasNocturnasFormateadas = this.formatearMinutosAHora(horasNocturnas);
       
-      return `( D ) ${horasDiurnasFormateadas} - ( N ) ${horasNocturnasFormateadas}`;
+      resultadoTexto = `<span style="font-weight: bold;">( D ) ${horasDiurnasFormateadas} - ( N ) ${horasNocturnasFormateadas}</span>`;
+    }
+    // Por defecto: Nocturno
+    else {
+      resultadoTexto = '<span style="font-weight: bold;">NOCTURNO</span>';
     }
     
-    // Por defecto: Nocturno
-    return 'NOCTURNO';
+    // Agregar alertas en una línea separada si existen
+    if (alertas) {
+      resultadoTexto = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">${resultadoTexto}<div style="font-size: 0.75em; line-height: 1.2; margin-top: 2px;">${alertas}</div></div>`;
+    }
+    
+    return this.sanitizer.bypassSecurityTrustHtml(resultadoTexto);
   }
 
   // Método auxiliar para obtener los valores calculados
