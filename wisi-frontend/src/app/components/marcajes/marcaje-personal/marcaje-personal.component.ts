@@ -4134,17 +4134,27 @@ export class MarcajePersonalComponent implements OnInit {
     let claseFondoDescansadas = '';
     
     if (tieneMarcajes) {
+      // Calcular horas esperadas a trabajar (descontando descanso si hay)
+      let horasEsperadasTrabajadas = horasATrabajar;
+      
+      // Si hay descanso manual, descontar las horas de descanso esperadas
+      if (tieneDescansoManual && horasDeDescanso > 0) {
+        horasEsperadasTrabajadas = horasATrabajar - horasDeDescanso;
+      }
+      // Si hay descanso automático, ya se descontó arriba en horasATrabajar
+      
       // Color de fondo para horas trabajadas (primer valor)
-      if (horasTrabajadas < horasATrabajar) {
+      // Comparar horas trabajadas (ya descontadas) vs horas esperadas a trabajar (descontadas)
+      if (horasTrabajadas < horasEsperadasTrabajadas) {
         claseFondoTrabajadas = 'bg-calculo-danger'; // Fondo rojo clarito
         
-      } else if (horasTrabajadas > horasATrabajar) {
+      } else if (horasTrabajadas > horasEsperadasTrabajadas) {
         claseFondoTrabajadas = 'bg-calculo-success'; // Fondo verde clarito
         
       }
       
       // Color de fondo para horas descansadas (segundo valor) - solo si hay descanso programado
-      if (horasDeDescanso > 0) {
+      if (!tieneDescansoAutomatico && horasDeDescanso > 0) {
         if (horasDescansadas > horasDeDescanso) {
           claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo clarito
           
@@ -4666,9 +4676,19 @@ export class MarcajePersonalComponent implements OnInit {
     let claseFondoDescansadas = '';
     
     if (tieneMarcajes) {
-      if (horasTrabajadas < horasATrabajar) {
+      // Calcular horas esperadas a trabajar (descontando descanso si hay)
+      let horasEsperadasTrabajadas = horasATrabajar;
+      
+      // Si hay descanso manual, descontar las horas de descanso esperadas
+      if (tieneDescansoManual && horasDeDescanso > 0) {
+        horasEsperadasTrabajadas = horasATrabajar - horasDeDescanso;
+      }
+      // Si hay descanso automático, ya se descontó arriba en horasATrabajar
+      
+      // Comparar horas trabajadas (ya descontadas) vs horas esperadas a trabajar (descontadas)
+      if (horasTrabajadas < horasEsperadasTrabajadas) {
         claseFondoTrabajadas = 'bg-calculo-danger';
-      } else if (horasTrabajadas > horasATrabajar) {
+      } else if (horasTrabajadas > horasEsperadasTrabajadas) {
         claseFondoTrabajadas = 'bg-calculo-success';
       }
       
