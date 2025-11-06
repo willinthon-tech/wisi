@@ -52,6 +52,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'feriados',
+    loadComponent: () => import('./components/feriados/feriados-list/feriados-list.component').then(m => m.FeriadosListComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'empleados',
     loadComponent: () => import('./components/empleados/empleados-list/empleados-list.component').then(m => m.EmpleadosListComponent),
     canActivate: [AuthGuard]
