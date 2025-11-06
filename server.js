@@ -3691,6 +3691,52 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Horario eliminado correctamente' });
   } catch (error) {
+    console.error('Error al eliminar horario:', error);
+    
+    // Si es un error de foreign key constraint, devolver información específica
+    if (error.name === 'SequelizeForeignKeyConstraintError' || error.name === 'SequelizeDatabaseError') {
+      // Intentar obtener las relaciones nuevamente para mostrar información útil
+      try {
+        const { id } = req.params;
+        const relations = await sequelize.query(`
+          SELECT table_name, count FROM (
+            SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?
+            UNION ALL
+            SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE horario_id = ?
+          ) as relations WHERE count > 0
+        `, {
+          replacements: [id, id],
+          type: sequelize.QueryTypes.SELECT
+        });
+
+        // Intentar obtener el horario si no está disponible
+        let horarioInfo = { id: id, nombre: 'Horario' };
+        if (!horario) {
+          const horarioTemp = await Horario.findByPk(id);
+          if (horarioTemp) {
+            horarioInfo = { id: horarioTemp.id, nombre: horarioTemp.nombre };
+          }
+        } else {
+          horarioInfo = { id: horario.id, nombre: horario.nombre };
+        }
+
+        return res.status(400).json({
+          message: 'No se puede eliminar el horario porque tiene elementos asociados.',
+          relations: relations.length > 0 ? relations : [{ table_name: 'Elementos asociados', count: 'Tiene registros relacionados' }],
+          horario: horarioInfo
+        });
+      } catch (relationError) {
+        const { id } = req.params;
+        return res.status(400).json({
+          message: 'No se puede eliminar el horario porque tiene elementos asociados.',
+          relations: [{ table_name: 'Elementos asociados', count: 'Tiene registros relacionados' }],
+          horario: {
+            id: id,
+            nombre: 'Horario'
+          }
+        });
+      }
+    }
     
     res.status(500).json({ message: 'Error interno del servidor' });
   }

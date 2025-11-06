@@ -932,24 +932,45 @@ export class HorariosListComponent implements OnInit, OnDestroy {
         this.horarios = this.horarios.filter(horario => horario.id !== id);
         
       },
-      error: (error) => {
+      error: (error: any) => {
+        // Extraer información del error de forma robusta
+        const errorStatus = error?.status || error?.statusCode || 500;
+        const errorBody = error?.error || error?.body || {};
+        const errorMessage = errorBody?.message || error?.message || 'Ocurrió un error al intentar eliminar el horario.';
+        const relations = errorBody?.relations || [];
+        const horarioInfo = errorBody?.horario || {};
         
-        
-        // Si es error 400 con relaciones, mostrar modal global
-        if (error.status === 400 && error.error?.relations) {
+        // Si es error 400 (Bad Request) o tiene información de relaciones, mostrar modal
+        if (errorStatus === 400 || (relations && Array.isArray(relations) && relations.length > 0)) {
           this.errorModalService.showErrorModal({
             title: 'No se puede eliminar el horario',
-            message: error.error.message,
+            message: errorMessage,
             entity: {
-              id: error.error.horario?.id || id,
-              nombre: error.error.horario?.nombre || 'Horario',
+              id: horarioInfo.id || id,
+              nombre: horarioInfo.nombre || 'Horario',
               tipo: 'Horario'
             },
-            relations: error.error.relations,
-            helpText: 'Para eliminar este horario, primero debe eliminar todos los elementos asociados listados arriba.'
+            relations: Array.isArray(relations) ? relations : [],
+            helpText: relations.length > 0 
+              ? 'Para eliminar este horario, primero debe eliminar todos los elementos asociados listados arriba.'
+              : 'Para eliminar este horario, primero debe eliminar todos los elementos asociados.'
+          });
+        } else if (errorStatus === 500 && errorMessage.includes('elementos asociados')) {
+          // Si es error 500 pero el mensaje menciona elementos asociados, mostrar modal
+          this.errorModalService.showErrorModal({
+            title: 'No se puede eliminar el horario',
+            message: errorMessage || 'No se puede eliminar el horario porque tiene elementos asociados.',
+            entity: {
+              id: id,
+              nombre: 'Horario',
+              tipo: 'Horario'
+            },
+            relations: [],
+            helpText: 'Para eliminar este horario, primero debe eliminar todos los elementos asociados.'
           });
         } else {
-          
+          // Para otros errores, mostrar mensaje genérico
+          console.error('Error inesperado al eliminar horario:', error);
         }
       }
     });
