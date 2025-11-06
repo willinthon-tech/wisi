@@ -4676,8 +4676,9 @@ app.post('/api/feriados', authenticateToken, async (req, res) => {
         return res.status(404).json({ message: 'Usuario no encontrado' });
       }
 
-      const userSalaIds = user.Salas.map(s => s.id);
-      if (!userSalaIds.includes(sala_id)) {
+      const userSalaIds = user.Salas.map(s => Number(s.id));
+      const salaIdNum = Number(sala_id);
+      if (!userSalaIds.includes(salaIdNum)) {
         return res.status(403).json({ message: 'No tienes permiso para crear feriados en esta sala' });
       }
     }
@@ -4730,13 +4731,13 @@ app.put('/api/feriados/:id', authenticateToken, async (req, res) => {
         return res.status(404).json({ message: 'Usuario no encontrado' });
       }
 
-      const userSalaIds = user.Salas.map(s => s.id);
-      if (!userSalaIds.includes(feriado.sala_id)) {
+      const userSalaIds = user.Salas.map(s => Number(s.id));
+      if (!userSalaIds.includes(Number(feriado.sala_id))) {
         return res.status(403).json({ message: 'No tienes permiso para editar este feriado' });
       }
 
       // Si se está cambiando la sala, verificar que tenga acceso a la nueva sala
-      if (sala_id && sala_id !== feriado.sala_id && !userSalaIds.includes(sala_id)) {
+      if (sala_id && Number(sala_id) !== Number(feriado.sala_id) && !userSalaIds.includes(Number(sala_id))) {
         return res.status(403).json({ message: 'No tienes permiso para asignar feriados a esta sala' });
       }
     }
@@ -4796,8 +4797,8 @@ app.delete('/api/feriados/:id', authenticateToken, async (req, res) => {
         return res.status(404).json({ message: 'Usuario no encontrado' });
       }
 
-      const userSalaIds = user.Salas.map(s => s.id);
-      if (!userSalaIds.includes(feriado.sala_id)) {
+      const userSalaIds = user.Salas.map(s => Number(s.id));
+      if (!userSalaIds.includes(Number(feriado.sala_id))) {
         return res.status(403).json({ message: 'No tienes permiso para eliminar este feriado' });
       }
     }

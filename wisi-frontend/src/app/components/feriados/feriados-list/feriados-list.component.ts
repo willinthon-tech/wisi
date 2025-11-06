@@ -14,7 +14,7 @@ import { Subscription } from 'rxjs';
   imports: [CommonModule, FormsModule],
   standalone: true,
   template: `
-    <div class="container-feriados">
+    <div class="cargos-container">
       <div class="header">
         <button class="btn btn-success" [disabled]="!canAdd()" (click)="canAdd() ? openModal() : null">Agregar</button>
       </div>
@@ -66,8 +66,8 @@ import { Subscription } from 'rxjs';
               <div class="form-group">
                 <label for="salaSelect">Sala:</label>
                 <select id="salaSelect" name="salaSelect" [(ngModel)]="form.sala_id" class="form-control" required>
-                  <option value="">Seleccione una sala</option>
-                  <option *ngFor="let sala of userSalas" [value]="sala.id">{{ sala.nombre }}</option>
+                  <option [ngValue]="null">Seleccione una sala</option>
+                  <option *ngFor="let sala of userSalas" [ngValue]="sala.id">{{ sala.nombre }}</option>
                 </select>
               </div>
 
@@ -87,22 +87,41 @@ import { Subscription } from 'rxjs';
     </div>
   `,
   styles: [`
-    .container-feriados { padding: 20px; max-width: 1200px; margin: 0 auto; background: #f8f9fa; min-height: calc(100vh - 120px); }
+    .cargos-container { padding: 20px; max-width: 1400px; margin: 0 auto; background: #f8f9fa; min-height: calc(100vh - 120px); }
     .header { margin-bottom: 20px; }
-    .table-wrapper { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.1); overflow: hidden; }
-    .table { margin: 0; }
-    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 4px; border: none; cursor: pointer; margin: 2px; }
-    .btn-info { background:#17a2b8; color:white; }
-    .btn-danger { background:#dc3545; color:white; }
-    .btn-success { background:#28a745; color:white; }
-    .no-data { text-align:center; padding: 24px; background:white; border-radius:8px; margin-top:12px; }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:1000; }
-    .modal-content { background:white; border-radius:12px; width: 90%; max-width: 500px; box-shadow: 0 20px 40px rgba(0,0,0,.3); }
-    .modal-header { display:flex; justify-content:space-between; align-items:center; padding:20px; border-bottom:1px solid #e9ecef; }
-    .modal-body { padding:20px; }
-    .close-btn { background:none; border:none; font-size:24px; cursor:pointer; color:#666; }
-    .form-group { margin-bottom: 16px; }
-    .form-actions { display:flex; gap:12px; justify-content:flex-end; margin-top: 12px; }
+    .header .btn { padding: 12px 24px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; transition: all 0.3s ease; }
+    .header .btn-success { background: #28a745; color: white; }
+    .header .btn-success:hover { background: #218838; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3); }
+    .table-wrapper { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); overflow: hidden; max-height: calc(100vh - 200px); overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+    .table-wrapper::-webkit-scrollbar { display: none; }
+    .table { margin: 0; border: none; width: 100%; background: white; }
+    .table th { background-color: #343a40; color: white; border: none; padding: 15px 12px; font-weight: 600; font-size: 14px; position: sticky; top: 0; z-index: 10; }
+    .table td { padding: 12px; vertical-align: middle; border-top: 1px solid #dee2e6; font-size: 14px; }
+    .table tbody tr:hover { background-color: #f8f9fa; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 4px; border: none; cursor: pointer; margin: 2px; transition: all 0.2s ease; }
+    .btn-info { background: #17a2b8; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .btn-sm:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+    .no-data { text-align: center; padding: 40px; color: #666; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); }
+    .me-1 { margin-right: 0.25rem; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 12px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid #e9ecef; }
+    .modal-header h3 { margin: 0; color: #333; }
+    .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+    .close-btn:hover { color: #dc3545; }
+    .modal-body { padding: 20px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
+    .form-control { width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 6px; font-size: 14px; transition: border-color 0.3s ease; }
+    .form-control:focus { outline: none; border-color: #28a745; box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1); }
+    .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 25px; padding-top: 20px; border-top: 1px solid #e9ecef; }
+    .btn { padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-secondary:hover { background: #5a6268; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-success:hover:not(:disabled) { background: #218838; transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
   `]
 })
 export class FeriadosListComponent implements OnInit, OnDestroy {
@@ -173,14 +192,19 @@ export class FeriadosListComponent implements OnInit, OnDestroy {
 
   editFeriado(feriado: any): void {
     this.selectedFeriado = feriado;
-    this.form = { nombre: feriado.nombre, sala_id: feriado.sala_id, fecha: feriado.fecha };
+    this.form = { nombre: feriado.nombre, sala_id: Number(feriado.sala_id), fecha: feriado.fecha };
     this.loadUserSalas();
     this.showModal = true;
   }
 
   saveFeriado(): void {
+    const payload = {
+      nombre: this.form.nombre,
+      sala_id: this.form.sala_id != null ? Number(this.form.sala_id) : null,
+      fecha: this.form.fecha
+    };
     if (this.selectedFeriado) {
-      this.feriadosService.updateFeriado(this.selectedFeriado.id, this.form).subscribe({
+      this.feriadosService.updateFeriado(this.selectedFeriado.id, payload).subscribe({
         next: (row) => {
           const idx = this.feriados.findIndex(f => f.id === row.id);
           if (idx !== -1) { this.feriados[idx] = row; }
@@ -189,7 +213,7 @@ export class FeriadosListComponent implements OnInit, OnDestroy {
         error: () => {}
       });
     } else {
-      this.feriadosService.createFeriado(this.form).subscribe({
+      this.feriadosService.createFeriado(payload).subscribe({
         next: (row) => { this.feriados.unshift(row); this.closeModal(); },
         error: () => {}
       });
