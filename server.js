@@ -3535,7 +3535,8 @@ app.get('/api/horarios', authenticateToken, async (req, res) => {
             hora_entrada: plantilla.hora_entrada,
             hora_salida: plantilla.hora_salida,
             hora_descanso_entrada: plantilla.hora_descanso_entrada,
-            hora_descanso_salida: plantilla.hora_descanso_salida
+            hora_descanso_salida: plantilla.hora_descanso_salida,
+            descanso_automatico: plantilla.descanso_automatico || null
           };
         }
       }
@@ -3947,7 +3948,8 @@ app.get('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, re
               hora_entrada: plantilla.hora_entrada,
               hora_salida: plantilla.hora_salida,
               hora_descanso_entrada: plantilla.hora_descanso_entrada,
-              hora_descanso_salida: plantilla.hora_descanso_salida
+              hora_descanso_salida: plantilla.hora_descanso_salida,
+              descanso_automatico: plantilla.descanso_automatico || null
             };
           }
         }
@@ -4027,7 +4029,8 @@ app.post('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, r
             hora_entrada: plantilla.hora_entrada,
             hora_salida: plantilla.hora_salida,
             hora_descanso_entrada: plantilla.hora_descanso_entrada,
-            hora_descanso_salida: plantilla.hora_descanso_salida
+            hora_descanso_salida: plantilla.hora_descanso_salida,
+            descanso_automatico: plantilla.descanso_automatico || null
           };
         }
       }
@@ -4151,6 +4154,7 @@ app.get('/api/plantillas-horarios', authenticateToken, async (req, res) => {
         hora_salida: row.hora_salida,
         hora_descanso_entrada: row.hora_descanso_entrada,
         hora_descanso_salida: row.hora_descanso_salida,
+        descanso_automatico: row.descanso_automatico || null,
         color: row.color,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -4200,15 +4204,15 @@ app.get('/api/plantillas-horarios', authenticateToken, async (req, res) => {
     
     res.json(plantillas);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('Error al obtener plantillas horarios:', error);
+    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
 
 // Crear una nueva plantilla horario
 app.post('/api/plantillas-horarios', authenticateToken, async (req, res) => {
   try {
-    const { nombre, sala_id, codigo, hora_entrada, hora_salida, hora_descanso_entrada, hora_descanso_salida, color } = req.body;
+    const { nombre, sala_id, codigo, hora_entrada, hora_salida, hora_descanso_entrada, hora_descanso_salida, descanso_automatico, color } = req.body;
     
     if (!nombre || !sala_id || !codigo) {
       return res.status(400).json({ message: 'Nombre, sala y código son requeridos' });
@@ -4243,6 +4247,7 @@ app.post('/api/plantillas-horarios', authenticateToken, async (req, res) => {
       hora_salida,
       hora_descanso_entrada: hora_descanso_entrada || null,
       hora_descanso_salida: hora_descanso_salida || null,
+      descanso_automatico: descanso_automatico || null,
       color: color || '#ffffff'
     });
 
@@ -4257,7 +4262,7 @@ app.post('/api/plantillas-horarios', authenticateToken, async (req, res) => {
 app.put('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, sala_id, codigo, hora_entrada, hora_salida, hora_descanso_entrada, hora_descanso_salida, color } = req.body;
+    const { nombre, sala_id, codigo, hora_entrada, hora_salida, hora_descanso_entrada, hora_descanso_salida, descanso_automatico, color } = req.body;
     
     if (!nombre || !sala_id || !codigo) {
       return res.status(400).json({ message: 'Nombre, sala y código son requeridos' });
@@ -4289,6 +4294,7 @@ app.put('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
       hora_salida,
       hora_descanso_entrada: hora_descanso_entrada || null,
       hora_descanso_salida: hora_descanso_salida || null,
+      descanso_automatico: descanso_automatico || null,
       color: color || '#ffffff'
     });
 

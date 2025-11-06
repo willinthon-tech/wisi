@@ -36,6 +36,7 @@ import { Subscription } from 'rxjs';
               <th>Descripción</th>
               <th>Sala</th>
               <th>Horas de Trabajo</th>
+              <th>Jornada</th>
               <th>Color</th>
               <th>Acciones</th>
             </tr>
@@ -50,13 +51,22 @@ import { Subscription } from 'rxjs';
                 <div *ngIf="plantilla.hora_entrada && plantilla.hora_salida" class="timeline-container">
                   <div class="timeline-main">
                     <span class="timeline-start">{{ plantilla.hora_entrada }}</span>
-                    <ng-container *ngIf="plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida; else noBreakPlaceholder">
+                    <ng-container *ngIf="plantilla.descanso_automatico; else checkManualBreak">
                       <div class="timeline-break-container">
                         <div class="timeline-break">
-                          {{ plantilla.hora_descanso_entrada }} - {{ plantilla.hora_descanso_salida }}
+                          {{ plantilla.descanso_automatico }} DESCANSO
                         </div>
                       </div>
                     </ng-container>
+                    <ng-template #checkManualBreak>
+                      <ng-container *ngIf="plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida; else noBreakPlaceholder">
+                        <div class="timeline-break-container">
+                          <div class="timeline-break">
+                            {{ plantilla.hora_descanso_entrada }} - {{ plantilla.hora_descanso_salida }}
+                          </div>
+                        </div>
+                      </ng-container>
+                    </ng-template>
                     <ng-template #noBreakPlaceholder>
                       <div class="timeline-no-break-placeholder">
                         No hay descanso
@@ -69,6 +79,11 @@ import { Subscription } from 'rxjs';
                   <div class="timeline-main">
                     <span class="timeline-no-schedule-text">Sin horario</span>
                   </div>
+                </div>
+              </td>
+              <td>
+                <div class="jornada-cell">
+                  {{ calcularJornada(plantilla) }}
                 </div>
               </td>
               <td>
@@ -180,6 +195,22 @@ import { Subscription } from 'rxjs';
                     />
                   </div>
                 </div>
+              </div>
+
+              <div class="form-group">
+                <label for="descansoAutomatico">Descanso Automático:</label>
+                <input 
+                  type="time" 
+                  id="descansoAutomatico" 
+                  name="descansoAutomatico"
+                  [(ngModel)]="nuevaPlantilla.descanso_automatico"
+                  (ngModelChange)="onDescansoAutomaticoChange($event)"
+                  class="form-control"
+                  [disabled]="!isDescansoAutomaticoEnabled()"
+                />
+                <small class="form-text text-muted" *ngIf="!isDescansoAutomaticoEnabled()">
+                  Debe definir primero las horas de entrada y salida para usar el descanso automático.
+                </small>
               </div>
 
               <div class="row">
@@ -373,6 +404,13 @@ import { Subscription } from 'rxjs';
       margin-right: 0.25rem;
     }
 
+    .jornada-cell {
+      text-align: center;
+      font-weight: 600;
+      font-size: 14px;
+      color: #333;
+    }
+
     .color-indicator {
       display: inline-block;
       width: 40px; /* tamaño aumentado */
@@ -401,6 +439,13 @@ import { Subscription } from 'rxjs';
 
     .text-muted {
       color: #6c757d !important;
+    }
+
+    .form-text {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.875em;
+      color: #6c757d;
     }
 
     .mt-1 {
@@ -471,7 +516,7 @@ import { Subscription } from 'rxjs';
       padding: 6px 12px;
       border-radius: 6px;
       font-weight: bold;
-      font-size: 11px;
+      font-size: 8px;
       border: none; /* sin borde externo */
       box-shadow: none; /* sin borde interno */
     }
@@ -721,6 +766,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
     hora_salida: string | null;
     hora_descanso_entrada: string | null;
     hora_descanso_salida: string | null;
+    descanso_automatico: string | null;
     color: string;
   } = {
     id: null,
@@ -731,6 +777,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
     hora_salida: null,
     hora_descanso_entrada: null,
     hora_descanso_salida: null,
+    descanso_automatico: null,
     color: '#ffffff'
   };
 
@@ -804,6 +851,26 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
       return false; // Descanso salida no puede ser mayor que salida principal
     }
 
+    // Validación de descanso automático: no puede ser mayor o igual a la jornada
+    if (this.nuevaPlantilla.descanso_automatico && this.nuevaPlantilla.descanso_automatico !== '00:00' && tieneEntrada && tieneSalida) {
+      const entradaMin = this.timeToMinutes(this.nuevaPlantilla.hora_entrada);
+      const salidaMin = this.timeToMinutes(this.nuevaPlantilla.hora_salida);
+      const descansoMin = this.timeToMinutes(this.nuevaPlantilla.descanso_automatico);
+      
+      if (entradaMin !== null && salidaMin !== null && descansoMin !== null) {
+        let duracionJornada: number;
+        if (this.cruzaMedianoche()) {
+          duracionJornada = (24 * 60 - entradaMin) + salidaMin;
+        } else {
+          duracionJornada = salidaMin - entradaMin;
+        }
+        
+        if (descansoMin >= duracionJornada) {
+          return false; // Descanso automático no puede ser mayor o igual a la jornada
+        }
+      }
+    }
+
     return true;
   }
 
@@ -838,6 +905,26 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
       return 'La hora de salida de descanso no puede ser mayor que la hora de salida principal';
     }
 
+    // Validación de descanso automático: no puede ser mayor o igual a la jornada
+    if (this.nuevaPlantilla.descanso_automatico && this.nuevaPlantilla.descanso_automatico !== '00:00' && tieneEntrada && tieneSalida) {
+      const entradaMin = this.timeToMinutes(this.nuevaPlantilla.hora_entrada);
+      const salidaMin = this.timeToMinutes(this.nuevaPlantilla.hora_salida);
+      const descansoMin = this.timeToMinutes(this.nuevaPlantilla.descanso_automatico);
+      
+      if (entradaMin !== null && salidaMin !== null && descansoMin !== null) {
+        let duracionJornada: number;
+        if (this.cruzaMedianoche()) {
+          duracionJornada = (24 * 60 - entradaMin) + salidaMin;
+        } else {
+          duracionJornada = salidaMin - entradaMin;
+        }
+        
+        if (descansoMin >= duracionJornada) {
+          return `El descanso automático no puede ser mayor o igual a la duración de la jornada de trabajo (${this.formatDuration(duracionJornada)})`;
+        }
+      }
+    }
+
     return '';
   }
 
@@ -861,15 +948,118 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
       this.nuevaPlantilla.hora_salida = null;
       this.nuevaPlantilla.hora_descanso_entrada = null;
       this.nuevaPlantilla.hora_descanso_salida = null;
+      this.nuevaPlantilla.descanso_automatico = null;
+    } else {
+      // Si hay descanso automático, validar que siga siendo válido
+      if (this.nuevaPlantilla.descanso_automatico && this.nuevaPlantilla.descanso_automatico !== '00:00') {
+        this.validarDescansoAutomatico();
+      }
     }
   }
 
   onHoraSalidaChange(value: string): void {
     this.nuevaPlantilla.hora_salida = value;
+    
+    // Si hay descanso automático, validar que siga siendo válido
+    if (this.nuevaPlantilla.descanso_automatico && this.nuevaPlantilla.descanso_automatico !== '00:00') {
+      this.validarDescansoAutomatico();
+    }
+  }
+
+  validarDescansoAutomatico(): void {
+    if (!this.nuevaPlantilla.hora_entrada || !this.nuevaPlantilla.hora_salida || !this.nuevaPlantilla.descanso_automatico) {
+      return;
+    }
+
+    const entradaMin = this.timeToMinutes(this.nuevaPlantilla.hora_entrada);
+    const salidaMin = this.timeToMinutes(this.nuevaPlantilla.hora_salida);
+    const descansoMin = this.timeToMinutes(this.nuevaPlantilla.descanso_automatico);
+    
+    if (entradaMin !== null && salidaMin !== null && descansoMin !== null) {
+      // Calcular duración de la jornada
+      let duracionJornada: number;
+      if (this.cruzaMedianoche()) {
+        duracionJornada = (24 * 60 - entradaMin) + salidaMin;
+      } else {
+        duracionJornada = salidaMin - entradaMin;
+      }
+      
+      // Si el descanso es mayor o igual a la jornada, limpiarlo
+      if (descansoMin >= duracionJornada) {
+        this.nuevaPlantilla.descanso_automatico = null;
+        this.nuevaPlantilla.hora_descanso_entrada = null;
+        this.nuevaPlantilla.hora_descanso_salida = null;
+        alert(`El descanso automático no puede ser mayor o igual a la duración de la jornada de trabajo (${this.formatDuration(duracionJornada)}). El descanso automático ha sido eliminado.`);
+      } else {
+        // Limpiar las horas de descanso si el descanso automático es válido
+        this.nuevaPlantilla.hora_descanso_entrada = null;
+        this.nuevaPlantilla.hora_descanso_salida = null;
+      }
+    }
+  }
+
+  // Descanso Automático
+  isDescansoAutomaticoEnabled(): boolean {
+    return !!(this.nuevaPlantilla.hora_entrada && this.nuevaPlantilla.hora_salida && 
+              this.nuevaPlantilla.hora_entrada !== null && 
+              this.nuevaPlantilla.hora_salida !== null);
+  }
+
+  onDescansoAutomaticoChange(value: string | null): void {
+    if (!value || value === '' || value === '00:00') {
+      // Si se borra o es 00:00, limpiar descanso automático y permitir edición manual
+      this.nuevaPlantilla.descanso_automatico = null;
+      // No limpiar las horas de descanso si el usuario las había definido manualmente
+    } else {
+      // Validar que el descanso no sea mayor que la jornada de trabajo
+      if (this.nuevaPlantilla.hora_entrada && this.nuevaPlantilla.hora_salida) {
+        const entradaMin = this.timeToMinutes(this.nuevaPlantilla.hora_entrada);
+        const salidaMin = this.timeToMinutes(this.nuevaPlantilla.hora_salida);
+        const descansoMin = this.timeToMinutes(value);
+        
+        if (entradaMin !== null && salidaMin !== null && descansoMin !== null) {
+          // Calcular duración de la jornada
+          let duracionJornada: number;
+          if (this.cruzaMedianoche()) {
+            duracionJornada = (24 * 60 - entradaMin) + salidaMin;
+          } else {
+            duracionJornada = salidaMin - entradaMin;
+          }
+          
+          // Si el descanso es mayor o igual a la jornada, no permitirlo
+          if (descansoMin >= duracionJornada) {
+            // Limpiar el valor y mostrar alerta
+            this.nuevaPlantilla.descanso_automatico = null;
+            alert(`El descanso automático no puede ser mayor o igual a la duración de la jornada de trabajo (${this.formatDuration(duracionJornada)}).`);
+            return;
+          }
+        }
+      }
+      
+      // Si pasa la validación, guardar el valor
+      this.nuevaPlantilla.descanso_automatico = value;
+      this.nuevaPlantilla.hora_descanso_entrada = null;
+      this.nuevaPlantilla.hora_descanso_salida = null;
+    }
+  }
+
+  formatDuration(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (mins === 0) {
+      return `${hours} hora${hours > 1 ? 's' : ''}`;
+    } else {
+      return `${hours}:${String(mins).padStart(2, '0')}`;
+    }
   }
 
   // Hora Descanso Entrada
   isHoraDescansoEntradaEnabled(): boolean {
+    // Si hay descanso automático, deshabilitar edición manual
+    if (this.nuevaPlantilla.descanso_automatico && this.nuevaPlantilla.descanso_automatico !== '00:00') {
+      return false;
+    }
+    
     const isEnabled = !!(this.nuevaPlantilla.hora_entrada && this.nuevaPlantilla.hora_salida && 
               this.nuevaPlantilla.hora_entrada !== null && 
               this.nuevaPlantilla.hora_salida !== null);
@@ -891,6 +1081,11 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
   }
 
   onHoraDescansoEntradaChange(value: string): void {
+    // Si hay descanso automático y el usuario intenta cambiar manualmente, limpiar descanso automático
+    if (this.nuevaPlantilla.descanso_automatico && this.nuevaPlantilla.descanso_automatico !== '00:00') {
+      this.nuevaPlantilla.descanso_automatico = null;
+    }
+    
     this.nuevaPlantilla.hora_descanso_entrada = value;
 
     // Si se borra la entrada de descanso, borrar automáticamente la salida de descanso
@@ -901,6 +1096,11 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
 
   // Hora Descanso Salida
   isHoraDescansoSalidaEnabled(): boolean {
+    // Si hay descanso automático, deshabilitar edición manual
+    if (this.nuevaPlantilla.descanso_automatico && this.nuevaPlantilla.descanso_automatico !== '00:00') {
+      return false;
+    }
+    
     const isEnabled = !!(this.nuevaPlantilla.hora_descanso_entrada && 
               this.nuevaPlantilla.hora_descanso_entrada !== null);
     
@@ -921,7 +1121,75 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
   }
 
   onHoraDescansoSalidaChange(value: string): void {
+    // Si hay descanso automático y el usuario intenta cambiar manualmente, limpiar descanso automático
+    if (this.nuevaPlantilla.descanso_automatico && this.nuevaPlantilla.descanso_automatico !== '00:00') {
+      this.nuevaPlantilla.descanso_automatico = null;
+    }
+    
     this.nuevaPlantilla.hora_descanso_salida = value;
+  }
+
+  // Calcular jornada esperada (horas a trabajar)
+  calcularJornada(plantilla: any): string {
+    if (!plantilla.hora_entrada || !plantilla.hora_salida) {
+      return '-';
+    }
+
+    const entradaMin = this.timeToMinutes(plantilla.hora_entrada);
+    const salidaMin = this.timeToMinutes(plantilla.hora_salida);
+    
+    if (entradaMin === null || salidaMin === null) {
+      return '-';
+    }
+
+    // Calcular horas totales
+    let horasTotales: number;
+    const cruzaMediano = salidaMin < entradaMin;
+    if (cruzaMediano) {
+      horasTotales = (24 * 60 - entradaMin) + salidaMin;
+    } else {
+      horasTotales = salidaMin - entradaMin;
+    }
+
+    // Si hay descanso automático, restarlo
+    if (plantilla.descanso_automatico) {
+      const descansoAutoMin = this.timeToMinutes(plantilla.descanso_automatico);
+      if (descansoAutoMin !== null) {
+        horasTotales = horasTotales - descansoAutoMin;
+      }
+    } 
+    // Si hay descanso manual, restarlo
+    else if (plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida) {
+      const entradaDescansoMin = this.timeToMinutes(plantilla.hora_descanso_entrada);
+      const salidaDescansoMin = this.timeToMinutes(plantilla.hora_descanso_salida);
+      
+      if (entradaDescansoMin !== null && salidaDescansoMin !== null) {
+        let horasDescanso: number;
+        if (cruzaMediano && salidaDescansoMin < entradaDescansoMin) {
+          horasDescanso = (24 * 60 - entradaDescansoMin) + salidaDescansoMin;
+        } else {
+          horasDescanso = salidaDescansoMin - entradaDescansoMin;
+        }
+        horasTotales = horasTotales - horasDescanso;
+      }
+    }
+
+    // Formatear a HH:MM
+    return this.minutesToTime(horasTotales);
+  }
+
+  private minutesToTime(minutes: number): string {
+    // Manejar minutos negativos
+    while (minutes < 0) {
+      minutes += 24 * 60;
+    }
+    // Manejar minutos mayores a 24 horas
+    minutes = minutes % (24 * 60);
+    
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.floor(minutes % 60);
+    
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
   }
 
   // ===== Utilidades de comparación de horas =====
@@ -1135,6 +1403,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
       hora_salida: null,
       hora_descanso_entrada: null,
       hora_descanso_salida: null,
+      descanso_automatico: null,
       color: '#ffffff'
     };
   }
@@ -1156,6 +1425,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
       hora_salida: this.nuevaPlantilla.hora_salida || null,
       hora_descanso_entrada: this.nuevaPlantilla.hora_descanso_entrada || null,
       hora_descanso_salida: this.nuevaPlantilla.hora_descanso_salida || null,
+      descanso_automatico: this.nuevaPlantilla.descanso_automatico || null,
       color: this.nuevaPlantilla.color || '#ffffff'
     };
 
@@ -1193,6 +1463,7 @@ export class PlantillasHorariosListComponent implements OnInit, OnDestroy {
       hora_salida: this.formatTimeForInput(plantilla.hora_salida),
       hora_descanso_entrada: this.formatTimeForInput(plantilla.hora_descanso_entrada),
       hora_descanso_salida: this.formatTimeForInput(plantilla.hora_descanso_salida),
+      descanso_automatico: this.formatTimeForInput(plantilla.descanso_automatico),
       color: plantilla.color || '#ffffff'
     };
     

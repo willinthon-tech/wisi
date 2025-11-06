@@ -46,6 +46,11 @@ module.exports = (sequelize) => {
       allowNull: true,
       comment: 'Hora de salida del descanso'
     },
+    descanso_automatico: {
+      type: DataTypes.TIME,
+      allowNull: true,
+      comment: 'Duración del descanso automático (formato TIME)'
+    },
     color: {
       type: DataTypes.STRING,
       allowNull: true,
