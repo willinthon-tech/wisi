@@ -20,18 +20,20 @@ import { environment } from '../../../../environments/environment';
               <th>Nombre</th>
               <th>Género</th>
               <th>Sala</th>
+              <th>Dispositivo</th>
               <th>Método</th>
               <th>Revisión</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let tarea of tareas; let i = index">
+            <tr *ngFor="let tarea of tareasUi; let i = index">
               <td>{{ tarea.id }}</td>
               <td>{{ tarea.numero_cedula_empleado }}</td>
               <td>{{ tarea.nombre_empleado }}</td>
               <td>{{ tarea.nombre_genero }}</td>
               <td>{{ tarea.nombre_sala }}</td>
+              <td>{{ getDeviceName(tarea) }}</td>
               <td>
                 <span class="method-badge" [ngClass]="getMethodClass(tarea.accion_realizar)">
                   {{ tarea.accion_realizar }}
@@ -64,7 +66,7 @@ import { environment } from '../../../../environments/environment';
           </tbody>
         </table>
         
-        <div *ngIf="tareas.length === 0" class="no-data">
+        <div *ngIf="tareasUi.length === 0" class="no-data">
           <p>No hay tareas registradas</p>
         </div>
       </div>
@@ -682,6 +684,8 @@ import { environment } from '../../../../environments/environment';
 })
 export class TareasListComponent implements OnInit {
   tareas: any[] = [];
+  tareasUi: any[] = [];
+  dispositivosMap: { [key: string]: string } = {};
   userId: number | null = null;
   showDetailsModal: boolean = false;
   selectedTarea: any = null;
@@ -704,33 +708,108 @@ export class TareasListComponent implements OnInit {
     this.route.params.subscribe(params => {
       this.userId = +params['id'];
       if (this.userId) {
-        this.loadTareas();
+        this.loadDispositivos(() => this.loadTareas());
+      }
+    });
+  }
+
+  private loadDispositivos(done?: () => void): void {
+    this.http.get<any[]>(`${environment.apiUrl}/empleados/dispositivos`).subscribe({
+      next: (dispositivos: any[]) => {
+        if (Array.isArray(dispositivos)) {
+          for (const d of dispositivos) {
+            if (d.ip_local) this.dispositivosMap[d.ip_local] = d.nombre;
+            if (d.ip_remota) this.dispositivosMap[d.ip_remota] = d.nombre;
+            if (d.nombre) this.dispositivosMap[`name:${d.nombre}`] = d.nombre;
+          }
+        }
+        if (done) done();
+      },
+      error: () => {
+        if (done) done();
       }
     });
   }
 
   loadTareas(): void {
-    this.http.get(`${environment.apiUrl}/tareas-dispositivo-usuarios/user/${this.userId}`).subscribe({
+    this.http.get(`${environment.apiUrl}/tareas-dispositivo-usuarios`).subscribe({
       next: (response: any) => {
-        this.tareas = response.data || response;
-        // La primera tarea (por orden de base de datos) es la activa
-        this.tareaActiva = this.tareas.length > 0 ? this.tareas[0] : null;
-        
-        
+        this.tareas = Array.isArray(response) ? response : [];
+        this.tareasUi = this.agruparTareasEmpleado(this.tareas);
       },
       error: (error) => {
-        
       }
     });
   }
 
+  private agruparTareasEmpleado(tareas: any[]): any[] {
+    const grupos: { [key: string]: any } = {};
 
+    for (const t of tareas) {
+      const base = this.getBaseAccion(t.accion_realizar); // Agregar/Editar/Eliminar
+      const key = [
+        t.numero_cedula_empleado,
+        t.nombre_dispositivo || t.ip_local_dispositivo || t.ip_publica_dispositivo || t.nombre_sala,
+        base
+      ].join('|');
 
+      if (!grupos[key]) {
+        const resolvedNombre = t.nombre_dispositivo || this.dispositivosMap[t.ip_local_dispositivo] || this.dispositivosMap[t.ip_publica_dispositivo] || '';
+        grupos[key] = {
+          id: t.id, // id visible (de la primera)
+          numero_cedula_empleado: t.numero_cedula_empleado,
+          nombre_empleado: t.nombre_empleado,
+          nombre_genero: t.nombre_genero,
+          nombre_cargo: t.nombre_cargo,
+          nombre_sala: t.nombre_sala,
+          nombre_dispositivo: resolvedNombre,
+          nombre_area: t.nombre_area,
+          nombre_departamento: t.nombre_departamento,
+          foto_empleado: t.foto_empleado,
+          ip_publica_dispositivo: t.ip_publica_dispositivo,
+          ip_local_dispositivo: t.ip_local_dispositivo,
+          usuario_login_dispositivo: t.usuario_login_dispositivo,
+          clave_login_dispositivo: t.clave_login_dispositivo,
+          accion_realizar: `${base} Empleado`,
+          created_at: t.created_at,
+          marcaje_empleado_inicio_dispositivo: t.marcaje_empleado_inicio_dispositivo,
+          marcaje_empleado_fin_dispositivo: t.marcaje_empleado_fin_dispositivo,
+          _children: [] as any[]
+        };
+      }
+      grupos[key]._children.push(t);
+    }
 
+    // Ordenar hijos: primero Usuario, luego Foto
+    const ordenAccion = (a: any, b: any) => {
+      const prio = (s: string) => s.includes('Usuario') ? 1 : 2;
+      return prio(a.accion_realizar) - prio(b.accion_realizar);
+    };
 
+    const resultado = Object.values(grupos).map((g: any) => {
+      g._children.sort(ordenAccion);
+      return g;
+    });
+
+    // Ordenar por fecha desc
+    resultado.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    return resultado;
+  }
+
+  getDeviceName(tarea: any): string {
+    return tarea?.nombre_dispositivo || this.dispositivosMap[tarea?.ip_local_dispositivo] || this.dispositivosMap[tarea?.ip_publica_dispositivo] || 'N/A';
+  }
+
+  private getBaseAccion(accion: string): string {
+    if (!accion) return 'Tarea';
+    if (accion.includes('Borrar') || accion.includes('Eliminar')) return 'Eliminar';
+    if (accion.includes('Agregar') || accion.includes('Crear')) return 'Agregar';
+    if (accion.includes('Editar') || accion.includes('Actualizar')) return 'Editar';
+    return 'Tarea';
+  }
 
   verDetalles(tarea: any): void {
-    
     this.selectedTarea = tarea;
     this.showDetailsModal = true;
   }
@@ -872,6 +951,10 @@ export class TareasListComponent implements OnInit {
   }
 
   isTareaActiva(tarea: any): boolean {
+    // Mantener activa si hay al menos una subtarea (o la propia) pendiente
+    if (tarea && Array.isArray(tarea._children) && tarea._children.length > 0) {
+      return true;
+    }
     return this.tareaActiva && this.tareaActiva.id === tarea.id;
   }
 
@@ -935,25 +1018,62 @@ export class TareasListComponent implements OnInit {
 
     this.procesandoTarea = true;
     this.ejecutandoTarea = tarea.id;
-    
-    // Ejecutar la función real en el dispositivo
-    this.ejecutarFuncionDispositivo(tarea);
+
+    // Ejecutar en secuencia (Usuario -> Foto)
+    this.ejecutarTareaCompuesta(tarea)
+      .then(() => {
+        this.ejecutandoTarea = null;
+        this.procesandoTarea = false;
+        this.loadTareas();
+      })
+      .catch((err) => {
+        this.ejecutandoTarea = null;
+        this.procesandoTarea = false;
+      });
+  }
+
+  private async ejecutarTareaCompuesta(tareaGrupo: any): Promise<void> {
+    const children: any[] = Array.isArray(tareaGrupo._children) ? tareaGrupo._children : [];
+    if (children.length === 0) {
+      // Fallback: ejecutar como tarea simple
+      await this.ejecutarFuncionDispositivo(tareaGrupo);
+      return;
+    }
+
+    for (const t of children) {
+      const res = await this.comunicarConDispositivo(t);
+      if (!res.success) {
+        this.showError('Error en la ejecución de la tarea', res.message || 'Error desconocido');
+        throw new Error(res.message || 'Error ejecutando subtarea');
+      }
+      // Eliminar cada subtarea completada
+      await this.eliminarTareaAsync(t.id);
+    }
   }
 
   rechazarTarea(tarea: any): void {
     if (!this.isTareaActiva(tarea)) {
-      
       return;
     }
 
     this.procesandoTarea = true;
     this.rechazandoTarea = tarea.id;
-    
-    
-    
-    
-    // Eliminar la tarea (el spinner se quita cuando el backend responde)
-    this.eliminarTarea(tarea.id);
+
+    const children: any[] = tarea._children || [];
+    if (children.length > 0) {
+      // Eliminar todas las subtareas del grupo
+      Promise.all(children.map(c => this.eliminarTareaAsync(c.id))).then(() => {
+        this.rechazandoTarea = null;
+        this.procesandoTarea = false;
+        this.loadTareas();
+      }).catch(() => {
+        this.rechazandoTarea = null;
+        this.procesandoTarea = false;
+      });
+    } else {
+      // Eliminar una sola
+      this.eliminarTarea(tarea.id);
+    }
   }
 
   getMethodClass(accion: string): string {

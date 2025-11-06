@@ -78,48 +78,23 @@ import { take, filter } from 'rxjs/operators';
               <th>Foto</th>
               <th (click)="sortBy('nombre')" class="sortable-header" title="Haz clic para ordenar">
                 Nombre
-                <i class="fas sort-icon" 
-                   [ngClass]="{
-                     'fa-sort-up': sortColumn === 'nombre' && sortDirection === 'asc',
-                     'fa-sort-down': sortColumn === 'nombre' && sortDirection === 'desc',
-                     'fa-sort': sortColumn !== 'nombre'
-                   }"></i>
+                <span class="sort-icon">{{ sortColumn === 'nombre' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕' }}</span>
               </th>
               <th (click)="sortBy('cedula')" class="sortable-header" title="Haz clic para ordenar">
                 Cédula
-                <i class="fas sort-icon" 
-                   [ngClass]="{
-                     'fa-sort-up': sortColumn === 'cedula' && sortDirection === 'asc',
-                     'fa-sort-down': sortColumn === 'cedula' && sortDirection === 'desc',
-                     'fa-sort': sortColumn !== 'cedula'
-                   }"></i>
+                <span class="sort-icon">{{ sortColumn === 'cedula' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕' }}</span>
               </th>
               <th (click)="sortBy('cargo')" class="sortable-header" title="Haz clic para ordenar">
                 Cargo
-                <i class="fas sort-icon" 
-                   [ngClass]="{
-                     'fa-sort-up': sortColumn === 'cargo' && sortDirection === 'asc',
-                     'fa-sort-down': sortColumn === 'cargo' && sortDirection === 'desc',
-                     'fa-sort': sortColumn !== 'cargo'
-                   }"></i>
+                <span class="sort-icon">{{ sortColumn === 'cargo' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕' }}</span>
               </th>
               <th (click)="sortBy('edad')" class="sortable-header" title="Haz clic para ordenar">
                 Edad
-                <i class="fas sort-icon" 
-                   [ngClass]="{
-                     'fa-sort-up': sortColumn === 'edad' && sortDirection === 'asc',
-                     'fa-sort-down': sortColumn === 'edad' && sortDirection === 'desc',
-                     'fa-sort': sortColumn !== 'edad'
-                   }"></i>
+                <span class="sort-icon">{{ sortColumn === 'edad' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕' }}</span>
               </th>
               <th (click)="sortBy('antiguedad')" class="sortable-header" title="Haz clic para ordenar">
                 Antigüedad
-                <i class="fas sort-icon" 
-                   [ngClass]="{
-                     'fa-sort-up': sortColumn === 'antiguedad' && sortDirection === 'asc',
-                     'fa-sort-down': sortColumn === 'antiguedad' && sortDirection === 'desc',
-                     'fa-sort': sortColumn !== 'antiguedad'
-                   }"></i>
+                <span class="sort-icon">{{ sortColumn === 'antiguedad' ? (sortDirection === 'asc' ? '▲' : '▼') : '↕' }}</span>
               </th>
               <th>Acciones</th>
             </tr>
@@ -350,7 +325,6 @@ import { take, filter } from 'rxjs/operators';
                   <select 
                     *ngIf="!selectedEmpleado"
                     [(ngModel)]="nuevoEmpleado.cedula_tipo"
-                    (ngModelChange)="detectChanges()"
                     class="cedula-tipo-select"
                     name="cedulaTipo"
                   >
@@ -364,7 +338,7 @@ import { take, filter } from 'rxjs/operators';
                     id="cedulaEmpleado" 
                     name="cedulaEmpleado"
                     [(ngModel)]="nuevoEmpleado.cedula"
-                    (ngModelChange)="limpiarPuntosCedula(); detectChanges()"
+                    (ngModelChange)="limpiarPuntosCedula()"
                     (keyup)="validarCedula()"
                     (keypress)="onCedulaKeyPress($event)"
                     (paste)="onCedulaPaste($event)"
@@ -393,7 +367,6 @@ import { take, filter } from 'rxjs/operators';
                   id="nombreEmpleado" 
                   name="nombreEmpleado"
                   [(ngModel)]="nuevoEmpleado.nombre"
-                  (ngModelChange)="detectChanges()"
                   class="form-control"
                   placeholder="Ingrese el nombre del empleado"
                   required
@@ -435,7 +408,6 @@ import { take, filter } from 'rxjs/operators';
                   id="sexoEmpleado" 
                   name="sexoEmpleado"
                   [(ngModel)]="nuevoEmpleado.sexo"
-                  (ngModelChange)="detectChanges()"
                   class="form-control"
                   required
                 >
@@ -3019,15 +2991,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   createEmpleado(): void {
     if (this.selectedEmpleado) {
-      // Verificar si hay cambios antes de actualizar
+      // Detectar cambios solo al enviar (no afecta habilitación del botón)
       this.detectChanges();
-      
-      if (!this.hasChanges) {
-        
-        this.closeCargoSelector();
-        return;
-      }
-      
       // Actualizar empleado existente
       
       
@@ -3046,7 +3011,9 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         }
       }
       
-      const dispositivosNuevos = this.nuevoEmpleado.dispositivos || [];
+      // Normalizar IDs a número para comparar correctamente
+      const dispositivosAnterioresIds = (dispositivosAnteriores as any[]).map((id: any) => Number(id));
+      const dispositivosNuevos = (this.nuevoEmpleado.dispositivos || []).map((id: any) => Number(id));
       
       
       
@@ -3083,7 +3050,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           // Crear tareas automáticas para la edición (en background, NO BLOQUEA - se ejecuta en segundo plano)
           // Usar el empleado que viene del update que ya tiene las relaciones
           // Sin await, sin bloqueo - se ejecuta completamente en background
-          this.crearTareasEditarEmpleado(empleado, dispositivosAnteriores, dispositivosNuevos, this.keyFieldsChanged).catch(error => {
+          this.crearTareasEditarEmpleado(empleado, dispositivosAnterioresIds, dispositivosNuevos, this.keyFieldsChanged).catch(error => {
             // Los errores en la creación de tareas no deben afectar al usuario
             
           });
@@ -3384,7 +3351,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     if (user) {
       this.empleadosService.getTareasByUser(user.id).subscribe({
         next: (tareas: any) => {
-          this.tareasCount = Array.isArray(tareas) ? tareas.length : 0;
+          if (!Array.isArray(tareas)) {
+            this.tareasCount = 0;
+            return;
+          }
+          // Agrupar Usuario+Foto por empleado/dispositivo/acción para reflejar nuevo conteo visual
+          const grouped = this.agruparTareasParaConteo(tareas);
+          this.tareasCount = grouped.length;
           
         },
         error: (error) => {
@@ -3396,6 +3369,29 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       
       this.tareasCount = 0;
     }
+  }
+
+  private agruparTareasParaConteo(tareas: any[]): any[] {
+    const grupos: { [key: string]: any[] } = {};
+    const getBase = (accion: string) => {
+      if (!accion) return 'Tarea';
+      if (accion.includes('Borrar') || accion.includes('Eliminar')) return 'Eliminar';
+      if (accion.includes('Agregar') || accion.includes('Crear')) return 'Agregar';
+      if (accion.includes('Editar') || accion.includes('Actualizar')) return 'Editar';
+      return 'Tarea';
+    };
+
+    for (const t of tareas) {
+      const base = getBase(t.accion_realizar);
+      const key = [
+        t.numero_cedula_empleado,
+        t.nombre_dispositivo || t.ip_local_dispositivo || t.ip_publica_dispositivo || t.nombre_sala,
+        base
+      ].join('|');
+      if (!grupos[key]) grupos[key] = [];
+      grupos[key].push(t);
+    }
+    return Object.keys(grupos).map(k => ({ key: k, items: grupos[k] }));
   }
 
   goToTareas(): void {
@@ -3500,6 +3496,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             nombre_genero: (empleadoCompleto.sexo || empleado.sexo) === 'Masculino' ? 'male' : 'female',
             nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
             nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_dispositivo: dispositivo.nombre || '',
             nombre_area: nombreArea,
             nombre_departamento: nombreDepartamento,
             foto_empleado: empleadoCompleto.foto || '',
@@ -3522,6 +3519,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             nombre_genero: (empleadoCompleto.sexo || empleado.sexo) === 'Masculino' ? 'male' : 'female',
             nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
             nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_dispositivo: dispositivo.nombre || '',
             nombre_area: nombreArea,
             nombre_departamento: nombreDepartamento,
             foto_empleado: empleadoCompleto.foto || '',
@@ -3606,6 +3604,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
           nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
           nombre_sala: dispositivo.Sala?.nombre || '',
+          nombre_dispositivo: dispositivo.nombre || '',
           nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
           nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
           foto_empleado: empleadoCompleto.foto || '',
@@ -3626,6 +3625,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
           nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
           nombre_sala: dispositivo.Sala?.nombre || '',
+          nombre_dispositivo: dispositivo.nombre || '',
           nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
           nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
           foto_empleado: empleadoCompleto.foto || '',
@@ -3705,6 +3705,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
               nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
               foto_empleado: empleado.foto || '',
@@ -3725,6 +3726,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
               nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
               foto_empleado: empleado.foto || '',
@@ -3760,6 +3762,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               nombre_genero: (empleado.sexo || 'Masculino') === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
               nombre_area: nombreArea,
               nombre_departamento: nombreDepartamento,
               foto_empleado: empleado.foto || '',
@@ -3780,6 +3783,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               nombre_genero: (empleado.sexo || 'Masculino') === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
               nombre_area: nombreArea,
               nombre_departamento: nombreDepartamento,
               foto_empleado: empleado.foto || '',
@@ -3812,6 +3816,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
               nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
               foto_empleado: empleado.foto || '',
@@ -3832,6 +3837,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
               nombre_cargo: empleado.Cargo?.nombre || '',
               nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
               nombre_area: empleado.Cargo?.Area?.nombre || '',
               nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
               foto_empleado: empleado.foto || '',
@@ -3915,10 +3921,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     
     // Los dispositivos NO son requeridos - pueden ser 0, 1, 2 o N
     
-    // Para edición, verificar si hay cambios
-    const hasChangesValid = !this.selectedEmpleado || this.hasChanges;
-    
-    return formValid && fotoValid && cedulaValid && hasChangesValid;
+    // Para edición ya no bloqueamos por falta de cambios (backend gestiona tareas)
+    return formValid && fotoValid && cedulaValid;
   }
 
   validarCedula(): void {
