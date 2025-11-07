@@ -48,7 +48,7 @@ import { FeriadosService } from '../../../services/feriados.service';
             <label for="deptoSelect">Departamento:</label>
             <select id="deptoSelect" class="form-select"
                     [(ngModel)]="selectedDepartamentoId"
-                    [disabled]="!selectedSalaForDataLoad"
+                    [disabled]="loading || !selectedSalaForDataLoad"
                     (change)="onDepartamentoChange()">
               <option [ngValue]="null">Todo</option>
               <option *ngFor="let d of departamentosFiltrados" [ngValue]="d.id">{{ d.nombre }}</option>
@@ -58,7 +58,7 @@ import { FeriadosService } from '../../../services/feriados.service';
             <label for="areaSelect">Área:</label>
             <select id="areaSelect" class="form-select"
                     [(ngModel)]="selectedAreaId"
-                    [disabled]="!selectedDepartamentoId"
+                    [disabled]="loading || !selectedDepartamentoId"
                     (change)="onAreaChange()">
               <option [ngValue]="null">Todo</option>
               <option *ngFor="let a of areasFiltradas" [ngValue]="a.id">{{ a.nombre }}</option>
@@ -68,7 +68,7 @@ import { FeriadosService } from '../../../services/feriados.service';
             <label for="cargoSelect">Cargo:</label>
             <select id="cargoSelect" class="form-select"
                     [(ngModel)]="selectedCargoId"
-                    [disabled]="!selectedAreaId"
+                    [disabled]="loading || !selectedAreaId"
                     (change)="onCargoChange()">
               <option [ngValue]="null">Todo</option>
               <option *ngFor="let c of cargosFiltrados" [ngValue]="c.id">{{ c.nombre }}</option>
@@ -79,7 +79,7 @@ import { FeriadosService } from '../../../services/feriados.service';
             <label for="sexoSelect">Sexo:</label>
             <select id="sexoSelect" class="form-select"
                     [(ngModel)]="selectedSexo"
-                    [disabled]="!selectedSalaForDataLoad"
+                    [disabled]="loading || !selectedSalaForDataLoad"
                     (change)="onSexoChange()">
               <option [ngValue]="null">Todo</option>
               <option [ngValue]="'Femenino'">Femenino</option>
@@ -92,7 +92,7 @@ import { FeriadosService } from '../../../services/feriados.service';
             <input id="searchInput" type="text" class="form-input"
                    placeholder="Ej: 1234 o Aida"
                    [(ngModel)]="searchText"
-                   [disabled]="!selectedSalaForDataLoad"
+                   [disabled]="loading || !selectedSalaForDataLoad"
                    (keyup)="onSearchChange()" />
           </div>
           
@@ -105,7 +105,7 @@ import { FeriadosService } from '../../../services/feriados.service';
               [(ngModel)]="fechaDesde" 
               name="fechaDesde"
               class="form-input"
-              [disabled]="!selectedSalaForDataLoad"
+              [disabled]="loading || !selectedSalaForDataLoad"
               [min]="fechaMinimaFiltro"
               [max]="fechaMaximaFiltro"
               (change)="onFiltroLocalChange()">
@@ -119,7 +119,7 @@ import { FeriadosService } from '../../../services/feriados.service';
               [(ngModel)]="fechaHasta" 
               name="fechaHasta"
               class="form-input"
-              [disabled]="!selectedSalaForDataLoad"
+              [disabled]="loading || !selectedSalaForDataLoad"
               [min]="fechaMinimaFiltro"
               [max]="fechaMaximaFiltro"
               (change)="onFiltroLocalChange()">
@@ -139,6 +139,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 name="tipoReporteSelector" 
                 value="global"
                 [checked]="tipoReporte === 'global'"
+                [disabled]="loading"
                 (change)="onTipoReporteChange('global')"
                 class="radio-input">
               <span class="radio-label">Marcajes</span>
@@ -149,6 +150,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 name="tipoReporteSelector" 
                 value="horario"
                 [checked]="tipoReporte === 'horario'"
+                [disabled]="loading"
                 (change)="onTipoReporteChange('horario')"
                 class="radio-input">
               <span class="radio-label">Horarios</span>
@@ -159,6 +161,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 name="tipoReporteSelector" 
                 value="resumen"
                 [checked]="tipoReporte === 'resumen'"
+                [disabled]="loading"
                 (change)="onTipoReporteChange('resumen')"
                 class="radio-input">
               <span class="radio-label">Calculos</span>
@@ -4215,12 +4218,15 @@ export class MarcajePersonalComponent implements OnInit {
     }
 
     // Crear objeto bloque con horas de plantilla para usar en asignación inteligente
+    const tieneDescansoAutomatico = !!plantilla.descanso_automatico;
     const bloqueConPlantilla = {
       hora_entrada: plantilla.hora_entrada,
       hora_salida: plantilla.hora_salida,
       hora_entrada_descanso: plantilla.hora_descanso_entrada || '',
       hora_salida_descanso: plantilla.hora_descanso_salida || '',
       tiene_descanso: tieneDescanso,
+      tiene_descanso_automatico: tieneDescansoAutomatico,
+      descanso_automatico: plantilla.descanso_automatico || '',
       turno: esTurnoNocturno ? 'NOCTURNO' : 'DIURNO'
     };
 
@@ -4419,7 +4425,12 @@ export class MarcajePersonalComponent implements OnInit {
     const entradaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entrada, marcajesUsados, esNocturno, false, horasProgramadas.entrada);
     asignaciones.entrada = entradaAsignada;
 
-    // Asignar entrada descanso solo si hay descanso definido en la plantilla
+    // Asignar salida (más cercano a hora_salida) - hacerlo antes para poder filtrar marcajes de descanso
+    // Para turnos nocturnos, la salida es del día siguiente
+    const salidaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salida, marcajesUsados, esNocturno, true, horasProgramadas.entrada);
+    asignaciones.salida = salidaAsignada;
+
+    // Asignar entrada descanso si hay descanso manual definido en la plantilla
     if (bloque.tiene_descanso && horasProgramadas.entradaDescanso > 0) {
       const entradaDescansoAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entradaDescanso, marcajesUsados, esNocturno, false, horasProgramadas.entrada);
       asignaciones.entradaDescanso = entradaDescansoAsignada;
@@ -4432,11 +4443,50 @@ export class MarcajePersonalComponent implements OnInit {
         asignaciones.salidaDescanso = salidaDescansoAsignada;
       }
     }
-
-    // Asignar salida (más cercano a hora_salida)
-    // Para turnos nocturnos, la salida es del día siguiente
-    const salidaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salida, marcajesUsados, esNocturno, true, horasProgramadas.entrada);
-    asignaciones.salida = salidaAsignada;
+    // Si hay descanso automático, buscar marcajes de descanso entre entrada y salida
+    else if (bloque.tiene_descanso_automatico && asignaciones.entrada !== 'Sin marcaje' && asignaciones.salida !== 'Sin marcaje') {
+      // Buscar marcajes que estén entre la entrada y la salida y que no hayan sido usados
+      const entradaMinutos = this.convertirHoraAMinutos(asignaciones.entrada);
+      const salidaMinutos = this.convertirHoraAMinutos(asignaciones.salida);
+      
+      // Filtrar marcajes disponibles que estén entre entrada y salida
+      const marcajesDescansoDisponibles = marcajesConHoras.filter(m => {
+        if (marcajesUsados.has(m.marcaje)) return false;
+        const horaMarcaje = m.hora;
+        
+        // Para turnos nocturnos, considerar el cruce de medianoche
+        if (esNocturno) {
+          // Si el marcaje es del día siguiente, está entre entrada y salida
+          if (m.esDelDiaSiguiente) {
+            return horaMarcaje < salidaMinutos;
+          }
+          // Si el marcaje es del mismo día, debe estar después de la entrada
+          return horaMarcaje > entradaMinutos;
+        } else {
+          // Para turnos diurnos, el marcaje debe estar entre entrada y salida
+          return horaMarcaje > entradaMinutos && horaMarcaje < salidaMinutos;
+        }
+      });
+      
+      // Ordenar por hora
+      marcajesDescansoDisponibles.sort((a, b) => a.hora - b.hora);
+      
+      // Si hay al menos 2 marcajes disponibles, asignar el primero como entrada descanso y el segundo como salida descanso
+      if (marcajesDescansoDisponibles.length >= 2) {
+        const entradaDescansoMarcaje = marcajesDescansoDisponibles[0];
+        const salidaDescansoMarcaje = marcajesDescansoDisponibles[1];
+        
+        // Verificar que la entrada descanso sea antes que la salida descanso
+        if (entradaDescansoMarcaje.hora < salidaDescansoMarcaje.hora || 
+            (esNocturno && entradaDescansoMarcaje.esDelDiaSiguiente === false && salidaDescansoMarcaje.esDelDiaSiguiente === true)) {
+          asignaciones.entradaDescanso = this.formatearHora(new Date(entradaDescansoMarcaje.marcaje.event_time).toTimeString().split(' ')[0]);
+          marcajesUsados.add(entradaDescansoMarcaje.marcaje);
+          
+          asignaciones.salidaDescanso = this.formatearHora(new Date(salidaDescansoMarcaje.marcaje.event_time).toTimeString().split(' ')[0]);
+          marcajesUsados.add(salidaDescansoMarcaje.marcaje);
+        }
+      }
+    }
 
     // Aplicar validaciones de diferencias de tiempo
     const asignacionesConValidacion = this.validarDiferenciasTiempo(asignaciones, bloque);
@@ -4648,6 +4698,10 @@ export class MarcajePersonalComponent implements OnInit {
     let horasTrabajadas = 0;
     let horasDescansadas = 0;
     
+    // Verificar si hay marcajes de descanso válidos (definir antes para usar en toda la función)
+    const tieneMarcajesDescanso = this.esMarcajeDescansoValido(marcajes.entradaDescanso) && 
+                                  this.esMarcajeDescansoValido(marcajes.salidaDescanso);
+    
     if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
       const horaEntradaReal = this.convertirHoraAMinutos(marcajes.entrada);
       const horaSalidaReal = this.convertirHoraAMinutos(marcajes.salida);
@@ -4669,10 +4723,34 @@ export class MarcajePersonalComponent implements OnInit {
       }
       
       if (tieneDescansoAutomatico) {
-        // Si hay descanso automático, NO se descuenta de las horas trabajadas
-        // Las horas trabajadas son el total sin descontar descanso
-        horasTrabajadas = horasTotales;
-        horasDescansadas = 0; // No se muestra descanso descontado en este caso
+        // Si hay descanso automático
+        if (tieneMarcajesDescanso) {
+          // Si hay marcajes de descanso válidos, calcular el descanso real
+          const entradaDescansoReal = this.convertirHoraAMinutos(marcajes.entradaDescanso);
+          const salidaDescansoReal = this.convertirHoraAMinutos(marcajes.salidaDescanso);
+          
+          // Calcular horas de descanso real considerando cruce de medianoche para turnos nocturnos
+          let horasDescansadasReales = 0;
+          if (esNocturno && salidaDescansoReal < entradaDescansoReal) {
+            // El descanso cruza medianoche
+            horasDescansadasReales = (24 * 60 - entradaDescansoReal) + salidaDescansoReal;
+          } else {
+            // Descanso normal (diurno o nocturno sin cruce)
+            horasDescansadasReales = salidaDescansoReal - entradaDescansoReal;
+          }
+          
+          // Horas trabajadas = totales - descansadas reales
+          horasTrabajadas = horasTotales - horasDescansadasReales;
+          
+          // Mostrar el tiempo REAL de descanso (no el balance)
+          // El balance solo se usa para determinar el color (rojo/verde)
+          horasDescansadas = horasDescansadasReales; // Mostrar el tiempo real descansado
+        } else {
+          // Si no hay marcajes de descanso, NO se descuenta de las horas trabajadas
+          // Las horas trabajadas son el total sin descontar descanso
+          horasTrabajadas = horasTotales;
+          horasDescansadas = 0; // No se muestra descanso descontado en este caso
+        }
       } else if (tieneDescansoManual && marcajes.entradaDescanso !== 'Sin marcaje' && marcajes.salidaDescanso !== 'Sin marcaje') {
         // Con descanso manual real: horas trabajadas = totalidad - horas descansadas
         const entradaDescansoReal = this.convertirHoraAMinutos(marcajes.entradaDescanso);
@@ -4707,7 +4785,15 @@ export class MarcajePersonalComponent implements OnInit {
     const horasATrabajarFormateadas = this.formatearMinutosAHora(horasATrabajar);
     const horasTrabajadasFormateadas = this.formatearMinutosAHora(horasTrabajadas);
     const horasDeDescansoFormateadas = this.formatearMinutosAHora(horasDeDescanso);
-    const horasDescansadasFormateadas = this.formatearMinutosAHora(horasDescansadas);
+    
+    // Formatear horas descansadas (tiempo real de descanso, no balance)
+    // Si hay descanso automático pero NO hay marcajes válidos, no mostrar nada
+    let horasDescansadasFormateadas = '';
+    if (tieneDescansoAutomatico && !tieneMarcajesDescanso) {
+      horasDescansadasFormateadas = ''; // No mostrar nada cuando no hay marcajes válidos
+    } else {
+      horasDescansadasFormateadas = this.formatearMinutosAHora(horasDescansadas);
+    }
     
     // Verificar si hay marcajes reales
     const tieneMarcajes = marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje';
@@ -4743,13 +4829,26 @@ export class MarcajePersonalComponent implements OnInit {
       }
       
       // Color de fondo para horas descansadas (segundo valor) - solo si hay descanso programado
-      if (!tieneDescansoAutomatico && horasDeDescanso > 0) {
-        if (horasDescansadas > horasDeDescanso) {
-          claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo clarito
-          
-        } else if (horasDescansadas < horasDeDescanso) {
-          claseFondoDescansadas = 'bg-calculo-success'; // Fondo verde clarito
-          
+      if (horasDeDescanso > 0) {
+        // Si hay descanso automático Y hay marcajes de descanso válidos, comparar balance de descanso
+        if (tieneDescansoAutomatico && tieneMarcajesDescanso) {
+          // Calcular balance para determinar el color (horasDescansadas contiene el tiempo real)
+          const balanceDescanso = horasDescansadas - horasDeDescanso;
+          // Si balance > 0: descansó más de lo debido → rojo (malo)
+          // Si balance < 0: descansó menos de lo debido → rojo (malo, no cumplió con el descanso mínimo)
+          // Si balance = 0: descansó exactamente lo esperado → sin color (perfecto)
+          if (balanceDescanso > 0) {
+            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó más de lo debido
+          } else if (balanceDescanso < 0) {
+            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó menos de lo debido (no cumplió)
+          }
+        } else if (!tieneDescansoAutomatico) {
+          // Para descanso manual, comparar como antes
+          if (horasDescansadas > horasDeDescanso) {
+            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo clarito
+          } else if (horasDescansadas < horasDeDescanso) {
+            claseFondoDescansadas = 'bg-calculo-success'; // Fondo verde clarito
+          }
         }
       }
     }
@@ -4757,6 +4856,17 @@ export class MarcajePersonalComponent implements OnInit {
     // Construir texto solo con el segundo (trabajado) y cuarto (descansado) valor
     // Cada valor va en su propio span con fondo si corresponde
     const separador = '&nbsp;-&nbsp;';
+    
+    // Si hay descanso automático y NO hay marcajes válidos, mostrar solo horas trabajadas (sin dividir)
+    if (tieneDescansoAutomatico && !tieneMarcajesDescanso) {
+      const trabajadasHtml = claseFondoTrabajadas 
+        ? `<span class="${claseFondoTrabajadas}">${horasTrabajadasFormateadas}</span>`
+        : horasTrabajadasFormateadas;
+      const texto = trabajadasHtml;
+      return { texto, claseColor: '' };
+    }
+    
+    // Si hay descanso automático con marcajes válidos O descanso manual, mostrar ambos valores
     const trabajadasHtml = claseFondoTrabajadas 
       ? `<span class="${claseFondoTrabajadas}">${horasTrabajadasFormateadas}</span>`
       : horasTrabajadasFormateadas;
@@ -4786,11 +4896,23 @@ export class MarcajePersonalComponent implements OnInit {
     if (!bloque || this.isSinHorario(empleado, dia)) {
       return '00:00';
     }
-    // Si hay descanso automático en la plantilla, no mostrar columna de descanso
-    if (bloque?.PlantillaHorario?.descanso_automatico) {
-      return '';
-    }
+    
+    // Obtener valores calculados
     const valores = this.getCalculoValores(empleado, dia, bloque);
+    
+    // Si hay descanso automático en la plantilla, verificar si hay marcajes válidos
+    if (bloque?.PlantillaHorario?.descanso_automatico) {
+      const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+      const tieneMarcajesDescanso = this.esMarcajeDescansoValido(marcajes.entradaDescanso) && 
+                                    this.esMarcajeDescansoValido(marcajes.salidaDescanso);
+      
+      // Si NO hay marcajes válidos (Sin marcaje, DNM, etc.), no mostrar columna de descanso
+      if (!tieneMarcajesDescanso) {
+        return '';
+      }
+      // Si hay marcajes válidos, retornar el balance (ya calculado en getCalculoValores)
+    }
+    
     return valores.horasDescansadas;
   }
 
@@ -4810,9 +4932,22 @@ export class MarcajePersonalComponent implements OnInit {
     if (!bloque || this.isSinHorario(empleado, dia)) {
       return '';
     }
+    
+    // Si hay descanso automático, verificar si hay marcajes de descanso válidos
     if (bloque?.PlantillaHorario?.descanso_automatico) {
+      const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+      const tieneMarcajesDescanso = this.esMarcajeDescansoValido(marcajes.entradaDescanso) && 
+                                    this.esMarcajeDescansoValido(marcajes.salidaDescanso);
+      
+      // Si hay marcajes de descanso válidos, retornar la clase (para mostrar el balance)
+      if (tieneMarcajesDescanso) {
+        const resumenCalculo = this.getCalculoClases(empleado, dia, bloque);
+        return resumenCalculo.claseDescansadas;
+      }
+      // Si no hay marcajes de descanso, no mostrar clase (ocupa todo el ancho)
       return '';
     }
+    
     const resumenCalculo = this.getCalculoClases(empleado, dia, bloque);
     return resumenCalculo.claseDescansadas;
   }
@@ -4821,6 +4956,19 @@ export class MarcajePersonalComponent implements OnInit {
   isDescansoAutomaticoDay(empleado: any, dia: Date): boolean {
     const bloque = this.getBloqueHorario(empleado, dia);
     return !!bloque?.PlantillaHorario?.descanso_automatico;
+  }
+
+  // Helper: verificar si un marcaje de descanso es válido (no contiene "Sin marcaje", "DNM" o "SDNM")
+  esMarcajeDescansoValido(marcaje: string): boolean {
+    if (!marcaje) return false;
+    const marcajeStr = String(marcaje).trim();
+    // Verificar si contiene "Sin marcaje", "DNM" o "SDNM" (no solo igualdad exacta)
+    return marcajeStr !== 'Sin marcaje' && 
+           marcajeStr !== 'DNM' && 
+           marcajeStr !== 'SDNM' &&
+           !marcajeStr.includes('Sin marcaje') &&
+           !marcajeStr.includes('DNM') &&
+           !marcajeStr.includes('SDNM');
   }
 
   // Helper: indica si la columna de trabajadas debe ocupar todo el ancho
@@ -4833,8 +4981,22 @@ export class MarcajePersonalComponent implements OnInit {
     const tieneDescansoAutomatico = !!plantilla?.descanso_automatico;
     const tieneDescansoManual = bloque?.tiene_descanso || !!(plantilla?.hora_descanso_entrada && plantilla?.hora_descanso_salida);
     
-    // Ocupar todo el ancho si hay descanso automático O si no hay descanso de ningún tipo
-    return tieneDescansoAutomatico || !tieneDescansoManual;
+    // Si hay descanso automático, verificar si hay marcajes de descanso válidos
+    if (tieneDescansoAutomatico) {
+      const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+      const tieneMarcajesDescanso = this.esMarcajeDescansoValido(marcajes.entradaDescanso) && 
+                                    this.esMarcajeDescansoValido(marcajes.salidaDescanso);
+      
+      // Si hay marcajes de descanso válidos, dividir el bloque (retornar false)
+      if (tieneMarcajesDescanso) {
+        return false;
+      }
+      // Si no hay marcajes de descanso, ocupar todo el ancho
+      return true;
+    }
+    
+    // Ocupar todo el ancho si no hay descanso de ningún tipo
+    return !tieneDescansoManual;
   }
 
   // Calcular alertas de marcaje (Ent Ant Hora, Ent Des Hora, Sal Ant Hora, Sal Des Hora)
@@ -5098,7 +5260,7 @@ export class MarcajePersonalComponent implements OnInit {
     }
     
     // Agregar alertas en una línea separada si existen
-    if (alertas) {
+    if (alertas && alertas.trim() !== '') {
       resultadoTexto = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">${resultadoTexto}<div style="font-size: 0.75em; line-height: 1.2; margin-top: 2px;">${alertas}</div></div>`;
     }
     
@@ -5154,6 +5316,10 @@ export class MarcajePersonalComponent implements OnInit {
     let horasTrabajadas = 0;
     let horasDescansadas = 0;
     
+    // Verificar si hay marcajes de descanso válidos (definir antes para usar en toda la función)
+    const tieneMarcajesDescanso = this.esMarcajeDescansoValido(marcajesCalculo.entradaDescanso) && 
+                                  this.esMarcajeDescansoValido(marcajesCalculo.salidaDescanso);
+    
     const tieneMarcajes = marcajesCalculo.entrada !== 'Sin marcaje' && marcajesCalculo.salida !== 'Sin marcaje' && marcajesCalculo.salida !== 'SNM';
     
     if (tieneMarcajes) {
@@ -5172,10 +5338,32 @@ export class MarcajePersonalComponent implements OnInit {
       }
       
       if (tieneDescansoAutomatico) {
-        // Si hay descanso automático, NO se descuenta de las horas trabajadas
-        // Las horas trabajadas son el total sin descontar descanso
-        horasTrabajadas = horasTotales;
-        horasDescansadas = 0; // No se muestra descanso descontado en este caso
+        // Si hay descanso automático
+        if (tieneMarcajesDescanso) {
+          // Si hay marcajes de descanso válidos, calcular el descanso real
+          const entradaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.entradaDescanso);
+          const salidaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.salidaDescanso);
+          
+          // Calcular horas de descanso real considerando cruce de medianoche para turnos nocturnos
+          let horasDescansadasReales = 0;
+          if (esNocturno && salidaDescansoReal < entradaDescansoReal) {
+            horasDescansadasReales = (24 * 60 - entradaDescansoReal) + salidaDescansoReal;
+          } else {
+            horasDescansadasReales = salidaDescansoReal - entradaDescansoReal;
+          }
+          
+          // Horas trabajadas = totales - descansadas reales
+          horasTrabajadas = horasTotales - horasDescansadasReales;
+          
+          // Mostrar el tiempo REAL de descanso (no el balance)
+          // El balance solo se usa para determinar el color (rojo/verde)
+          horasDescansadas = horasDescansadasReales; // Mostrar el tiempo real descansado
+        } else {
+          // Si no hay marcajes de descanso, NO se descuenta de las horas trabajadas
+          // Las horas trabajadas son el total sin descontar descanso
+          horasTrabajadas = horasTotales;
+          horasDescansadas = 0; // No se muestra descanso descontado en este caso
+        }
       } else if (tieneDescansoManual && marcajesCalculo.entradaDescanso !== 'Sin marcaje' && marcajesCalculo.salidaDescanso !== 'Sin marcaje') {
         const entradaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.entradaDescanso);
         const salidaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.salidaDescanso);
@@ -5195,9 +5383,18 @@ export class MarcajePersonalComponent implements OnInit {
       }
     }
     
+    // Formatear horas descansadas (tiempo real de descanso, no balance)
+    // Si hay descanso automático pero NO hay marcajes válidos, retornar cadena vacía
+    let horasDescansadasFormateadas = '';
+    if (tieneDescansoAutomatico && !tieneMarcajesDescanso) {
+      horasDescansadasFormateadas = ''; // No mostrar nada cuando no hay marcajes válidos
+    } else {
+      horasDescansadasFormateadas = this.formatearMinutosAHora(horasDescansadas);
+    }
+    
     return {
       horasTrabajadas: this.formatearMinutosAHora(horasTrabajadas),
-      horasDescansadas: this.formatearMinutosAHora(horasDescansadas)
+      horasDescansadas: horasDescansadasFormateadas
     };
   }
 
@@ -5250,6 +5447,10 @@ export class MarcajePersonalComponent implements OnInit {
     let horasTrabajadas = 0;
     let horasDescansadas = 0;
     
+    // Verificar si hay marcajes de descanso válidos (definir antes para usar en toda la función)
+    const tieneMarcajesDescanso = this.esMarcajeDescansoValido(marcajesCalculo.entradaDescanso) && 
+                                  this.esMarcajeDescansoValido(marcajesCalculo.salidaDescanso);
+    
     const tieneMarcajes = marcajesCalculo.entrada !== 'Sin marcaje' && marcajesCalculo.salida !== 'Sin marcaje' && marcajesCalculo.salida !== 'SNM';
     
     if (tieneMarcajes) {
@@ -5268,10 +5469,33 @@ export class MarcajePersonalComponent implements OnInit {
       }
       
       if (tieneDescansoAutomatico) {
-        // Si hay descanso automático, NO se descuenta de las horas trabajadas
-        // Las horas trabajadas son el total sin descontar descanso
-        horasTrabajadas = horasTotales;
-        horasDescansadas = 0; // No se muestra descanso descontado en este caso
+        // Si hay descanso automático
+        if (tieneMarcajesDescanso) {
+          // Si hay marcajes de descanso válidos, calcular el descanso real
+          const entradaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.entradaDescanso);
+          const salidaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.salidaDescanso);
+          
+          // Calcular horas de descanso real considerando cruce de medianoche para turnos nocturnos
+          let horasDescansadasReales = 0;
+          if (esNocturno && salidaDescansoReal < entradaDescansoReal) {
+            horasDescansadasReales = (24 * 60 - entradaDescansoReal) + salidaDescansoReal;
+          } else {
+            horasDescansadasReales = salidaDescansoReal - entradaDescansoReal;
+          }
+          
+          // Horas trabajadas = totales - descansadas reales
+          horasTrabajadas = horasTotales - horasDescansadasReales;
+          
+          // Calcular balance de descanso (diferencia entre descanso real y descanso automático esperado)
+          // Este valor se usará para determinar el color
+          const balanceDescanso = horasDescansadasReales - horasDeDescanso;
+          horasDescansadas = balanceDescanso; // Usar horasDescansadas para el balance
+        } else {
+          // Si no hay marcajes de descanso, NO se descuenta de las horas trabajadas
+          // Las horas trabajadas son el total sin descontar descanso
+          horasTrabajadas = horasTotales;
+          horasDescansadas = 0; // No se muestra descanso descontado en este caso
+        }
       } else if (tieneDescansoManual && marcajesCalculo.entradaDescanso !== 'Sin marcaje' && marcajesCalculo.salidaDescanso !== 'Sin marcaje') {
         const entradaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.entradaDescanso);
         const salidaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.salidaDescanso);
@@ -5311,11 +5535,27 @@ export class MarcajePersonalComponent implements OnInit {
         claseFondoTrabajadas = 'bg-calculo-success';
       }
       
-      if (!tieneDescansoAutomatico && horasDeDescanso > 0) {
-        if (horasDescansadas > horasDeDescanso) {
-          claseFondoDescansadas = 'bg-calculo-danger';
-        } else if (horasDescansadas < horasDeDescanso) {
-          claseFondoDescansadas = 'bg-calculo-success';
+      // Color de fondo para horas descansadas - solo si hay descanso programado
+      if (horasDeDescanso > 0) {
+        // Si hay descanso automático Y hay marcajes de descanso válidos, comparar balance de descanso
+        if (tieneDescansoAutomatico && tieneMarcajesDescanso) {
+          // Calcular balance para determinar el color (horasDescansadas contiene el tiempo real)
+          const balanceDescanso = horasDescansadas - horasDeDescanso;
+          // Si balance > 0: descansó más de lo debido → rojo (malo)
+          // Si balance < 0: descansó menos de lo debido → rojo (malo, no cumplió con el descanso mínimo)
+          // Si balance = 0: descansó exactamente lo esperado → sin color (perfecto)
+          if (balanceDescanso > 0) {
+            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó más de lo debido
+          } else if (balanceDescanso < 0) {
+            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó menos de lo debido (no cumplió)
+          }
+        } else if (!tieneDescansoAutomatico) {
+          // Para descanso manual, comparar como antes
+          if (horasDescansadas > horasDeDescanso) {
+            claseFondoDescansadas = 'bg-calculo-danger';
+          } else if (horasDescansadas < horasDeDescanso) {
+            claseFondoDescansadas = 'bg-calculo-success';
+          }
         }
       }
     }
@@ -5347,8 +5587,11 @@ export class MarcajePersonalComponent implements OnInit {
       }
     }
 
-    // Si hay descanso definido, validar diferencias de descanso
-    if (bloque.tiene_descanso) {
+    // Si hay descanso definido (manual o automático), validar diferencias de descanso
+    const tieneDescansoManual = bloque.tiene_descanso;
+    const tieneDescansoAutomatico = bloque.tiene_descanso_automatico || bloque.PlantillaHorario?.descanso_automatico;
+    
+    if (tieneDescansoManual || tieneDescansoAutomatico) {
       // Validar entrada de descanso: al menos 10 min de diferencia de entrada
       if (resultado.entrada !== 'Sin marcaje' && resultado.entradaDescanso !== 'Sin marcaje') {
         const entradaMinutos = this.convertirHoraAMinutos(resultado.entrada);
@@ -5509,10 +5752,27 @@ export class MarcajePersonalComponent implements OnInit {
         const tieneDescansoPlantilla = !!(plantillaDescanso?.hora_descanso_entrada && plantillaDescanso?.hora_descanso_salida);
         const tieneDescansoAutomatico2 = !!plantillaDescanso?.descanso_automatico;
         
+        // Verificar si hay marcajes de descanso válidos (entrada y salida de descanso)
+        const tieneMarcajesDescanso = this.esMarcajeDescansoValido(marcajesDescanso.entradaDescanso) && 
+                                      this.esMarcajeDescansoValido(marcajesDescanso.salidaDescanso);
+        
         if (marcajesDescanso.entrada !== 'Sin marcaje' && marcajesDescanso.salida !== 'Sin marcaje') {
-          // Mostrar marcajes reales con formato según si hay descanso programado
-          if (tieneDescansoPlantilla) {
-            // Si hay descanso programado, verificar si hay códigos de error
+          // Si hay descanso automático, verificar primero si hay marcajes válidos
+          if (tieneDescansoAutomatico2) {
+            // Con descanso automático: verificar si hay marcajes de descanso válidos
+            if (tieneMarcajesDescanso) {
+              // Si hay marcajes de descanso válidos, mostrar ambos como descanso manual
+              resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
+            } else {
+              // Si no hay marcajes de descanso válidos, mostrar "Desc Auto" (solo entrada y salida)
+              if (marcajesDescanso.salida === 'SNM') {
+                resultado = `${marcajesDescanso.entrada} - Desc Auto - SNM`;
+              } else {
+                resultado = `${marcajesDescanso.entrada} - Desc Auto - ${marcajesDescanso.salida}`;
+              }
+            }
+          } else if (tieneDescansoPlantilla) {
+            // Si hay descanso programado (manual), verificar si hay códigos de error
             if (marcajesDescanso.entradaDescanso === 'DNM' || marcajesDescanso.salidaDescanso === 'DNM') {
               resultado = `${marcajesDescanso.entrada} - DNM - ${marcajesDescanso.salida}`;
             } else if (marcajesDescanso.salidaDescanso === 'SDNM') {
@@ -5524,21 +5784,11 @@ export class MarcajePersonalComponent implements OnInit {
               resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
             }
           } else {
-            // Si no hay descanso programado
-            if (tieneDescansoAutomatico2) {
-              // Con descanso automático: mostrar "Desc Auto"
-              if (marcajesDescanso.salida === 'SNM') {
-                resultado = `${marcajesDescanso.entrada} - Desc Auto - SNM`;
-              } else {
-                resultado = `${marcajesDescanso.entrada} - Desc Auto - ${marcajesDescanso.salida}`;
-              }
+            // Sin descanso de ningún tipo
+            if (marcajesDescanso.salida === 'SNM') {
+              resultado = `${marcajesDescanso.entrada} - Sin descanso - SNM`;
             } else {
-              // Sin descanso de ningún tipo
-              if (marcajesDescanso.salida === 'SNM') {
-                resultado = `${marcajesDescanso.entrada} - Sin descanso - SNM`;
-              } else {
-                resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
-              }
+              resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
             }
           }
         } else if (marcajesDescanso.entrada !== 'Sin marcaje') {
