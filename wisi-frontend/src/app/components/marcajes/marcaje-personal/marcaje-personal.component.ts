@@ -5987,12 +5987,32 @@ export class MarcajePersonalComponent implements OnInit {
     });
   }
 
-  // Verificar si una fecha es feriado
+  // Verificar si una fecha es feriado (validando la tabla de feriados de la sala asociada)
   esFeriado(fecha: Date, salaId: number): boolean {
+    if (!salaId || !this.feriados || this.feriados.length === 0) {
+      return false;
+    }
+    
     const fechaStr = this.formatDateLocalYYYYMMDD(fecha);
+    
+    // Buscar en la tabla de feriados de la sala asociada
     return this.feriados.some(f => {
-      const feriadoFecha = f.fecha ? new Date(f.fecha).toISOString().split('T')[0] : '';
-      return feriadoFecha === fechaStr && f.sala_id === salaId;
+      if (!f.sala_id || f.sala_id !== salaId) {
+        return false;
+      }
+      
+      // Formatear la fecha del feriado de manera consistente
+      let feriadoFecha = '';
+      if (f.fecha) {
+        // Si es string, usarlo directamente; si es Date, formatearlo
+        if (typeof f.fecha === 'string') {
+          feriadoFecha = f.fecha.split('T')[0]; // Remover hora si existe
+        } else {
+          feriadoFecha = this.formatDateLocalYYYYMMDD(new Date(f.fecha));
+        }
+      }
+      
+      return feriadoFecha === fechaStr;
     });
   }
 
@@ -6023,8 +6043,13 @@ export class MarcajePersonalComponent implements OnInit {
           const resultadoHtml = this.getResultadoTurno(empleado, dia);
           // Convertir SafeHtml a string para verificar contenido
           const resultadoStr = resultadoHtml ? String(resultadoHtml).toUpperCase() : '';
-          // Verificar si contiene "DIURNO" (puede ser DIURNO puro o mixto con ( D ))
-          if (resultadoStr.includes('DIURNO') || resultadoStr.includes('( D )')) {
+          
+          // Verificar si es mixto (contiene tanto ( D ) como ( N ))
+          const esMixto = resultadoStr.includes('( D )') && resultadoStr.includes('( N )');
+          
+          // SOLO contar turnos DIURNOS PUROS (no mixtos)
+          // Un turno diurno puro contiene "DIURNO" pero NO es mixto
+          if (!esMixto && resultadoStr.includes('DIURNO')) {
             count++;
           }
         }
@@ -6045,8 +6070,13 @@ export class MarcajePersonalComponent implements OnInit {
           const resultadoHtml = this.getResultadoTurno(empleado, dia);
           // Convertir SafeHtml a string para verificar contenido
           const resultadoStr = resultadoHtml ? String(resultadoHtml).toUpperCase() : '';
-          // Verificar si contiene "NOCTURNO" (puede ser NOCTURNO puro o mixto con ( N ))
-          if (resultadoStr.includes('NOCTURNO') || resultadoStr.includes('( N )')) {
+          
+          // Verificar si es mixto (contiene tanto ( D ) como ( N ))
+          const esMixto = resultadoStr.includes('( D )') && resultadoStr.includes('( N )');
+          
+          // SOLO contar turnos NOCTURNOS PUROS (no mixtos)
+          // Un turno nocturno puro contiene "NOCTURNO" pero NO es mixto
+          if (!esMixto && resultadoStr.includes('NOCTURNO')) {
             count++;
           }
         }
@@ -6341,25 +6371,36 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   // Calcular resumen: Totales de Feriados Trabajados (días) (por empleado) - si trabajó ese día
+  // Valida la tabla de feriados de la sala asociada y verifica si hay registros/marcajes en fechas feriadas
   getResumenFeriadosTrabajadosPorEmpleado(empleado: any): number {
     let count = 0;
     const salaId = this.getSalaId(empleado);
     if (!salaId) return 0;
     
     this.diasDelMes.forEach(dia => {
+      // Validar si es feriado en la tabla de feriados de la sala asociada
       if (this.esFeriado(dia, salaId)) {
-        // Es feriado - verificar si trabajó (tiene registro de diurno, nocturno o mixto)
+        // Es feriado - verificar si hay registros/marcajes (trabajó ese día)
         if (!this.isSinHorario(empleado, dia)) {
           const bloque = this.getBloqueHorario(empleado, dia);
           if (bloque) {
-            const resultadoHtml = this.getResultadoTurno(empleado, dia);
-            // Si tiene resultado (DIURNO, NOCTURNO o MIXTO), trabajó en feriado
-            if (resultadoHtml) {
-              const resultadoStr = String(resultadoHtml).toUpperCase();
-              // Verificar si contiene DIURNO, NOCTURNO o es mixto (contiene ( D ) o ( N ))
-              if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
-                  resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
-                count++;
+            // Verificar si hay marcajes reales (entrada y salida)
+            const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+            const tieneMarcajes = marcajes.entrada !== 'Sin marcaje' && 
+                                  marcajes.salida !== 'Sin marcaje' && 
+                                  marcajes.salida !== 'SNM';
+            
+            if (tieneMarcajes) {
+              // Hay registros/marcajes en fecha feriada - incrementar contador
+              const resultadoHtml = this.getResultadoTurno(empleado, dia);
+              // Verificar que tenga resultado válido (DIURNO, NOCTURNO o MIXTO)
+              if (resultadoHtml) {
+                const resultadoStr = String(resultadoHtml).toUpperCase();
+                // Verificar si contiene DIURNO, NOCTURNO o es mixto (contiene ( D ) o ( N ))
+                if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
+                    resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
+                  count++;
+                }
               }
             }
           }
