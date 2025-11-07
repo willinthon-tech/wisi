@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -1437,7 +1437,7 @@ import { FeriadosService } from '../../../services/feriados.service';
     }
     
 
-    /* Reglas de impresión: solo imprimir el contenedor .printable */
+    /* Reglas de impresión: solo imprimir el grupo-card específico */
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       /* Ocultar navbars y encabezados superiores de toda la app */
@@ -1445,11 +1445,21 @@ import { FeriadosService } from '../../../services/feriados.service';
         display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important;
       }
       /* Ocultar cualquier control de la app no relevante */
-      .no-print, .btn, .button, .actions, .grupo-actions { display: none !important; }
-      /* Mostrar únicamente el contenedor printable */
+      .no-print, .btn, .button, .actions, .grupo-actions, .btn-print-group { display: none !important; }
+      /* Mostrar únicamente el grupo-card marcado para imprimir */
       body * { visibility: hidden !important; }
-      .printable, .printable * { visibility: visible !important; }
-      .printable { position: absolute; left: 0; top: 0; width: 100%; }
+      .grupo-card.print-this, .grupo-card.print-this * { visibility: visible !important; }
+      .grupo-card.print-this { 
+        position: static !important; 
+        left: auto !important; 
+        top: auto !important; 
+        width: 100% !important;
+        page-break-inside: avoid;
+        margin: 0 !important;
+        padding: 10px !important;
+      }
+      /* Ocultar otros grupo-cards si existen */
+      .grupo-card:not(.print-this) { display: none !important; }
     }
 
     .grupo-table-container {
@@ -2335,9 +2345,108 @@ export class MarcajePersonalComponent implements OnInit {
     // La vista actual corresponde a "Global". Las otras vistas se podrán implementar más adelante.
   }
 
-  printGrupo(grupo: any): void {
-    // Abrir diálogo de impresión del navegador con todas las opciones nativas
-    window.print();
+  async printGrupo(grupo: any): Promise<void> {
+    // Buscar el elemento grupo-card específico
+    const grupoCards = document.querySelectorAll('.grupo-card');
+    let targetElement: HTMLElement | null = null;
+    
+    // Encontrar el grupo-card que corresponde al grupo pasado
+    for (let i = 0; i < grupoCards.length; i++) {
+      const cardElement = grupoCards[i] as HTMLElement;
+      const grupoNombre = cardElement.querySelector('.grupo-header h3')?.textContent?.trim();
+      if (grupoNombre === grupo.nombre) {
+        targetElement = cardElement;
+        break;
+      }
+    }
+    
+    if (!targetElement) {
+      console.error('No se encontró el grupo-card para imprimir');
+      return;
+    }
+    
+    // Asegurar que TypeScript reconozca el tipo
+    const elementToPrint: HTMLElement = targetElement;
+    
+    try {
+      // Importar html2pdf dinámicamente con timeout
+      const html2pdfPromise = import('html2pdf.js');
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout al cargar html2pdf')), 5000)
+      );
+      
+      const html2pdfModule = await Promise.race([html2pdfPromise, timeoutPromise]) as any;
+      const html2pdf = html2pdfModule.default || html2pdfModule;
+      
+      // Configuración optimizada para html2pdf
+      const opt: any = {
+        margin: [5, 5, 5, 5],
+        filename: `Reporte_${grupo.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { 
+          type: 'jpeg', 
+          quality: 0.95 
+        },
+        html2canvas: { 
+          scale: 1.5,
+          useCORS: true,
+          logging: false,
+          letterRendering: false,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          windowWidth: elementToPrint.scrollWidth,
+          windowHeight: elementToPrint.scrollHeight
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'landscape'
+        },
+        pagebreak: { 
+          mode: ['avoid-all', 'css', 'legacy'],
+          before: '.page-break-before',
+          after: '.page-break-after',
+          avoid: '.page-break-avoid'
+        }
+      };
+      
+      // Usar requestAnimationFrame para no bloquear la UI
+      await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+      
+      // Generar PDF directamente desde el elemento (sin clonar para mejor rendimiento)
+      await html2pdf()
+        .set(opt)
+        .from(elementToPrint)
+        .save();
+        
+    } catch (error: any) {
+      console.warn('Error al generar PDF con html2pdf, usando impresión nativa:', error);
+      
+      // Fallback: usar window.print() nativo
+      elementToPrint.classList.add('print-this');
+      
+      // Ocultar otros grupo-cards temporalmente
+      grupoCards.forEach((card: Element) => {
+        const cardEl = card as HTMLElement;
+        if (cardEl !== elementToPrint) {
+          cardEl.style.display = 'none';
+        }
+      });
+      
+      // Esperar un momento para que el DOM se actualice, luego imprimir
+      setTimeout(() => {
+        window.print();
+        
+        // Limpiar después de la impresión
+        setTimeout(() => {
+          elementToPrint.classList.remove('print-this');
+          // Restaurar visibilidad de otros grupo-cards
+          grupoCards.forEach((card: Element) => {
+            const cardEl = card as HTMLElement;
+            cardEl.style.display = '';
+          });
+        }, 500);
+      }, 100);
+    }
   }
 
   abrirModalExcepcion(empleado: any, dia: Date) {
