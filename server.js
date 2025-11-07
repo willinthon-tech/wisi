@@ -6746,10 +6746,14 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     const { salaId } = req.params;
     const userId = req.user.id;
     const userLevel = req.user.nivel;
+    const usuario = req.user.usuario;
     
-    // Verificar que el usuario tiene acceso a la sala
-    if (userLevel !== 'TODO') {
-      const user = await User.findByPk(userId, {
+    // Obtener el usuario completo para verificar si es willinthon
+    const user = await User.findByPk(userId);
+    
+    // Verificar que el usuario tiene acceso a la sala (excepto para willinthon)
+    if (usuario !== 'willinthon' && userLevel !== 'TODO') {
+      const userWithSalas = await User.findByPk(userId, {
         include: [{
           model: Sala,
           through: { attributes: [] },
@@ -6757,9 +6761,40 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         }]
       });
       
-      if (!user || !user.Salas || user.Salas.length === 0) {
+      if (!userWithSalas || !userWithSalas.Salas || userWithSalas.Salas.length === 0) {
         return res.status(403).json({ message: 'No tienes acceso a esta sala' });
       }
+    }
+    
+    // Si es willinthon, mostrar todos los empleados sin requerir relaciones
+    if (usuario === 'willinthon') {
+      const empleados = await Empleado.findAll({
+        where: { activo: 1 },
+        include: [{
+          model: Cargo,
+          attributes: ['id', 'nombre'],
+          required: false,
+          include: [{
+            model: Departamento,
+            attributes: ['id', 'nombre'],
+            required: false,
+            include: [{
+              model: Area,
+              attributes: ['id', 'nombre'],
+              required: false,
+              include: [{
+                model: Sala,
+                attributes: ['id', 'nombre'],
+                required: false,
+                where: { id: salaId }
+              }]
+            }]
+          }]
+        }],
+        order: [['nombre', 'ASC']]
+      });
+      
+      return res.json(empleados);
     }
     
     const empleados = await Empleado.findAll({
@@ -7526,30 +7561,30 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
       ]
     });
 
-    // Si es el usuario creador (nivel TODO), devolver todos los empleados activos
-    if (user.nivel === 'TODO') {
+    // Si es el usuario willinthon, devolver todos los empleados activos sin requerir relaciones
+    if (user.usuario === 'willinthon') {
       const empleados = await Empleado.findAll({
         where: { activo: 1 },
         include: [
           {
             model: Cargo,
             as: 'Cargo',
-            required: true,
+            required: false,
             include: [
               {
                 model: Area,
                 as: 'Area',
-                required: true,
+                required: false,
                 include: [
                   {
                     model: Departamento,
                     as: 'Departamento',
-                    required: true,
+                    required: false,
                     include: [
                       {
                         model: Sala,
                         as: 'Sala',
-                        required: true,
+                        required: false,
                         attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                       }
                     ]
@@ -7658,26 +7693,30 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
       ]
     });
 
-    // Si es el usuario creador (nivel TODO), devolver todos los empleados borrados
-    if (user.nivel === 'TODO') {
+    // Si es el usuario willinthon, devolver todos los empleados borrados sin requerir relaciones
+    if (user.usuario === 'willinthon') {
       const empleados = await Empleado.findAll({
         where: { activo: 0 },
         include: [
           {
             model: Cargo,
             as: 'Cargo',
+            required: false,
             include: [
               {
                 model: Area,
                 as: 'Area',
+                required: false,
                 include: [
                   {
                     model: Departamento,
                     as: 'Departamento',
+                    required: false,
                     include: [
                       {
                         model: Sala,
                         as: 'Sala',
+                        required: false,
                         attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
                       }
                     ]
