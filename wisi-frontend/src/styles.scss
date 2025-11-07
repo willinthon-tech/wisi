@@ -78,37 +78,247 @@ app-root {
 /* ========== Reglas globales de impresión ========== */
 @media print {
   /* Mantener colores */
-  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { 
+    -webkit-print-color-adjust: exact; 
+    print-color-adjust: exact; 
+    background: white !important;
+  }
+  
+  /* Fondo blanco para todos los contenedores */
+  html, body, .marcaje-personal-container, .grupos-container {
+    background: white !important;
+    background-color: white !important;
+  }
+  
   /* Ocultar navbars/headers globales de la app */
   app-navbar, header, nav, .navbar, .topbar, .toolbar, .page-header, .layout-navbar, .site-header {
-    display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important;
+    display: none !important; 
+    visibility: hidden !important; 
+    height: 0 !important; 
+    overflow: hidden !important;
   }
-  /* Ocultar controles comunes */
-  .no-print, .btn, .button, .actions { display: none !important; }
-  /* Mostrar únicamente el contenedor marcado como printable */
-  body * { visibility: hidden !important; }
-  .printable, .printable * { visibility: visible !important; }
+  
+  /* Ocultar controles comunes y botones */
+  .no-print, .btn, .button, .actions, .grupo-actions, .btn-print-group {
+    display: none !important; 
+    visibility: hidden !important;
+  }
+  
+  /* Ocultar secciones de filtros, selectores y todo lo que no sea el grupo-card */
+  .sala-selector-section, 
+  .filters-section,
+  .marcaje-personal-container > *:not(.grupos-container),
+  .grupos-container > *:not(.grupo-card.print-this) {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+  
+  /* Ocultar todo por defecto */
+  body * { 
+    visibility: hidden !important; 
+  }
+  
+  /* Mostrar únicamente el grupo-card marcado para imprimir */
+  .grupo-card.print-this, 
+  .grupo-card.print-this * { 
+    visibility: visible !important; 
+  }
+  
   /* Permitir paginación natural: nada absoluto para que imprima en múltiples páginas */
-  .printable { position: static !important; left: auto !important; top: auto !important; width: auto !important; overflow: visible !important; }
+  .grupo-card.print-this { 
+    position: static !important; 
+    left: auto !important; 
+    top: auto !important; 
+    width: 100% !important; 
+    max-width: 100% !important;
+    overflow: visible !important; 
+    page-break-inside: avoid;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: white !important;
+    background-color: white !important;
+    border: none !important;
+  }
+  
+  /* Eliminar todos los márgenes y paddings del body y html */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Eliminar padding del contenedor principal */
+  .marcaje-personal-container {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Eliminar padding del grupos-container */
+  .grupos-container {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Eliminar padding del grupo-header y mantener fondo */
+  .grupo-card.print-this .grupo-header {
+    margin: 0 !important;
+    padding: 15px 20px !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  }
+  
+  /* Eliminar padding del grupo-table-container */
+  .grupo-card.print-this .grupo-table-container {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Ocultar otros grupo-cards */
+  .grupo-card:not(.print-this) { 
+    display: none !important; 
+    visibility: hidden !important;
+  }
 
   /* Evitar estilos sticky en impresión: volver a flujo normal */
-  .printable .horario-table th,
-  .printable .horario-table td,
-  .printable .mes-header th,
-  .printable .dia-header th,
-  .printable .dia-semana-header th,
-  .printable .empleado-completo-cell,
-  .printable .horario-cell {
+  .grupo-card.print-this .horario-table th,
+  .grupo-card.print-this .horario-table td,
+  .grupo-card.print-this .mes-header th,
+  .grupo-card.print-this .dia-header th,
+  .grupo-card.print-this .dia-semana-header th,
+  .grupo-card.print-this .empleado-completo-cell,
+  .grupo-card.print-this .horario-cell {
     position: static !important;
     left: auto !important;
     top: auto !important;
   }
+  
+  /* Ancho dinámico y automático para las columnas de días en impresión */
+  .grupo-card.print-this .horario-table {
+    table-layout: auto !important;
+    width: auto !important;
+    max-width: 100% !important;
+  }
+  
+  .grupo-card.print-this .dia-col,
+  .grupo-card.print-this .dia-cell {
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+    padding: 4px 6px !important;
+  }
+  
+  /* Ancho automático para la columna de empleado */
+  .grupo-card.print-this .empleado-completo-col,
+  .grupo-card.print-this .empleado-completo-cell {
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Ancho automático para la columna de horario */
+  .grupo-card.print-this .horario-col,
+  .grupo-card.print-this .horario-cell {
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+  }
+  
+  /* Estilos específicos para la tabla de resumen en impresión */
+  .grupo-card.print-this .resumen-table {
+    table-layout: auto !important;
+    width: auto !important;
+    max-width: 100% !important;
+  }
+  
+  /* Reducir altura del header de la tabla de resumen */
+  .grupo-card.print-this .resumen-table thead th {
+    padding: 4px 6px !important;
+    line-height: 1.0 !important;
+    font-size: 10px !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+  
+  .grupo-card.print-this .resumen-metric-col {
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+    padding: 1px 3px !important;
+    white-space: normal !important;
+    line-height: 0.9 !important;
+    font-size: 10px !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+  
+  .grupo-card.print-this .resumen-table .empleado-completo-cell {
+    width: auto !important;
+    min-width: auto !important;
+    max-width: none !important;
+    white-space: nowrap !important;
+    padding: 1px 3px !important;
+    line-height: 1.0 !important;
+    font-size: 10px !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+  
+  .grupo-card.print-this .resumen-value-cell {
+    padding: 1px 3px !important;
+    white-space: nowrap !important;
+    line-height: 1.0 !important;
+    font-size: 10px !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+  
+  .grupo-card.print-this .resumen-table tbody tr {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+  }
+  
+  .grupo-card.print-this .resumen-table tbody td {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    vertical-align: middle !important;
+    padding: 1px 3px !important;
+  }
+  
+  /* Reducir altura de los separadores verdes */
+  .grupo-card.print-this .separador-verde {
+    height: 0.5px !important;
+    min-height: 0.5px !important;
+    max-height: 0.5px !important;
+    line-height: 0 !important;
+  }
+  
+  .grupo-card.print-this .separador-verde td {
+    height: 0.5px !important;
+    min-height: 0.5px !important;
+    max-height: 0.5px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 0 !important;
+    border: none !important;
+  }
 
   /* Reglas de salto de página para tablas largas */
-  .printable table { page-break-after: auto; }
-  .printable tr    { page-break-inside: avoid; page-break-after: auto; }
-  .printable td,
-  .printable th    { page-break-inside: avoid; }
+  .grupo-card.print-this table { 
+    page-break-after: auto; 
+  }
+  .grupo-card.print-this tr { 
+    page-break-inside: avoid; 
+    page-break-after: auto; 
+  }
+  .grupo-card.print-this td,
+  .grupo-card.print-this th { 
+    page-break-inside: avoid; 
+  }
 
-  /* No forzamos tamaño/orientación para que el navegador muestre todas las opciones */
+  /* No forzamos tamaño/orientación/márgenes para que el navegador muestre todas las opciones */
+  /* El usuario podrá elegir escala, ajustar al área imprimible, tamaño de papel, etc. */
 }

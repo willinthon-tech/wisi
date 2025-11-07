@@ -141,7 +141,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 [checked]="tipoReporte === 'global'"
                 (change)="onTipoReporteChange('global')"
                 class="radio-input">
-              <span class="radio-label">Global</span>
+              <span class="radio-label">Marcajes</span>
             </label>
             <label class="radio-option">
               <input 
@@ -151,7 +151,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 [checked]="tipoReporte === 'horario'"
                 (change)="onTipoReporteChange('horario')"
                 class="radio-input">
-              <span class="radio-label">Horario</span>
+              <span class="radio-label">Horarios</span>
             </label>
             <label class="radio-option">
               <input 
@@ -161,7 +161,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 [checked]="tipoReporte === 'resumen'"
                 (change)="onTipoReporteChange('resumen')"
                 class="radio-input">
-              <span class="radio-label">Resumen</span>
+              <span class="radio-label">Calculos</span>
             </label>
           </div>
         </div>
@@ -169,12 +169,35 @@ import { FeriadosService } from '../../../services/feriados.service';
 
 
       <div class="grupos-container printable" *ngIf="!loading && hasSearched && grupos.length > 0 && !todosLosGruposEstanVacios()">
-        <div class="grupo-card" *ngFor="let grupo of grupos">
+        <div class="grupo-card" *ngFor="let grupo of grupos; let i = index" [attr.data-grupo-index]="i">
           <div class="grupo-header">
-            <h3>{{ grupo.nombre }}</h3>
+            <div class="grupo-header-content">
+              <h3>{{ getNombreTipoReporte() }}</h3>
+              <div class="filtros-activos" *ngIf="getFiltrosActivosTexto()">
+                {{ getFiltrosActivosTexto() }}
+              </div>
+            </div>
             <div class="grupo-actions">
               <span class="empleados-count">{{ grupo.empleados.length }} empleado(s)</span>
-              <button class="btn-print-group no-print" (click)="printGrupo(grupo)">Imprimir</button>
+              <!-- Botón de Descargar para Marcajes -->
+              <button 
+                *ngIf="tipoReporte === 'global'"
+                class="btn-print-group no-print" 
+                (click)="descargarImagenGrupo(grupo)"
+                [disabled]="descargandoImagen"
+                [class.loading]="descargandoImagen && grupoDescargando === grupo.nombre">
+                <span *ngIf="!descargandoImagen || grupoDescargando !== grupo.nombre">Descargar</span>
+                <span *ngIf="descargandoImagen && grupoDescargando === grupo.nombre">
+                  <span class="spinner-small"></span> Generando...
+                </span>
+              </button>
+              <!-- Botón de Imprimir para Horarios y Calculos -->
+              <button 
+                *ngIf="tipoReporte === 'horario' || tipoReporte === 'resumen'"
+                class="btn-print-group no-print" 
+                (click)="printGrupo(grupo)">
+                Imprimir
+              </button>
             </div>
           </div>
           
@@ -187,8 +210,8 @@ import { FeriadosService } from '../../../services/feriados.service';
                     <th class="empleado-completo-col-empty" rowspan="2">Empleado</th>
                     <th class="resumen-metric-col">Diurnos</th>
                     <th class="resumen-metric-col">Nocturnos</th>
-                    <th class="resumen-metric-col">Horas Diurnos</th>
-                    <th class="resumen-metric-col">Horas Nocturnos</th>
+                    <th class="resumen-metric-col">Horas<br />Diurnos</th>
+                    <th class="resumen-metric-col">Horas<br />Nocturnos</th>
                     <th class="resumen-metric-col">Domingos</th>
                     <th class="resumen-metric-col">Feriados</th>
                     <th class="resumen-metric-col" *ngFor="let plantilla of plantillasLibres">
@@ -1406,10 +1429,24 @@ import { FeriadosService } from '../../../services/feriados.service';
       align-items: center;
     }
 
+    .grupo-header-content {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
     .grupo-header h3 {
       margin: 0;
       font-size: 18px;
       font-weight: 600;
+    }
+
+    .filtros-activos {
+      font-size: 12px;
+      font-weight: 400;
+      opacity: 0.9;
+      line-height: 1.4;
     }
 
     .empleados-count {
@@ -1430,10 +1467,36 @@ import { FeriadosService } from '../../../services/feriados.service';
       font-weight: 700;
       cursor: pointer;
       transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 100px;
+      justify-content: center;
     }
-    .btn-print-group:hover {
+    .btn-print-group:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.3);
       transform: translateY(-1px);
+    }
+    .btn-print-group:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-print-group.loading {
+      opacity: 0.8;
+    }
+    .spinner-small {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin-small 0.6s linear infinite;
+    }
+    @keyframes spin-small {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
     
 
@@ -2280,6 +2343,9 @@ export class MarcajePersonalComponent implements OnInit {
   feriados: any[] = [];
   // Plantillas libres (sin hora_entrada ni hora_salida) para el cálculo de resumen
   plantillasLibres: any[] = [];
+  // Estado de descarga de imagen
+  descargandoImagen: boolean = false;
+  grupoDescargando: string | null = null;
   
   // Propiedades para el modal
   mostrarModal = false;
@@ -2345,20 +2411,84 @@ export class MarcajePersonalComponent implements OnInit {
     // La vista actual corresponde a "Global". Las otras vistas se podrán implementar más adelante.
   }
 
-  async printGrupo(grupo: any): Promise<void> {
-    // Buscar el elemento grupo-card específico
-    const grupoCards = document.querySelectorAll('.grupo-card');
-    let targetElement: HTMLElement | null = null;
+  getNombreTipoReporte(): string {
+    switch (this.tipoReporte) {
+      case 'global':
+        return 'Marcajes';
+      case 'horario':
+        return 'Horarios';
+      case 'resumen':
+        return 'Calculos';
+      default:
+        return 'Marcajes';
+    }
+  }
+
+  getFiltrosActivosTexto(): string {
+    const filtros: string[] = [];
     
-    // Encontrar el grupo-card que corresponde al grupo pasado
-    for (let i = 0; i < grupoCards.length; i++) {
-      const cardElement = grupoCards[i] as HTMLElement;
-      const grupoNombre = cardElement.querySelector('.grupo-header h3')?.textContent?.trim();
-      if (grupoNombre === grupo.nombre) {
-        targetElement = cardElement;
-        break;
+    // Sala
+    if (this.selectedSalaForDataLoad) {
+      const sala = this.userSalas.find(s => s.id === this.selectedSalaForDataLoad);
+      if (sala) {
+        filtros.push(sala.nombre);
       }
     }
+    
+    // Departamento
+    if (this.selectedDepartamentoId) {
+      const depto = this.departamentosFiltrados.find(d => d.id === this.selectedDepartamentoId);
+      if (depto) {
+        filtros.push(depto.nombre);
+      }
+    }
+    
+    // Área
+    if (this.selectedAreaId) {
+      const area = this.areasFiltradas.find(a => a.id === this.selectedAreaId);
+      if (area) {
+        filtros.push(area.nombre);
+      }
+    }
+    
+    // Cargo
+    if (this.selectedCargoId) {
+      const cargo = this.cargosFiltrados.find(c => c.id === this.selectedCargoId);
+      if (cargo) {
+        filtros.push(cargo.nombre);
+      }
+    }
+    
+    // Sexo
+    if (this.selectedSexo) {
+      filtros.push(this.selectedSexo);
+    }
+    
+    // Búsqueda (nombre o cédula)
+    if (this.searchText && this.searchText.trim()) {
+      filtros.push(this.searchText.trim());
+    }
+    
+    // Fechas
+    if (this.fechaDesde) {
+      filtros.push(`Desde: ${this.fechaDesde}`);
+    }
+    if (this.fechaHasta) {
+      filtros.push(`Hasta: ${this.fechaHasta}`);
+    }
+    
+    return filtros.length > 0 ? filtros.join(' - ') : '';
+  }
+
+  printGrupo(grupo: any): void {
+    // Buscar el elemento grupo-card específico usando el índice del grupo
+    const grupoIndex = this.grupos.findIndex(g => g.nombre === grupo.nombre);
+    if (grupoIndex === -1) {
+      console.error('No se encontró el grupo en el array');
+      return;
+    }
+    
+    const targetElement = document.querySelector(`.grupo-card[data-grupo-index="${grupoIndex}"]`) as HTMLElement;
     
     if (!targetElement) {
       console.error('No se encontró el grupo-card para imprimir');
@@ -2368,84 +2498,166 @@ export class MarcajePersonalComponent implements OnInit {
     // Asegurar que TypeScript reconozca el tipo
     const elementToPrint: HTMLElement = targetElement;
     
+    // Obtener todos los grupo-cards
+    const grupoCards = document.querySelectorAll('.grupo-card');
+    
+    // Marcar el elemento para impresión
+    elementToPrint.classList.add('print-this');
+    
+    // Ocultar otros grupo-cards temporalmente
+    grupoCards.forEach((card: Element) => {
+      const cardEl = card as HTMLElement;
+      if (cardEl !== elementToPrint) {
+        cardEl.style.display = 'none';
+      }
+    });
+    
+    // Esperar un momento para que el DOM se actualice, luego abrir diálogo de impresión
+    setTimeout(() => {
+      window.print();
+      
+      // Limpiar después de la impresión (cuando se cierra el diálogo)
+      setTimeout(() => {
+        elementToPrint.classList.remove('print-this');
+        // Restaurar visibilidad de otros grupo-cards
+        grupoCards.forEach((card: Element) => {
+          const cardEl = card as HTMLElement;
+          cardEl.style.display = '';
+        });
+      }, 500);
+    }, 100);
+  }
+
+  async descargarImagenGrupo(grupo: any): Promise<void> {
+    // Prevenir múltiples descargas simultáneas
+    if (this.descargandoImagen) {
+      return;
+    }
+    
+    // Buscar el elemento grupo-card específico usando el índice del grupo
+    const grupoIndex = this.grupos.findIndex(g => g.nombre === grupo.nombre);
+    if (grupoIndex === -1) {
+      console.error('No se encontró el grupo en el array');
+      return;
+    }
+    
+    const targetElement = document.querySelector(`.grupo-card[data-grupo-index="${grupoIndex}"]`) as HTMLElement;
+    
+    if (!targetElement) {
+      console.error('No se encontró el grupo-card para generar imagen');
+      return;
+    }
+    
+    // Marcar como descargando
+    this.descargandoImagen = true;
+    this.grupoDescargando = grupo.nombre;
+    
     try {
-      // Importar html2pdf dinámicamente con timeout
-      const html2pdfPromise = import('html2pdf.js');
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout al cargar html2pdf')), 5000)
-      );
+      // Importar html2canvas dinámicamente en segundo plano
+      const html2canvasPromise = import('html2canvas');
       
-      const html2pdfModule = await Promise.race([html2pdfPromise, timeoutPromise]) as any;
-      const html2pdf = html2pdfModule.default || html2pdfModule;
-      
-      // Configuración optimizada para html2pdf
-      const opt: any = {
-        margin: [5, 5, 5, 5],
-        filename: `Reporte_${grupo.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { 
-          type: 'jpeg', 
-          quality: 0.95 
-        },
-        html2canvas: { 
-          scale: 1.5,
-          useCORS: true,
-          logging: false,
-          letterRendering: false,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          windowWidth: elementToPrint.scrollWidth,
-          windowHeight: elementToPrint.scrollHeight
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'landscape'
-        },
-        pagebreak: { 
-          mode: ['avoid-all', 'css', 'legacy'],
-          before: '.page-break-before',
-          after: '.page-break-after',
-          avoid: '.page-break-avoid'
-        }
-      };
-      
-      // Usar requestAnimationFrame para no bloquear la UI
-      await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
-      
-      // Generar PDF directamente desde el elemento (sin clonar para mejor rendimiento)
-      await html2pdf()
-        .set(opt)
-        .from(elementToPrint)
-        .save();
-        
-    } catch (error: any) {
-      console.warn('Error al generar PDF con html2pdf, usando impresión nativa:', error);
-      
-      // Fallback: usar window.print() nativo
-      elementToPrint.classList.add('print-this');
+      // Obtener todos los grupo-cards
+      const grupoCards = document.querySelectorAll('.grupo-card');
       
       // Ocultar otros grupo-cards temporalmente
       grupoCards.forEach((card: Element) => {
         const cardEl = card as HTMLElement;
-        if (cardEl !== elementToPrint) {
+        if (cardEl !== targetElement) {
           cardEl.style.display = 'none';
         }
       });
       
-      // Esperar un momento para que el DOM se actualice, luego imprimir
-      setTimeout(() => {
-        window.print();
-        
-        // Limpiar después de la impresión
-        setTimeout(() => {
-          elementToPrint.classList.remove('print-this');
-          // Restaurar visibilidad de otros grupo-cards
-          grupoCards.forEach((card: Element) => {
-            const cardEl = card as HTMLElement;
-            cardEl.style.display = '';
-          });
-        }, 500);
-      }, 100);
+      // Esperar un momento para que el DOM se actualice
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Guardar estilos originales de contenedores con scroll
+      const tableContainers = targetElement.querySelectorAll('.grupo-table-container, .table-wrapper');
+      const originalStyles: { element: HTMLElement, overflow: string, overflowX: string, overflowY: string }[] = [];
+      
+      tableContainers.forEach((container: Element) => {
+        const el = container as HTMLElement;
+        originalStyles.push({
+          element: el,
+          overflow: el.style.overflow || '',
+          overflowX: el.style.overflowX || '',
+          overflowY: el.style.overflowY || ''
+        });
+        // Temporalmente quitar overflow para que todo sea visible
+        el.style.overflow = 'visible';
+        el.style.overflowX = 'visible';
+        el.style.overflowY = 'visible';
+      });
+      
+      // Esperar un momento para que los cambios de estilo se apliquen
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Generar canvas con html2canvas (esto se ejecuta en segundo plano)
+      const html2canvas = (await html2canvasPromise).default;
+      
+      // Obtener el ancho y alto completo del contenido (incluyendo scroll)
+      // Buscar la tabla dentro del grupo-card para obtener su ancho real
+      const table = targetElement.querySelector('.horario-table') as HTMLElement;
+      const fullWidth = table ? Math.max(
+        table.scrollWidth,
+        table.offsetWidth,
+        targetElement.scrollWidth,
+        targetElement.offsetWidth
+      ) : targetElement.scrollWidth;
+      
+      const fullHeight = Math.max(
+        targetElement.scrollHeight,
+        targetElement.offsetHeight,
+        targetElement.clientHeight
+      );
+      
+      const canvas = await html2canvas(targetElement, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: fullWidth,
+        height: fullHeight,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: fullWidth,
+        windowHeight: fullHeight,
+        allowTaint: false
+      });
+      
+      // Restaurar estilos originales
+      originalStyles.forEach(({ element, overflow, overflowX, overflowY }) => {
+        element.style.overflow = overflow;
+        element.style.overflowX = overflowX;
+        element.style.overflowY = overflowY;
+      });
+      
+      // Convertir canvas a imagen y descargar
+      const imageUrl = canvas.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `Reporte_${this.getNombreTipoReporte()}_${grupo.nombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Restaurar visibilidad de otros grupo-cards
+      grupoCards.forEach((card: Element) => {
+        const cardEl = card as HTMLElement;
+        cardEl.style.display = '';
+      });
+      
+    } catch (error) {
+      console.error('Error al generar imagen:', error);
+      // Restaurar visibilidad en caso de error
+      const grupoCards = document.querySelectorAll('.grupo-card');
+      grupoCards.forEach((card: Element) => {
+        const cardEl = card as HTMLElement;
+        cardEl.style.display = '';
+      });
+    } finally {
+      // Restaurar estado
+      this.descargandoImagen = false;
+      this.grupoDescargando = null;
     }
   }
 
@@ -6225,3 +6437,4 @@ export class MarcajePersonalComponent implements OnInit {
     return this.formatearMinutosAHora(totalMinutos);
   }
 }
+
