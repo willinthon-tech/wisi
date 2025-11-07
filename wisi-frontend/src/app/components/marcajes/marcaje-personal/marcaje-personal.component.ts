@@ -4751,7 +4751,8 @@ export class MarcajePersonalComponent implements OnInit {
           horasTrabajadas = horasTotales;
           horasDescansadas = 0; // No se muestra descanso descontado en este caso
         }
-      } else if (tieneDescansoManual && marcajes.entradaDescanso !== 'Sin marcaje' && marcajes.salidaDescanso !== 'Sin marcaje') {
+      } else if (tieneDescansoManual && !tieneDescansoAutomatico && marcajes.entradaDescanso !== 'Sin marcaje' && marcajes.salidaDescanso !== 'Sin marcaje') {
+        // Solo procesar descanso manual si NO hay descanso automático
         // Con descanso manual real: horas trabajadas = totalidad - horas descansadas
         const entradaDescansoReal = this.convertirHoraAMinutos(marcajes.entradaDescanso);
         const salidaDescansoReal = this.convertirHoraAMinutos(marcajes.salidaDescanso);
@@ -4768,7 +4769,8 @@ export class MarcajePersonalComponent implements OnInit {
         
         horasTrabajadas = horasTotales - horasDescansadas;
         
-      } else if (tieneDescansoManual) {
+      } else if (tieneDescansoManual && !tieneDescansoAutomatico) {
+        // Solo procesar descanso manual si NO hay descanso automático
         // Sin descanso real pero con descanso manual programado: asumir que tomó el descanso programado
         horasDescansadas = horasDeDescanso; // Asumir que tomó el descanso programado
         horasTrabajadas = horasTotales - horasDescansadas;
@@ -4830,17 +4832,15 @@ export class MarcajePersonalComponent implements OnInit {
       
       // Color de fondo para horas descansadas (segundo valor) - solo si hay descanso programado
       if (horasDeDescanso > 0) {
-        // Si hay descanso automático Y hay marcajes de descanso válidos, comparar balance de descanso
+        // Si hay descanso automático Y hay marcajes de descanso válidos, comparar descanso real vs estipulado
         if (tieneDescansoAutomatico && tieneMarcajesDescanso) {
-          // Calcular balance para determinar el color (horasDescansadas contiene el tiempo real)
-          const balanceDescanso = horasDescansadas - horasDeDescanso;
-          // Si balance > 0: descansó más de lo debido → rojo (malo)
-          // Si balance < 0: descansó menos de lo debido → rojo (malo, no cumplió con el descanso mínimo)
-          // Si balance = 0: descansó exactamente lo esperado → sin color (perfecto)
-          if (balanceDescanso > 0) {
-            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó más de lo debido
-          } else if (balanceDescanso < 0) {
-            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó menos de lo debido (no cumplió)
+          // horasDescansadas contiene el tiempo real descansado
+          // Si descansó MENOR a lo estipulado → verde (bien, descansó menos)
+          // Si descansó MAYOR o IGUAL a lo estipulado → rojo (malo, descansó más o igual)
+          if (horasDescansadas < horasDeDescanso) {
+            claseFondoDescansadas = 'bg-calculo-success'; // Fondo verde: descansó menos de lo estipulado
+          } else {
+            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó más o igual a lo estipulado
           }
         } else if (!tieneDescansoAutomatico) {
           // Para descanso manual, comparar como antes
@@ -5364,7 +5364,8 @@ export class MarcajePersonalComponent implements OnInit {
           horasTrabajadas = horasTotales;
           horasDescansadas = 0; // No se muestra descanso descontado en este caso
         }
-      } else if (tieneDescansoManual && marcajesCalculo.entradaDescanso !== 'Sin marcaje' && marcajesCalculo.salidaDescanso !== 'Sin marcaje') {
+      } else if (tieneDescansoManual && !tieneDescansoAutomatico && marcajesCalculo.entradaDescanso !== 'Sin marcaje' && marcajesCalculo.salidaDescanso !== 'Sin marcaje') {
+        // Solo procesar descanso manual si NO hay descanso automático
         const entradaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.entradaDescanso);
         const salidaDescansoReal = this.convertirHoraAMinutos(marcajesCalculo.salidaDescanso);
         
@@ -5374,7 +5375,8 @@ export class MarcajePersonalComponent implements OnInit {
           horasDescansadas = salidaDescansoReal - entradaDescansoReal;
         }
         horasTrabajadas = horasTotales - horasDescansadas;
-      } else if (tieneDescansoManual) {
+      } else if (tieneDescansoManual && !tieneDescansoAutomatico) {
+        // Solo procesar descanso manual si NO hay descanso automático
         horasDescansadas = horasDeDescanso;
         horasTrabajadas = horasTotales - horasDescansadas;
       } else {
@@ -5537,17 +5539,15 @@ export class MarcajePersonalComponent implements OnInit {
       
       // Color de fondo para horas descansadas - solo si hay descanso programado
       if (horasDeDescanso > 0) {
-        // Si hay descanso automático Y hay marcajes de descanso válidos, comparar balance de descanso
+        // Si hay descanso automático Y hay marcajes de descanso válidos, comparar descanso real vs estipulado
         if (tieneDescansoAutomatico && tieneMarcajesDescanso) {
-          // Calcular balance para determinar el color (horasDescansadas contiene el tiempo real)
-          const balanceDescanso = horasDescansadas - horasDeDescanso;
-          // Si balance > 0: descansó más de lo debido → rojo (malo)
-          // Si balance < 0: descansó menos de lo debido → rojo (malo, no cumplió con el descanso mínimo)
-          // Si balance = 0: descansó exactamente lo esperado → sin color (perfecto)
-          if (balanceDescanso > 0) {
-            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó más de lo debido
-          } else if (balanceDescanso < 0) {
-            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó menos de lo debido (no cumplió)
+          // horasDescansadas contiene el tiempo real descansado
+          // Si descansó MENOR a lo estipulado → verde (bien, descansó menos)
+          // Si descansó MAYOR o IGUAL a lo estipulado → rojo (malo, descansó más o igual)
+          if (horasDescansadas < horasDeDescanso) {
+            claseFondoDescansadas = 'bg-calculo-success'; // Fondo verde: descansó menos de lo estipulado
+          } else {
+            claseFondoDescansadas = 'bg-calculo-danger'; // Fondo rojo: descansó más o igual a lo estipulado
           }
         } else if (!tieneDescansoAutomatico) {
           // Para descanso manual, comparar como antes
