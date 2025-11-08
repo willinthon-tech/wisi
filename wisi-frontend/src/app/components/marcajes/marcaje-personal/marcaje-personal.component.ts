@@ -2690,55 +2690,68 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   abrirModalExcepcion(empleado: any, dia: Date) {
+    // Optimización: Calcular fecha una sola vez
+    const fechaStr = dia instanceof Date ? dia.toISOString().split('T')[0] : dia;
+    
+    // Optimización: Preparar datos antes de cambiar estado
+    const key = `${empleado?.id}|${fechaStr}`;
+    const ex = this.excepcionesMap.get(key);
+    
+    // Configurar estado de una vez
     this.suppressPlantillaChange = true;
     this.modalEmpleado = empleado;
-    this.modalFecha = new Date(dia).toISOString().split('T')[0];
-    this.selectedPlantillaId = null;
-    this.plantillaExcepcionActualId = null;
-    this.isEditExcepcion = false;
-    this.excepcionId = null;
+    this.modalFecha = fechaStr;
+    this.modalPlantillas = []; // Inicializar vacío, se llenará después
     
-    // Prefill si ya existe una excepción para esa fecha (antes de mostrar el modal)
-    const key = `${empleado?.id}|${this.modalFecha}`;
-    const ex = this.excepcionesMap.get(key);
+    // Prefill si ya existe una excepción
     if (ex) {
       this.isEditExcepcion = true;
       this.excepcionId = ex.id;
       this.selectedPlantillaId = ex.plantilla_horario_id || ex.PlantillaHorario?.id || null;
       this.plantillaExcepcionActualId = this.selectedPlantillaId;
+    } else {
+      this.selectedPlantillaId = null;
+      this.plantillaExcepcionActualId = null;
+      this.isEditExcepcion = false;
+      this.excepcionId = null;
     }
     
     // Mostrar el modal INMEDIATAMENTE (no esperar a cargar plantillas)
     this.showExcepcionModal = true;
-    this.modalPlantillas = []; // Inicializar vacío, se llenará después
     
-    // Liberar supresión luego de pintar el modal
-    setTimeout(() => { this.suppressPlantillaChange = false; }, 0);
+    // Usar requestAnimationFrame para liberar supresión después del render
+    requestAnimationFrame(() => {
+      this.suppressPlantillaChange = false;
+    });
     
     // Cargar plantillas en segundo plano (usando caché si está disponible)
-    this.cargarPlantillasParaModal(empleado);
+    // Usar setTimeout con delay 0 para no bloquear el render
+    setTimeout(() => {
+      this.cargarPlantillasParaModal(empleado);
+    }, 0);
   }
 
   // Función optimizada para cargar plantillas usando caché
   cargarPlantillasParaModal(empleado: any) {
-    // Intentar obtener sala_id de diferentes formas
-    let salaId = empleado?.Cargo?.Area?.Departamento?.Sala?.id;
-    if (!salaId && empleado?.Cargo?.Area?.Departamento) {
-      salaId = empleado.Cargo.Area.Departamento.sala_id || empleado?.Cargo?.Area?.Departamento?.sala_id;
-    }
+    // Optimización: Obtener sala_id de forma más eficiente
+    const cargo = empleado?.Cargo;
+    const area = cargo?.Area;
+    const departamento = area?.Departamento;
+    const salaId = departamento?.Sala?.id || departamento?.sala_id;
     
     // Si tenemos plantillas en caché para esta sala, usarlas inmediatamente
     if (salaId && this.plantillasPorSalaCache.has(salaId)) {
-      const plantillasCache = this.plantillasPorSalaCache.get(salaId);
-      if (plantillasCache && plantillasCache.length > 0) {
-        this.modalPlantillas = [...plantillasCache];
+      const plantillasCache = this.plantillasPorSalaCache.get(salaId)!;
+      if (plantillasCache.length > 0) {
+        // Usar asignación directa en lugar de spread para mejor rendimiento
+        this.modalPlantillas = plantillasCache;
         return;
       }
     }
     
     // Si tenemos todas las plantillas en caché y no hay sala específica, usarlas
     if (!salaId && this.todasLasPlantillasCache) {
-      this.modalPlantillas = [...this.todasLasPlantillasCache];
+      this.modalPlantillas = this.todasLasPlantillasCache;
       return;
     }
     
@@ -2751,7 +2764,7 @@ export class MarcajePersonalComponent implements OnInit {
           this.plantillasPorSalaCache.set(salaId, plantillas);
           
           if (plantillas.length > 0) {
-            this.modalPlantillas = [...plantillas];
+            this.modalPlantillas = plantillas;
           } else {
             // Si no hay plantillas por sala, usar todas las plantillas (con caché)
             this.cargarTodasLasPlantillasParaModal();
@@ -2771,7 +2784,7 @@ export class MarcajePersonalComponent implements OnInit {
   cargarTodasLasPlantillasParaModal() {
     // Si ya están en caché, usarlas
     if (this.todasLasPlantillasCache) {
-      this.modalPlantillas = [...this.todasLasPlantillasCache];
+      this.modalPlantillas = this.todasLasPlantillasCache;
       return;
     }
     
@@ -2781,7 +2794,7 @@ export class MarcajePersonalComponent implements OnInit {
         const plantillas = Array.isArray(todas) ? todas : [];
         // Guardar en caché
         this.todasLasPlantillasCache = plantillas;
-        this.modalPlantillas = [...plantillas];
+        this.modalPlantillas = plantillas;
       },
       error: () => {
         this.modalPlantillas = [];
