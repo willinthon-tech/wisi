@@ -3155,6 +3155,11 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Cargar todos los datos (horarios y excepciones) sin filtros de fecha
   cargarDatosCompletosPorSala(salaId: number) {
+    if (!salaId) {
+      this.loading = false;
+      return;
+    }
+    
     // Optimización: Obtener SOLO los empleados de esa sala (no todos)
     this.empleadosService.getEmpleadosBySala(salaId).subscribe({
       next: (response) => {
@@ -3191,8 +3196,58 @@ export class MarcajePersonalComponent implements OnInit {
         });
       },
       error: (error) => {
-        
+        console.error('Error al cargar empleados por sala:', error);
         this.loading = false;
+        this.hasSearched = true;
+        this.empleadosCompletos = [];
+        this.grupos = [];
+        // Si falla getEmpleadosBySala, intentar con getEmpleados como fallback
+        this.empleadosService.getEmpleados().subscribe({
+          next: (response) => {
+            const todosEmpleados = response || [];
+            // Filtrar empleados por sala en el cliente como fallback
+            this.empleadosCompletos = todosEmpleados.filter((emp: any) => {
+              const cargo = emp?.Cargo;
+              if (!cargo) return false;
+              const area = cargo.Area;
+              if (!area) return false;
+              const departamento = area.Departamento;
+              if (!departamento) return false;
+              const sala = departamento.Sala;
+              const salaIdEmp = sala?.id || departamento.sala_id;
+              return salaIdEmp === salaId;
+            });
+            
+            if (this.empleadosCompletos.length > 0) {
+              // Continuar con la carga normal
+              this.cargarHorariosCompletos().then(() => {
+                this.cargarExcepcionesCompletas().then(() => {
+                  Promise.all([
+                    this.cargarFeriados(),
+                    this.cargarPlantillasLibres(salaId)
+                  ]).then(() => {
+                    this.calcularFechasLimiteCompletas().then(() => {
+                      this.cargarMarcajesCompletos().then(() => {
+                        this.aplicarFiltrosLocales();
+                      });
+                    });
+                  });
+                });
+              });
+            } else {
+              this.loading = false;
+              this.hasSearched = true;
+              this.grupos = [];
+            }
+          },
+          error: (err) => {
+            console.error('Error al cargar empleados (fallback):', err);
+            this.loading = false;
+            this.hasSearched = true;
+            this.empleadosCompletos = [];
+            this.grupos = [];
+          }
+        });
       }
     });
   }

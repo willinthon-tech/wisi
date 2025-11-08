@@ -6772,18 +6772,22 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         where: { activo: 1 },
         include: [{
           model: Cargo,
+          as: 'Cargo',
           attributes: ['id', 'nombre'],
           required: false,
           include: [{
-            model: Departamento,
+            model: Area,
+            as: 'Area',
             attributes: ['id', 'nombre'],
             required: false,
             include: [{
-              model: Area,
+              model: Departamento,
+              as: 'Departamento',
               attributes: ['id', 'nombre'],
               required: false,
               include: [{
                 model: Sala,
+                as: 'Sala',
                 attributes: ['id', 'nombre'],
                 required: false,
                 where: { id: salaId }
@@ -6794,23 +6798,37 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         order: [['nombre', 'ASC']]
       });
       
-      return res.json(empleados);
+      // Filtrar solo los empleados que tienen la sala especificada
+      const empleadosFiltrados = empleados.filter(emp => {
+        const sala = emp?.Cargo?.Area?.Departamento?.Sala;
+        return sala && sala.id === parseInt(salaId);
+      });
+      
+      return res.json(empleadosFiltrados);
     }
     
     const empleados = await Empleado.findAll({
       where: { activo: 1 },
       include: [{
         model: Cargo,
+        as: 'Cargo',
         attributes: ['id', 'nombre'],
+        required: true,
         include: [{
-          model: Departamento,
+          model: Area,
+          as: 'Area',
           attributes: ['id', 'nombre'],
+          required: true,
           include: [{
-            model: Area,
+            model: Departamento,
+            as: 'Departamento',
             attributes: ['id', 'nombre'],
+            required: true,
             include: [{
               model: Sala,
+              as: 'Sala',
               attributes: ['id', 'nombre'],
+              required: true,
               where: { id: salaId }
             }]
           }]
@@ -6821,8 +6839,8 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     
     res.json(empleados);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('Error al obtener empleados por sala:', error);
+    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
 
