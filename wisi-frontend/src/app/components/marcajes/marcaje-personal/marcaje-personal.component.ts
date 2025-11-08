@@ -2369,6 +2369,11 @@ export class MarcajePersonalComponent implements OnInit {
   isEditExcepcion = false;
   excepcionId: number | null = null;
   
+  // Caché de plantillas por sala para optimizar el modal de excepciones
+  plantillasPorSalaCache: Map<number, any[]> = new Map();
+  todasLasPlantillasCache: any[] | null = null;
+  cargandoPlantillas: boolean = false;
+  
   // Propiedades para horarios
   horariosDisponibles: any[] = [];
   horariosEmpleado: any[] = [];
@@ -2692,92 +2697,96 @@ export class MarcajePersonalComponent implements OnInit {
     this.plantillaExcepcionActualId = null;
     this.isEditExcepcion = false;
     this.excepcionId = null;
-    this.modalPlantillas = [];
     
+    // Prefill si ya existe una excepción para esa fecha (antes de mostrar el modal)
+    const key = `${empleado?.id}|${this.modalFecha}`;
+    const ex = this.excepcionesMap.get(key);
+    if (ex) {
+      this.isEditExcepcion = true;
+      this.excepcionId = ex.id;
+      this.selectedPlantillaId = ex.plantilla_horario_id || ex.PlantillaHorario?.id || null;
+      this.plantillaExcepcionActualId = this.selectedPlantillaId;
+    }
+    
+    // Mostrar el modal INMEDIATAMENTE (no esperar a cargar plantillas)
+    this.showExcepcionModal = true;
+    this.modalPlantillas = []; // Inicializar vacío, se llenará después
+    
+    // Liberar supresión luego de pintar el modal
+    setTimeout(() => { this.suppressPlantillaChange = false; }, 0);
+    
+    // Cargar plantillas en segundo plano (usando caché si está disponible)
+    this.cargarPlantillasParaModal(empleado);
+  }
+
+  // Función optimizada para cargar plantillas usando caché
+  cargarPlantillasParaModal(empleado: any) {
     // Intentar obtener sala_id de diferentes formas
     let salaId = empleado?.Cargo?.Area?.Departamento?.Sala?.id;
     if (!salaId && empleado?.Cargo?.Area?.Departamento) {
       salaId = empleado.Cargo.Area.Departamento.sala_id || empleado?.Cargo?.Area?.Departamento?.sala_id;
     }
     
-    
-    
-    
-    
-    
-    
-    // Función auxiliar para cargar plantillas y mostrar modal
-    const cargarYMostrar = (plantillas: any[]) => {
-      
-      this.modalPlantillas = Array.isArray(plantillas) ? plantillas : [];
-      
-      
-      // Prefill si ya existe una excepción para esa fecha
-      const key = `${empleado?.id}|${this.modalFecha}`;
-      const ex = this.excepcionesMap.get(key);
-      if (ex) {
-        this.isEditExcepcion = true;
-        this.excepcionId = ex.id;
-        this.selectedPlantillaId = ex.plantilla_horario_id || ex.PlantillaHorario?.id || null;
-        this.plantillaExcepcionActualId = this.selectedPlantillaId;
-        
+    // Si tenemos plantillas en caché para esta sala, usarlas inmediatamente
+    if (salaId && this.plantillasPorSalaCache.has(salaId)) {
+      const plantillasCache = this.plantillasPorSalaCache.get(salaId);
+      if (plantillasCache && plantillasCache.length > 0) {
+        this.modalPlantillas = [...plantillasCache];
+        return;
       }
-      this.showExcepcionModal = true;
-      // Liberar supresión luego de pintar el modal
-      setTimeout(() => { this.suppressPlantillaChange = false; }, 0);
-    };
+    }
     
-    // Intentar cargar por sala primero, luego todas como fallback
+    // Si tenemos todas las plantillas en caché y no hay sala específica, usarlas
+    if (!salaId && this.todasLasPlantillasCache) {
+      this.modalPlantillas = [...this.todasLasPlantillasCache];
+      return;
+    }
+    
+    // Si no hay caché, cargar desde el servidor
     if (salaId) {
-      
       this.plantillasService.getBySala(salaId).subscribe({
         next: (list: any[]) => {
-          
           const plantillas = Array.isArray(list) ? list : [];
+          // Guardar en caché
+          this.plantillasPorSalaCache.set(salaId, plantillas);
+          
           if (plantillas.length > 0) {
-            cargarYMostrar(plantillas);
+            this.modalPlantillas = [...plantillas];
           } else {
-            
-            this.plantillasService.getPlantillasHorarios().subscribe({
-              next: (todas: any[]) => {
-                
-                cargarYMostrar(Array.isArray(todas) ? todas : []);
-              },
-              error: (err) => {
-                
-                cargarYMostrar([]);
-              }
-            });
+            // Si no hay plantillas por sala, usar todas las plantillas (con caché)
+            this.cargarTodasLasPlantillasParaModal();
           }
         },
-        error: (err) => {
-          
-          
-          this.plantillasService.getPlantillasHorarios().subscribe({
-            next: (todas: any[]) => {
-              
-              cargarYMostrar(Array.isArray(todas) ? todas : []);
-            },
-            error: (err2) => {
-              
-              cargarYMostrar([]);
-            }
-          });
+        error: () => {
+          // En caso de error, intentar cargar todas las plantillas
+          this.cargarTodasLasPlantillasParaModal();
         }
       });
     } else {
-      
-      this.plantillasService.getPlantillasHorarios().subscribe({
-        next: (todas: any[]) => {
-          
-          cargarYMostrar(Array.isArray(todas) ? todas : []);
-        },
-        error: (err) => {
-          
-          cargarYMostrar([]);
-        }
-      });
+      this.cargarTodasLasPlantillasParaModal();
     }
+  }
+
+  // Función auxiliar para cargar todas las plantillas (con caché)
+  cargarTodasLasPlantillasParaModal() {
+    // Si ya están en caché, usarlas
+    if (this.todasLasPlantillasCache) {
+      this.modalPlantillas = [...this.todasLasPlantillasCache];
+      return;
+    }
+    
+    // Si no, cargar desde el servidor
+    this.plantillasService.getPlantillasHorarios().subscribe({
+      next: (todas: any[]) => {
+        const plantillas = Array.isArray(todas) ? todas : [];
+        // Guardar en caché
+        this.todasLasPlantillasCache = plantillas;
+        this.modalPlantillas = [...plantillas];
+      },
+      error: () => {
+        this.modalPlantillas = [];
+      }
+    });
   }
 
   cerrarModalExcepcion() {
@@ -3079,6 +3088,9 @@ export class MarcajePersonalComponent implements OnInit {
       this.grupos = [];
       this.hasSearched = false;
       this.selectedSalaId = null;
+      // Limpiar caché de plantillas
+      this.plantillasPorSalaCache.clear();
+      this.todasLasPlantillasCache = null;
       this.selectedDepartamentoId = null;
       this.selectedAreaId = null;
       this.selectedCargoId = null;
@@ -3105,8 +3117,27 @@ export class MarcajePersonalComponent implements OnInit {
     this.fechaMinimaFiltro = '';
     this.fechaMaximaFiltro = '';
     
+    // Precargar plantillas para esta sala en segundo plano (para optimizar el modal)
+    this.precargarPlantillasPorSala(salaId);
+    
     // Cargar todos los datos de la sala
     this.cargarDatosCompletosPorSala(salaId);
+  }
+
+  // Precargar plantillas por sala en segundo plano para optimizar el modal
+  precargarPlantillasPorSala(salaId: number) {
+    // Solo precargar si no están en caché
+    if (!this.plantillasPorSalaCache.has(salaId)) {
+      this.plantillasService.getBySala(salaId).subscribe({
+        next: (list: any[]) => {
+          const plantillas = Array.isArray(list) ? list : [];
+          this.plantillasPorSalaCache.set(salaId, plantillas);
+        },
+        error: () => {
+          // En caso de error, no hacer nada (se cargará cuando se necesite)
+        }
+      });
+    }
   }
 
   // Cargar todos los datos (horarios y excepciones) sin filtros de fecha
