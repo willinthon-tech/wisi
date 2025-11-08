@@ -2411,7 +2411,27 @@ export class MarcajePersonalComponent implements OnInit {
 
   onTipoReporteChange(tipo: 'global' | 'horario' | 'resumen') {
     this.tipoReporte = tipo;
-    // La vista actual corresponde a "Global". Las otras vistas se podrán implementar más adelante.
+    
+    // Asegurar que los datos estén actualizados y consistentes al cambiar de vista
+    if (this.hasSearched) {
+      // Si tenemos datos completos cargados, aplicar filtros locales para refrescar la vista
+      if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+        // Regenerar días del mes y meses agrupados para asegurar que estén actualizados
+        if (this.fechaDesde && this.fechaHasta) {
+          this.generarDiasDelMes();
+          this.generarMesesAgrupados();
+        }
+        // Aplicar filtros locales para refrescar la vista con los datos actuales
+        this.aplicarFiltrosLocales();
+      } else if (this.empleados.length > 0) {
+        // Si no hay datos completos pero hay empleados cargados, regenerar días y reagrupar
+        if (this.fechaDesde && this.fechaHasta) {
+          this.generarDiasDelMes();
+          this.generarMesesAgrupados();
+        }
+        this.agruparEmpleados();
+      }
+    }
   }
 
   getNombreTipoReporte(): string {
@@ -2762,7 +2782,32 @@ export class MarcajePersonalComponent implements OnInit {
 
   cerrarModalExcepcion() {
     if (this.savingExcepcion) return;
+    
+    const empleadoIdAnterior = this.modalEmpleado?.id;
     this.showExcepcionModal = false;
+    this.modalEmpleado = null;
+    this.modalFecha = '';
+    this.modalPlantillas = [];
+    this.selectedPlantillaId = null;
+    this.plantillaExcepcionActualId = null;
+    this.isEditExcepcion = false;
+    this.excepcionId = null;
+    
+    // Si se cerró el modal después de hacer cambios, refrescar los datos del empleado afectado
+    // para asegurar que la vista principal muestre los datos actualizados
+    if (empleadoIdAnterior && this.hasSearched) {
+      if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+        // Recargar datos del empleado para asegurar consistencia
+        this.recargarDatosEmpleado(empleadoIdAnterior);
+      } else if (this.empleados.length > 0) {
+        // Si no hay datos completos, al menos regenerar días y reagrupar
+        if (this.fechaDesde && this.fechaHasta) {
+          this.generarDiasDelMes();
+          this.generarMesesAgrupados();
+        }
+        this.agruparEmpleados();
+      }
+    }
   }
 
   trackByPlantillaId(index: number, item: any): any {
@@ -2793,7 +2838,14 @@ export class MarcajePersonalComponent implements OnInit {
           // También actualizar el mapa de excepciones completas
           this.excepcionesCompletas.set(key, excepcionActualizada);
           this.plantillaExcepcionActualId = this.selectedPlantillaId as number;
-          // no recarga completa
+          
+          // Si tenemos datos completos cargados, recargar los datos del empleado afectado
+          if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0 && this.modalEmpleado?.id) {
+            this.recargarDatosEmpleado(this.modalEmpleado.id);
+          } else {
+            // Si no, solo refrescar agrupación
+            this.agruparEmpleados();
+          }
         },
         error: () => { this.savingExcepcion = false; }
       });
@@ -2822,7 +2874,14 @@ export class MarcajePersonalComponent implements OnInit {
           this.isEditExcepcion = true;
           this.excepcionId = res?.id || this.excepcionId;
           this.plantillaExcepcionActualId = this.selectedPlantillaId as number;
-          // no recarga completa
+          
+          // Si tenemos datos completos cargados, recargar los datos del empleado afectado
+          if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0 && this.modalEmpleado?.id) {
+            this.recargarDatosEmpleado(this.modalEmpleado.id);
+          } else {
+            // Si no, solo refrescar agrupación
+            this.agruparEmpleados();
+          }
         },
         error: (err) => {
           if (err && err.status === 409) {
@@ -2844,6 +2903,14 @@ export class MarcajePersonalComponent implements OnInit {
                   this.excepcionesMap.set(key, excepcionActualizada);
                   // También actualizar el mapa de excepciones completas
                   this.excepcionesCompletas.set(key, excepcionActualizada);
+                  
+                  // Si tenemos datos completos cargados, recargar los datos del empleado afectado
+                  if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0 && this.modalEmpleado?.id) {
+                    this.recargarDatosEmpleado(this.modalEmpleado.id);
+                  } else {
+                    // Si no, solo refrescar agrupación
+                    this.agruparEmpleados();
+                  }
                 },
                 error: () => { this.savingExcepcion = false; }
               });
@@ -2887,22 +2954,13 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   canEliminarExcepcion(): boolean {
+    // Permitir eliminar si hay una excepción existente, sin importar si hay horario repetitivo
+    // Solo verificar que estemos en modo edición y tengamos los datos necesarios
     if (!this.isEditExcepcion || !this.modalEmpleado || !this.modalFecha) {
       return false;
     }
-    const dia = new Date(this.modalFecha);
-    const horarioActivo = this.getHorarioActivoParaFecha(this.modalEmpleado, dia);
-    if (!horarioActivo || !horarioActivo.bloques || horarioActivo.bloques.length === 0) {
-      // No existe horario base para ese día
-      return false;
-    }
-    const diasDesdeInicio = this.calcularDiasDesdeInicio(dia, this.modalEmpleado, horarioActivo);
-    if (diasDesdeInicio < 0) {
-      // Día anterior al inicio del horario
-      return false;
-    }
-    const indiceBloque = diasDesdeInicio % horarioActivo.bloques.length;
-    return indiceBloque >= 0 && indiceBloque < horarioActivo.bloques.length;
+    // Si hay una excepción (isEditExcepcion es true), permitir eliminarla
+    return true;
   }
 
   eliminarExcepcion() {
@@ -2930,7 +2988,19 @@ export class MarcajePersonalComponent implements OnInit {
         // Reset selección del select por si quedó en "Eliminar Registro"
         this.selectedPlantillaId = null;
         this.plantillaExcepcionActualId = null;
-        // no recarga completa
+        
+        // Si el modal del empleado está abierto para el mismo empleado, actualizar la lista de excepciones
+        if (this.mostrarModal && this.empleadoSeleccionado?.id === this.modalEmpleado?.id) {
+          this.cargarExcepcionesEmpleado();
+        }
+        
+        // Si tenemos datos completos cargados, recargar los datos del empleado afectado
+        if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0 && this.modalEmpleado?.id) {
+          this.recargarDatosEmpleado(this.modalEmpleado.id);
+        } else {
+          // Si no, solo refrescar agrupación
+          this.agruparEmpleados();
+        }
       },
       error: () => { this.savingExcepcion = false; }
     });
@@ -5872,11 +5942,29 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   cerrarModal() {
+    const empleadoIdAnterior = this.empleadoSeleccionado?.id;
+    
     this.mostrarModal = false;
     this.empleadoSeleccionado = null;
     this.horariosDisponibles = [];
     this.horariosEmpleado = [];
     this.resetearFormulario();
+    
+    // Si se cerró el modal después de hacer cambios, refrescar los datos del empleado afectado
+    // para asegurar que la vista principal muestre los datos actualizados
+    if (empleadoIdAnterior && this.hasSearched) {
+      if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+        // Recargar datos del empleado para asegurar consistencia
+        this.recargarDatosEmpleado(empleadoIdAnterior);
+      } else if (this.empleados.length > 0) {
+        // Si no hay datos completos, al menos regenerar días y reagrupar
+        if (this.fechaDesde && this.fechaHasta) {
+          this.generarDiasDelMes();
+          this.generarMesesAgrupados();
+        }
+        this.agruparEmpleados();
+      }
+    }
   }
 
   resetearFormulario() {
@@ -5951,8 +6039,20 @@ export class MarcajePersonalComponent implements OnInit {
         // quitar del mapa de la vista principal
         const key = `${this.empleadoSeleccionado?.id}|${ex.fecha}`;
         this.excepcionesMap.delete(key);
-        // refrescar agrupación para reflejar en la grilla general si está abierta
-        this.agruparEmpleados();
+        this.excepcionesCompletas.delete(key);
+        
+        // Recargar la lista de excepciones del empleado en el modal para asegurar que esté actualizada
+        if (this.mostrarModal && this.empleadoSeleccionado?.id) {
+          this.cargarExcepcionesEmpleado();
+        }
+        
+        // Si tenemos datos completos cargados, recargar los datos del empleado afectado
+        if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0 && this.empleadoSeleccionado?.id) {
+          this.recargarDatosEmpleado(this.empleadoSeleccionado.id);
+        } else {
+          // Si no, solo refrescar agrupación
+          this.agruparEmpleados();
+        }
       }
     });
   }
@@ -6015,6 +6115,9 @@ export class MarcajePersonalComponent implements OnInit {
         // Ordenar por fecha de inicio ascendente
         this.horariosEmpleado = lista.sort((a: any, b: any) => new Date(a.primer_dia).getTime() - new Date(b.primer_dia).getTime());
 
+        // Recalcular la fecha mínima permitida después de agregar un nuevo horario
+        this.calcularFechaMinimaPermitida();
+        
         this.resetearFormulario();
         // Reflejar cambios en la vista principal
         this.actualizarVistaPrincipal();
@@ -6063,6 +6166,19 @@ export class MarcajePersonalComponent implements OnInit {
       next: (response) => {
         // Remover localmente
         this.horariosEmpleado = (this.horariosEmpleado || []).filter((he: any) => he.id !== horarioEmpleadoId);
+        
+        // Recalcular la fecha mínima permitida después de eliminar
+        this.calcularFechaMinimaPermitida();
+        
+        // Si el formulario tiene una fecha que ya no es válida, resetearla
+        if (this.nuevoHorario.primer_dia && this.fechaMinimaPermitida) {
+          const fechaFormulario = new Date(this.nuevoHorario.primer_dia);
+          const fechaMinima = new Date(this.fechaMinimaPermitida);
+          if (fechaFormulario < fechaMinima) {
+            this.nuevoHorario.primer_dia = '';
+          }
+        }
+        
         this.actualizarVistaPrincipal();
       },
       error: (error) => {
@@ -6185,10 +6301,80 @@ export class MarcajePersonalComponent implements OnInit {
           horariosEmpleado: Array.isArray(this.horariosEmpleado) ? [...this.horariosEmpleado] : []
         };
       }
+      
+      // Si tenemos datos completos cargados, recargar los datos del empleado afectado
+      if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+        this.recargarDatosEmpleado(this.empleadoSeleccionado.id);
+      }
     }
     // Regenerar días (por si cambió el rango con el botón Filtrar) y reagrupar
     this.generarDiasDelMes();
     this.agruparEmpleados();
+  }
+
+  // Recargar datos del empleado afectado después de crear/eliminar horarios o excepciones
+  recargarDatosEmpleado(empleadoId: number) {
+    if (!empleadoId) return;
+    
+    // Si el modal está abierto y es el mismo empleado, también actualizar los horarios del modal
+    const esEmpleadoDelModal = this.mostrarModal && this.empleadoSeleccionado?.id === empleadoId;
+    
+    // Recargar horarios del empleado en empleadosCompletos
+    const empleadoCompleto = this.empleadosCompletos.find(e => e.id === empleadoId);
+    if (empleadoCompleto) {
+      this.empleadosService.getHorariosEmpleado(empleadoId).subscribe({
+        next: (horarios) => {
+          empleadoCompleto.horariosEmpleado = horarios || [];
+          
+          // Si el modal está abierto para este empleado, actualizar también los horarios del modal
+          if (esEmpleadoDelModal) {
+            this.horariosEmpleado = horarios || [];
+            // Recalcular la fecha mínima permitida para el formulario
+            this.calcularFechaMinimaPermitida();
+            // Si el formulario tiene una fecha que ya no es válida, resetearla
+            if (this.nuevoHorario.primer_dia && this.fechaMinimaPermitida) {
+              const fechaFormulario = new Date(this.nuevoHorario.primer_dia);
+              const fechaMinima = new Date(this.fechaMinimaPermitida);
+              if (fechaFormulario < fechaMinima) {
+                this.nuevoHorario.primer_dia = '';
+              }
+            }
+          }
+          
+          // Recargar excepciones completas para actualizar el mapa
+          this.cargarExcepcionesCompletas().then(() => {
+            // Recalcular fechas límite si es necesario
+            this.calcularFechasLimiteCompletas().then(() => {
+              // Aplicar filtros locales para actualizar la vista
+              this.aplicarFiltrosLocales();
+            });
+          });
+        },
+        error: () => {
+          empleadoCompleto.horariosEmpleado = [];
+          
+          // Si el modal está abierto para este empleado, actualizar también los horarios del modal
+          if (esEmpleadoDelModal) {
+            this.horariosEmpleado = [];
+            this.fechaMinimaPermitida = '';
+            // Resetear el formulario si no hay horarios
+            if (this.nuevoHorario.primer_dia) {
+              this.nuevoHorario.primer_dia = '';
+            }
+          }
+          
+          // Aún así, recargar excepciones y aplicar filtros
+          this.cargarExcepcionesCompletas().then(() => {
+            this.aplicarFiltrosLocales();
+          });
+        }
+      });
+    } else {
+      // Si no está en empleadosCompletos, solo recargar excepciones
+      this.cargarExcepcionesCompletas().then(() => {
+        this.aplicarFiltrosLocales();
+      });
+    }
   }
 
   getContrastColorPlantilla(hexColor: string): string {
