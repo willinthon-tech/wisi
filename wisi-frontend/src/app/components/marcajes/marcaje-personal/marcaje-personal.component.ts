@@ -2512,14 +2512,12 @@ export class MarcajePersonalComponent implements OnInit {
     // Buscar el elemento grupo-card específico usando el índice del grupo
     const grupoIndex = this.grupos.findIndex(g => g.nombre === grupo.nombre);
     if (grupoIndex === -1) {
-      console.error('No se encontró el grupo en el array');
       return;
     }
     
     const targetElement = document.querySelector(`.grupo-card[data-grupo-index="${grupoIndex}"]`) as HTMLElement;
     
     if (!targetElement) {
-      console.error('No se encontró el grupo-card para imprimir');
       return;
     }
     
@@ -2565,14 +2563,12 @@ export class MarcajePersonalComponent implements OnInit {
     // Buscar el elemento grupo-card específico usando el índice del grupo
     const grupoIndex = this.grupos.findIndex(g => g.nombre === grupo.nombre);
     if (grupoIndex === -1) {
-      console.error('No se encontró el grupo en el array');
       return;
     }
     
     const targetElement = document.querySelector(`.grupo-card[data-grupo-index="${grupoIndex}"]`) as HTMLElement;
     
     if (!targetElement) {
-      console.error('No se encontró el grupo-card para generar imagen');
       return;
     }
     
@@ -2675,7 +2671,6 @@ export class MarcajePersonalComponent implements OnInit {
       });
       
     } catch (error) {
-      console.error('Error al generar imagen:', error);
       // Restaurar visibilidad en caso de error
       const grupoCards = document.querySelectorAll('.grupo-card');
       grupoCards.forEach((card: Element) => {
@@ -3196,7 +3191,6 @@ export class MarcajePersonalComponent implements OnInit {
         });
       },
       error: (error) => {
-        console.error('Error al cargar empleados por sala:', error);
         this.loading = false;
         this.hasSearched = true;
         this.empleadosCompletos = [];
@@ -3241,7 +3235,6 @@ export class MarcajePersonalComponent implements OnInit {
             }
           },
           error: (err) => {
-            console.error('Error al cargar empleados (fallback):', err);
             this.loading = false;
             this.hasSearched = true;
             this.empleadosCompletos = [];
@@ -3952,6 +3945,37 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
+  // Función auxiliar para ordenar empleados: Departamento > Área > Cargo > Nombre
+  ordenarEmpleados(empleados: any[]): any[] {
+    return empleados.sort((a, b) => {
+      // 1. Ordenar por Departamento
+      const deptA = a.Cargo?.Area?.Departamento?.nombre || '';
+      const deptB = b.Cargo?.Area?.Departamento?.nombre || '';
+      if (deptA !== deptB) {
+        return deptA.localeCompare(deptB, 'es', { sensitivity: 'base' });
+      }
+      
+      // 2. Ordenar por Área
+      const areaA = a.Cargo?.Area?.nombre || '';
+      const areaB = b.Cargo?.Area?.nombre || '';
+      if (areaA !== areaB) {
+        return areaA.localeCompare(areaB, 'es', { sensitivity: 'base' });
+      }
+      
+      // 3. Ordenar por Cargo
+      const cargoA = a.Cargo?.nombre || '';
+      const cargoB = b.Cargo?.nombre || '';
+      if (cargoA !== cargoB) {
+        return cargoA.localeCompare(cargoB, 'es', { sensitivity: 'base' });
+      }
+      
+      // 4. Ordenar por Nombre de empleado
+      const nombreA = a.nombre || '';
+      const nombreB = b.nombre || '';
+      return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' });
+    });
+  }
+
   agruparPorSalas() {
     const gruposMap = new Map<number, { nombre: string; empleados: any[] }>();
     const base = this.obtenerBaseEmpleados();
@@ -3970,6 +3994,12 @@ export class MarcajePersonalComponent implements OnInit {
           gruposMap.get(salaKey)!.empleados.push(empleado);
         }
       });
+
+      // Ordenar empleados dentro del grupo
+      const grupo = gruposMap.get(salaKey);
+      if (grupo) {
+        grupo.empleados = this.ordenarEmpleados(grupo.empleados);
+      }
 
       this.grupos = Array.from(gruposMap.values());
       return;
@@ -3994,6 +4024,11 @@ export class MarcajePersonalComponent implements OnInit {
       gruposMap.get(key)!.empleados.push(empleado);
     });
 
+    // Ordenar empleados dentro de cada grupo
+    gruposMap.forEach((grupo, key) => {
+      grupo.empleados = this.ordenarEmpleados(grupo.empleados);
+    });
+
     this.grupos = Array.from(gruposMap.values());
   }
 
@@ -4014,6 +4049,11 @@ export class MarcajePersonalComponent implements OnInit {
       }
       
       gruposMap.get(nombreCompleto).empleados.push(empleado);
+    });
+    
+    // Ordenar empleados dentro de cada grupo
+    gruposMap.forEach((grupo, key) => {
+      grupo.empleados = this.ordenarEmpleados(grupo.empleados);
     });
     
     this.grupos = Array.from(gruposMap.values());
@@ -4039,6 +4079,11 @@ export class MarcajePersonalComponent implements OnInit {
       gruposMap.get(nombreCompleto).empleados.push(empleado);
     });
     
+    // Ordenar empleados dentro de cada grupo
+    gruposMap.forEach((grupo, key) => {
+      grupo.empleados = this.ordenarEmpleados(grupo.empleados);
+    });
+    
     this.grupos = Array.from(gruposMap.values());
   }
 
@@ -4061,6 +4106,11 @@ export class MarcajePersonalComponent implements OnInit {
       }
       
       gruposMap.get(nombreCompleto).empleados.push(empleado);
+    });
+    
+    // Ordenar empleados dentro de cada grupo
+    gruposMap.forEach((grupo, key) => {
+      grupo.empleados = this.ordenarEmpleados(grupo.empleados);
     });
     
     this.grupos = Array.from(gruposMap.values());

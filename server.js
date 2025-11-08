@@ -3791,7 +3791,6 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
         });
       }
     } catch (e) {
-      console.error('Error al verificar relaciones en catch general:', e);
     }
     
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -4205,7 +4204,6 @@ app.get('/api/plantillas-horarios', authenticateToken, async (req, res) => {
     
     res.json(plantillas);
   } catch (error) {
-    console.error('Error al obtener plantillas horarios:', error);
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
@@ -4596,7 +4594,6 @@ app.get('/api/feriados', authenticateToken, async (req, res) => {
     
     res.json(feriados);
   } catch (error) {
-    console.error('Error al obtener feriados:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4618,7 +4615,6 @@ app.get('/api/feriados/:id', authenticateToken, async (req, res) => {
 
     res.json(feriado);
   } catch (error) {
-    console.error('Error al obtener feriado:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4639,7 +4635,6 @@ app.get('/api/feriados/sala/:salaId', authenticateToken, async (req, res) => {
 
     res.json(feriados);
   } catch (error) {
-    console.error('Error al obtener feriados por sala:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4698,7 +4693,6 @@ app.post('/api/feriados', authenticateToken, async (req, res) => {
 
     res.status(201).json(feriadoConSala);
   } catch (error) {
-    console.error('Error al crear feriado:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4765,7 +4759,6 @@ app.put('/api/feriados/:id', authenticateToken, async (req, res) => {
 
     res.json(feriadoActualizado);
   } catch (error) {
-    console.error('Error al actualizar feriado:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -4806,7 +4799,6 @@ app.delete('/api/feriados/:id', authenticateToken, async (req, res) => {
     await feriado.destroy();
     res.json({ message: 'Feriado eliminado correctamente' });
   } catch (error) {
-    console.error('Error al eliminar feriado:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
@@ -6839,7 +6831,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     
     res.json(empleados);
   } catch (error) {
-    console.error('Error al obtener empleados por sala:', error);
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
   }
 });
