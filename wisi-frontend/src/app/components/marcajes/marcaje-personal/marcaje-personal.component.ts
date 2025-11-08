@@ -4403,11 +4403,16 @@ export class MarcajePersonalComponent implements OnInit {
       const esDelDiaSiguiente = esNocturno && fechaDiaTurno && 
         fechaMarcajeInicio.getTime() >= fechaDiaTurno.getTime() + (24 * 60 * 60 * 1000);
       
+      // Un marcaje es del día anterior si su fecha es < fechaDiaTurno
+      const esDelDiaAnterior = esNocturno && fechaDiaTurno && 
+        fechaMarcajeInicio.getTime() < fechaDiaTurno.getTime();
+      
       return {
         marcaje,
         hora: this.convertirHoraAMinutos(this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0])),
         fecha: fechaMarcaje,
-        esDelDiaSiguiente: esDelDiaSiguiente || false
+        esDelDiaSiguiente: esDelDiaSiguiente || false,
+        esDelDiaAnterior: esDelDiaAnterior || false
       };
     });
 
@@ -5646,24 +5651,28 @@ export class MarcajePersonalComponent implements OnInit {
     for (const marcajeConHora of marcajesConHoras) {
       if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
       
-      // Para turnos nocturnos cuando buscamos la salida, filtrar marcajes del mismo día que ocurrieron ANTES de la entrada
+      // Para turnos nocturnos cuando buscamos la salida, descartar SOLO marcajes del día anterior
       if (esNocturno && esHoraSalida) {
+        // VALIDACIÓN CRÍTICA: Descartar marcajes del día anterior (nunca pueden ser la salida de un turno nocturno)
+        if (marcajeConHora.esDelDiaAnterior) {
+          continue; // Descartar completamente marcajes del día anterior
+        }
+        
         // Si el marcaje NO es del día siguiente y su hora es menor que la hora de entrada, descartarlo
-        // porque no puede ser la salida (la salida debe ser del día siguiente)
+        // porque no puede ser la salida (la salida debe ser después de la entrada)
         if (!marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora < horaEntradaProgramada) {
           continue; // Descartar este marcaje
         }
         
-        // Priorizar marcajes del día siguiente: si hay marcajes del día siguiente disponibles,
-        // descartar marcajes del mismo día (aunque sean después de la entrada)
-        // Nota: Esto se manejará en el cálculo de diferencia dándoles preferencia
+        // Permitir marcajes del mismo día si son después de la entrada (casos raros de salida muy temprana)
+        // y marcajes del día siguiente (lo normal). Se priorizarán los del día siguiente en el cálculo de diferencia.
       }
       
       let diferencia: number;
       
-      // Si es turno nocturno y estamos buscando la hora de salida (que es del día siguiente)
+      // Si es turno nocturno y estamos buscando la hora de salida
       if (esNocturno && esHoraSalida) {
-        // Si el marcaje es del día siguiente (confirmado por fecha)
+        // Si el marcaje es del día siguiente (confirmado por fecha) - PRIORIDAD ALTA
         if (marcajeConHora.esDelDiaSiguiente) {
           // Marcaje del día siguiente: diferencia simple (ambos están en la madrugada del día siguiente)
           diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
@@ -5674,16 +5683,12 @@ export class MarcajePersonalComponent implements OnInit {
           // Descartar (no debería llegar aquí debido al filtro anterior)
           continue;
         }
-        // Si el marcaje está en la madrugada pero no es del día siguiente según la fecha
-        // Esto puede pasar si hay un marcaje en la madrugada del mismo día (raro pero posible)
-        else if (marcajeConHora.hora < 12 * 60) {
-          // Penalizar estos marcajes dando una diferencia muy grande para que no se seleccionen
-          diferencia = Infinity;
-        }
-        // Otros casos (marcaje del mismo día después de la entrada, pero esto es raro para salida)
+        // Si el marcaje es del mismo día pero después de la entrada (caso raro pero válido)
+        // Por ejemplo: entrada 23:00 del día 7, salida 02:00 del día 7 (aunque esto es técnicamente día siguiente)
+        // O entrada 18:00 del día 7, salida muy temprana del día 7 (raro pero posible)
         else {
-          // Penalizar marcajes del mismo día
-          diferencia = 10000; // Valor grande para dar prioridad a marcajes del día siguiente
+          // Permitir pero con menor prioridad (penalizar ligeramente para preferir marcajes del día siguiente)
+          diferencia = Math.abs(marcajeConHora.hora - horaProgramada) + 1000; // Penalización menor para permitir casos válidos
         }
       } else {
         // Para turnos diurnos o entrada en turnos nocturnos, calcular diferencia normal
