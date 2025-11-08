@@ -5589,72 +5589,11 @@ export class MarcajePersonalComponent implements OnInit {
     const resultado = { ...marcajes };
 
     // Validar que salida tenga al menos 1 hora de diferencia de entrada
-    if (resultado.entrada !== 'Sin marcaje' && resultado.salida !== 'Sin marcaje') {
-      const entradaMinutos = this.convertirHoraAMinutos(resultado.entrada);
-      const salidaMinutos = this.convertirHoraAMinutos(resultado.salida);
-      
-      let diferenciaSalida;
-      if (bloque.turno === 'NOCTURNO' && salidaMinutos < entradaMinutos) {
-        // Turno nocturno: la salida es al día siguiente
-        diferenciaSalida = (24 * 60 - entradaMinutos) + salidaMinutos;
-      } else {
-        // Turno diurno o nocturno sin cruce
-        diferenciaSalida = salidaMinutos - entradaMinutos;
-      }
-      
-      if (diferenciaSalida < 60) { // Menos de 1 hora
-        resultado.salida = 'SNM';
-        
-      }
-    }
+    // Validación de diferencia entre entrada y salida ELIMINADA
+    // Ya no se marca como SNM si la diferencia es menor a 60 minutos
 
-    // Si hay descanso definido (manual o automático), validar diferencias de descanso
-    const tieneDescansoManual = bloque.tiene_descanso;
-    const tieneDescansoAutomatico = bloque.tiene_descanso_automatico || bloque.PlantillaHorario?.descanso_automatico;
-    
-    if (tieneDescansoManual || tieneDescansoAutomatico) {
-      // Validar entrada de descanso: al menos 10 min de diferencia de entrada
-      if (resultado.entrada !== 'Sin marcaje' && resultado.entradaDescanso !== 'Sin marcaje') {
-        const entradaMinutos = this.convertirHoraAMinutos(resultado.entrada);
-        const entradaDescansoMinutos = this.convertirHoraAMinutos(resultado.entradaDescanso);
-        
-        let diferenciaEntradaDescanso;
-        if (bloque.turno === 'NOCTURNO' && entradaDescansoMinutos < entradaMinutos) {
-          // Turno nocturno: el descanso puede ser al día siguiente
-          diferenciaEntradaDescanso = (24 * 60 - entradaMinutos) + entradaDescansoMinutos;
-        } else {
-          // Turno diurno o nocturno sin cruce
-          diferenciaEntradaDescanso = entradaDescansoMinutos - entradaMinutos;
-        }
-        
-        if (diferenciaEntradaDescanso < 10) { // Menos de 10 minutos
-          resultado.entradaDescanso = 'DNM';
-          resultado.salidaDescanso = 'DNM';
-          
-        }
-      }
-
-      // Validar salida de descanso: al menos 10 min de diferencia
-      if (resultado.entradaDescanso !== 'Sin marcaje' && resultado.entradaDescanso !== 'DNM' && 
-          resultado.salidaDescanso !== 'Sin marcaje') {
-        const entradaDescansoMinutos = this.convertirHoraAMinutos(resultado.entradaDescanso);
-        const salidaDescansoMinutos = this.convertirHoraAMinutos(resultado.salidaDescanso);
-        
-        let diferenciaSalidaDescanso;
-        if (bloque.turno === 'NOCTURNO' && salidaDescansoMinutos < entradaDescansoMinutos) {
-          // Turno nocturno: la salida de descanso puede ser al día siguiente
-          diferenciaSalidaDescanso = (24 * 60 - entradaDescansoMinutos) + salidaDescansoMinutos;
-        } else {
-          // Turno diurno o nocturno sin cruce
-          diferenciaSalidaDescanso = salidaDescansoMinutos - entradaDescansoMinutos;
-        }
-        
-        if (diferenciaSalidaDescanso < 10) { // Menos de 10 minutos
-          resultado.salidaDescanso = 'SDNM';
-          
-        }
-      }
-    }
+    // Validaciones de diferencias de tiempo para descansos ELIMINADAS
+    // Ya no se marcan como DNM o SDNM si las diferencias son menores a 10 minutos
 
     return resultado;
   }
@@ -5822,28 +5761,33 @@ export class MarcajePersonalComponent implements OnInit {
               resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
             } else {
               // Si no hay marcajes de descanso válidos, mostrar "Desc Auto" (solo entrada y salida)
-              if (marcajesDescanso.salida === 'SNM') {
-                resultado = `${marcajesDescanso.entrada} - Desc Auto - SNM`;
+              // Si la salida es SNM, tratarla como "Sin marcaje"
+              if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
+                resultado = marcajesDescanso.entrada; // Solo mostrar entrada
               } else {
                 resultado = `${marcajesDescanso.entrada} - Desc Auto - ${marcajesDescanso.salida}`;
               }
             }
           } else if (tieneDescansoPlantilla) {
-            // Si hay descanso programado (manual), verificar si hay códigos de error
-            if (marcajesDescanso.entradaDescanso === 'DNM' || marcajesDescanso.salidaDescanso === 'DNM') {
-              resultado = `${marcajesDescanso.entrada} - DNM - ${marcajesDescanso.salida}`;
-            } else if (marcajesDescanso.salidaDescanso === 'SDNM') {
-              resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - SDNM - ${marcajesDescanso.salida}`;
-            } else if (marcajesDescanso.entradaDescanso === 'Sin marcaje' && marcajesDescanso.salidaDescanso === 'Sin marcaje') {
-              // No hay marcajes de descanso, mostrar DNM
-              resultado = `${marcajesDescanso.entrada} - DNM - ${marcajesDescanso.salida}`;
+            // Si hay descanso programado (manual)
+            // Si hay DNM o SDNM, tratarlos como "Sin marcaje"
+            if (marcajesDescanso.entradaDescanso === 'DNM' || marcajesDescanso.salidaDescanso === 'DNM' || 
+                marcajesDescanso.salidaDescanso === 'SDNM' ||
+                marcajesDescanso.entradaDescanso === 'Sin marcaje' || marcajesDescanso.salidaDescanso === 'Sin marcaje') {
+              // Si no hay descanso válido, mostrar solo entrada y salida (sin descanso)
+              if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
+                resultado = marcajesDescanso.entrada; // Solo mostrar entrada
+              } else {
+                resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
+              }
             } else {
               resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
             }
           } else {
             // Sin descanso de ningún tipo
-            if (marcajesDescanso.salida === 'SNM') {
-              resultado = `${marcajesDescanso.entrada} - Sin descanso - SNM`;
+            // Si la salida es SNM, tratarla como "Sin marcaje"
+            if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
+              resultado = marcajesDescanso.entrada; // Solo mostrar entrada
             } else {
               resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
             }
