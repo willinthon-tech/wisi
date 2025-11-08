@@ -4209,8 +4209,14 @@ export class MarcajePersonalComponent implements OnInit {
         new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
       );
     } else {
-      // Turno diurno: todos los marcajes del mismo día
-      marcajesParaAnalizar = this.getMarcajesDelDia(empleado, dia);
+      // Turno diurno: marcajes del mismo día + día siguiente (por si hay horas extras que terminan en madrugada)
+      const marcajesHoy = this.getMarcajesDelDia(empleado, dia);
+      const diaSiguiente = new Date(dia);
+      diaSiguiente.setDate(diaSiguiente.getDate() + 1);
+      const marcajesManana = this.getMarcajesDelDia(empleado, diaSiguiente);
+      marcajesParaAnalizar = [...marcajesHoy, ...marcajesManana].sort((a, b) => 
+        new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
+      );
     }
 
     if (marcajesParaAnalizar.length === 0) {
@@ -4349,7 +4355,14 @@ export class MarcajePersonalComponent implements OnInit {
         new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
       );
     } else {
-      marcajesParaAnalizar = this.getMarcajesDelDia(empleado, dia);
+      // Turno diurno: marcajes del mismo día + día siguiente (por si hay horas extras que terminan en madrugada)
+      const marcajesHoy = this.getMarcajesDelDia(empleado, dia);
+      const diaSiguiente = new Date(dia);
+      diaSiguiente.setDate(diaSiguiente.getDate() + 1);
+      const marcajesManana = this.getMarcajesDelDia(empleado, diaSiguiente);
+      marcajesParaAnalizar = [...marcajesHoy, ...marcajesManana].sort((a, b) => 
+        new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
+      );
     }
 
     if (marcajesParaAnalizar.length === 0) {
@@ -4387,9 +4400,10 @@ export class MarcajePersonalComponent implements OnInit {
     // Determinar si es turno nocturno (hora entrada > hora salida)
     const esNocturno = bloque.turno === 'NOCTURNO' || horasProgramadas.entrada > horasProgramadas.salida;
 
-    // Para turnos nocturnos, identificar qué marcajes son del día siguiente usando la fecha del día del turno
+    // Para turnos nocturnos Y diurnos, identificar qué marcajes son del día siguiente/anterior usando la fecha del día del turno
+    // (Los diurnos también pueden tener horas extras que terminan en la madrugada del día siguiente)
     let fechaDiaTurno: Date | null = null;
-    if (esNocturno && diaTurno) {
+    if (diaTurno) {
       fechaDiaTurno = new Date(diaTurno);
       fechaDiaTurno.setHours(0, 0, 0, 0);
     }
@@ -4400,11 +4414,13 @@ export class MarcajePersonalComponent implements OnInit {
       fechaMarcajeInicio.setHours(0, 0, 0, 0);
       
       // Un marcaje es del día siguiente si su fecha es >= fechaDiaTurno + 1 día
-      const esDelDiaSiguiente = esNocturno && fechaDiaTurno && 
+      // Aplica tanto para nocturnos como diurnos (horas extras)
+      const esDelDiaSiguiente = fechaDiaTurno && 
         fechaMarcajeInicio.getTime() >= fechaDiaTurno.getTime() + (24 * 60 * 60 * 1000);
       
       // Un marcaje es del día anterior si su fecha es < fechaDiaTurno
-      const esDelDiaAnterior = esNocturno && fechaDiaTurno && 
+      // NUNCA debe usarse como salida (ni para nocturnos ni diurnos)
+      const esDelDiaAnterior = fechaDiaTurno && 
         fechaMarcajeInicio.getTime() < fechaDiaTurno.getTime();
       
       return {
@@ -5648,56 +5664,92 @@ export class MarcajePersonalComponent implements OnInit {
     let marcajeMasCercano = null;
     let menorDiferencia = Infinity;
 
-    for (const marcajeConHora of marcajesConHoras) {
-      if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
-      
-      // Para turnos nocturnos cuando buscamos la salida, descartar SOLO marcajes del día anterior
-      if (esNocturno && esHoraSalida) {
-        // VALIDACIÓN CRÍTICA: Descartar marcajes del día anterior (nunca pueden ser la salida de un turno nocturno)
+    // Si estamos buscando la salida, hacer dos pasadas: primero prioridad 1, luego prioridad 2
+    if (esHoraSalida) {
+      // PASADA 1: Buscar solo en marcajes de PRIORIDAD 1
+      for (const marcajeConHora of marcajesConHoras) {
+        if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
+        
+        // Descartar marcajes del día anterior
         if (marcajeConHora.esDelDiaAnterior) {
-          continue; // Descartar completamente marcajes del día anterior
-        }
-        
-        // Si el marcaje NO es del día siguiente y su hora es menor que la hora de entrada, descartarlo
-        // porque no puede ser la salida (la salida debe ser después de la entrada)
-        if (!marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora < horaEntradaProgramada) {
-          continue; // Descartar este marcaje
-        }
-        
-        // Permitir marcajes del mismo día si son después de la entrada (casos raros de salida muy temprana)
-        // y marcajes del día siguiente (lo normal). Se priorizarán los del día siguiente en el cálculo de diferencia.
-      }
-      
-      let diferencia: number;
-      
-      // Si es turno nocturno y estamos buscando la hora de salida
-      if (esNocturno && esHoraSalida) {
-        // Si el marcaje es del día siguiente (confirmado por fecha) - PRIORIDAD ALTA
-        if (marcajeConHora.esDelDiaSiguiente) {
-          // Marcaje del día siguiente: diferencia simple (ambos están en la madrugada del día siguiente)
-          diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
-        } 
-        // Si el marcaje NO es del día siguiente pero su hora es menor que la de entrada
-        // (ya fue filtrado arriba, pero por seguridad)
-        else if (marcajeConHora.hora < horaEntradaProgramada) {
-          // Descartar (no debería llegar aquí debido al filtro anterior)
           continue;
         }
-        // Si el marcaje es del mismo día pero después de la entrada (caso raro pero válido)
-        // Por ejemplo: entrada 23:00 del día 7, salida 02:00 del día 7 (aunque esto es técnicamente día siguiente)
-        // O entrada 18:00 del día 7, salida muy temprana del día 7 (raro pero posible)
-        else {
-          // Permitir pero con menor prioridad (penalizar ligeramente para preferir marcajes del día siguiente)
-          diferencia = Math.abs(marcajeConHora.hora - horaProgramada) + 1000; // Penalización menor para permitir casos válidos
+        
+        // Descartar marcajes que son antes de la entrada
+        if (!marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora < horaEntradaProgramada) {
+          continue;
         }
-      } else {
-        // Para turnos diurnos o entrada en turnos nocturnos, calcular diferencia normal
-        diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
+        
+        let esPrioridad1 = false;
+        
+        if (esNocturno) {
+          // TURNO NOCTURNO - PRIORIDAD 1: Marcajes del día siguiente
+          esPrioridad1 = marcajeConHora.esDelDiaSiguiente;
+        } else {
+          // TURNO DIURNO - PRIORIDAD 1: Marcajes del mismo día (después de entrada)
+          esPrioridad1 = !marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora >= horaEntradaProgramada;
+        }
+        
+        if (esPrioridad1) {
+          const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
+          if (diferencia < menorDiferencia) {
+            menorDiferencia = diferencia;
+            marcajeMasCercano = marcajeConHora;
+          }
+        }
       }
       
-      if (diferencia < menorDiferencia) {
-        menorDiferencia = diferencia;
-        marcajeMasCercano = marcajeConHora;
+      // Si encontramos uno de prioridad 1, retornarlo
+      if (marcajeMasCercano) {
+        marcajesUsados.add(marcajeMasCercano.marcaje);
+        return this.formatearHora(new Date(marcajeMasCercano.marcaje.event_time).toTimeString().split(' ')[0]);
+      }
+      
+      // PASADA 2: Si no encontramos de prioridad 1, buscar en PRIORIDAD 2
+      menorDiferencia = Infinity;
+      marcajeMasCercano = null;
+      
+      for (const marcajeConHora of marcajesConHoras) {
+        if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
+        
+        // Descartar marcajes del día anterior
+        if (marcajeConHora.esDelDiaAnterior) {
+          continue;
+        }
+        
+        // Descartar marcajes que son antes de la entrada
+        if (!marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora < horaEntradaProgramada) {
+          continue;
+        }
+        
+        let esPrioridad2 = false;
+        
+        if (esNocturno) {
+          // TURNO NOCTURNO - PRIORIDAD 2: Marcajes del mismo día (después de entrada)
+          esPrioridad2 = !marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora >= horaEntradaProgramada;
+        } else {
+          // TURNO DIURNO - PRIORIDAD 2: Marcajes del día siguiente (horas extras)
+          esPrioridad2 = marcajeConHora.esDelDiaSiguiente;
+        }
+        
+        if (esPrioridad2) {
+          const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
+          if (diferencia < menorDiferencia) {
+            menorDiferencia = diferencia;
+            marcajeMasCercano = marcajeConHora;
+          }
+        }
+      }
+    } else {
+      // Para entrada (nocturno o diurno), calcular diferencia normal sin prioridades
+      for (const marcajeConHora of marcajesConHoras) {
+        if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
+        
+        const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
+        if (diferencia < menorDiferencia) {
+          menorDiferencia = diferencia;
+          marcajeMasCercano = marcajeConHora;
+        }
       }
     }
 
