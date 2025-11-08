@@ -3155,22 +3155,11 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Cargar todos los datos (horarios y excepciones) sin filtros de fecha
   cargarDatosCompletosPorSala(salaId: number) {
-    // Primero, obtener todos los empleados de esa sala
-    this.empleadosService.getEmpleados().subscribe({
+    // Optimización: Obtener SOLO los empleados de esa sala (no todos)
+    this.empleadosService.getEmpleadosBySala(salaId).subscribe({
       next: (response) => {
-        const todosEmpleados = response || [];
-        // Filtrar empleados por sala
-        this.empleadosCompletos = todosEmpleados.filter((emp: any) => {
-          const cargo = emp?.Cargo;
-          if (!cargo) return false;
-          const area = cargo.Area;
-          if (!area) return false;
-          const departamento = area.Departamento;
-          if (!departamento) return false;
-          const sala = departamento.Sala;
-          const salaIdEmp = sala?.id || departamento.sala_id;
-          return salaIdEmp === salaId;
-        });
+        // Los empleados ya vienen filtrados por sala desde el servidor
+        this.empleadosCompletos = response || [];
         
         // Si no hay empleados, mostrar mensaje y terminar
         if (this.empleadosCompletos.length === 0) {
@@ -3180,18 +3169,18 @@ export class MarcajePersonalComponent implements OnInit {
           return;
         }
         
-        // Cargar horarios para todos los empleados
+        // Cargar horarios para todos los empleados de esta sala
         this.cargarHorariosCompletos().then(() => {
-          // Cargar todas las excepciones sin filtros de fecha
+          // Cargar todas las excepciones sin filtros de fecha (solo de empleados de esta sala)
           this.cargarExcepcionesCompletas().then(() => {
-            // Cargar feriados y plantillas libres para el cálculo de resumen
+            // Cargar feriados y plantillas libres para el cálculo de resumen (solo de esta sala)
             Promise.all([
               this.cargarFeriados(),
-              this.cargarPlantillasLibres()
+              this.cargarPlantillasLibres(salaId)
             ]).then(() => {
               // Calcular fechas mínima y máxima para cargar todos los marcajes
               this.calcularFechasLimiteCompletas().then(() => {
-                // Cargar todos los marcajes para el rango completo
+                // Cargar todos los marcajes para el rango completo (solo de empleados de esta sala)
                 this.cargarMarcajesCompletos().then(() => {
                   // Aplicar filtros locales iniciales para mostrar los datos
                   this.aplicarFiltrosLocales();
@@ -6450,9 +6439,15 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   // Cargar plantillas libres (sin hora_entrada ni hora_salida) para el cálculo de resumen
-  async cargarPlantillasLibres(): Promise<void> {
+  // Optimización: Si hay sala seleccionada, cargar solo las plantillas de esa sala
+  async cargarPlantillasLibres(salaId?: number): Promise<void> {
     return new Promise((resolve) => {
-      this.plantillasService.getPlantillasHorarios().subscribe({
+      // Si hay sala seleccionada, cargar solo las plantillas de esa sala
+      const observable = salaId 
+        ? this.plantillasService.getPlantillasHorariosBySala(salaId)
+        : this.plantillasService.getPlantillasHorarios();
+      
+      observable.subscribe({
         next: (plantillas: any[]) => {
           // Filtrar solo las plantillas que no tienen hora_entrada ni hora_salida
           this.plantillasLibres = (plantillas || []).filter((p: any) => 
