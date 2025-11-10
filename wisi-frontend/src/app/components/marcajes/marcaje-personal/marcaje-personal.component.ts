@@ -4486,8 +4486,18 @@ export class MarcajePersonalComponent implements OnInit {
     const horaSalidaAnterior = this.convertirHoraAMinutos(plantillaAnterior.hora_salida);
     const esTurnoAnteriorNocturno = horaEntradaAnterior > horaSalidaAnterior;
 
-    // Solo validar si el turno anterior era nocturno
-    if (!esTurnoAnteriorNocturno) {
+    // Verificar si el turno actual es nocturno
+    const plantillaActual = bloque?.PlantillaHorario;
+    let esTurnoActualNocturno = false;
+    if (plantillaActual && plantillaActual.hora_entrada && plantillaActual.hora_salida) {
+      const horaEntradaActual = this.convertirHoraAMinutos(plantillaActual.hora_entrada);
+      const horaSalidaActual = this.convertirHoraAMinutos(plantillaActual.hora_salida);
+      esTurnoActualNocturno = horaEntradaActual > horaSalidaActual;
+    }
+
+    // Validar si el turno anterior era nocturno O si el turno actual es nocturno
+    // (en ambos casos, la entrada no puede ser igual a la salida del día anterior)
+    if (!esTurnoAnteriorNocturno && !esTurnoActualNocturno) {
       return marcajesActuales;
     }
 
@@ -4650,13 +4660,47 @@ export class MarcajePersonalComponent implements OnInit {
 
     const marcajesUsados = new Set();
 
-    // Asignar entrada (más cercano a hora_entrada)
-    const entradaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entrada, marcajesUsados, esNocturno, false, horasProgramadas.entrada);
+    // Asignar entrada
+    let entradaAsignada = '';
+    if (esNocturno) {
+      // TURNO NOCTURNO: Entrada es el ÚLTIMO marcaje del día (o el único si solo hay uno)
+      // No puede ser del día siguiente ni anterior
+      const marcajesDelDia = marcajesConHoras
+        .filter(m => !m.esDelDiaSiguiente && !m.esDelDiaAnterior)
+        .sort((a, b) => a.hora - b.hora);
+      
+      if (marcajesDelDia.length > 0) {
+        const ultimoMarcaje = marcajesDelDia[marcajesDelDia.length - 1];
+        entradaAsignada = this.formatearHora(new Date(ultimoMarcaje.marcaje.event_time).toTimeString().split(' ')[0]);
+        marcajesUsados.add(ultimoMarcaje.marcaje);
+      } else {
+        entradaAsignada = 'Sin marcaje';
+      }
+    } else {
+      // TURNO DIURNO: Entrada es el PRIMER marcaje del día (no del día siguiente ni anterior)
+      const marcajesDelDia = marcajesConHoras
+        .filter(m => !m.esDelDiaSiguiente && !m.esDelDiaAnterior)
+        .sort((a, b) => a.hora - b.hora);
+      
+      if (marcajesDelDia.length > 0) {
+        const primerMarcaje = marcajesDelDia[0];
+        entradaAsignada = this.formatearHora(new Date(primerMarcaje.marcaje.event_time).toTimeString().split(' ')[0]);
+        marcajesUsados.add(primerMarcaje.marcaje);
+      } else {
+        entradaAsignada = 'Sin marcaje';
+      }
+    }
     asignaciones.entrada = entradaAsignada;
 
-    // Asignar salida (más cercano a hora_salida) - hacerlo antes para poder filtrar marcajes de descanso
-    // Para turnos nocturnos, la salida es del día siguiente
-    const salidaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salida, marcajesUsados, esNocturno, true, horasProgramadas.entrada);
+    // Asignar salida SOLO si hay entrada
+    // La salida se busca basándose en la entrada encontrada
+    let salidaAsignada = 'Sin marcaje';
+    if (entradaAsignada && entradaAsignada !== 'Sin marcaje') {
+      // Asignar salida (más cercano a hora_salida) - hacerlo antes para poder filtrar marcajes de descanso
+      // Para turnos nocturnos, la salida es del día siguiente
+      // Para turnos diurnos, pasar la entrada asignada para validar que salida !== entrada
+      salidaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salida, marcajesUsados, esNocturno, true, horasProgramadas.entrada, entradaAsignada);
+    }
     asignaciones.salida = salidaAsignada;
 
     // Asignar entrada descanso si hay descanso manual definido en la plantilla
@@ -4678,6 +4722,19 @@ export class MarcajePersonalComponent implements OnInit {
       const entradaMinutos = this.convertirHoraAMinutos(asignaciones.entrada);
       const salidaMinutos = this.convertirHoraAMinutos(asignaciones.salida);
       
+      // Determinar si la salida es del día siguiente buscando el marcaje original
+      let salidaEsDelDiaSiguiente = false;
+      const marcajeSalida = marcajesConHoras.find(m => {
+        const horaMarcaje = this.convertirHoraAMinutos(this.formatearHora(new Date(m.marcaje.event_time).toTimeString().split(' ')[0]));
+        return horaMarcaje === salidaMinutos && marcajesUsados.has(m.marcaje);
+      });
+      if (marcajeSalida) {
+        salidaEsDelDiaSiguiente = marcajeSalida.esDelDiaSiguiente;
+      } else if (esNocturno) {
+        // Si no encontramos el marcaje y es nocturno, asumimos que es del día siguiente si salida < entrada
+        salidaEsDelDiaSiguiente = salidaMinutos < entradaMinutos;
+      }
+      
       // Filtrar marcajes disponibles que estén entre entrada y salida
       const marcajesDescansoDisponibles = marcajesConHoras.filter(m => {
         if (marcajesUsados.has(m.marcaje)) return false;
@@ -4685,15 +4742,44 @@ export class MarcajePersonalComponent implements OnInit {
         
         // Para turnos nocturnos, considerar el cruce de medianoche
         if (esNocturno) {
-          // Si el marcaje es del día siguiente, está entre entrada y salida
-          if (m.esDelDiaSiguiente) {
-            return horaMarcaje < salidaMinutos;
+          if (salidaEsDelDiaSiguiente) {
+            // Si la salida es del día siguiente:
+            // - Marcajes del mismo día después de entrada son descanso
+            // - Marcajes del día siguiente antes de salida son descanso
+            if (m.esDelDiaSiguiente) {
+              return horaMarcaje < salidaMinutos;
+            } else {
+              return horaMarcaje > entradaMinutos;
+            }
+          } else {
+            // Si la salida es del mismo día:
+            // - Solo marcajes del mismo día entre entrada y salida son descanso
+            if (m.esDelDiaSiguiente) {
+              return false;
+            } else {
+              return horaMarcaje > entradaMinutos && horaMarcaje < salidaMinutos;
+            }
           }
-          // Si el marcaje es del mismo día, debe estar después de la entrada
-          return horaMarcaje > entradaMinutos;
         } else {
           // Para turnos diurnos, el marcaje debe estar entre entrada y salida
-          return horaMarcaje > entradaMinutos && horaMarcaje < salidaMinutos;
+          if (salidaEsDelDiaSiguiente) {
+            // Si la salida es del día siguiente:
+            // - Marcajes del mismo día después de entrada son descanso
+            // - Marcajes del día siguiente antes de salida son descanso
+            if (m.esDelDiaSiguiente) {
+              return horaMarcaje < salidaMinutos;
+            } else {
+              return horaMarcaje > entradaMinutos;
+            }
+          } else {
+            // Si la salida es del mismo día:
+            // - Solo marcajes del mismo día entre entrada y salida son descanso
+            if (m.esDelDiaSiguiente) {
+              return false;
+            } else {
+              return horaMarcaje > entradaMinutos && horaMarcaje < salidaMinutos;
+            }
+          }
         }
       });
       
@@ -5807,41 +5893,80 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   // Encontrar el marcaje más cercano a una hora programada
-  encontrarMarcajeMasCercano(marcajesConHoras: any[], horaProgramada: number, marcajesUsados: Set<any>, esNocturno: boolean = false, esHoraSalida: boolean = false, horaEntradaProgramada: number = 0): string {
+  encontrarMarcajeMasCercano(marcajesConHoras: any[], horaProgramada: number, marcajesUsados: Set<any>, esNocturno: boolean = false, esHoraSalida: boolean = false, horaEntradaProgramada: number = 0, entradaAsignada: string = ''): string {
     let marcajeMasCercano = null;
     let menorDiferencia = Infinity;
 
     // Si estamos buscando la salida, hacer dos pasadas: primero prioridad 1, luego prioridad 2
     if (esHoraSalida) {
       // PASADA 1: Buscar solo en marcajes de PRIORIDAD 1
-      for (const marcajeConHora of marcajesConHoras) {
-        if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
-        
-        // Descartar marcajes del día anterior
-        if (marcajeConHora.esDelDiaAnterior) {
-          continue;
+      if (esNocturno) {
+        // TURNO NOCTURNO - PRIORIDAD 1: Primer marcaje del día siguiente
+        // Solo buscar si hay entrada asignada (base principal)
+        if (entradaAsignada && entradaAsignada !== 'Sin marcaje') {
+          // Ordenar marcajes del día siguiente por hora
+          const marcajesDiaSiguiente = marcajesConHoras
+            .filter(m => m.esDelDiaSiguiente && !marcajesUsados.has(m.marcaje))
+            .sort((a, b) => a.hora - b.hora);
+          
+          if (marcajesDiaSiguiente.length > 0) {
+            // Tomar el primer marcaje del día siguiente como posible salida
+            const primerMarcajeDiaSiguiente = marcajesDiaSiguiente[0];
+            
+            // Calcular la entrada del día siguiente: el primer marcaje del día siguiente (para diurno)
+            // o el último marcaje del día siguiente (para nocturno del día siguiente)
+            // Pero como estamos en nocturno, la entrada del día siguiente sería el último marcaje del día siguiente
+            // si el día siguiente también es nocturno, o el primer marcaje si es diurno
+            // Por simplicidad, asumimos que la entrada del día siguiente es el primer marcaje del día siguiente
+            // (similar a diurno)
+            const todosMarcajesDiaSiguiente = marcajesConHoras
+              .filter(m => m.esDelDiaSiguiente)
+              .sort((a, b) => a.hora - b.hora);
+            
+            if (todosMarcajesDiaSiguiente.length > 0) {
+              // La entrada del día siguiente es el primer marcaje del día siguiente (si es diurno)
+              // o el último marcaje del día siguiente (si es nocturno)
+              // Por ahora asumimos que es el primer marcaje (como diurno)
+              const entradaDiaSiguiente = todosMarcajesDiaSiguiente[0];
+              const horaEntradaDiaSiguiente = entradaDiaSiguiente.hora;
+              const horaPrimerMarcaje = primerMarcajeDiaSiguiente.hora;
+              
+              // Verificar si el primer marcaje del día siguiente es igual a la entrada del día siguiente
+              // Si son iguales (misma hora), NO puede ser salida del día anterior
+              if (horaPrimerMarcaje !== horaEntradaDiaSiguiente) {
+                // El primer marcaje del día siguiente NO es igual a la entrada del día siguiente
+                // Entonces SÍ puede ser salida del día anterior
+                marcajeMasCercano = primerMarcajeDiaSiguiente;
+              }
+              // Si son iguales, no asignamos nada (marcajeMasCercano queda null)
+            }
+          }
         }
-        
-        // Descartar marcajes que son antes de la entrada
-        if (!marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora < horaEntradaProgramada) {
-          continue;
-        }
-        
-        let esPrioridad1 = false;
-        
-        if (esNocturno) {
-          // TURNO NOCTURNO - PRIORIDAD 1: Marcajes del día siguiente
-          esPrioridad1 = marcajeConHora.esDelDiaSiguiente;
-        } else {
-          // TURNO DIURNO - PRIORIDAD 1: Marcajes del mismo día (después de entrada)
-          esPrioridad1 = !marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora >= horaEntradaProgramada;
-        }
-        
-        if (esPrioridad1) {
-          const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
-          if (diferencia < menorDiferencia) {
-            menorDiferencia = diferencia;
-            marcajeMasCercano = marcajeConHora;
+      } else {
+        // TURNO DIURNO - PRIORIDAD 1: Marcajes del mismo día
+        // Solo buscar si hay entrada asignada (base principal)
+        if (entradaAsignada && entradaAsignada !== 'Sin marcaje') {
+          const horaEntradaAsignada = this.convertirHoraAMinutos(entradaAsignada);
+          
+          for (const marcajeConHora of marcajesConHoras) {
+            if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
+            
+            // Descartar marcajes del día anterior
+            if (marcajeConHora.esDelDiaAnterior) {
+              continue;
+            }
+            
+            // TURNO DIURNO - PRIORIDAD 1: Marcajes del mismo día (00:00-23:59, DESPUÉS de la entrada asignada)
+            // La salida debe estar en el mismo día y DESPUÉS de la entrada (no igual)
+            const esPrioridad1 = !marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora > horaEntradaAsignada;
+            
+            if (esPrioridad1) {
+              const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
+              if (diferencia < menorDiferencia) {
+                menorDiferencia = diferencia;
+                marcajeMasCercano = marcajeConHora;
+              }
+            }
           }
         }
       }
@@ -5853,37 +5978,73 @@ export class MarcajePersonalComponent implements OnInit {
       }
       
       // PASADA 2: Si no encontramos de prioridad 1, buscar en PRIORIDAD 2
-      menorDiferencia = Infinity;
-      marcajeMasCercano = null;
-      
-      for (const marcajeConHora of marcajesConHoras) {
-        if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
-        
-        // Descartar marcajes del día anterior
-        if (marcajeConHora.esDelDiaAnterior) {
-          continue;
+      // Solo para DIURNO: buscar en el primer marcaje del día siguiente
+      if (!esNocturno) {
+        // TURNO DIURNO - PRIORIDAD 2: Primer marcaje del día siguiente
+        // Solo buscar si hay entrada asignada (base principal)
+        if (entradaAsignada && entradaAsignada !== 'Sin marcaje') {
+          // Ordenar marcajes del día siguiente por hora
+          const marcajesDiaSiguiente = marcajesConHoras
+            .filter(m => m.esDelDiaSiguiente && !marcajesUsados.has(m.marcaje))
+            .sort((a, b) => a.hora - b.hora);
+          
+          if (marcajesDiaSiguiente.length > 0) {
+            // Tomar el primer marcaje del día siguiente como posible salida
+            const primerMarcajeDiaSiguiente = marcajesDiaSiguiente[0];
+            
+            // Calcular la entrada del día siguiente: el primer marcaje del día siguiente
+            // (usando TODOS los marcajes del día siguiente, no solo los no usados)
+            const todosMarcajesDiaSiguiente = marcajesConHoras
+              .filter(m => m.esDelDiaSiguiente)
+              .sort((a, b) => a.hora - b.hora);
+            
+            if (todosMarcajesDiaSiguiente.length > 0) {
+              const entradaDiaSiguiente = todosMarcajesDiaSiguiente[0];
+              const horaEntradaDiaSiguiente = entradaDiaSiguiente.hora;
+              const horaPrimerMarcaje = primerMarcajeDiaSiguiente.hora;
+              
+              // Verificar si el primer marcaje del día siguiente es igual a la entrada del día siguiente
+              // Si son iguales (misma hora), NO puede ser salida del día anterior
+              if (horaPrimerMarcaje === horaEntradaDiaSiguiente) {
+                // El primer marcaje del día siguiente es la entrada del día siguiente
+                // Por lo tanto, NO puede ser salida del día anterior
+                marcajeMasCercano = null;
+              } else {
+                // El primer marcaje del día siguiente NO es igual a la entrada del día siguiente
+                // (esto significa que la entrada del día siguiente es otro marcaje diferente)
+                // Entonces el primer marcaje SÍ puede ser salida del día anterior
+                marcajeMasCercano = primerMarcajeDiaSiguiente;
+              }
+            }
+          }
         }
-        
-        // Descartar marcajes que son antes de la entrada
-        if (!marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora < horaEntradaProgramada) {
-          continue;
-        }
-        
-        let esPrioridad2 = false;
-        
-        if (esNocturno) {
-          // TURNO NOCTURNO - PRIORIDAD 2: Marcajes del mismo día (después de entrada)
-          esPrioridad2 = !marcajeConHora.esDelDiaSiguiente && marcajeConHora.hora >= horaEntradaProgramada;
-        } else {
-          // TURNO DIURNO - PRIORIDAD 2: Marcajes del día siguiente (horas extras)
-          esPrioridad2 = marcajeConHora.esDelDiaSiguiente;
-        }
-        
-        if (esPrioridad2) {
-          const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
-          if (diferencia < menorDiferencia) {
-            menorDiferencia = diferencia;
-            marcajeMasCercano = marcajeConHora;
+      } else {
+        // TURNO NOCTURNO - PRIORIDAD 2: Marcajes del mismo día de la entrada
+        // Solo buscar si hay entrada asignada (base principal)
+        if (entradaAsignada && entradaAsignada !== 'Sin marcaje') {
+          const horaEntradaAsignada = this.convertirHoraAMinutos(entradaAsignada);
+          
+          for (const marcajeConHora of marcajesConHoras) {
+            if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
+            
+            // Descartar marcajes del día anterior
+            if (marcajeConHora.esDelDiaAnterior) {
+              continue;
+            }
+            
+            // Descartar marcajes del día siguiente (ya se buscaron en prioridad 1)
+            if (marcajeConHora.esDelDiaSiguiente) {
+              continue;
+            }
+            
+            // La salida debe ser del mismo día y NO puede ser igual a la entrada
+            if (marcajeConHora.hora !== horaEntradaAsignada) {
+              const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
+              if (diferencia < menorDiferencia) {
+                menorDiferencia = diferencia;
+                marcajeMasCercano = marcajeConHora;
+              }
+            }
           }
         }
       }
