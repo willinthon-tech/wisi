@@ -141,7 +141,7 @@ import { environment } from '../../../../environments/environment';
                     <input type="text" [value]="selectedTarea.ip_publica_dispositivo" disabled>
                   </div>
                   <div class="form-group">
-                    <label>IP Local:</label>
+                    <label>IP Panel (Opcional):</label>
                     <input type="text" [value]="selectedTarea.ip_local_dispositivo" disabled>
                   </div>
                 </div>
@@ -782,18 +782,22 @@ export class TareasListComponent implements OnInit {
 
     // Ordenar hijos: Usuario -> Foto -> Tarjeta (para Agregar/Editar)
     // Tarjeta -> Foto -> Usuario (para Eliminar/Borrar)
+    // Panel siempre después del biométrico
     const ordenAccion = (a: any, b: any) => {
       const prio = (s: string) => {
+        const esPanel = s.includes('Panel');
+        const basePrio = esPanel ? 10 : 0; // Panel tiene prioridad base más alta
+        
         if (s.includes('Borrar') || s.includes('Eliminar')) {
           // Para eliminar: Tarjeta (1) -> Foto (2) -> Usuario (3)
-          if (s.includes('Tarjeta')) return 1;
-          if (s.includes('Foto')) return 2;
-          if (s.includes('Usuario')) return 3;
+          if (s.includes('Tarjeta')) return basePrio + 1;
+          if (s.includes('Foto')) return basePrio + 2;
+          if (s.includes('Usuario')) return basePrio + 3;
         } else {
           // Para agregar/editar: Usuario (1) -> Foto (2) -> Tarjeta (3)
-          if (s.includes('Usuario')) return 1;
-          if (s.includes('Foto')) return 2;
-          if (s.includes('Tarjeta')) return 3;
+          if (s.includes('Usuario')) return basePrio + 1;
+          if (s.includes('Foto')) return basePrio + 2;
+          if (s.includes('Tarjeta')) return basePrio + 3;
         }
         return 99; // Cualquier otra acción al final
       };
@@ -911,6 +915,18 @@ export class TareasListComponent implements OnInit {
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/agregar-tarjeta`;
       } else if (tarea.accion_realizar === 'Editar Tarjeta') {
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/editar-tarjeta`;
+      } else if (tarea.accion_realizar === 'Agregar Usuario Panel') {
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/agregar-usuario`;
+      } else if (tarea.accion_realizar === 'Editar Usuario Panel') {
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/editar-usuario`;
+      } else if (tarea.accion_realizar === 'Borrar Usuario Panel') {
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/borrar-usuario`;
+      } else if (tarea.accion_realizar === 'Agregar Tarjeta Panel') {
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/agregar-tarjeta`;
+      } else if (tarea.accion_realizar === 'Editar Tarjeta Panel') {
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/editar-tarjeta`;
+      } else if (tarea.accion_realizar === 'Borrar Tarjeta Panel') {
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/eliminar-tarjeta`;
       } else {
         throw new Error('Acción no reconocida: ' + tarea.accion_realizar);
       }

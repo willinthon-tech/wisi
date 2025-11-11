@@ -3475,6 +3475,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // Crear tareas: 3 por cada dispositivo (Agregar Usuario + Agregar Foto + Agregar Tarjeta)
+      // Si hay panel (ip_local no vacío y diferente de ip_remota), duplicar tareas para panel (sin foto)
       const tareas = [];
       if (dispositivos && dispositivos.length > 0) {
         for (const dispositivo of dispositivos) {
@@ -3487,7 +3488,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           const nombreDepartamento = empleadoCompleto.Cargo?.Area?.Departamento?.nombre || 
                                    empleadoCompleto.Cargo?.Departamento?.nombre || '';
           
-          // Tarea 1: Agregar Usuario
+          // Detectar si hay panel (ip_local no vacío y diferente de ip_remota)
+          const tienePanel = dispositivo.ip_local && 
+                           dispositivo.ip_local.trim() !== '' && 
+                           dispositivo.ip_local !== dispositivo.ip_remota;
+          
+          // TAREAS PARA BIOMÉTRICO (ip_remota)
+          // Tarea 1: Agregar Usuario (Biométrico)
           const tareaUsuario = {
             user_id: user.id,
             numero_cedula_empleado: empleadoCompleto.cedula || empleado.cedula,
@@ -3510,7 +3517,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           
           tareas.push(tareaUsuario);
 
-          // Tarea 2: Agregar Foto
+          // Tarea 2: Agregar Foto (Solo Biométrico)
           const tareaFoto = {
             user_id: user.id,
             numero_cedula_empleado: empleadoCompleto.cedula || empleado.cedula,
@@ -3533,7 +3540,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           
           tareas.push(tareaFoto);
 
-          // Tarea 3: Agregar Tarjeta
+          // Tarea 3: Agregar Tarjeta (Biométrico)
           const tareaTarjeta = {
             user_id: user.id,
             numero_cedula_empleado: empleadoCompleto.cedula || empleado.cedula,
@@ -3555,6 +3562,55 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           };
           
           tareas.push(tareaTarjeta);
+          
+          // TAREAS PARA PANEL (ip_local) - Solo si hay panel
+          if (tienePanel) {
+            // Tarea 4: Agregar Usuario (Panel)
+            const tareaUsuarioPanel = {
+              user_id: user.id,
+              numero_cedula_empleado: empleadoCompleto.cedula || empleado.cedula,
+              nombre_empleado: empleadoCompleto.nombre || empleado.nombre,
+              nombre_genero: (empleadoCompleto.sexo || empleado.sexo) === 'Masculino' ? 'male' : 'female',
+              nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
+              nombre_area: nombreArea,
+              nombre_departamento: nombreDepartamento,
+              foto_empleado: empleadoCompleto.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Agregar Usuario Panel',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            };
+            
+            tareas.push(tareaUsuarioPanel);
+
+            // Tarea 5: Agregar Tarjeta (Panel) - Panel NO tiene foto
+            const tareaTarjetaPanel = {
+              user_id: user.id,
+              numero_cedula_empleado: empleadoCompleto.cedula || empleado.cedula,
+              nombre_empleado: empleadoCompleto.nombre || empleado.nombre,
+              nombre_genero: (empleadoCompleto.sexo || empleado.sexo) === 'Masculino' ? 'male' : 'female',
+              nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
+              nombre_area: nombreArea,
+              nombre_departamento: nombreDepartamento,
+              foto_empleado: empleadoCompleto.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Agregar Tarjeta Panel',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            };
+            
+            tareas.push(tareaTarjetaPanel);
+          }
         }
       }
 
@@ -3613,71 +3669,123 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // Crear tareas: 3 por cada dispositivo (Borrar Tarjeta + Borrar Foto + Borrar Usuario)
+      // Si hay panel (ip_local no vacío y diferente de ip_remota), duplicar tareas para panel (sin foto)
       const tareas = [];
       if (dispositivos && dispositivos.length > 0) {
         for (const dispositivo of dispositivos) {
-        // Tarea 1: Borrar Tarjeta
-        tareas.push({
-          user_id: user.id,
-          numero_cedula_empleado: empleadoCompleto.cedula,
-          nombre_empleado: empleadoCompleto.nombre,
-          nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
-          nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
-          nombre_sala: dispositivo.Sala?.nombre || '',
-          nombre_dispositivo: dispositivo.nombre || '',
-          nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
-          nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
-          foto_empleado: empleadoCompleto.foto || '',
-          ip_publica_dispositivo: dispositivo.ip_remota || '',
-          ip_local_dispositivo: dispositivo.ip_local || '',
-          usuario_login_dispositivo: dispositivo.usuario || '',
-          clave_login_dispositivo: dispositivo.clave || '',
-          accion_realizar: 'Borrar Tarjeta',
-          marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
-          marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
-        });
+          // Detectar si hay panel (ip_local no vacío y diferente de ip_remota)
+          const tienePanel = dispositivo.ip_local && 
+                           dispositivo.ip_local.trim() !== '' && 
+                           dispositivo.ip_local !== dispositivo.ip_remota;
+          
+          // TAREAS PARA BIOMÉTRICO (ip_remota)
+          // Tarea 1: Borrar Tarjeta (Biométrico)
+          tareas.push({
+            user_id: user.id,
+            numero_cedula_empleado: empleadoCompleto.cedula,
+            nombre_empleado: empleadoCompleto.nombre,
+            nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
+            nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_dispositivo: dispositivo.nombre || '',
+            nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+            nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+            foto_empleado: empleadoCompleto.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Borrar Tarjeta',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          });
 
-        // Tarea 2: Borrar Foto
-        tareas.push({
-          user_id: user.id,
-          numero_cedula_empleado: empleadoCompleto.cedula,
-          nombre_empleado: empleadoCompleto.nombre,
-          nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
-          nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
-          nombre_sala: dispositivo.Sala?.nombre || '',
-          nombre_dispositivo: dispositivo.nombre || '',
-          nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
-          nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
-          foto_empleado: empleadoCompleto.foto || '',
-          ip_publica_dispositivo: dispositivo.ip_remota || '',
-          ip_local_dispositivo: dispositivo.ip_local || '',
-          usuario_login_dispositivo: dispositivo.usuario || '',
-          clave_login_dispositivo: dispositivo.clave || '',
-          accion_realizar: 'Borrar Foto',
-          marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
-          marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
-        });
+          // Tarea 2: Borrar Foto (Solo Biométrico)
+          tareas.push({
+            user_id: user.id,
+            numero_cedula_empleado: empleadoCompleto.cedula,
+            nombre_empleado: empleadoCompleto.nombre,
+            nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
+            nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_dispositivo: dispositivo.nombre || '',
+            nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+            nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+            foto_empleado: empleadoCompleto.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Borrar Foto',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          });
 
-        // Tarea 3: Borrar Usuario
-        tareas.push({
-          user_id: user.id,
-          numero_cedula_empleado: empleadoCompleto.cedula,
-          nombre_empleado: empleadoCompleto.nombre,
-          nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
-          nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
-          nombre_sala: dispositivo.Sala?.nombre || '',
-          nombre_dispositivo: dispositivo.nombre || '',
-          nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
-          nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
-          foto_empleado: empleadoCompleto.foto || '',
-          ip_publica_dispositivo: dispositivo.ip_remota || '',
-          ip_local_dispositivo: dispositivo.ip_local || '',
-          usuario_login_dispositivo: dispositivo.usuario || '',
-          clave_login_dispositivo: dispositivo.clave || '',
-          accion_realizar: 'Borrar Usuario',
-          marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
-          marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
-        });
+          // Tarea 3: Borrar Usuario (Biométrico)
+          tareas.push({
+            user_id: user.id,
+            numero_cedula_empleado: empleadoCompleto.cedula,
+            nombre_empleado: empleadoCompleto.nombre,
+            nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
+            nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_dispositivo: dispositivo.nombre || '',
+            nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+            nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+            foto_empleado: empleadoCompleto.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Borrar Usuario',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          });
+          
+          // TAREAS PARA PANEL (ip_local) - Solo si hay panel
+          if (tienePanel) {
+            // Tarea 4: Borrar Tarjeta (Panel)
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleadoCompleto.cedula,
+              nombre_empleado: empleadoCompleto.nombre,
+              nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
+              nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
+              nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+              nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+              foto_empleado: empleadoCompleto.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Borrar Tarjeta Panel',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
+
+            // Tarea 5: Borrar Usuario (Panel) - Panel NO tiene foto
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleadoCompleto.cedula,
+              nombre_empleado: empleadoCompleto.nombre,
+              nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
+              nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
+              nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+              nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+              foto_empleado: empleadoCompleto.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Borrar Usuario Panel',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
+          }
         }
       }
 
@@ -3732,7 +3840,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         
         if (dispositivosData && dispositivosData.length > 0) {
           for (const dispositivo of dispositivosData) {
-            // Tarea 1: Borrar Tarjeta
+            // Detectar si hay panel
+            const tienePanel = dispositivo.ip_local && 
+                             dispositivo.ip_local.trim() !== '' && 
+                             dispositivo.ip_local !== dispositivo.ip_remota;
+            
+            // TAREAS PARA BIOMÉTRICO
+            // Tarea 1: Borrar Tarjeta (Biométrico)
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3753,7 +3867,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
 
-            // Tarea 2: Borrar Foto
+            // Tarea 2: Borrar Foto (Solo Biométrico)
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3774,7 +3888,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
 
-            // Tarea 3: Borrar Usuario
+            // Tarea 3: Borrar Usuario (Biométrico)
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3794,6 +3908,51 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
+            
+            // TAREAS PARA PANEL - Solo si hay panel
+            if (tienePanel) {
+              // Tarea 4: Borrar Tarjeta (Panel)
+              tareas.push({
+                user_id: user.id,
+                numero_cedula_empleado: empleado.cedula,
+                nombre_empleado: empleado.nombre,
+                nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
+                nombre_cargo: empleado.Cargo?.nombre || '',
+                nombre_sala: dispositivo.Sala?.nombre || '',
+                nombre_dispositivo: dispositivo.nombre || '',
+                nombre_area: empleado.Cargo?.Area?.nombre || '',
+                nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
+                foto_empleado: empleado.foto || '',
+                ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+                ip_local_dispositivo: dispositivo.ip_local || '',
+                usuario_login_dispositivo: dispositivo.usuario || '',
+                clave_login_dispositivo: dispositivo.clave || '',
+                accion_realizar: 'Borrar Tarjeta Panel',
+                marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+                marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+              });
+
+              // Tarea 5: Borrar Usuario (Panel) - Panel NO tiene foto
+              tareas.push({
+                user_id: user.id,
+                numero_cedula_empleado: empleado.cedula,
+                nombre_empleado: empleado.nombre,
+                nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
+                nombre_cargo: empleado.Cargo?.nombre || '',
+                nombre_sala: dispositivo.Sala?.nombre || '',
+                nombre_dispositivo: dispositivo.nombre || '',
+                nombre_area: empleado.Cargo?.Area?.nombre || '',
+                nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
+                foto_empleado: empleado.foto || '',
+                ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+                ip_local_dispositivo: dispositivo.ip_local || '',
+                usuario_login_dispositivo: dispositivo.usuario || '',
+                clave_login_dispositivo: dispositivo.clave || '',
+                accion_realizar: 'Borrar Usuario Panel',
+                marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+                marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+              });
+            }
           }
         }
       }
@@ -3810,7 +3969,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           const nombreDepartamento = empleado.Cargo?.Area?.Departamento?.nombre || '';
           
           for (const dispositivo of dispositivosData) {
-            // Tarea 1: Agregar Usuario
+            // Detectar si hay panel
+            const tienePanel = dispositivo.ip_local && 
+                             dispositivo.ip_local.trim() !== '' && 
+                             dispositivo.ip_local !== dispositivo.ip_remota;
+            
+            // TAREAS PARA BIOMÉTRICO
+            // Tarea 1: Agregar Usuario (Biométrico)
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula || '',
@@ -3831,7 +3996,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
 
-            // Tarea 2: Agregar Foto
+            // Tarea 2: Agregar Foto (Solo Biométrico)
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula || '',
@@ -3852,7 +4017,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
 
-            // Tarea 3: Agregar Tarjeta
+            // Tarea 3: Agregar Tarjeta (Biométrico)
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula || '',
@@ -3872,6 +4037,51 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
+            
+            // TAREAS PARA PANEL - Solo si hay panel
+            if (tienePanel) {
+              // Tarea 4: Agregar Usuario (Panel)
+              tareas.push({
+                user_id: user.id,
+                numero_cedula_empleado: empleado.cedula || '',
+                nombre_empleado: empleado.nombre || '',
+                nombre_genero: (empleado.sexo || 'Masculino') === 'Masculino' ? 'male' : 'female',
+                nombre_cargo: empleado.Cargo?.nombre || '',
+                nombre_sala: dispositivo.Sala?.nombre || '',
+                nombre_dispositivo: dispositivo.nombre || '',
+                nombre_area: nombreArea,
+                nombre_departamento: nombreDepartamento,
+                foto_empleado: empleado.foto || '',
+                ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+                ip_local_dispositivo: dispositivo.ip_local || '',
+                usuario_login_dispositivo: dispositivo.usuario || '',
+                clave_login_dispositivo: dispositivo.clave || '',
+                accion_realizar: 'Agregar Usuario Panel',
+                marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+                marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+              });
+
+              // Tarea 5: Agregar Tarjeta (Panel) - Panel NO tiene foto
+              tareas.push({
+                user_id: user.id,
+                numero_cedula_empleado: empleado.cedula || '',
+                nombre_empleado: empleado.nombre || '',
+                nombre_genero: (empleado.sexo || 'Masculino') === 'Masculino' ? 'male' : 'female',
+                nombre_cargo: empleado.Cargo?.nombre || '',
+                nombre_sala: dispositivo.Sala?.nombre || '',
+                nombre_dispositivo: dispositivo.nombre || '',
+                nombre_area: nombreArea,
+                nombre_departamento: nombreDepartamento,
+                foto_empleado: empleado.foto || '',
+                ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+                ip_local_dispositivo: dispositivo.ip_local || '',
+                usuario_login_dispositivo: dispositivo.usuario || '',
+                clave_login_dispositivo: dispositivo.clave || '',
+                accion_realizar: 'Agregar Tarjeta Panel',
+                marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+                marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+              });
+            }
           }
         }
       }
@@ -3884,8 +4094,13 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         
         if (dispositivosData && dispositivosData.length > 0) {
           for (const dispositivo of dispositivosData) {
+            // Detectar si hay panel
+            const tienePanel = dispositivo.ip_local && 
+                             dispositivo.ip_local.trim() !== '' && 
+                             dispositivo.ip_local !== dispositivo.ip_remota;
             
-            // Tarea 1: Editar Usuario
+            // TAREAS PARA BIOMÉTRICO
+            // Tarea 1: Editar Usuario (Biométrico)
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3906,7 +4121,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
 
-            // Tarea 2: Editar Foto
+            // Tarea 2: Editar Foto (Solo Biométrico)
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3927,7 +4142,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
 
-            // Tarea 3: Editar Tarjeta
+            // Tarea 3: Editar Tarjeta (Biométrico)
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3947,6 +4162,51 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
+            
+            // TAREAS PARA PANEL - Solo si hay panel
+            if (tienePanel) {
+              // Tarea 4: Editar Usuario (Panel)
+              tareas.push({
+                user_id: user.id,
+                numero_cedula_empleado: empleado.cedula,
+                nombre_empleado: empleado.nombre,
+                nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
+                nombre_cargo: empleado.Cargo?.nombre || '',
+                nombre_sala: dispositivo.Sala?.nombre || '',
+                nombre_dispositivo: dispositivo.nombre || '',
+                nombre_area: empleado.Cargo?.Area?.nombre || '',
+                nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
+                foto_empleado: empleado.foto || '',
+                ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+                ip_local_dispositivo: dispositivo.ip_local || '',
+                usuario_login_dispositivo: dispositivo.usuario || '',
+                clave_login_dispositivo: dispositivo.clave || '',
+                accion_realizar: 'Editar Usuario Panel',
+                marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+                marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+              });
+
+              // Tarea 5: Editar Tarjeta (Panel) - Panel NO tiene foto
+              tareas.push({
+                user_id: user.id,
+                numero_cedula_empleado: empleado.cedula,
+                nombre_empleado: empleado.nombre,
+                nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
+                nombre_cargo: empleado.Cargo?.nombre || '',
+                nombre_sala: dispositivo.Sala?.nombre || '',
+                nombre_dispositivo: dispositivo.nombre || '',
+                nombre_area: empleado.Cargo?.Area?.nombre || '',
+                nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
+                foto_empleado: empleado.foto || '',
+                ip_publica_dispositivo: dispositivo.ip_local || '', // Usar ip_local para panel
+                ip_local_dispositivo: dispositivo.ip_local || '',
+                usuario_login_dispositivo: dispositivo.usuario || '',
+                clave_login_dispositivo: dispositivo.clave || '',
+                accion_realizar: 'Editar Tarjeta Panel',
+                marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+                marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+              });
+            }
           }
         }
       }

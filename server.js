@@ -8460,9 +8460,15 @@ app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req
     if (response.status >= 200 && response.status < 300) {
       
       
+      // Detectar si es panel para el mensaje
+      const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
+                     (tarea.ip_local_dispositivo && 
+                      tarea.ip_local_dispositivo.trim() !== '' && 
+                      tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+      
       res.json({
         success: true,
-        message: 'Usuario eliminado correctamente del dispositivo',
+        message: `Usuario eliminado correctamente del ${esPanel ? 'panel' : 'dispositivo'}`,
         deviceResponse: response.data
       });
     } else {
@@ -8498,32 +8504,75 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
     
     
     
+    // Detectar si es panel: si la acción incluye "Panel" o si ip_publica_dispositivo es igual a ip_local_dispositivo
+    const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
+                   (tarea.ip_local_dispositivo && 
+                    tarea.ip_local_dispositivo.trim() !== '' && 
+                    tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+    
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
     const method = 'PUT';
-    const body = {
-      UserInfo: {
-        employeeNo: tarea.numero_cedula_empleado,
-        name: tarea.nombre_empleado,
-        gender: tarea.nombre_genero,
-        userType: 'normal',
-        localUIRight: false,
-        maxOpenDoorTime: 0,
-        Valid: {
-          enable: true,
-          beginTime: '2024-01-01T00:00:00',
-          endTime: '2030-12-31T23:59:59',
-          timeType: 'local'
-        },
-        doorRight: "1",
-        RightPlan: [
-          {
-            doorNo: "1",
-            planTemplateNo: "1"
-          }
-        ]
-      }
-    };
+    
+    // Estructura diferente para panel vs biométrico
+    let body;
+    if (esPanel) {
+      // Estructura para PANEL
+      body = {
+        UserInfo: {
+          employeeNo: tarea.numero_cedula_empleado,
+          name: tarea.nombre_empleado,
+          userType: 'normal',
+          closeDelayEnabled: false,
+          Valid: {
+            enable: true,
+            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2025-01-01T00:00:00',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
+            timeType: 'local'
+          },
+          belongGroup: '',
+          password: '',
+          doorRight: "1,2",
+          RightPlan: [
+            {
+              doorNo: 1,
+              planTemplateNo: "1"
+            },
+            {
+              doorNo: 2,
+              planTemplateNo: "1"
+            }
+          ],
+          maxOpenDoorTime: 0,
+          openDoorTime: 0
+        }
+      };
+    } else {
+      // Estructura para BIOMÉTRICO
+      body = {
+        UserInfo: {
+          employeeNo: tarea.numero_cedula_empleado,
+          name: tarea.nombre_empleado,
+          gender: tarea.nombre_genero,
+          userType: 'normal',
+          localUIRight: false,
+          maxOpenDoorTime: 0,
+          Valid: {
+            enable: true,
+            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2024-01-01T00:00:00',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
+            timeType: 'local'
+          },
+          doorRight: "1",
+          RightPlan: [
+            {
+              doorNo: "1",
+              planTemplateNo: "1"
+            }
+          ]
+        }
+      };
+    }
 
     const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
     
@@ -8533,7 +8582,7 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
       
       res.json({
         success: true,
-        message: 'Usuario agregado correctamente al dispositivo',
+        message: `Usuario agregado correctamente al ${esPanel ? 'panel' : 'dispositivo'}`,
         deviceResponse: response.data
       });
     } else {
@@ -8560,30 +8609,73 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
   try {
     const { tarea } = req.body;
     
+    // Detectar si es panel: si la acción incluye "Panel" o si ip_publica_dispositivo es igual a ip_local_dispositivo
+    const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
+                   (tarea.ip_local_dispositivo && 
+                    tarea.ip_local_dispositivo.trim() !== '' && 
+                    tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+    
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
     const method = 'PUT';
-    const body = {
-      UserInfo: {
-        employeeNo: tarea.numero_cedula_empleado,
-        name: tarea.nombre_empleado,
-        gender: tarea.nombre_genero,
-        userType: 'normal',
-        Valid: {
-          enable: true,
-          beginTime: tarea.fecha_ingreso || '2024-01-01T00:00:00',
-          endTime: '2025-12-31T23:59:59',
-          timeType: 'local'
-        },
-        doorRight: "1",
-        RightPlan: [
-          {
-            doorNo: "1",
-            planTemplateNo: "1"
-          }
-        ]
-      }
-    };
+    
+    // Estructura diferente para panel vs biométrico
+    let body;
+    if (esPanel) {
+      // Estructura para PANEL
+      body = {
+        UserInfo: {
+          employeeNo: tarea.numero_cedula_empleado,
+          name: tarea.nombre_empleado,
+          userType: 'normal',
+          closeDelayEnabled: false,
+          Valid: {
+            enable: true,
+            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2025-01-01T00:00:00',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
+            timeType: 'local'
+          },
+          belongGroup: '',
+          password: '',
+          doorRight: "1,2",
+          RightPlan: [
+            {
+              doorNo: 1,
+              planTemplateNo: "1"
+            },
+            {
+              doorNo: 2,
+              planTemplateNo: "1"
+            }
+          ],
+          maxOpenDoorTime: 0,
+          openDoorTime: 0
+        }
+      };
+    } else {
+      // Estructura para BIOMÉTRICO
+      body = {
+        UserInfo: {
+          employeeNo: tarea.numero_cedula_empleado,
+          name: tarea.nombre_empleado,
+          gender: tarea.nombre_genero,
+          userType: 'normal',
+          Valid: {
+            enable: true,
+            beginTime: tarea.marcaje_empleado_inicio_dispositivo || tarea.fecha_ingreso || '2024-01-01T00:00:00',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2025-12-31T23:59:59',
+            timeType: 'local'
+          },
+          doorRight: "1",
+          RightPlan: [
+            {
+              doorNo: "1",
+              planTemplateNo: "1"
+            }
+          ]
+        }
+      };
+    }
 
     const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
     
@@ -8593,7 +8685,7 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
       
       res.json({
         success: true,
-        message: 'Usuario editado correctamente en el dispositivo',
+        message: `Usuario editado correctamente en el ${esPanel ? 'panel' : 'dispositivo'}`,
         deviceResponse: response.data
       });
     } else {
