@@ -8944,7 +8944,16 @@ app.post('/api/tareas/dispositivo/eliminar-tarjeta', authenticateToken, async (r
   try {
     const { tarea } = req.body;
     
+    // Validar que tenemos la cédula
+    if (!tarea.numero_cedula_empleado) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se proporcionó el número de cédula del empleado'
+      });
+    }
+    
     // Generar cardNo desde la cédula
+    // V -> 1, E -> 2 (ejemplo: V25047058 -> 125047058, E25047058 -> 225047058)
     const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
     
     if (!cardNo) {
@@ -8957,11 +8966,15 @@ app.post('/api/tareas/dispositivo/eliminar-tarjeta', authenticateToken, async (r
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     const endpoint = '/ISAPI/AccessControl/CardInfo/Delete?format=json';
     const method = 'PUT';
+    
+    // Asegurar que cardNo sea string (ya debería serlo, pero por seguridad)
+    const cardNoStr = String(cardNo);
+    
     const body = {
       CardInfoDelCond: {
         CardNoList: [
           {
-            cardNo: cardNo
+            cardNo: cardNoStr
           }
         ]
       }
@@ -8970,27 +8983,78 @@ app.post('/api/tareas/dispositivo/eliminar-tarjeta', authenticateToken, async (r
     const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
     
     // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      res.json({
-        success: true,
-        message: 'Tarjeta eliminada correctamente del dispositivo',
+    // Hikvision puede responder con 200 incluso si hay errores, hay que verificar el statusCode en data
+    if (response && response.status >= 200 && response.status < 300) {
+      // Verificar el statusCode en la respuesta del dispositivo
+      if (response.data) {
+        // statusCode === 1 significa éxito en Hikvision
+        if (response.data.statusCode === 1) {
+          res.json({
+            success: true,
+            message: 'Tarjeta eliminada correctamente del dispositivo',
+            deviceResponse: response.data
+          });
+        } else if (response.data.statusCode === 2) {
+          // statusCode === 2 puede significar que no existe, pero lo consideramos éxito
+          res.json({
+            success: true,
+            message: 'La tarjeta no existe en el dispositivo (ya estaba eliminada)',
+            deviceResponse: response.data
+          });
+        } else if (response.data.subStatusCode === 'notExist' || response.data.subStatusCode === 'invalidOperation') {
+          // La tarjeta no existe o la operación es inválida
+          res.json({
+            success: true,
+            message: 'La tarjeta no existe en el dispositivo (ya estaba eliminada)',
+            deviceResponse: response.data
+          });
+        } else {
+          // Cualquier otro statusCode, verificar el mensaje
+          const statusString = response.data.statusString || response.data.subStatusCode || 'Desconocido';
+          // Si hay un error específico, devolverlo
+          if (response.data.subStatusCode) {
+            res.status(400).json({
+              success: false,
+              message: `Error del dispositivo: ${statusString}`,
+              deviceResponse: response.data
+            });
+          } else {
+            res.json({
+              success: true,
+              message: `Tarjeta procesada: ${statusString}`,
+              deviceResponse: response.data
+            });
+          }
+        }
+      } else {
+        // Si no hay data pero el status es 200-299, considerarlo éxito
+        res.json({
+          success: true,
+          message: 'Tarjeta eliminada correctamente del dispositivo',
+          deviceResponse: response.data
+        });
+      }
+    } else if (response && response.status) {
+      // El dispositivo respondió con un error HTTP
+      res.status(response.status).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText || 'Error desconocido'}`,
         deviceResponse: response.data
       });
     } else {
-      
+      // No hay respuesta válida
       res.status(500).json({
         success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
+        message: 'El dispositivo no respondió correctamente',
+        deviceResponse: response
       });
     }
     
   } catch (error) {
-    
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Error al eliminar la tarjeta',
+      error: error.message
     });
   }
 });
