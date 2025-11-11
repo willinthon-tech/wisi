@@ -31,14 +31,14 @@
               <span class="info-value">{{ dispositivo.Sala?.nombre || 'Sin asignar' }}</span>
             </div>
             <div class="info-item">
-              <span class="info-label">📍 IP Local:</span>
+              <span class="info-label">📍 IP Panel (Opcional):</span>
               <span class="info-value">{{ dispositivo.ip_local }}</span>
             </div>
           </div>
           
           <div class="info-row" *ngIf="dispositivo.ip_remota">
             <div class="info-item">
-              <span class="info-label">🌐 IP Remota:</span>
+              <span class="info-label">🌐 IP Biometrico:</span>
               <span class="info-value">{{ dispositivo.ip_remota }}</span>
             </div>
           </div>
@@ -114,7 +114,7 @@
     <div class="modal-body">
       <div class="biometric-info" *ngIf="selectedDispositivo">
         <div class="info-row">
-          <strong>IP Remota:</strong> {{ selectedDispositivo.ip_remota }}
+          <strong>IP Biometrico:</strong> {{ selectedDispositivo.ip_remota }}
         </div>
         <div class="info-row">
           <strong>Usuario:</strong> {{ selectedDispositivo.usuario }}

@@ -48,21 +48,10 @@ import { AuthService } from '../../../services/auth.service';
             </select>
           </div>
 
-          <div class="form-group">
-            <label for="ip_local">IP Local:</label>
-            <input 
-              type="text" 
-              id="ip_local" 
-              [(ngModel)]="dispositivo.ip_local"
-              name="ip_local"
-              class="form-control"
-              required
-              placeholder="192.168.1.100"
-            />
-          </div>
+          
 
           <div class="form-group">
-            <label for="ip_remota">IP Remota (Opcional):</label>
+            <label for="ip_remota">IP Biometrico:</label>
             <input 
               type="text" 
               id="ip_remota" 
@@ -74,7 +63,7 @@ import { AuthService } from '../../../services/auth.service';
           </div>
 
           <div class="form-group">
-            <label for="usuario">Usuario (Opcional):</label>
+            <label for="usuario">Usuario:</label>
             <input 
               type="text" 
               id="usuario" 
@@ -86,7 +75,7 @@ import { AuthService } from '../../../services/auth.service';
           </div>
 
           <div class="form-group">
-            <label for="clave">Clave (Opcional):</label>
+            <label for="clave">Clave:</label>
             <input 
               type="text" 
               id="clave" 
@@ -94,6 +83,19 @@ import { AuthService } from '../../../services/auth.service';
               name="clave"
               class="form-control"
               placeholder="password123"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="ip_local">IP Panel (Opcional):</label>
+            <input 
+              type="text" 
+              id="ip_local" 
+              [(ngModel)]="dispositivo.ip_local"
+              name="ip_local"
+              class="form-control"
+              required
+              placeholder="192.168.1.100"
             />
           </div>
 
