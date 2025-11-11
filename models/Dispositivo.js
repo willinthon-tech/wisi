@@ -25,7 +25,7 @@ module.exports = (sequelize) => {
     ip_local: {
       type: DataTypes.STRING,
       allowNull: false,
-      comment: 'Dirección IP local del dispositivo'
+      comment: 'Dirección IP local del dispositivo (IP Panel - Opcional)'
     },
     ip_remota: {
       type: DataTypes.STRING,
