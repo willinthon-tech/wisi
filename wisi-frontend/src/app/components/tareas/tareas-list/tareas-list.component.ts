@@ -891,6 +891,12 @@ export class TareasListComponent implements OnInit {
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/agregar-usuario`;
       } else if (tarea.accion_realizar === 'Editar Usuario') {
         backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/editar-usuario`;
+      } else if (tarea.accion_realizar === 'Borrar Tarjeta') {
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/eliminar-tarjeta`;
+      } else if (tarea.accion_realizar === 'Agregar Tarjeta') {
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/agregar-tarjeta`;
+      } else if (tarea.accion_realizar === 'Editar Tarjeta') {
+        backendEndpoint = `${environment.apiUrl}/tareas/dispositivo/editar-tarjeta`;
       } else {
         throw new Error('Acción no reconocida: ' + tarea.accion_realizar);
       }

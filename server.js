@@ -8811,6 +8811,192 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
   }
 });
 
+// Función helper para generar cardNo desde cédula
+// Convierte V -> 1, E -> 2 y mantiene el resto del número
+function generarCardNoDesdeCedula(cedula) {
+  if (!cedula) return '';
+  
+  // Convertir a string y remover espacios
+  let cedulaStr = cedula.toString().trim().toUpperCase();
+  
+  // Si empieza con V, reemplazar con 1
+  if (cedulaStr.startsWith('V')) {
+    return '1' + cedulaStr.substring(1);
+  }
+  
+  // Si empieza con E, reemplazar con 2
+  if (cedulaStr.startsWith('E')) {
+    return '2' + cedulaStr.substring(1);
+  }
+  
+  // Si no tiene prefijo, asumir V (Venezolano) por defecto
+  return '1' + cedulaStr;
+}
+
+// POST /api/tareas/dispositivo/agregar-tarjeta
+app.post('/api/tareas/dispositivo/agregar-tarjeta', authenticateToken, async (req, res) => {
+  try {
+    const { tarea } = req.body;
+    
+    // Generar cardNo desde la cédula
+    const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
+    
+    if (!cardNo) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se pudo generar el número de tarjeta desde la cédula'
+      });
+    }
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/AccessControl/CardInfo/SetUp?format=json';
+    const method = 'PUT';
+    const body = {
+      CardInfo: {
+        employeeNo: tarea.numero_cedula_empleado,
+        cardNo: cardNo,
+        cardType: 'normalCard'
+      }
+    };
+
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      
+      res.json({
+        success: true,
+        message: 'Tarjeta agregada correctamente al dispositivo',
+        deviceResponse: response.data
+      });
+    } else {
+      
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
+    }
+    
+  } catch (error) {
+    
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// POST /api/tareas/dispositivo/editar-tarjeta
+app.post('/api/tareas/dispositivo/editar-tarjeta', authenticateToken, async (req, res) => {
+  try {
+    const { tarea } = req.body;
+    
+    // Generar cardNo desde la cédula
+    const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
+    
+    if (!cardNo) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se pudo generar el número de tarjeta desde la cédula'
+      });
+    }
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/AccessControl/CardInfo/SetUp?format=json';
+    const method = 'PUT';
+    const body = {
+      CardInfo: {
+        employeeNo: tarea.numero_cedula_empleado,
+        cardNo: cardNo,
+        cardType: 'normalCard'
+      }
+    };
+
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      
+      res.json({
+        success: true,
+        message: 'Tarjeta editada correctamente en el dispositivo',
+        deviceResponse: response.data
+      });
+    } else {
+      
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
+    }
+    
+  } catch (error) {
+    
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// POST /api/tareas/dispositivo/eliminar-tarjeta
+app.post('/api/tareas/dispositivo/eliminar-tarjeta', authenticateToken, async (req, res) => {
+  try {
+    const { tarea } = req.body;
+    
+    // Generar cardNo desde la cédula
+    const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
+    
+    if (!cardNo) {
+      return res.status(400).json({
+        success: false,
+        message: 'No se pudo generar el número de tarjeta desde la cédula'
+      });
+    }
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/AccessControl/CardInfo/Delete?format=json';
+    const method = 'PUT';
+    const body = {
+      CardInfoDelCond: {
+        CardNoList: [
+          {
+            cardNo: cardNo
+          }
+        ]
+      }
+    };
+
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      
+      res.json({
+        success: true,
+        message: 'Tarjeta eliminada correctamente del dispositivo',
+        deviceResponse: response.data
+      });
+    } else {
+      
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
+    }
+    
+  } catch (error) {
+    
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
 // Función para subir imagen al servidor PHP
 async function subirImagenAlServidor(base64Image) {
   try {

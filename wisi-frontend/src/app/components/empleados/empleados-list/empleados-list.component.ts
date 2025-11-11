@@ -3475,7 +3475,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
       
 
-        // Crear tareas: 2 por cada dispositivo (Agregar Usuario + Agregar Foto)
+        // Crear tareas: 3 por cada dispositivo (Agregar Usuario + Agregar Foto + Agregar Tarjeta)
         const tareas = [];
         if (dispositivos && dispositivos.length > 0) {
           for (const dispositivo of dispositivos) {
@@ -3533,6 +3533,29 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           };
           
           tareas.push(tareaFoto);
+
+          // Tarea 3: Agregar Tarjeta
+          const tareaTarjeta = {
+            user_id: user.id,
+            numero_cedula_empleado: empleadoCompleto.cedula || empleado.cedula,
+            nombre_empleado: empleadoCompleto.nombre || empleado.nombre,
+            nombre_genero: (empleadoCompleto.sexo || empleado.sexo) === 'Masculino' ? 'male' : 'female',
+            nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+            nombre_sala: dispositivo.Sala?.nombre || '',
+            nombre_dispositivo: dispositivo.nombre || '',
+            nombre_area: nombreArea,
+            nombre_departamento: nombreDepartamento,
+            foto_empleado: empleadoCompleto.foto || '',
+            ip_publica_dispositivo: dispositivo.ip_remota || '',
+            ip_local_dispositivo: dispositivo.ip_local || '',
+            usuario_login_dispositivo: dispositivo.usuario || '',
+            clave_login_dispositivo: dispositivo.clave || '',
+            accion_realizar: 'Agregar Tarjeta',
+            marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+            marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+          };
+          
+          tareas.push(tareaTarjeta);
           }
         }
 
@@ -3592,11 +3615,11 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Crear tareas: 2 por cada dispositivo (Borrar Usuario + Borrar Foto)
+      // Crear tareas: 3 por cada dispositivo (Borrar Tarjeta + Borrar Foto + Borrar Usuario)
       const tareas = [];
       if (dispositivos && dispositivos.length > 0) {
         for (const dispositivo of dispositivos) {
-        // Tarea 1: Borrar Usuario
+        // Tarea 1: Borrar Tarjeta
         tareas.push({
           user_id: user.id,
           numero_cedula_empleado: empleadoCompleto.cedula,
@@ -3612,7 +3635,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           ip_local_dispositivo: dispositivo.ip_local || '',
           usuario_login_dispositivo: dispositivo.usuario || '',
           clave_login_dispositivo: dispositivo.clave || '',
-          accion_realizar: 'Borrar Usuario',
+          accion_realizar: 'Borrar Tarjeta',
           marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
           marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
         });
@@ -3634,6 +3657,27 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           usuario_login_dispositivo: dispositivo.usuario || '',
           clave_login_dispositivo: dispositivo.clave || '',
           accion_realizar: 'Borrar Foto',
+          marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+          marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+        });
+
+        // Tarea 3: Borrar Usuario
+        tareas.push({
+          user_id: user.id,
+          numero_cedula_empleado: empleadoCompleto.cedula,
+          nombre_empleado: empleadoCompleto.nombre,
+          nombre_genero: empleadoCompleto.sexo === 'Masculino' ? 'male' : 'female',
+          nombre_cargo: empleadoCompleto.Cargo?.nombre || '',
+          nombre_sala: dispositivo.Sala?.nombre || '',
+          nombre_dispositivo: dispositivo.nombre || '',
+          nombre_area: empleadoCompleto.Cargo?.Departamento?.Area?.nombre || '',
+          nombre_departamento: empleadoCompleto.Cargo?.Departamento?.nombre || '',
+          foto_empleado: empleadoCompleto.foto || '',
+          ip_publica_dispositivo: dispositivo.ip_remota || '',
+          ip_local_dispositivo: dispositivo.ip_local || '',
+          usuario_login_dispositivo: dispositivo.usuario || '',
+          clave_login_dispositivo: dispositivo.clave || '',
+          accion_realizar: 'Borrar Usuario',
           marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
           marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
         });
@@ -3697,7 +3741,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         
         if (dispositivosData && dispositivosData.length > 0) {
           for (const dispositivo of dispositivosData) {
-            // Tarea: Borrar Usuario
+            // Tarea 1: Borrar Tarjeta
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3713,12 +3757,12 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               ip_local_dispositivo: dispositivo.ip_local || '',
               usuario_login_dispositivo: dispositivo.usuario || '',
               clave_login_dispositivo: dispositivo.clave || '',
-              accion_realizar: 'Borrar Usuario',
+              accion_realizar: 'Borrar Tarjeta',
               marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
 
-            // Tarea: Borrar Foto
+            // Tarea 2: Borrar Foto
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3738,6 +3782,27 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
+
+            // Tarea 3: Borrar Usuario
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleado.cedula,
+              nombre_empleado: empleado.nombre,
+              nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
+              nombre_cargo: empleado.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
+              nombre_area: empleado.Cargo?.Area?.nombre || '',
+              nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
+              foto_empleado: empleado.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_remota || '',
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Borrar Usuario',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
           }
         }
       }
@@ -3754,7 +3819,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           const nombreDepartamento = empleado.Cargo?.Area?.Departamento?.nombre || '';
           
           for (const dispositivo of dispositivosData) {
-            // Tarea: Agregar Usuario
+            // Tarea 1: Agregar Usuario
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula || '',
@@ -3775,7 +3840,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
 
-            // Tarea: Agregar Foto
+            // Tarea 2: Agregar Foto
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula || '',
@@ -3795,6 +3860,27 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
+
+            // Tarea 3: Agregar Tarjeta
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleado.cedula || '',
+              nombre_empleado: empleado.nombre || '',
+              nombre_genero: (empleado.sexo || 'Masculino') === 'Masculino' ? 'male' : 'female',
+              nombre_cargo: empleado.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
+              nombre_area: nombreArea,
+              nombre_departamento: nombreDepartamento,
+              foto_empleado: empleado.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_remota || '',
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Agregar Tarjeta',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
           }
         }
       }
@@ -3808,7 +3894,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         if (dispositivosData && dispositivosData.length > 0) {
           for (const dispositivo of dispositivosData) {
             
-            // Tarea: Editar Usuario
+            // Tarea 1: Editar Usuario
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3829,7 +3915,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
 
-            // Tarea: Editar Foto
+            // Tarea 2: Editar Foto
             tareas.push({
               user_id: user.id,
               numero_cedula_empleado: empleado.cedula,
@@ -3846,6 +3932,27 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
               usuario_login_dispositivo: dispositivo.usuario || '',
               clave_login_dispositivo: dispositivo.clave || '',
               accion_realizar: 'Editar Foto',
+              marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
+              marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
+            });
+
+            // Tarea 3: Editar Tarjeta
+            tareas.push({
+              user_id: user.id,
+              numero_cedula_empleado: empleado.cedula,
+              nombre_empleado: empleado.nombre,
+              nombre_genero: empleado.sexo === 'Masculino' ? 'male' : 'female',
+              nombre_cargo: empleado.Cargo?.nombre || '',
+              nombre_sala: dispositivo.Sala?.nombre || '',
+              nombre_dispositivo: dispositivo.nombre || '',
+              nombre_area: empleado.Cargo?.Area?.nombre || '',
+              nombre_departamento: empleado.Cargo?.Area?.Departamento?.nombre || '',
+              foto_empleado: empleado.foto || '',
+              ip_publica_dispositivo: dispositivo.ip_remota || '',
+              ip_local_dispositivo: dispositivo.ip_local || '',
+              usuario_login_dispositivo: dispositivo.usuario || '',
+              clave_login_dispositivo: dispositivo.clave || '',
+              accion_realizar: 'Editar Tarjeta',
               marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
               marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
             });
