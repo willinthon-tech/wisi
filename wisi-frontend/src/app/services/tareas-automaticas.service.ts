@@ -18,7 +18,12 @@ export class TareasAutomaticasService {
 
   // Crear múltiples tareas
   createMultipleTareas(tareas: any[]): Observable<any> {
-    const promises = tareas.map(tarea => this.createTarea(tarea).toPromise());
+    const promises = tareas.map(tarea => 
+      this.createTarea(tarea).toPromise().catch(error => {
+        // Si una tarea falla, devolver el error pero no detener las demás
+        return { error: true, tarea: tarea, errorMessage: error.message };
+      })
+    );
     return new Observable(observer => {
       Promise.all(promises)
         .then(results => {
