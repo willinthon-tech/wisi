@@ -58,6 +58,7 @@ import { AuthService } from '../../../services/auth.service';
               [(ngModel)]="dispositivo.ip_remota"
               name="ip_remota"
               class="form-control"
+              required
               placeholder="10.0.0.100"
             />
           </div>
@@ -70,6 +71,7 @@ import { AuthService } from '../../../services/auth.service';
               [(ngModel)]="dispositivo.usuario"
               name="usuario"
               class="form-control"
+              required
               placeholder="admin"
             />
           </div>
@@ -82,6 +84,7 @@ import { AuthService } from '../../../services/auth.service';
               [(ngModel)]="dispositivo.clave"
               name="clave"
               class="form-control"
+              required
               placeholder="password123"
             />
           </div>
@@ -94,7 +97,6 @@ import { AuthService } from '../../../services/auth.service';
               [(ngModel)]="dispositivo.ip_local"
               name="ip_local"
               class="form-control"
-              required
               placeholder="192.168.1.100"
             />
           </div>
@@ -352,7 +354,7 @@ export class DispositivosFormComponent implements OnInit {
   }
 
   saveDispositivo(): void {
-    if (!this.dispositivo.nombre || !this.dispositivo.sala_id || !this.dispositivo.ip_local) {
+    if (!this.dispositivo.nombre || !this.dispositivo.sala_id || !this.dispositivo.ip_remota || !this.dispositivo.usuario || !this.dispositivo.clave) {
       
       return;
     }
