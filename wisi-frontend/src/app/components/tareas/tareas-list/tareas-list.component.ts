@@ -780,9 +780,23 @@ export class TareasListComponent implements OnInit {
       grupos[key]._children.push(t);
     }
 
-    // Ordenar hijos: primero Usuario, luego Foto
+    // Ordenar hijos: Usuario -> Foto -> Tarjeta (para Agregar/Editar)
+    // Tarjeta -> Foto -> Usuario (para Eliminar/Borrar)
     const ordenAccion = (a: any, b: any) => {
-      const prio = (s: string) => s.includes('Usuario') ? 1 : 2;
+      const prio = (s: string) => {
+        if (s.includes('Borrar') || s.includes('Eliminar')) {
+          // Para eliminar: Tarjeta (1) -> Foto (2) -> Usuario (3)
+          if (s.includes('Tarjeta')) return 1;
+          if (s.includes('Foto')) return 2;
+          if (s.includes('Usuario')) return 3;
+        } else {
+          // Para agregar/editar: Usuario (1) -> Foto (2) -> Tarjeta (3)
+          if (s.includes('Usuario')) return 1;
+          if (s.includes('Foto')) return 2;
+          if (s.includes('Tarjeta')) return 3;
+        }
+        return 99; // Cualquier otra acción al final
+      };
       return prio(a.accion_realizar) - prio(b.accion_realizar);
     };
 

@@ -8272,8 +8272,6 @@ app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res)
       marcaje_empleado_fin_dispositivo
     } = req.body;
 
-    
-
     // Usar SQLite directamente para evitar problemas con Sequelize
     const sqlite3 = require('sqlite3').verbose();
     const db = new sqlite3.Database('./database.sqlite');

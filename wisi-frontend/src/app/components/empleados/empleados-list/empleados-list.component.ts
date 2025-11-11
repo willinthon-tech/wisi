@@ -3473,12 +3473,11 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           // Continuar con el empleado que tenemos
         }
       }
-      
 
-        // Crear tareas: 3 por cada dispositivo (Agregar Usuario + Agregar Foto + Agregar Tarjeta)
-        const tareas = [];
-        if (dispositivos && dispositivos.length > 0) {
-          for (const dispositivo of dispositivos) {
+      // Crear tareas: 3 por cada dispositivo (Agregar Usuario + Agregar Foto + Agregar Tarjeta)
+      const tareas = [];
+      if (dispositivos && dispositivos.length > 0) {
+        for (const dispositivo of dispositivos) {
           
           
           // Obtener área y departamento (la estructura puede variar según el backend)
@@ -3556,16 +3555,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
           };
           
           tareas.push(tareaTarjeta);
-          }
         }
+      }
 
       if (tareas.length === 0) {
         
         return;
       }
 
-      
-      
       // Crear todas las tareas
       const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));
       
@@ -3684,14 +3681,8 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         }
       }
 
-      
-      
-      
       // Crear todas las tareas
       const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));
-      
-      
-      
       
       // Actualizar contador de tareas
       this.loadTareasCount();
