@@ -340,15 +340,31 @@ import { FeriadosService } from '../../../services/feriados.service';
                                     (click)="abrirModalExcepcion(empleado, dia)">M</button>
                           </span>
                           <span *ngIf="!isSinHorario(empleado, dia)" class="con-horario-wrapper">
-                            <span class="badge-plantilla-horario" 
+                            <div class="row-horario" *ngIf="tipoReporte !== 'horario'">
+                              <div class="col-horario-btn">
+                                <button class="btn-ver-marcajes"
+                                        title="Ver marcajes del empleado"
+                                        (click)="abrirModalMarcajes(empleado, dia)">V</button>
+                              </div>
+                              <div class="col-horario-badge">
+                                <span class="badge-plantilla-horario" 
+                                      [style.backgroundColor]="getBloqueHorario(empleado, dia)?.PlantillaHorario?.color || '#ffffff'"
+                                      [style.color]="getContrastColorPlantilla(getBloqueHorario(empleado, dia)?.PlantillaHorario?.color)">
+                                  {{ getBloqueHorario(empleado, dia)?.PlantillaHorario?.codigo || 'N/A' }}
+                                </span>
+                              </div>
+                              <div class="col-horario-btn">
+                                <button class="btn-add-dia mini"
+                                        [ngClass]="hasExcepcion(empleado, dia) ? 'ex-present' : 'ex-empty'"
+                                        title="Excepción del día"
+                                        (click)="abrirModalExcepcion(empleado, dia)">M</button>
+                              </div>
+                            </div>
+                            <span *ngIf="tipoReporte === 'horario'" class="badge-plantilla-horario" 
                                   [style.backgroundColor]="getBloqueHorario(empleado, dia)?.PlantillaHorario?.color || '#ffffff'"
                                   [style.color]="getContrastColorPlantilla(getBloqueHorario(empleado, dia)?.PlantillaHorario?.color)">
                               {{ getBloqueHorario(empleado, dia)?.PlantillaHorario?.codigo || 'N/A' }}
                             </span>
-                            <button *ngIf="tipoReporte !== 'horario'" class="btn-add-dia mini"
-                                    [ngClass]="hasExcepcion(empleado, dia) ? 'ex-present' : 'ex-empty'"
-                                    title="Excepción del día"
-                                    (click)="abrirModalExcepcion(empleado, dia)">M</button>
                           </span>
                         </div>
                       </td>
@@ -427,6 +443,68 @@ import { FeriadosService } from '../../../services/feriados.service';
           </div>
         </div>
         
+        <!-- Modal de Marcajes -->
+        <div class="modal-backdrop" *ngIf="showMarcajesModal">
+          <div class="modal-card">
+            <div class="modal-header">
+              <h5>Marcajes del Empleado</h5>
+              <button class="btn-close" (click)="cerrarModalMarcajes()">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-2"><strong>Empleado:</strong> {{ modalEmpleado?.nombre }} ({{ modalEmpleado?.cedula }})</div>
+              <div class="mb-2"><strong>Fecha de referencia:</strong> {{ modalFechaMarcajes | date:'dd/MM/yyyy' }}</div>
+              <div class="mb-2" *ngIf="modalPlantillaInfo">
+                <strong>Plantilla de horario:</strong> 
+                <span *ngIf="modalPlantillaInfo.PlantillaHorario">
+                  {{ modalPlantillaInfo.PlantillaHorario.codigo }} - {{ modalPlantillaInfo.PlantillaHorario.nombre }}
+                  <span *ngIf="modalPlantillaInfo.PlantillaHorario.hora_entrada || modalPlantillaInfo.PlantillaHorario.hora_salida">
+                    (Entrada: {{ formatearHora(modalPlantillaInfo.PlantillaHorario.hora_entrada) || 'N/A' }} - 
+                    Salida: {{ formatearHora(modalPlantillaInfo.PlantillaHorario.hora_salida) || 'N/A' }})
+                  </span>
+                </span>
+                <span *ngIf="!modalPlantillaInfo.PlantillaHorario" class="text-muted">Sin horario asignado</span>
+              </div>
+              <div class="mb-2" *ngIf="!modalPlantillaInfo">
+                <strong>Plantilla de horario:</strong> <span class="text-muted">Sin horario asignado</span>
+              </div>
+              <div class="mb-3" *ngIf="modalMarcajeCalculado">
+                <strong>Marcaje calculado:</strong> 
+                <span [innerHTML]="modalMarcajeCalculado"></span>
+              </div>
+              <div class="mb-3" *ngIf="!modalMarcajeCalculado || modalMarcajeCalculado === 'Sin Registros'">
+                <strong>Marcaje calculado:</strong> 
+                <span class="text-muted">Sin Registros</span>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Hora</th>
+                      <th>Dispositivo</th>
+                      <th>Referencia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let marcaje of marcajesModal" [class.marcaje-entrada]="marcaje.esEntrada" [class.marcaje-salida]="marcaje.esSalida">
+                      <td>{{ marcaje.fecha | date:'dd/MM/yyyy' }}</td>
+                      <td>{{ marcaje.hora }}</td>
+                      <td>{{ marcaje.dispositivo || '-' }}</td>
+                      <td>{{ marcaje.tipoDia }}</td>
+                    </tr>
+                    <tr *ngIf="marcajesModal.length === 0">
+                      <td colspan="4" style="text-align:center;color:#6c757d;">No hay marcajes disponibles</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-secondary" (click)="cerrarModalMarcajes()">Cerrar</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Modal Excepción de Horario -->
         <div class="modal-backdrop" *ngIf="showExcepcionModal">
           <div class="modal-card">
@@ -1803,7 +1881,6 @@ import { FeriadosService } from '../../../services/feriados.service';
 
     /* Botón + dentro de celdas */
     .btn-add-dia {
-      margin-left: 8px;
       background: #6c757d; /* gris por defecto */
       color: #fff; /* texto blanco */
       border: none;
@@ -1833,6 +1910,74 @@ import { FeriadosService } from '../../../services/feriados.service';
     .btn-add-dia.ex-present {
       background: #28a745; /* verde activo, igual al header */
       color: #ffffff;
+    }
+
+    /* Row con 3 columnas: V | Badge | M */
+    .con-horario-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      width: 100%;
+    }
+    .row-horario {
+      display: flex;
+      align-items: center;
+      justify-content: space-evenly;
+      width: 100%;
+      gap: 4px;
+    }
+    .col-horario-btn {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .col-horario-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+    }
+    .badge-plantilla-horario {
+      display: inline-block;
+      text-align: center;
+    }
+    .btn-ver-marcajes {
+      background: #6c757d; /* gris por defecto */
+      color: #fff; /* texto blanco */
+      border: none;
+      padding: 0 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1.2;
+      min-width: 20px;
+      text-align: center;
+    }
+    .btn-ver-marcajes:hover {
+      background: #5a6268;
+    }
+    .col-horario-btn .btn-add-dia {
+      padding: 0 6px;
+      font-size: 12px;
+      min-width: 20px;
+      text-align: center;
+    }
+
+    /* Estilos para marcajes de entrada y salida */
+    .marcaje-entrada {
+      color: #0066cc !important;
+    }
+    .marcaje-entrada td {
+      color: #0066cc !important;
+    }
+    .marcaje-salida {
+      color: #0066cc !important;
+    }
+    .marcaje-salida td {
+      color: #0066cc !important;
     }
 
     .form-row {
@@ -2360,6 +2505,12 @@ export class MarcajePersonalComponent implements OnInit {
   modalFecha: string = '';
   modalPlantillas: any[] = [];
   selectedPlantillaId: any | null = null;
+  // Modal marcajes
+  showMarcajesModal = false;
+  modalFechaMarcajes: Date = new Date();
+  marcajesModal: any[] = [];
+  modalPlantillaInfo: any = null;
+  modalMarcajeCalculado: string = '';
   // Evitar que el select dispare onChange al abrir el modal (por el valor inicial)
   suppressPlantillaChange = false;
   // Guardar la plantilla actual de la excepción (si la hay) para evitar guardar si no cambió
@@ -2825,6 +2976,146 @@ export class MarcajePersonalComponent implements OnInit {
         this.agruparEmpleados();
       }
     }
+  }
+
+  abrirModalMarcajes(empleado: any, dia: Date) {
+    this.modalEmpleado = empleado;
+    this.modalFechaMarcajes = new Date(dia);
+    this.marcajesModal = [];
+    this.modalPlantillaInfo = null;
+    this.modalMarcajeCalculado = '';
+    this.showMarcajesModal = true;
+
+    // Obtener la plantilla de horario para este día
+    const bloque = this.getBloqueHorario(empleado, dia);
+    if (bloque) {
+      this.modalPlantillaInfo = bloque;
+    }
+
+    // Obtener el marcaje calculado para este día (lo que se muestra en la columna "Marcaje")
+    const marcajeInfo = this.getHorarioInfo(empleado, dia, 'Descanso');
+    if (marcajeInfo && marcajeInfo !== 'Sin Registros') {
+      this.modalMarcajeCalculado = marcajeInfo;
+    } else {
+      this.modalMarcajeCalculado = 'Sin Registros';
+    }
+
+    // Calcular fechas: día anterior, día actual, día siguiente
+    const diaAnterior = new Date(dia);
+    diaAnterior.setDate(diaAnterior.getDate() - 1);
+    diaAnterior.setHours(0, 0, 0, 0);
+    
+    const diaSiguiente = new Date(dia);
+    diaSiguiente.setDate(diaSiguiente.getDate() + 1);
+    diaSiguiente.setHours(23, 59, 59, 999);
+
+    // Formatear fechas para la consulta (formato ISO compatible)
+    const fechaInicio = diaAnterior.toISOString();
+    const fechaFin = diaSiguiente.toISOString();
+
+    // Obtener marcajes del empleado para el rango de fechas
+    this.marcajesService.getMarcajes({
+      employee_no: empleado.cedula,
+      fecha_inicio: fechaInicio,
+      fecha_fin: fechaFin
+    }).subscribe({
+      next: (response) => {
+        const marcajes = response.attlogs || [];
+        
+        // Fecha de referencia para comparar
+        const fechaRef = new Date(dia);
+        fechaRef.setHours(0, 0, 0, 0);
+        const fechaRefStr = fechaRef.toISOString().split('T')[0];
+        
+        // Obtener el bloque de horario para calcular qué marcajes se usaron como entrada y salida
+        const bloque = this.getBloqueHorario(empleado, dia);
+        let horaEntradaCalculada = '';
+        let horaSalidaCalculada = '';
+        let marcajeEntradaId: number | null = null;
+        let marcajeSalidaId: number | null = null;
+        
+        if (bloque) {
+          // Calcular los marcajes del día para obtener qué marcajes se asignaron como entrada y salida
+          const marcajesCalculados = this.calcularMarcajesDelDia(empleado, dia, bloque);
+          horaEntradaCalculada = marcajesCalculados.entrada;
+          horaSalidaCalculada = marcajesCalculados.salida;
+          
+          // Buscar los marcajes reales que coinciden con las horas calculadas
+          // Comparar por hora (HH:MM) sin importar el día
+          marcajes.forEach((m: any) => {
+            const fechaHora = new Date(m.event_time);
+            const horaMarcaje = fechaHora.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
+            
+            if (horaEntradaCalculada && horaEntradaCalculada !== 'Sin marcaje' && 
+                horaMarcaje === horaEntradaCalculada && !marcajeEntradaId) {
+              marcajeEntradaId = m.id;
+            }
+            if (horaSalidaCalculada && horaSalidaCalculada !== 'Sin marcaje' && 
+                horaSalidaCalculada !== 'SNM' && horaSalidaCalculada !== 'SDNM' &&
+                horaMarcaje === horaSalidaCalculada && !marcajeSalidaId) {
+              marcajeSalidaId = m.id;
+            }
+          });
+        }
+        
+        // Formatear marcajes para el modal
+        this.marcajesModal = marcajes.map((m: any) => {
+          const fechaHora = new Date(m.event_time);
+          const fechaMarcaje = new Date(fechaHora);
+          fechaMarcaje.setHours(0, 0, 0, 0);
+          const fechaMarcajeStr = fechaMarcaje.toISOString().split('T')[0];
+          
+          // Determinar el tipo de día
+          let tipoDia = '';
+          let esEntrada = false;
+          let esSalida = false;
+          
+          if (fechaMarcajeStr < fechaRefStr) {
+            tipoDia = 'Día anterior';
+          } else if (fechaMarcajeStr > fechaRefStr) {
+            tipoDia = 'Día después';
+          } else {
+            tipoDia = 'Mismo día';
+          }
+          
+          // Verificar si este marcaje fue usado como entrada o salida
+          // Mantener el tipo de día correcto (Mismo día o Día después) y agregar (Entrada) o (Salida)
+          if (m.id === marcajeEntradaId) {
+            tipoDia += ' (Entrada)';
+            esEntrada = true;
+          } else if (m.id === marcajeSalidaId) {
+            tipoDia += ' (Salida)';
+            esSalida = true;
+          }
+          
+          return {
+            fecha: fechaHora,
+            hora: fechaHora.toTimeString().split(' ')[0].substring(0, 5), // HH:MM
+            dispositivo: m.Dispositivo?.nombre || '-',
+            tipoDia: tipoDia,
+            esEntrada: esEntrada,
+            esSalida: esSalida,
+            id: m.id
+          };
+        });
+
+        // Ordenar por fecha (más antiguo primero)
+        this.marcajesModal.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+      },
+      error: (error) => {
+        console.error('Error al cargar marcajes:', error);
+        this.marcajesModal = [];
+      }
+    });
+  }
+
+  cerrarModalMarcajes() {
+    this.showMarcajesModal = false;
+    this.modalEmpleado = null;
+    this.modalFechaMarcajes = new Date();
+    this.marcajesModal = [];
+    this.modalPlantillaInfo = null;
+    this.modalMarcajeCalculado = '';
   }
 
   trackByPlantillaId(index: number, item: any): any {
