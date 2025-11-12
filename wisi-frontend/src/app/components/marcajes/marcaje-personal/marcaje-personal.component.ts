@@ -5910,9 +5910,6 @@ export class MarcajePersonalComponent implements OnInit {
             .sort((a, b) => a.hora - b.hora);
           
           if (marcajesDiaSiguiente.length > 0) {
-            // Tomar el primer marcaje del día siguiente como posible salida
-            const primerMarcajeDiaSiguiente = marcajesDiaSiguiente[0];
-            
             // Para determinar si el primer marcaje del día siguiente es la entrada del día siguiente,
             // necesitamos TODOS los marcajes del día siguiente (incluyendo los usados)
             const todosMarcajesDiaSiguiente = marcajesConHoras
@@ -5926,19 +5923,28 @@ export class MarcajePersonalComponent implements OnInit {
               // (como diurno) para la comparación
               const entradaDiaSiguiente = todosMarcajesDiaSiguiente[0];
               const horaEntradaDiaSiguiente = entradaDiaSiguiente.hora;
-              const horaPrimerMarcaje = primerMarcajeDiaSiguiente.hora;
+              const primerMarcajeDisponible = marcajesDiaSiguiente[0];
+              const horaPrimerMarcajeDisponible = primerMarcajeDisponible.hora;
               
-              // Verificar si el primer marcaje del día siguiente es igual a la entrada del día siguiente
-              // Si son iguales (misma hora), NO puede ser salida del día anterior
-              if (horaPrimerMarcaje !== horaEntradaDiaSiguiente) {
-                // El primer marcaje del día siguiente NO es igual a la entrada del día siguiente
-                // Entonces SÍ puede ser salida del día anterior
-                marcajeMasCercano = primerMarcajeDiaSiguiente;
+              // Si hay MÁS de un marcaje disponible del día siguiente, el primero puede ser la salida
+              // aunque sea igual a la entrada del día siguiente, porque el segundo marcaje será la entrada
+              if (marcajesDiaSiguiente.length > 1) {
+                // Hay múltiples marcajes: el primero puede ser salida, el segundo será entrada
+                marcajeMasCercano = primerMarcajeDisponible;
+              } else {
+                // Solo hay UN marcaje disponible del día siguiente
+                // Verificar si este marcaje es igual a la entrada del día siguiente
+                if (horaPrimerMarcajeDisponible !== horaEntradaDiaSiguiente) {
+                  // El único marcaje disponible NO es igual a la entrada del día siguiente
+                  // Entonces SÍ puede ser salida
+                  marcajeMasCercano = primerMarcajeDisponible;
+                }
+                // Si el único marcaje disponible ES igual a la entrada del día siguiente,
+                // entonces NO puede ser salida (pasará a PRIORIDAD 2, que retornará "Sin marcaje")
               }
-              // Si son iguales, no asignamos nada (marcajeMasCercano queda null) y pasará a PRIORIDAD 2
             } else {
-              // Si no hay marcajes del día siguiente, asignar el primer marcaje disponible
-              marcajeMasCercano = primerMarcajeDiaSiguiente;
+              // Si no hay marcajes del día siguiente en total, asignar el primer marcaje disponible
+              marcajeMasCercano = marcajesDiaSiguiente[0];
             }
           }
         }
