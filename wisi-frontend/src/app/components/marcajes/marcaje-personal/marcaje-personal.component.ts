@@ -5933,14 +5933,23 @@ export class MarcajePersonalComponent implements OnInit {
                 marcajeMasCercano = primerMarcajeDisponible;
               } else {
                 // Solo hay UN marcaje disponible del día siguiente
-                // Verificar si este marcaje es igual a la entrada del día siguiente
-                if (horaPrimerMarcajeDisponible !== horaEntradaDiaSiguiente) {
-                  // El único marcaje disponible NO es igual a la entrada del día siguiente
-                  // Entonces SÍ puede ser salida
+                // Si el marcaje es menor a 12:00 (medianoche), es salida del turno nocturno anterior
+                const horaEnMinutos = horaPrimerMarcajeDisponible;
+                const medianoche = 12 * 60; // 12:00 en minutos
+                
+                if (horaEnMinutos < medianoche) {
+                  // El marcaje es antes de las 12:00, es salida del turno nocturno
                   marcajeMasCercano = primerMarcajeDisponible;
+                } else {
+                  // El marcaje es después de las 12:00, verificar si es igual a la entrada del día siguiente
+                  if (horaPrimerMarcajeDisponible !== horaEntradaDiaSiguiente) {
+                    // El único marcaje disponible NO es igual a la entrada del día siguiente
+                    // Entonces SÍ puede ser salida
+                    marcajeMasCercano = primerMarcajeDisponible;
+                  }
+                  // Si el único marcaje disponible ES igual a la entrada del día siguiente,
+                  // entonces NO puede ser salida (pasará a PRIORIDAD 2)
                 }
-                // Si el único marcaje disponible ES igual a la entrada del día siguiente,
-                // entonces NO puede ser salida (pasará a PRIORIDAD 2, que retornará "Sin marcaje")
               }
             } else {
               // Si no hay marcajes del día siguiente en total, asignar el primer marcaje disponible
