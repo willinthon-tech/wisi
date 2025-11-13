@@ -3912,7 +3912,18 @@ export class MarcajePersonalComponent implements OnInit {
           // Filtrar solo las excepciones de los empleados de la sala
           (ex || []).forEach(e => {
             if (empleadoIds.includes(e.empleado_id)) {
-              const key = `${e.empleado_id}|${e.fecha}`;
+              // Normalizar la fecha al formato YYYY-MM-DD para que coincida con el formato usado en getBloqueHorario
+              let fechaNormalizada = e.fecha;
+              if (fechaNormalizada) {
+                if (fechaNormalizada instanceof Date) {
+                  fechaNormalizada = this.formatDateLocalYYYYMMDD(fechaNormalizada);
+                } else if (typeof fechaNormalizada === 'string') {
+                  if (!fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+                  }
+                }
+              }
+              const key = `${e.empleado_id}|${fechaNormalizada}`;
               this.excepcionesCompletas.set(key, e);
             }
           });
@@ -3944,7 +3955,18 @@ export class MarcajePersonalComponent implements OnInit {
           // Filtrar solo las excepciones de los empleados de la sala
           (ex || []).forEach(e => {
             if (empleadoIds.includes(e.empleado_id)) {
-              const key = `${e.empleado_id}|${e.fecha}`;
+              // Normalizar la fecha al formato YYYY-MM-DD para que coincida con el formato usado en getBloqueHorario
+              let fechaNormalizada = e.fecha;
+              if (fechaNormalizada) {
+                if (fechaNormalizada instanceof Date) {
+                  fechaNormalizada = this.formatDateLocalYYYYMMDD(fechaNormalizada);
+                } else if (typeof fechaNormalizada === 'string') {
+                  if (!fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+                  }
+                }
+              }
+              const key = `${e.empleado_id}|${fechaNormalizada}`;
               this.excepcionesCompletas.set(key, e);
             }
           });
@@ -4230,21 +4252,33 @@ export class MarcajePersonalComponent implements OnInit {
     // Filtrar excepciones por rango de fechas localmente
     this.excepcionesMap.clear();
     this.excepcionesCompletas.forEach((ex, key) => {
-      // Normalizar la fecha de la excepción para comparar
-      let fechaExcepcion = ex.fecha;
-      if (fechaExcepcion) {
-        if (fechaExcepcion instanceof Date) {
-          fechaExcepcion = this.formatDateLocalYYYYMMDD(fechaExcepcion);
-        } else if (typeof fechaExcepcion === 'string') {
-          if (!fechaExcepcion.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            fechaExcepcion = this.formatDateLocalYYYYMMDD(new Date(fechaExcepcion));
+      // La key tiene el formato: "empleado_id|fechaNormalizada"
+      // Extraer la fecha directamente de la key para evitar problemas de normalización
+      const partes = key.split('|');
+      if (partes.length === 2) {
+        const fechaExcepcion = partes[1]; // La fecha ya está normalizada en la key
+        
+        // Comparar fechas normalizadas
+        if (fechaExcepcion && fechaExcepcion >= this.fechaDesde && fechaExcepcion <= this.fechaHasta) {
+          this.excepcionesMap.set(key, ex);
+        }
+      } else {
+        // Fallback: si la key no tiene el formato esperado, normalizar desde ex.fecha
+        let fechaExcepcion = ex.fecha;
+        if (fechaExcepcion) {
+          if (fechaExcepcion instanceof Date) {
+            fechaExcepcion = this.formatDateLocalYYYYMMDD(fechaExcepcion);
+          } else if (typeof fechaExcepcion === 'string') {
+            if (!fechaExcepcion.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              fechaExcepcion = this.formatDateLocalYYYYMMDD(new Date(fechaExcepcion));
+            }
           }
         }
-      }
-      
-      // Comparar fechas normalizadas
-      if (fechaExcepcion && fechaExcepcion >= this.fechaDesde && fechaExcepcion <= this.fechaHasta) {
-        this.excepcionesMap.set(key, ex);
+        
+        // Comparar fechas normalizadas
+        if (fechaExcepcion && fechaExcepcion >= this.fechaDesde && fechaExcepcion <= this.fechaHasta) {
+          this.excepcionesMap.set(key, ex);
+        }
       }
     });
     
@@ -4341,6 +4375,7 @@ export class MarcajePersonalComponent implements OnInit {
     if (ex && ex.PlantillaHorario) {
       // Construir bloque virtual con la plantilla de la excepción
       const plantilla = ex.PlantillaHorario;
+      // Calcular turno directamente comparando horas (como estaba en el commit original)
       const turno = this.convertirHoraAMinutos(plantilla.hora_entrada) > this.convertirHoraAMinutos(plantilla.hora_salida) ? 'NOCTURNO' : 'DIURNO';
       return {
         orden: 1,
@@ -4358,9 +4393,11 @@ export class MarcajePersonalComponent implements OnInit {
         (this.modalPlantillas || []).find((p: any) => p?.id === ex.plantilla_horario_id);
       
       if (plantilla) {
+        // Calcular turno directamente comparando horas (como estaba en el commit original)
+        const turno = this.convertirHoraAMinutos(plantilla.hora_entrada) > this.convertirHoraAMinutos(plantilla.hora_salida) ? 'NOCTURNO' : 'DIURNO';
         return {
           orden: 1,
-          turno: plantilla.turno || 'DIURNO',
+          turno,
           PlantillaHorario: plantilla,
           hora_entrada: plantilla.hora_entrada,
           hora_salida: plantilla.hora_salida,
@@ -4746,8 +4783,21 @@ export class MarcajePersonalComponent implements OnInit {
     this.excepcionesService.listar(undefined, this.fechaDesde, this.fechaHasta).subscribe({
       next: (ex: any[]) => {
         (ex || []).forEach(e => {
-          const key = `${e.empleado_id}|${e.fecha}`;
+          // Normalizar la fecha al formato YYYY-MM-DD para que coincida con el formato usado en getBloqueHorario
+          let fechaNormalizada = e.fecha;
+          if (fechaNormalizada) {
+            if (fechaNormalizada instanceof Date) {
+              fechaNormalizada = this.formatDateLocalYYYYMMDD(fechaNormalizada);
+            } else if (typeof fechaNormalizada === 'string') {
+              if (!fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+              }
+            }
+          }
+          const key = `${e.empleado_id}|${fechaNormalizada}`;
           this.excepcionesMap.set(key, e);
+          // También guardar en excepcionesCompletas para mantener consistencia
+          this.excepcionesCompletas.set(key, e);
         });
         this.agruparEmpleados();
         this.loading = false;
@@ -5208,29 +5258,9 @@ export class MarcajePersonalComponent implements OnInit {
     }
     
     // Si no está en caché, calcular (fallback para casos edge)
+    // Prioridad: excepción de horario por día
     const key = `${empleado?.id}|${fechaStr}`;
     const ex = this.excepcionesMap.get(key);
-    
-    // DEBUG: Verificar si se encontró excepción
-    if (empleado?.id && fechaStr) {
-      const todasLasKeys = Array.from(this.excepcionesMap.keys());
-      const keysDelEmpleado = todasLasKeys.filter(k => k.startsWith(`${empleado.id}|`));
-      if (keysDelEmpleado.length > 0 && !ex) {
-        console.warn(`[getBloqueHorario] No se encontró excepción para key "${key}"`, {
-          empleadoId: empleado.id,
-          fechaStr,
-          keysDelEmpleado,
-          totalExcepciones: this.excepcionesMap.size
-        });
-      } else if (ex) {
-        console.log(`[getBloqueHorario] Excepción encontrada para ${empleado.nombre} en ${fechaStr}`, {
-          tienePlantillaHorario: !!ex.PlantillaHorario,
-          plantillaId: ex.plantilla_horario_id,
-          excepcion: ex
-        });
-      }
-    }
-    
     if (ex && ex.PlantillaHorario) {
       // Construir bloque virtual con la plantilla de la excepción
       const plantilla = ex.PlantillaHorario;
@@ -5258,20 +5288,6 @@ export class MarcajePersonalComponent implements OnInit {
     const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
     
     if (!horarioActivo || !horarioActivo.bloques || horarioActivo.bloques.length === 0) {
-      // DEBUG: Log cuando no hay horario activo
-      if (empleado && empleado.horariosEmpleado && empleado.horariosEmpleado.length > 0) {
-        console.warn(`[getBloqueHorario] No se encontró horario activo para empleado ${empleado.nombre} (${empleado.id}) en fecha ${fechaStr}`, {
-          tieneHorarios: empleado.horariosEmpleado.length > 0,
-          horarios: empleado.horariosEmpleado.map((he: any) => ({
-            id: he.id,
-            primer_dia: he.primer_dia,
-            ultimo_dia: he.ultimo_dia,
-            tieneHorario: !!he.Horario,
-            tieneBloques: !!(he.Horario?.bloques),
-            cantidadBloques: he.Horario?.bloques?.length || 0
-          }))
-        });
-      }
       return null;
     }
 
@@ -5291,14 +5307,7 @@ export class MarcajePersonalComponent implements OnInit {
       console.error(`[getBloqueHorario] Índice de bloque inválido: ${indiceBloque} para ${bloques.length} bloques`);
     }
     
-    const bloqueSeleccionado = bloques[indiceBloque];
-    
-    // DEBUG: Verificar que el bloque tenga PlantillaHorario
-    if (bloqueSeleccionado && !bloqueSeleccionado.PlantillaHorario) {
-      console.warn(`[getBloqueHorario] Bloque ${bloqueSeleccionado.id} no tiene PlantillaHorario`, bloqueSeleccionado);
-    }
-    
-    return bloqueSeleccionado;
+    return bloques[indiceBloque];
   }
 
   // Obtener el horario activo para una fecha específica
@@ -7193,9 +7202,10 @@ export class MarcajePersonalComponent implements OnInit {
         }
         break;
       case 'Descanso':
-        // Mostrar marcajes REALES del empleado (entrada, descanso si existe, salida)
+        // Mostrar marcajes reales o "Sin Registros" si no hay marcajes
         
         const marcajesDescanso = this.calcularMarcajesDelDia(empleado, dia, bloque);
+        
         
         // Obtener información de descanso de la plantilla si está disponible
         const plantillaDescanso = bloque?.PlantillaHorario;
@@ -7211,11 +7221,16 @@ export class MarcajePersonalComponent implements OnInit {
           if (tieneDescansoAutomatico2) {
             // Con descanso automático: verificar si hay marcajes de descanso válidos
             if (tieneMarcajesDescanso) {
-              // Si hay marcajes de descanso válidos, mostrar todos los marcajes reales
+              // Si hay marcajes de descanso válidos, mostrar ambos como descanso manual
               resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
             } else {
-              // Si no hay marcajes de descanso válidos, mostrar "Desc Auto" con marcajes reales de entrada y salida
-              resultado = `${marcajesDescanso.entrada} - Desc Auto - ${marcajesDescanso.salida}`;
+              // Si no hay marcajes de descanso válidos, mostrar "Desc Auto" (solo entrada y salida)
+              // Si la salida es SNM, tratarla como "Sin marcaje"
+              if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
+                resultado = marcajesDescanso.entrada; // Solo mostrar entrada
+              } else {
+                resultado = `${marcajesDescanso.entrada} - Desc Auto - ${marcajesDescanso.salida}`;
+              }
             }
           } else if (tieneDescansoPlantilla) {
             // Si hay descanso programado (manual)
@@ -7223,15 +7238,23 @@ export class MarcajePersonalComponent implements OnInit {
             if (marcajesDescanso.entradaDescanso === 'DNM' || marcajesDescanso.salidaDescanso === 'DNM' || 
                 marcajesDescanso.salidaDescanso === 'SDNM' ||
                 marcajesDescanso.entradaDescanso === 'Sin marcaje' || marcajesDescanso.salidaDescanso === 'Sin marcaje') {
-              // Si no hay descanso válido, mostrar "Sin descanso" con marcajes reales de entrada y salida
-              resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
+              // Si no hay descanso válido, mostrar solo entrada y salida (sin descanso)
+              if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
+                resultado = marcajesDescanso.entrada; // Solo mostrar entrada
+              } else {
+                resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
+              }
             } else {
-              // Si hay marcajes de descanso válidos, mostrar todos los marcajes reales
               resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
             }
           } else {
-            // Sin descanso de ningún tipo, mostrar marcajes reales de entrada y salida
-            resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
+            // Sin descanso de ningún tipo
+            // Si la salida es SNM, tratarla como "Sin marcaje"
+            if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
+              resultado = marcajesDescanso.entrada; // Solo mostrar entrada
+            } else {
+              resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
+            }
           }
         } else if (marcajesDescanso.entrada !== 'Sin marcaje') {
           // Solo entrada real
