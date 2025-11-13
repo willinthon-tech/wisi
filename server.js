@@ -6918,7 +6918,8 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             });
           }
           
-          empleado.dataValues.excepciones = excepciones.map(ex => ({
+          // Agregar excepciones y marcajes directamente al objeto del empleado (no solo en dataValues)
+          empleado.excepciones = excepciones.map(ex => ({
             id: ex.id,
             empleado_id: ex.empleado_id,
             fecha: ex.fecha,
@@ -6926,7 +6927,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             PlantillaHorario: ex.PlantillaHorario
           }));
           
-          empleado.dataValues.marcajes = marcajes.map(m => ({
+          empleado.marcajes = marcajes.map(m => ({
             id: m.id,
             employee_no: m.employee_no,
             event_time: m.event_time,
@@ -7072,8 +7073,11 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     // Esto evita múltiples llamadas separadas desde el frontend
     const { fechaDesde, fechaHasta } = req.query;
     
+    console.log('[DEBUG] Endpoint /api/empleados/sala/:salaId - Parámetros:', { salaId, fechaDesde, fechaHasta, tieneFechas: !!(fechaDesde && fechaHasta) });
+    
     // Si hay fechas, cargar excepciones y marcajes para ese rango
     if (fechaDesde && fechaHasta) {
+      console.log('[DEBUG] Cargando excepciones y marcajes consolidados para rango:', { fechaDesde, fechaHasta, cantidadEmpleados: empleados.length });
       const empleadosConDatos = await Promise.all(empleados.map(async (empleado) => {
         // Cargar excepciones del empleado en el rango de fechas
         const excepciones = await ExcepcionHorario.findAll({
@@ -7120,8 +7124,9 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           });
         }
         
-        // Agregar excepciones y marcajes al empleado
-        empleado.dataValues.excepciones = excepciones.map(ex => ({
+        // Agregar excepciones y marcajes directamente al objeto del empleado (no solo en dataValues)
+        // Esto asegura que se serialicen correctamente en JSON
+        empleado.excepciones = excepciones.map(ex => ({
           id: ex.id,
           empleado_id: ex.empleado_id,
           fecha: ex.fecha,
@@ -7129,20 +7134,35 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           PlantillaHorario: ex.PlantillaHorario
         }));
         
-        empleado.dataValues.marcajes = marcajes.map(m => ({
+        empleado.marcajes = marcajes.map(m => ({
           id: m.id,
           employee_no: m.employee_no,
           event_time: m.event_time,
-            nombre: m.nombre,
+          nombre: m.nombre,
           dispositivo_id: m.dispositivo_id
         }));
         
         return empleado;
       }));
       
+      console.log('[DEBUG] Devolviendo empleados con datos consolidados:', {
+        cantidad: empleadosConDatos.length,
+        primerEmpleado: empleadosConDatos[0] ? {
+          id: empleadosConDatos[0].id,
+          nombre: empleadosConDatos[0].nombre,
+          tieneHorarios: !!(empleadosConDatos[0].horariosEmpleado?.length),
+          tieneExcepciones: !!(empleadosConDatos[0].excepciones?.length),
+          tieneMarcajes: !!(empleadosConDatos[0].marcajes?.length)
+        } : null
+      });
       return res.json(empleadosConDatos);
     }
     
+    console.log('[DEBUG] Devolviendo empleados SIN datos consolidados (no hay fechas):', {
+      cantidad: empleados.length,
+      fechaDesde,
+      fechaHasta
+    });
     res.json(empleados);
   } catch (error) {
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
