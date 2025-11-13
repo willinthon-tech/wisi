@@ -52,7 +52,18 @@ export class MarcajesService {
       if (filtros.limit) params.limit = filtros.limit;
     }
 
-    return this.http.get<MarcajesResponse>(this.apiUrl, { params });
+    // El interceptor de autenticación debería agregar el token automáticamente
+    // Pero lo agregamos explícitamente aquí también para asegurar que funcione
+    const headers: any = {};
+    const token = localStorage.getItem('token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return this.http.get<MarcajesResponse>(this.apiUrl, { 
+      params,
+      headers: Object.keys(headers).length > 0 ? headers : undefined
+    });
   }
 
   getMarcaje(id: number): Observable<Marcaje> {
