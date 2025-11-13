@@ -6927,47 +6927,49 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
       
       // Agregar horarios al empleado con la misma estructura que el endpoint individual
       // Incluir PlantillaHorario en cada bloque (igual que el endpoint individual)
-      for (let horarioEmp of horariosEmpleado) {
-        if (horarioEmp.Horario && horarioEmp.Horario.bloques) {
-          for (let bloque of horarioEmp.Horario.bloques) {
-            if (bloque.PlantillaHorario) {
-              // Ya viene del include, asegurar que tenga todos los campos
-              bloque.dataValues.PlantillaHorario = {
-                id: bloque.PlantillaHorario.id,
-                codigo: bloque.PlantillaHorario.codigo,
-                nombre: bloque.PlantillaHorario.nombre,
-                color: bloque.PlantillaHorario.color || '#ffffff',
-                hora_entrada: bloque.PlantillaHorario.hora_entrada,
-                hora_salida: bloque.PlantillaHorario.hora_salida,
-                hora_descanso_entrada: bloque.PlantillaHorario.hora_descanso_entrada,
-                hora_descanso_salida: bloque.PlantillaHorario.hora_descanso_salida,
-                descanso_automatico: bloque.PlantillaHorario.descanso_automatico || null
-              };
-            }
-          }
-        }
-      }
-      
-      empleado.dataValues.horariosEmpleado = horariosEmpleado.map(he => ({
-        id: he.id,
-        empleado_id: he.empleado_id,
-        horario_id: he.horario_id,
-        primer_dia: he.primer_dia,
-        ultimo_dia: he.ultimo_dia,
-        dias_semana: he.dias_semana,
-        Horario: he.Horario ? {
-          id: he.Horario.id,
-          nombre: he.Horario.nombre,
-          plantilla_horario_id: he.Horario.plantilla_horario_id,
-          bloques: he.Horario.bloques ? he.Horario.bloques.map((bloque) => ({
+      empleado.dataValues.horariosEmpleado = horariosEmpleado.map(he => {
+        // Mapear bloques con PlantillaHorario correctamente
+        const bloquesMapeados = he.Horario && he.Horario.bloques ? he.Horario.bloques.map((bloque) => {
+          const bloqueMapeado = {
             id: bloque.id,
             horario_id: bloque.horario_id,
             plantilla_horario_id: bloque.plantilla_horario_id,
-            orden: bloque.orden,
-            PlantillaHorario: bloque.PlantillaHorario || bloque.dataValues?.PlantillaHorario
-          })) : []
-        } : null
-      }));
+            orden: bloque.orden
+          };
+          
+          // Incluir PlantillaHorario directamente en el objeto (no en dataValues)
+          if (bloque.PlantillaHorario) {
+            bloqueMapeado.PlantillaHorario = {
+              id: bloque.PlantillaHorario.id,
+              codigo: bloque.PlantillaHorario.codigo,
+              nombre: bloque.PlantillaHorario.nombre,
+              color: bloque.PlantillaHorario.color || '#ffffff',
+              hora_entrada: bloque.PlantillaHorario.hora_entrada,
+              hora_salida: bloque.PlantillaHorario.hora_salida,
+              hora_descanso_entrada: bloque.PlantillaHorario.hora_descanso_entrada,
+              hora_descanso_salida: bloque.PlantillaHorario.hora_descanso_salida,
+              descanso_automatico: bloque.PlantillaHorario.descanso_automatico || null
+            };
+          }
+          
+          return bloqueMapeado;
+        }) : [];
+        
+        return {
+          id: he.id,
+          empleado_id: he.empleado_id,
+          horario_id: he.horario_id,
+          primer_dia: he.primer_dia,
+          ultimo_dia: he.ultimo_dia,
+          dias_semana: he.dias_semana,
+          Horario: he.Horario ? {
+            id: he.Horario.id,
+            nombre: he.Horario.nombre,
+            plantilla_horario_id: he.Horario.plantilla_horario_id,
+            bloques: bloquesMapeados
+          } : null
+        };
+      });
       
       return empleado;
     });

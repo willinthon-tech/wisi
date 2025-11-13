@@ -3622,9 +3622,24 @@ export class MarcajePersonalComponent implements OnInit {
         this.empleadosCompletos = response || [];
         
         // Asegurar que cada empleado tenga horariosEmpleado (ya viene del backend)
+        // DEBUG: Verificar estructura de horarios
         this.empleadosCompletos.forEach(emp => {
           if (!emp.horariosEmpleado) {
             emp.horariosEmpleado = [];
+          } else {
+            // Verificar que los bloques estén presentes en cada horario
+            emp.horariosEmpleado.forEach((he: any) => {
+              if (he.Horario && he.Horario.bloques) {
+                // Asegurar que cada bloque tenga PlantillaHorario
+                he.Horario.bloques.forEach((bloque: any) => {
+                  if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+                    console.warn('Bloque sin PlantillaHorario:', bloque);
+                  }
+                });
+              } else if (he.Horario) {
+                console.warn('Horario sin bloques:', he.Horario);
+              }
+            });
           }
         });
         
@@ -5099,8 +5114,18 @@ export class MarcajePersonalComponent implements OnInit {
 
     // Buscar el horario activo para esta fecha
     for (const horarioEmpleado of horariosOrdenados) {
-      if (fechaStr >= horarioEmpleado.primer_dia) {
-        return horarioEmpleado.Horario;
+      const primerDia = horarioEmpleado.primer_dia ? horarioEmpleado.primer_dia.split('T')[0] : null;
+      const ultimoDia = horarioEmpleado.ultimo_dia ? horarioEmpleado.ultimo_dia.split('T')[0] : null;
+      
+      // Verificar que la fecha esté dentro del rango del horario
+      if (primerDia && fechaStr >= primerDia) {
+        // Si hay último_dia, verificar que no haya pasado
+        if (!ultimoDia || fechaStr <= ultimoDia) {
+          // Verificar que el horario tenga bloques
+          if (horarioEmpleado.Horario && horarioEmpleado.Horario.bloques && horarioEmpleado.Horario.bloques.length > 0) {
+            return horarioEmpleado.Horario;
+          }
+        }
       }
     }
 
