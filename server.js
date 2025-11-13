@@ -6914,7 +6914,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                 }
               },
               order: [['event_time', 'ASC']],
-              attributes: ['id', 'employee_no', 'event_time', 'event_type', 'dispositivo_id']
+              attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre']
             });
           }
           
@@ -6930,8 +6930,8 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             id: m.id,
             employee_no: m.employee_no,
             event_time: m.event_time,
-            event_type: m.event_type,
-            dispositivo_id: m.dispositivo_id
+            dispositivo_id: m.dispositivo_id,
+            nombre: m.nombre
           }));
           
           return empleado;
@@ -7116,7 +7116,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               }
             },
             order: [['event_time', 'ASC']],
-            attributes: ['id', 'employee_no', 'event_time', 'event_type', 'dispositivo_id']
+            attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre']
           });
         }
         
@@ -7133,7 +7133,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           id: m.id,
           employee_no: m.employee_no,
           event_time: m.event_time,
-          event_type: m.event_type,
+            nombre: m.nombre,
           dispositivo_id: m.dispositivo_id
         }));
         
