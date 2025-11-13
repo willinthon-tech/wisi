@@ -6891,6 +6891,19 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             order: [['fecha', 'DESC']]
           });
           
+          // DEBUG: Log para verificar excepciones encontradas
+          if (excepciones.length > 0) {
+            console.log(`[DEBUG Backend] Empleado ${empleado.nombre} (${empleado.id}) tiene ${excepciones.length} excepciones`, {
+              excepciones: excepciones.map(ex => ({
+                id: ex.id,
+                empleado_id: ex.empleado_id,
+                fecha: ex.fecha,
+                plantilla_horario_id: ex.plantilla_horario_id,
+                tienePlantillaHorario: !!ex.PlantillaHorario
+              }))
+            });
+          }
+          
           // Cargar marcajes del empleado en el rango de fechas
           const dispositivos = await Dispositivo.findAll({
             where: { sala_id: salaId },
@@ -6919,14 +6932,44 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           }
           
           // Agregar excepciones y marcajes directamente al objeto del empleado (no solo en dataValues)
-          empleado.excepciones = excepciones.map(ex => ({
-            id: ex.id,
-            empleado_id: ex.empleado_id,
-            fecha: ex.fecha,
-            plantilla_horario_id: ex.plantilla_horario_id,
-            PlantillaHorario: ex.PlantillaHorario
-          }));
+          // IMPORTANTE: Asegurar que las excepciones se serialicen correctamente
+          const excepcionesMapeadas = excepciones.map(ex => {
+            const excepcionMapeada = {
+              id: ex.id,
+              empleado_id: ex.empleado_id,
+              fecha: ex.fecha,
+              plantilla_horario_id: ex.plantilla_horario_id
+            };
+            
+            // Incluir PlantillaHorario si está disponible
+            if (ex.PlantillaHorario) {
+              excepcionMapeada.PlantillaHorario = {
+                id: ex.PlantillaHorario.id,
+                codigo: ex.PlantillaHorario.codigo,
+                nombre: ex.PlantillaHorario.nombre,
+                hora_entrada: ex.PlantillaHorario.hora_entrada,
+                hora_salida: ex.PlantillaHorario.hora_salida,
+                color: ex.PlantillaHorario.color,
+                hora_descanso_entrada: ex.PlantillaHorario.hora_descanso_entrada,
+                hora_descanso_salida: ex.PlantillaHorario.hora_descanso_salida,
+                descanso_automatico: ex.PlantillaHorario.descanso_automatico
+              };
+            }
+            
+            return excepcionMapeada;
+          });
           
+          // Asignar directamente al objeto empleado (no solo dataValues) para que se serialice en JSON
+          empleado.dataValues.excepciones = excepcionesMapeadas;
+          empleado.excepciones = excepcionesMapeadas;
+          
+          empleado.dataValues.marcajes = marcajes.map(m => ({
+            id: m.id,
+            employee_no: m.employee_no,
+            event_time: m.event_time,
+            dispositivo_id: m.dispositivo_id,
+            nombre: m.nombre
+          }));
           empleado.marcajes = marcajes.map(m => ({
             id: m.id,
             employee_no: m.employee_no,
@@ -6937,6 +6980,14 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           
           return empleado;
         }));
+        
+        // DEBUG: Contar total de excepciones
+        const totalExcepciones = empleadosConDatos.reduce((sum, emp) => sum + (emp.excepciones?.length || 0), 0);
+        console.log('[DEBUG Backend] Total excepciones en respuesta:', {
+          totalExcepciones,
+          cantidadEmpleados: empleadosConDatos.length,
+          empleadosConExcepciones: empleadosConDatos.filter(emp => emp.excepciones?.length > 0).length
+        });
         
         return res.json(empleadosConDatos);
       }
@@ -7124,16 +7175,58 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           });
         }
         
-        // Agregar excepciones y marcajes directamente al objeto del empleado (no solo en dataValues)
-        // Esto asegura que se serialicen correctamente en JSON
-        empleado.excepciones = excepciones.map(ex => ({
-          id: ex.id,
-          empleado_id: ex.empleado_id,
-          fecha: ex.fecha,
-          plantilla_horario_id: ex.plantilla_horario_id,
-          PlantillaHorario: ex.PlantillaHorario
-        }));
+        // DEBUG: Log para verificar excepciones encontradas
+        if (excepciones.length > 0) {
+          console.log(`[DEBUG Backend] Empleado ${empleado.nombre} (${empleado.id}) tiene ${excepciones.length} excepciones`, {
+            excepciones: excepciones.map(ex => ({
+              id: ex.id,
+              empleado_id: ex.empleado_id,
+              fecha: ex.fecha,
+              plantilla_horario_id: ex.plantilla_horario_id,
+              tienePlantillaHorario: !!ex.PlantillaHorario
+            }))
+          });
+        }
         
+        // Agregar excepciones y marcajes directamente al objeto del empleado (no solo en dataValues)
+        // IMPORTANTE: Asegurar que las excepciones se serialicen correctamente
+        const excepcionesMapeadas = excepciones.map(ex => {
+          const excepcionMapeada = {
+            id: ex.id,
+            empleado_id: ex.empleado_id,
+            fecha: ex.fecha,
+            plantilla_horario_id: ex.plantilla_horario_id
+          };
+          
+          // Incluir PlantillaHorario si está disponible
+          if (ex.PlantillaHorario) {
+            excepcionMapeada.PlantillaHorario = {
+              id: ex.PlantillaHorario.id,
+              codigo: ex.PlantillaHorario.codigo,
+              nombre: ex.PlantillaHorario.nombre,
+              hora_entrada: ex.PlantillaHorario.hora_entrada,
+              hora_salida: ex.PlantillaHorario.hora_salida,
+              color: ex.PlantillaHorario.color,
+              hora_descanso_entrada: ex.PlantillaHorario.hora_descanso_entrada,
+              hora_descanso_salida: ex.PlantillaHorario.hora_descanso_salida,
+              descanso_automatico: ex.PlantillaHorario.descanso_automatico
+            };
+          }
+          
+          return excepcionMapeada;
+        });
+        
+        // Asignar directamente al objeto empleado (no solo dataValues) para que se serialice en JSON
+        empleado.dataValues.excepciones = excepcionesMapeadas;
+        empleado.excepciones = excepcionesMapeadas;
+        
+        empleado.dataValues.marcajes = marcajes.map(m => ({
+          id: m.id,
+          employee_no: m.employee_no,
+          event_time: m.event_time,
+          nombre: m.nombre,
+          dispositivo_id: m.dispositivo_id
+        }));
         empleado.marcajes = marcajes.map(m => ({
           id: m.id,
           employee_no: m.employee_no,
@@ -7144,6 +7237,14 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         
         return empleado;
       }));
+      
+      // DEBUG: Contar total de excepciones
+      const totalExcepciones = empleadosConDatos.reduce((sum, emp) => sum + (emp.excepciones?.length || 0), 0);
+      console.log('[DEBUG Backend] Total excepciones en respuesta:', {
+        totalExcepciones,
+        cantidadEmpleados: empleadosConDatos.length,
+        empleadosConExcepciones: empleadosConDatos.filter(emp => emp.excepciones?.length > 0).length
+      });
       
       console.log('[DEBUG] Devolviendo empleados con datos consolidados:', {
         cantidad: empleadosConDatos.length,
