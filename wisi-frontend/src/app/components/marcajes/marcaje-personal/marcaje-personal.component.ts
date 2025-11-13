@@ -1,4 +1,4 @@
-import { Component, OnInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, ElementRef, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -76,7 +76,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                   class="btn-buscar"
                   (click)="buscarDatos()"
                   [disabled]="loading || !selectedSalaForDataLoad || !fechaDesde || !fechaHasta">
-                  <span *ngIf="!loading">🔍 Buscar</span>
+                  <span *ngIf="!loading">Buscar</span>
                   <span *ngIf="loading">
                     <span class="spinner-small"></span> Buscando...
                   </span>
@@ -95,7 +95,7 @@ import { FeriadosService } from '../../../services/feriados.service';
             <select id="deptoSelect" class="form-select"
                     [(ngModel)]="selectedDepartamentoId"
                     [disabled]="loading || !hasSearched"
-                    (change)="onDepartamentoChange()">
+                    (change)="onDepartamentoChange($event)">
               <option [ngValue]="null">Todo</option>
               <option *ngFor="let d of departamentosFiltrados" [ngValue]="d.id">{{ d.nombre }}</option>
             </select>
@@ -105,7 +105,7 @@ import { FeriadosService } from '../../../services/feriados.service';
             <select id="areaSelect" class="form-select"
                     [(ngModel)]="selectedAreaId"
                     [disabled]="loading || !selectedDepartamentoId || !hasSearched"
-                    (change)="onAreaChange()">
+                    (change)="onAreaChange($event)">
               <option [ngValue]="null">Todo</option>
               <option *ngFor="let a of areasFiltradas" [ngValue]="a.id">{{ a.nombre }}</option>
             </select>
@@ -115,7 +115,7 @@ import { FeriadosService } from '../../../services/feriados.service';
             <select id="cargoSelect" class="form-select"
                     [(ngModel)]="selectedCargoId"
                     [disabled]="loading || !selectedAreaId || !hasSearched"
-                    (change)="onCargoChange()">
+                    (change)="onCargoChange($event)">
               <option [ngValue]="null">Todo</option>
               <option *ngFor="let c of cargosFiltrados" [ngValue]="c.id">{{ c.nombre }}</option>
             </select>
@@ -126,7 +126,7 @@ import { FeriadosService } from '../../../services/feriados.service';
             <select id="sexoSelect" class="form-select"
                     [(ngModel)]="selectedSexo"
                     [disabled]="loading || !hasSearched"
-                    (change)="onSexoChange()">
+                    (change)="onSexoChange($event)">
               <option [ngValue]="null">Todo</option>
               <option [ngValue]="'Femenino'">Femenino</option>
               <option [ngValue]="'Masculino'">Masculino</option>
@@ -157,7 +157,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 value="global"
                 [checked]="tipoReporte === 'global'"
                 [disabled]="loading"
-                (change)="onTipoReporteChange('global')"
+                (click)="onTipoReporteChange('global')"
                 class="radio-input">
               <span class="radio-label">Marcajes</span>
             </label>
@@ -168,7 +168,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 value="horario"
                 [checked]="tipoReporte === 'horario'"
                 [disabled]="loading"
-                (change)="onTipoReporteChange('horario')"
+                (click)="onTipoReporteChange('horario')"
                 class="radio-input">
               <span class="radio-label">Horarios</span>
             </label>
@@ -179,7 +179,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 value="resumen"
                 [checked]="tipoReporte === 'resumen'"
                 [disabled]="loading"
-                (change)="onTipoReporteChange('resumen')"
+                (click)="onTipoReporteChange('resumen')"
                 class="radio-input">
               <span class="radio-label">Calculos</span>
             </label>
@@ -2570,6 +2570,8 @@ export class MarcajePersonalComponent implements OnInit {
   // Propiedades para el modal
   mostrarModal = false;
   empleadoSeleccionado: any = null;
+  // Variable para indicar si hay alguna modal abierta (optimización de rendimiento)
+  tieneModalAbierta = false;
   // Modal excepción (día a día)
   showExcepcionModal = false;
   savingExcepcion = false;
@@ -2623,7 +2625,9 @@ export class MarcajePersonalComponent implements OnInit {
     private excepcionesService: ExcepcionesHorariosService,
     private plantillasService: PlantillasHorariosService,
     private feriadosService: FeriadosService,
-    private sanitizer: DomSanitizer
+    private sanitizer: DomSanitizer,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -2646,7 +2650,11 @@ export class MarcajePersonalComponent implements OnInit {
     });
   }
 
-  onTipoReporteChange(tipo: 'global' | 'horario' | 'resumen') {
+  onTipoReporteChange(tipo: 'global' | 'horario' | 'resumen', event?: Event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.tipoReporte = tipo;
     
     // Asegurar que los datos estén actualizados y consistentes al cambiar de vista
@@ -2916,6 +2924,10 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   abrirModalExcepcion(empleado: any, dia: Date) {
+    // OPTIMIZACIÓN CRÍTICA: Desactivar change detection del componente principal ANTES de abrir la modal
+    // Esto evita que Angular re-evalúe el template principal con todos los empleados
+    this.cdr.detach();
+    
     // Optimización: Calcular fecha una sola vez
     const fechaStr = dia instanceof Date ? dia.toISOString().split('T')[0] : dia;
     
@@ -2942,20 +2954,28 @@ export class MarcajePersonalComponent implements OnInit {
       this.excepcionId = null;
     }
     
+    // Marcar que hay una modal abierta
+    this.tieneModalAbierta = true;
+    
     // Mostrar el modal INMEDIATAMENTE (no esperar a cargar plantillas)
     this.showExcepcionModal = true;
     
+    // Actualizar SOLO la modal usando detectChanges (NO reactiva el componente principal)
+    this.cdr.detectChanges();
+      
     // Usar requestAnimationFrame para liberar supresión después del render
     requestAnimationFrame(() => {
       this.suppressPlantillaChange = false;
     });
-    
+      
     // OPTIMIZACIÓN: Usar requestAnimationFrame para cargar plantillas después del render
     // Esto asegura que el modal se muestre inmediatamente sin bloqueos
     requestAnimationFrame(() => {
       // Cargar plantillas en segundo plano (usando caché si está disponible)
       setTimeout(() => {
         this.cargarPlantillasParaModal(empleado);
+        // Actualizar SOLO la modal después de cargar plantillas
+        this.cdr.detectChanges();
       }, 0);
     });
   }
@@ -3040,7 +3060,11 @@ export class MarcajePersonalComponent implements OnInit {
     
     if (this.savingExcepcion) return;
     
-    const empleadoIdAnterior = this.modalEmpleado?.id;
+    // Quitar el focus del elemento activo para evitar que cause scroll
+    if (document.activeElement && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    
     this.showExcepcionModal = false;
     this.modalEmpleado = null;
     this.modalFecha = '';
@@ -3050,25 +3074,41 @@ export class MarcajePersonalComponent implements OnInit {
     this.isEditExcepcion = false;
     this.excepcionId = null;
     
-    // NO recargar datos al cerrar - los datos ya están actualizados optimistamente
-    // Solo actualizar la vista si es necesario (sin recargar desde servidor)
-    if (empleadoIdAnterior && this.hasSearched) {
-      // Solo reagrupar empleados (más ligero, no recarga)
-      setTimeout(() => {
-        this.agruparEmpleados();
-      }, 0);
+    // Verificar si hay otras modales abiertas
+    this.tieneModalAbierta = this.mostrarModal || this.showMarcajesModal;
+    
+    // Si no hay más modales abiertas, reactivar change detection del componente principal
+    if (!this.tieneModalAbierta) {
+      this.ngZone.run(() => {
+        this.cdr.reattach();
+        this.cdr.markForCheck();
+      });
     }
+    
+    // NO actualizar la vista al cerrar - solo cerrar la modal
+    // La vista se actualizará cuando el usuario interactúe o cuando sea necesario
   }
 
   abrirModalMarcajes(empleado: any, dia: Date) {
-    // OPTIMIZACIÓN: Mostrar modal INMEDIATAMENTE sin cálculos
-    // Los cálculos se harán después del render para no bloquear la apertura
+    // OPTIMIZACIÓN CRÍTICA: Desactivar change detection del componente principal ANTES de abrir la modal
+    // Esto evita que Angular re-evalúe el template principal con todos los empleados
+    this.cdr.detach();
+    
+    // OPTIMIZACIÓN: Preparar datos ANTES de abrir la modal
     this.modalEmpleado = empleado;
     this.modalFechaMarcajes = new Date(dia);
     this.marcajesModal = [];
     this.modalPlantillaInfo = null;
     this.modalMarcajeCalculado = '';
+    
+    // Marcar que hay una modal abierta
+    this.tieneModalAbierta = true;
+    
+    // Abrir la modal
     this.showMarcajesModal = true;
+    
+    // Actualizar SOLO la modal usando detectChanges (NO reactiva el componente principal)
+    this.cdr.detectChanges();
 
     // OPTIMIZACIÓN: Usar requestAnimationFrame para calcular después del render
     // Esto asegura que el modal se muestre inmediatamente sin bloqueos
@@ -3086,6 +3126,9 @@ export class MarcajePersonalComponent implements OnInit {
       } else {
         this.modalMarcajeCalculado = 'Sin Registros';
       }
+      
+      // Actualizar SOLO la modal después de calcular
+      this.cdr.detectChanges();
     });
 
     // Cargar marcajes en segundo plano (no bloquea la apertura del modal)
@@ -3131,19 +3174,34 @@ export class MarcajePersonalComponent implements OnInit {
           horaSalidaCalculada = marcajesCalculados.salida;
           
           // Buscar los marcajes reales que coinciden con las horas calculadas
-          // Comparar por hora (HH:MM) sin importar el día
+          // IMPORTANTE: La entrada DEBE ser del día de referencia, la salida puede ser del día siguiente (turno nocturno)
           marcajes.forEach((m: any) => {
             const fechaHora = new Date(m.event_time);
             const horaMarcaje = fechaHora.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
+            const fechaMarcaje = new Date(fechaHora);
+            fechaMarcaje.setHours(0, 0, 0, 0);
+            const fechaMarcajeStr = fechaMarcaje.toISOString().split('T')[0];
             
+            // La entrada DEBE ser del día de referencia (mismo día)
             if (horaEntradaCalculada && horaEntradaCalculada !== 'Sin marcaje' && 
-                horaMarcaje === horaEntradaCalculada && !marcajeEntradaId) {
+                horaMarcaje === horaEntradaCalculada && 
+                fechaMarcajeStr === fechaRefStr && 
+                !marcajeEntradaId) {
               marcajeEntradaId = m.id;
             }
+            
+            // La salida puede ser del día de referencia o del día siguiente (turno nocturno)
             if (horaSalidaCalculada && horaSalidaCalculada !== 'Sin marcaje' && 
                 horaSalidaCalculada !== 'SNM' && horaSalidaCalculada !== 'SDNM' &&
                 horaMarcaje === horaSalidaCalculada && !marcajeSalidaId) {
-              marcajeSalidaId = m.id;
+              // Verificar que la salida sea del día de referencia o del día siguiente
+              const diaSiguiente = new Date(fechaRef);
+              diaSiguiente.setDate(diaSiguiente.getDate() + 1);
+              const fechaDiaSiguienteStr = diaSiguiente.toISOString().split('T')[0];
+              
+              if (fechaMarcajeStr === fechaRefStr || fechaMarcajeStr === fechaDiaSiguienteStr) {
+                marcajeSalidaId = m.id;
+              }
             }
           });
         }
@@ -3191,10 +3249,15 @@ export class MarcajePersonalComponent implements OnInit {
 
         // Ordenar por fecha (más antiguo primero)
         this.marcajesModal.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+        
+        // Actualizar SOLO la modal después de cargar marcajes (el componente principal sigue desactivado)
+        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Error al cargar marcajes:', error);
         this.marcajesModal = [];
+        // Actualizar SOLO la modal incluso en caso de error
+        this.cdr.detectChanges();
       }
     });
     }, 0);
@@ -3207,6 +3270,17 @@ export class MarcajePersonalComponent implements OnInit {
     this.marcajesModal = [];
     this.modalPlantillaInfo = null;
     this.modalMarcajeCalculado = '';
+    
+    // Verificar si hay otras modales abiertas
+    this.tieneModalAbierta = this.mostrarModal || this.showExcepcionModal;
+    
+    // Si no hay más modales abiertas, reactivar change detection del componente principal
+    if (!this.tieneModalAbierta) {
+      this.ngZone.run(() => {
+        this.cdr.reattach();
+        this.cdr.markForCheck();
+      });
+    }
   }
 
   trackByPlantillaId(index: number, item: any): any {
@@ -3321,17 +3395,156 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
+  // Método para guardar excepción y cerrar la modal automáticamente
+  guardarExcepcionYcerrar() {
+    if (!this.modalEmpleado || !this.modalFecha || !this.selectedPlantillaId) return;
+    
+    this.savingExcepcion = true;
+    if (this.isEditExcepcion && this.excepcionId) {
+      this.excepcionesService.actualizar(this.excepcionId, {
+        plantilla_horario_id: this.selectedPlantillaId
+      }).subscribe({
+        next: () => {
+          this.savingExcepcion = false;
+          // Actualización optimista del mapa para reflejar inmediatamente
+          const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+          const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
+          const excepcionActualizada = {
+            id: this.excepcionId,
+            empleado_id: this.modalEmpleado.id,
+            fecha: this.modalFecha,
+            plantilla_horario_id: this.selectedPlantillaId,
+            PlantillaHorario: plantilla
+          };
+          this.excepcionesMap.set(key, excepcionActualizada);
+          this.excepcionesCompletas.set(key, excepcionActualizada);
+          this.plantillaExcepcionActualId = this.selectedPlantillaId as number;
+          
+          // Limpiar caché del empleado
+          if (this.modalEmpleado?.id) {
+            this.limpiarCacheEmpleado(this.modalEmpleado.id);
+          }
+          
+          // Cerrar la modal después de guardar exitosamente
+          this.cerrarModalExcepcion();
+          
+          // Actualizar solo la vista del empleado sin causar scroll
+          if (this.hasSearched) {
+            // Usar requestAnimationFrame para actualizar después del render, sin causar scroll
+            requestAnimationFrame(() => {
+              this.agruparEmpleados();
+            });
+          }
+        },
+        error: (err) => { 
+          console.error('Error al guardar excepción:', err);
+          this.savingExcepcion = false; 
+        }
+      });
+    } else {
+      this.excepcionesService.crear({
+        empleado_id: this.modalEmpleado.id,
+        fecha: this.modalFecha,
+        plantilla_horario_id: this.selectedPlantillaId
+      }).subscribe({
+        next: (res) => {
+          this.savingExcepcion = false;
+          // Actualización optimista del mapa para reflejar inmediatamente
+          const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+          const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
+          const excepcionCreada = {
+            id: res?.id,
+            empleado_id: this.modalEmpleado.id,
+            fecha: this.modalFecha,
+            plantilla_horario_id: this.selectedPlantillaId,
+            PlantillaHorario: plantilla
+          };
+          this.excepcionesMap.set(key, excepcionCreada);
+          this.excepcionesCompletas.set(key, excepcionCreada);
+          this.isEditExcepcion = true;
+          this.excepcionId = res?.id || this.excepcionId;
+          this.plantillaExcepcionActualId = this.selectedPlantillaId as number;
+          
+          // Limpiar caché del empleado
+          if (this.modalEmpleado?.id) {
+            this.limpiarCacheEmpleado(this.modalEmpleado.id);
+          }
+          
+          // Cerrar la modal después de guardar exitosamente
+          this.cerrarModalExcepcion();
+          
+          // Actualizar solo la vista del empleado sin causar scroll
+          if (this.hasSearched) {
+            // Usar requestAnimationFrame para actualizar después del render, sin causar scroll
+            requestAnimationFrame(() => {
+              this.agruparEmpleados();
+            });
+          }
+        },
+        error: (err) => {
+          if (err && err.status === 409) {
+            const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+            const ex = this.excepcionesMap.get(key);
+            if (ex && ex.id) {
+              this.excepcionesService.actualizar(ex.id, { plantilla_horario_id: this.selectedPlantillaId }).subscribe({
+                next: () => {
+                  this.savingExcepcion = false;
+                  const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
+                  const excepcionActualizada = {
+                    id: ex.id,
+                    empleado_id: this.modalEmpleado.id,
+                    fecha: this.modalFecha,
+                    plantilla_horario_id: this.selectedPlantillaId,
+                    PlantillaHorario: plantilla
+                  };
+                  this.excepcionesMap.set(key, excepcionActualizada);
+                  this.excepcionesCompletas.set(key, excepcionActualizada);
+                  
+                  // Limpiar caché del empleado
+                  if (this.modalEmpleado?.id) {
+                    this.limpiarCacheEmpleado(this.modalEmpleado.id);
+                  }
+                  
+                  // Cerrar la modal después de guardar exitosamente
+                  this.cerrarModalExcepcion();
+                  
+                  // Actualizar solo la vista del empleado sin causar scroll
+                  if (this.hasSearched) {
+                    // Usar requestAnimationFrame para actualizar después del render, sin causar scroll
+                    requestAnimationFrame(() => {
+                      this.agruparEmpleados();
+                    });
+                  }
+                },
+                error: (err) => { 
+                  console.error('Error al guardar excepción:', err);
+                  this.savingExcepcion = false; 
+                }
+              });
+              return;
+            }
+          }
+          this.savingExcepcion = false;
+        }
+      });
+    }
+  }
+
   // Prevenir recarga de página en el select
   onSelectChange(event: Event) {
+    // Prevenir cualquier comportamiento por defecto que pueda cerrar la modal
     event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation();
     return false;
   }
 
   onPlantillaSeleccionChange(value: any) {
+    // Prevenir que se cierre la modal si está suprimido el cambio
     if (this.suppressPlantillaChange) {
       return;
     }
+    
     if (value === null || typeof value === 'undefined') {
       return; // placeholder, no hacer nada
     }
@@ -3374,14 +3587,12 @@ export class MarcajePersonalComponent implements OnInit {
         // Actualizar caché inmediatamente para todos los días del empleado (si está filtrado)
         this.limpiarCacheEmpleado(this.modalEmpleado.id);
         
-        // Actualizar vista inmediatamente (solo reagrupar, no recargar)
-        setTimeout(() => {
-          this.agruparEmpleados();
-        }, 0);
+        // Actualizar solo la modal, no el componente principal
+        this.cdr.detectChanges();
       }
     }
-    // Guardar en segundo plano (no bloquea la UI) - SIN recargar después
-    this.guardarExcepcion();
+    // Guardar en segundo plano y cerrar la modal después de guardar
+    this.guardarExcepcionYcerrar();
   }
 
   canEliminarExcepcion(): boolean {
@@ -3406,16 +3617,23 @@ export class MarcajePersonalComponent implements OnInit {
     }
     if (!this.isEditExcepcion || !this.excepcionId) { return; }
     if (this.savingExcepcion) { return; }
+    
     this.savingExcepcion = true;
     this.excepcionesService.eliminar(this.excepcionId).subscribe({
       next: () => {
         this.savingExcepcion = false;
-        this.showExcepcionModal = false;
+        
         // Remover de forma optimista la excepción del mapa
         const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
         this.excepcionesMap.delete(key);
         // También eliminar del mapa de excepciones completas
         this.excepcionesCompletas.delete(key);
+        
+        // Limpiar caché del empleado
+        if (this.modalEmpleado?.id) {
+          this.limpiarCacheEmpleado(this.modalEmpleado.id);
+        }
+        
         // Reset selección del select por si quedó en "Eliminar Registro"
         this.selectedPlantillaId = null;
         this.plantillaExcepcionActualId = null;
@@ -3425,23 +3643,20 @@ export class MarcajePersonalComponent implements OnInit {
           this.cargarExcepcionesEmpleado();
         }
         
-        // OPTIMIZACIÓN: Actualización optimista - NO recargar todo, solo actualizar caché y vista
-        // Si tenemos datos completos cargados, actualizar solo los mapas y refrescar vista
-        if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0 && this.modalEmpleado?.id) {
-          // Actualizar excepcionesMap y excepcionesCompletas ya está hecho arriba (delete)
-          // Recalcular todos los días del empleado que están filtrados y visibles
-          this.limpiarCacheEmpleado(this.modalEmpleado.id);
-          // SOLO reagrupar empleados (más ligero que aplicarFiltrosLocales completo)
-          // NO llamar aplicarFiltrosLocales porque puede causar recarga
-          setTimeout(() => {
+        // Cerrar la modal - usar el método de cierre que maneja correctamente el estado
+        this.cerrarModalExcepcion();
+        
+        // Actualizar solo la vista del empleado sin causar scroll
+        if (this.hasSearched) {
+          // Usar requestAnimationFrame para actualizar después del render, sin causar scroll
+          requestAnimationFrame(() => {
             this.agruparEmpleados();
-          }, 0);
-        } else {
-          // Si no, solo refrescar agrupación
-          this.agruparEmpleados();
+          });
         }
       },
-      error: () => { this.savingExcepcion = false; }
+      error: () => { 
+        this.savingExcepcion = false; 
+      }
     });
   }
 
@@ -3508,6 +3723,40 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   // Nuevo método: cuando se selecciona una sala en el bloque superior (radio buttons)
+  // Método para establecer fechas por defecto según el día del mes actual
+  establecerFechasPorDefecto() {
+    const hoy = new Date();
+    const añoActual = hoy.getFullYear();
+    const mesActual = hoy.getMonth(); // 0-11
+    const diaActual = hoy.getDate();
+    
+    let fechaDesde: Date;
+    let fechaHasta: Date;
+    
+    if (diaActual <= 15) {
+      // Si el día es menor o igual a 15: del 1 al 15 del mes actual
+      fechaDesde = new Date(añoActual, mesActual, 1);
+      fechaHasta = new Date(añoActual, mesActual, 15);
+    } else {
+      // Si el día es mayor a 15: del 16 al último día del mes actual
+      fechaDesde = new Date(añoActual, mesActual, 16);
+      // Obtener el último día del mes
+      const ultimoDiaDelMes = new Date(añoActual, mesActual + 1, 0).getDate();
+      fechaHasta = new Date(añoActual, mesActual, ultimoDiaDelMes);
+    }
+    
+    // Formatear fechas en formato YYYY-MM-DD (formato ISO para inputs de tipo date)
+    const formatearFecha = (fecha: Date): string => {
+      const año = fecha.getFullYear();
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+      const dia = String(fecha.getDate()).padStart(2, '0');
+      return `${año}-${mes}-${dia}`;
+    };
+    
+    this.fechaDesde = formatearFecha(fechaDesde);
+    this.fechaHasta = formatearFecha(fechaHasta);
+  }
+
   onSalaSelectorChange(salaId: number) {
     if (!salaId) {
       // Si se deselecciona, limpiar datos
@@ -3550,14 +3799,11 @@ export class MarcajePersonalComponent implements OnInit {
     this.selectedSexo = null;
     this.searchText = '';
     
-    // Establecer fechas por defecto (último mes)
-    const hoy = new Date();
-    const haceUnMes = new Date();
-    haceUnMes.setMonth(hoy.getMonth() - 1);
-    this.fechaDesde = haceUnMes.toISOString().split('T')[0];
-    this.fechaHasta = hoy.toISOString().split('T')[0];
+    // Establecer fechas por defecto según el día del mes actual
+    this.establecerFechasPorDefecto();
     
     // Calcular fechas mínima y máxima permitidas (2 años atrás, 4 meses adelante)
+    const hoy = new Date();
     const haceDosAños = new Date();
     haceDosAños.setFullYear(hoy.getFullYear() - 2);
     this.fechaMinimaFiltro = haceDosAños.toISOString().split('T')[0];
@@ -4239,7 +4485,7 @@ export class MarcajePersonalComponent implements OnInit {
     */
     
     this.hasSearched = true;
-    this.loading = true;
+    // NO establecer loading = true aquí porque es solo filtrado local, no carga del servidor
     
     // Generar días del mes basado en las fechas seleccionadas
     this.generarDiasDelMes();
@@ -4282,14 +4528,6 @@ export class MarcajePersonalComponent implements OnInit {
       }
     });
     
-    console.log('[DEBUG] Excepciones filtradas por rango:', {
-      fechaDesde: this.fechaDesde,
-      fechaHasta: this.fechaHasta,
-      totalExcepcionesCompletas: this.excepcionesCompletas.size,
-      totalExcepcionesFiltradas: this.excepcionesMap.size,
-      muestraKeys: Array.from(this.excepcionesMap.keys()).slice(0, 5)
-    });
-    
     // Filtrar marcajes localmente de los marcajes completos ya cargados
     this.filtrarMarcajesLocalmente();
   }
@@ -4302,7 +4540,10 @@ export class MarcajePersonalComponent implements OnInit {
     
     if (base.length === 0) {
       this.agruparEmpleados();
-      this.loading = false;
+      // Solo establecer loading = false si estaba en true (no mostrar loading para filtrado local)
+      if (this.loading) {
+        this.loading = false;
+      }
       return;
     }
     
@@ -4325,7 +4566,10 @@ export class MarcajePersonalComponent implements OnInit {
       setTimeout(() => {
         this.precalcularBloquesYHorarios();
         this.agruparEmpleados();
-        this.loading = false;
+        // Solo establecer loading = false si estaba en true (no mostrar loading para filtrado local)
+        if (this.loading) {
+          this.loading = false;
+        }
       }, 0);
     } else {
       // Si no hay marcajes completos cargados (caso de fallback), usar el método anterior
@@ -4434,19 +4678,116 @@ export class MarcajePersonalComponent implements OnInit {
   private getHorarioInfoInterno(empleado: any, dia: Date, tipoHorario: string): string {
     const bloque = this.getBloqueHorarioInterno(empleado, dia);
     if (!bloque) {
-      return 'Sin Registros';
+      return 'Sin horario';
+    }
+
+    let resultado = '';
+    switch (tipoHorario) {
+      case 'Turno':
+        resultado = bloque.turno || '';
+        break;
+      case 'Entrada':
+        // Mostrar horario completo: entrada - entrada almuerzo - salida almuerzo - salida
+        // Usar horas de PlantillaHorario si están disponibles
+        const plantillaHorario = bloque?.PlantillaHorario;
+        const horaEntrada = this.formatearHora(plantillaHorario?.hora_entrada || bloque?.hora_entrada || '');
+        const horaSalida = this.formatearHora(plantillaHorario?.hora_salida || bloque?.hora_salida || '');
+        const horaEntradaDescanso = plantillaHorario?.hora_descanso_entrada || bloque?.hora_entrada_descanso || '';
+        const horaSalidaDescanso = plantillaHorario?.hora_descanso_salida || bloque?.hora_salida_descanso || '';
+        const tieneDescanso = bloque?.tiene_descanso || !!(horaEntradaDescanso && horaSalidaDescanso);
+        const tieneDescansoAutomatico = !!plantillaHorario?.descanso_automatico;
+        
+        if (tieneDescanso && horaEntradaDescanso && horaSalidaDescanso) {
+          const entradaDescanso = this.formatearHora(horaEntradaDescanso);
+          const salidaDescanso = this.formatearHora(horaSalidaDescanso);
+          resultado = `${horaEntrada} - ${entradaDescanso} - ${salidaDescanso} - ${horaSalida}`;
+        } else if (tieneDescansoAutomatico) {
+          // Con descanso automático, mostrar etiqueta "Desc Auto"
+          resultado = `${horaEntrada} - Desc Auto - ${horaSalida}`;
+        } else {
+          resultado = `${horaEntrada} - Sin descanso - ${horaSalida}`;
+        }
+        break;
+      case 'Descanso':
+        // Mostrar marcajes reales o "Sin Registros" si no hay marcajes
+        
+        const marcajesDescanso = this.calcularMarcajesDelDia(empleado, dia, bloque);
+        
+        
+        // Obtener información de descanso de la plantilla si está disponible
+        const plantillaDescanso = bloque?.PlantillaHorario;
+        const tieneDescansoPlantilla = !!(plantillaDescanso?.hora_descanso_entrada && plantillaDescanso?.hora_descanso_salida);
+        const tieneDescansoAutomatico2 = !!plantillaDescanso?.descanso_automatico;
+        
+        // Verificar si hay marcajes de descanso válidos (entrada y salida de descanso)
+        const tieneMarcajesDescanso = this.esMarcajeDescansoValido(marcajesDescanso.entradaDescanso) && 
+                                      this.esMarcajeDescansoValido(marcajesDescanso.salidaDescanso);
+        
+        if (marcajesDescanso.entrada !== 'Sin marcaje' && marcajesDescanso.salida !== 'Sin marcaje') {
+          // Si hay descanso automático, verificar primero si hay marcajes válidos
+          if (tieneDescansoAutomatico2) {
+            // Con descanso automático: verificar si hay marcajes de descanso válidos
+            if (tieneMarcajesDescanso) {
+              // Si hay marcajes de descanso válidos, mostrar ambos como descanso manual
+              resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
+            } else {
+              // Si no hay marcajes de descanso válidos, mostrar "Desc Auto" (solo entrada y salida)
+              // Si la salida es SNM, tratarla como "Sin marcaje"
+              if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
+                resultado = marcajesDescanso.entrada; // Solo mostrar entrada
+              } else {
+                resultado = `${marcajesDescanso.entrada} - Desc Auto - ${marcajesDescanso.salida}`;
+              }
+            }
+          } else if (tieneDescansoPlantilla) {
+            // Si hay descanso programado (manual)
+            // Si hay DNM o SDNM, tratarlos como "Sin marcaje"
+            if (marcajesDescanso.entradaDescanso === 'DNM' || marcajesDescanso.salidaDescanso === 'DNM' || 
+                marcajesDescanso.salidaDescanso === 'SDNM' ||
+                marcajesDescanso.entradaDescanso === 'Sin marcaje' || marcajesDescanso.salidaDescanso === 'Sin marcaje') {
+              // Si no hay descanso válido, mostrar solo entrada y salida (sin descanso)
+              if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
+                resultado = marcajesDescanso.entrada; // Solo mostrar entrada
+              } else {
+                resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
+              }
+            } else {
+              resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
+            }
+          } else {
+            // Sin descanso de ningún tipo
+            // Si la salida es SNM, tratarla como "Sin marcaje"
+            if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
+              resultado = marcajesDescanso.entrada; // Solo mostrar entrada
+            } else {
+              resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
+            }
+          }
+        } else if (marcajesDescanso.entrada !== 'Sin marcaje') {
+          // Solo entrada real
+          resultado = marcajesDescanso.entrada;
+        } else {
+          // No hay marcajes reales, mostrar "Sin Registros"
+          resultado = 'Sin Registros';
+        }
+        
+        break;
+      case 'Salida':
+        // Mostrar cálculo detallado de horas trabajadas
+        
+        const marcajesCalculo = this.calcularMarcajesDelDia(empleado, dia, bloque);
+        const resumenCalculo = this.calcularResumenHoras(marcajesCalculo, bloque);
+        
+        // El texto ya incluye los colores individuales
+        resultado = resumenCalculo.texto;
+        
+        
+        break;
+      default:
+        resultado = '';
     }
     
-    const marcajesCalculados = this.calcularMarcajesDelDia(empleado, dia, bloque);
-    
-    if (tipoHorario === 'Descanso') {
-      if (marcajesCalculados.entrada === 'Sin marcaje' && marcajesCalculados.salida === 'Sin marcaje') {
-        return 'Sin Registros';
-      }
-      return `${marcajesCalculados.entrada} - ${marcajesCalculados.salida}`;
-    }
-    
-    return 'Sin Registros';
+    return resultado;
   }
   
   // Limpiar caché de un empleado específico (cuando cambia una excepción)
@@ -4617,7 +4958,11 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
-  onDepartamentoChange() {
+  onDepartamentoChange(event?: Event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.selectedAreaId = null;
     this.selectedCargoId = null;
     this.actualizarListasCascada();
@@ -4629,7 +4974,11 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
-  onAreaChange() {
+  onAreaChange(event?: Event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     this.selectedCargoId = null;
     this.actualizarListasCascada();
     // Si tenemos datos completos, aplicar filtros locales
@@ -4640,7 +4989,11 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
-  onCargoChange() {
+  onCargoChange(event?: Event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     // Si tenemos datos completos, aplicar filtros locales
     if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
       this.aplicarFiltrosLocales();
@@ -4649,7 +5002,11 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
-  onSexoChange() {
+  onSexoChange(event?: Event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     // Si tenemos datos completos, aplicar filtros locales
     if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
       this.aplicarFiltrosLocales();
@@ -5514,6 +5871,17 @@ export class MarcajePersonalComponent implements OnInit {
   validarEntradaVsSalidaAnterior(empleado: any, dia: Date, marcajesActuales: { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string }, bloque: any): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
     // Si no hay entrada marcada, no hay nada que validar
     if (!marcajesActuales.entrada || marcajesActuales.entrada === 'Sin marcaje') {
+      return marcajesActuales;
+    }
+
+    // IMPORTANTE: Si el día actual tiene una excepción (horario manual), NO validar contra el día anterior
+    // Las excepciones tienen prioridad absoluta y no deben invalidarse por turnos anteriores
+    const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+    const key = `${empleado?.id}|${fechaStr}`;
+    const tieneExcepcion = this.excepcionesMap.has(key) || this.excepcionesCompletas.has(key);
+    
+    if (tieneExcepcion) {
+      // Si hay excepción, no validar contra el día anterior - la excepción tiene prioridad
       return marcajesActuales;
     }
 
@@ -6948,11 +7316,14 @@ export class MarcajePersonalComponent implements OnInit {
   // Encontrar el marcaje más cercano a una hora programada
   // LÓGICA DE PRIORIDADES (CORRECTA):
   // DIURNO:
-  //   - PRIORIDAD 1: Buscar salida en el mismo día después de entrada
+  //   - PRIORIDAD 1: Buscar salida en el mismo día después de entrada (más cercano a hora programada)
   //   - PRIORIDAD 2: Buscar salida en el día siguiente hasta las 12:00, siempre y cuando no coincida con la entrada del día siguiente
   // NOCTURNO:
   //   - PRIORIDAD 1: Buscar salida en el día siguiente
-  //   - PRIORIDAD 2: Buscar salida en el mismo día después de entrada (si no hay marcajes del día siguiente)
+  //   - PRIORIDAD 2: Buscar salida en el mismo día después de entrada (más cercano a hora programada, si no hay marcajes del día siguiente)
+  // ENTRADA:
+  //   - DIURNO: Marcaje más cercano a la hora programada
+  //   - NOCTURNO: Último marcaje del día (no del día siguiente ni anterior)
   encontrarMarcajeMasCercano(marcajesConHoras: any[], horaProgramada: number, marcajesUsados: Set<any>, esNocturno: boolean = false, esHoraSalida: boolean = false, horaEntradaProgramada: number = 0, entradaAsignada: string = ''): string {
     let marcajeMasCercano = null;
     let menorDiferencia = Infinity;
@@ -7138,13 +7509,32 @@ export class MarcajePersonalComponent implements OnInit {
       }
     } else {
       // Para entrada (nocturno o diurno), calcular diferencia normal sin prioridades
-      for (const marcajeConHora of marcajesConHoras) {
-        if (marcajesUsados.has(marcajeConHora.marcaje)) continue;
+      if (esNocturno) {
+        // TURNO NOCTURNO: Entrada es el ÚLTIMO marcaje del día (no del día siguiente ni anterior)
+        const marcajesDelDia = marcajesConHoras
+          .filter(m => !marcajesUsados.has(m.marcaje) && !m.esDelDiaSiguiente && !m.esDelDiaAnterior)
+          .sort((a, b) => a.hora - b.hora);
         
-        const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
-        if (diferencia < menorDiferencia) {
-          menorDiferencia = diferencia;
-          marcajeMasCercano = marcajeConHora;
+        if (marcajesDelDia.length > 0) {
+          // Tomar el último marcaje del día
+          marcajeMasCercano = marcajesDelDia[marcajesDelDia.length - 1];
+        }
+      } else {
+        // TURNO DIURNO: Entrada DEBE ser del MISMO DÍA (no del día siguiente ni anterior)
+        // Filtrar SOLO marcajes del mismo día para evitar confusión cuando dos días tienen la misma hora
+        const marcajesDelMismoDia = marcajesConHoras.filter(m => 
+          !marcajesUsados.has(m.marcaje) && 
+          !m.esDelDiaSiguiente && 
+          !m.esDelDiaAnterior
+        );
+        
+        // Buscar el marcaje más cercano a la hora programada SOLO entre los del mismo día
+        for (const marcajeConHora of marcajesDelMismoDia) {
+          const diferencia = Math.abs(marcajeConHora.hora - horaProgramada);
+          if (diferencia < menorDiferencia) {
+            menorDiferencia = diferencia;
+            marcajeMasCercano = marcajeConHora;
+          }
         }
       }
     }
@@ -7324,9 +7714,12 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Métodos para el modal
   abrirModalEmpleado(empleado: any) {
-    // OPTIMIZACIÓN: Mostrar modal INMEDIATAMENTE sin esperar nada
+    // OPTIMIZACIÓN CRÍTICA: Desactivar change detection del componente principal ANTES de abrir la modal
+    // Esto evita que Angular re-evalúe el template principal con todos los empleados
+    this.cdr.detach();
+    
+    // Preparar datos ANTES de abrir la modal
     this.empleadoSeleccionado = empleado;
-    this.mostrarModal = true;
     this.resetearFormulario();
     
     // Inicializar arrays vacíos para que el modal se renderice inmediatamente
@@ -7334,66 +7727,78 @@ export class MarcajePersonalComponent implements OnInit {
     this.horariosEmpleado = [];
     this.excepcionesEmpleado = [];
     
+    // Marcar que hay una modal abierta
+    this.tieneModalAbierta = true;
+    
+    // Abrir la modal
+    this.mostrarModal = true;
+    
+    // Actualizar SOLO la modal usando detectChanges (NO reactiva el componente principal)
+    this.cdr.detectChanges();
+    
     // OPTIMIZACIÓN: Usar requestAnimationFrame para cargar datos después del render
     // Esto asegura que el modal se muestre inmediatamente sin bloqueos
     requestAnimationFrame(() => {
       // Cargar datos en PARALELO en segundo plano (no bloquea la apertura del modal)
       setTimeout(() => {
-      // Cargar todos los datos en paralelo usando forkJoin
-      const salaId = empleado?.Cargo?.Area?.Departamento?.Sala?.id;
-      
-      const observables: any[] = [];
-      
-      // Cargar horarios por sala si hay sala
-      if (salaId) {
-        observables.push(
-          this.horariosService.getHorariosBySala(salaId).pipe(
-            catchError(() => of([]))
-          )
-        );
-      } else {
-        observables.push(of([]));
-      }
-      
-      // Cargar horarios del empleado
-      if (empleado?.id) {
-        observables.push(
-          this.empleadosService.getHorariosEmpleado(empleado.id).pipe(
-            catchError(() => of([]))
-          )
-        );
-      } else {
-        observables.push(of([]));
-      }
-      
-      // Cargar excepciones del empleado
-      if (empleado?.id) {
-        observables.push(
-          this.excepcionesService.listar(empleado.id).pipe(
-            catchError(() => of([]))
-          )
-        );
-      } else {
-        observables.push(of([]));
-      }
-      
-      // Ejecutar todas las llamadas en paralelo
-      forkJoin(observables).subscribe({
-        next: (results: any[]) => {
-          const horariosSala = results[0] || [];
-          const horariosEmp = results[1] || [];
-          const excepciones = results[2] || [];
-          
-          this.horariosDisponibles = Array.isArray(horariosSala) ? horariosSala : [];
-          this.horariosEmpleado = Array.isArray(horariosEmp) ? horariosEmp : [];
-          this.excepcionesEmpleado = Array.isArray(excepciones) 
-            ? excepciones.sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
-            : [];
-          
-          // Calcular fecha mínima después de cargar horarios
-          this.calcularFechaMinimaPermitida();
+        // Cargar todos los datos en paralelo usando forkJoin
+        const salaId = empleado?.Cargo?.Area?.Departamento?.Sala?.id;
+        
+        const observables: any[] = [];
+        
+        // Cargar horarios por sala si hay sala
+        if (salaId) {
+          observables.push(
+            this.horariosService.getHorariosBySala(salaId).pipe(
+              catchError(() => of([]))
+            )
+          );
+        } else {
+          observables.push(of([]));
         }
-      });
+        
+        // Cargar horarios del empleado
+        if (empleado?.id) {
+          observables.push(
+            this.empleadosService.getHorariosEmpleado(empleado.id).pipe(
+              catchError(() => of([]))
+            )
+          );
+        } else {
+          observables.push(of([]));
+        }
+        
+        // Cargar excepciones del empleado
+        if (empleado?.id) {
+          observables.push(
+            this.excepcionesService.listar(empleado.id).pipe(
+              catchError(() => of([]))
+            )
+          );
+        } else {
+          observables.push(of([]));
+        }
+        
+        // Ejecutar todas las llamadas en paralelo
+        forkJoin(observables).subscribe({
+          next: (results: any[]) => {
+            const horariosSala = results[0] || [];
+            const horariosEmp = results[1] || [];
+            const excepciones = results[2] || [];
+            
+            this.horariosDisponibles = Array.isArray(horariosSala) ? horariosSala : [];
+            this.horariosEmpleado = Array.isArray(horariosEmp) ? horariosEmp : [];
+            this.excepcionesEmpleado = Array.isArray(excepciones) 
+              ? excepciones.sort((a: any, b: any) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+              : [];
+            
+            // Calcular fecha mínima después de cargar horarios
+            this.calcularFechaMinimaPermitida();
+            
+            // Actualizar SOLO la modal (el componente principal sigue desactivado)
+            this.cdr.detectChanges();
+          }
+        });
       }, 0);
     });
   }
@@ -7406,6 +7811,17 @@ export class MarcajePersonalComponent implements OnInit {
     this.horariosDisponibles = [];
     this.horariosEmpleado = [];
     this.resetearFormulario();
+    
+    // Verificar si hay otras modales abiertas
+    this.tieneModalAbierta = this.showExcepcionModal || this.showMarcajesModal;
+    
+    // Si no hay más modales abiertas, reactivar change detection del componente principal
+    if (!this.tieneModalAbierta) {
+      this.ngZone.run(() => {
+        this.cdr.reattach();
+        this.cdr.markForCheck();
+      });
+    }
     
     // OPTIMIZACIÓN: NO recargar datos automáticamente al cerrar el modal
     // Los datos ya se actualizan cuando se guardan/eliminan horarios o excepciones
