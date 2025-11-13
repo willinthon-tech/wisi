@@ -3717,13 +3717,27 @@ export class MarcajePersonalComponent implements OnInit {
               this.excepcionesCompletas.set(key, ex);
               this.excepcionesMap.set(key, ex);
               totalExcepciones++;
+              
+              // DEBUG: Log para verificar que se está guardando correctamente
+              if (totalExcepciones <= 3) {
+                console.log(`[DEBUG] Excepción guardada:`, {
+                  key,
+                  empleado_id: ex.empleado_id,
+                  fechaOriginal: ex.fecha,
+                  fechaNormalizada,
+                  tienePlantillaHorario: !!ex.PlantillaHorario,
+                  plantillaId: ex.plantilla_horario_id,
+                  excepcion: ex
+                });
+              }
             });
           }
         });
         console.log('[DEBUG] Excepciones procesadas:', {
           totalExcepciones,
           totalEmpleados: this.empleadosCompletos.length,
-          muestraExcepciones: Array.from(this.excepcionesMap.entries()).slice(0, 5)
+          muestraExcepciones: Array.from(this.excepcionesMap.entries()).slice(0, 5),
+          todasLasKeys: Array.from(this.excepcionesMap.keys()).slice(0, 10)
         });
         
         // Procesar marcajes
@@ -4216,9 +4230,30 @@ export class MarcajePersonalComponent implements OnInit {
     // Filtrar excepciones por rango de fechas localmente
     this.excepcionesMap.clear();
     this.excepcionesCompletas.forEach((ex, key) => {
-      if (ex.fecha >= this.fechaDesde && ex.fecha <= this.fechaHasta) {
+      // Normalizar la fecha de la excepción para comparar
+      let fechaExcepcion = ex.fecha;
+      if (fechaExcepcion) {
+        if (fechaExcepcion instanceof Date) {
+          fechaExcepcion = this.formatDateLocalYYYYMMDD(fechaExcepcion);
+        } else if (typeof fechaExcepcion === 'string') {
+          if (!fechaExcepcion.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            fechaExcepcion = this.formatDateLocalYYYYMMDD(new Date(fechaExcepcion));
+          }
+        }
+      }
+      
+      // Comparar fechas normalizadas
+      if (fechaExcepcion && fechaExcepcion >= this.fechaDesde && fechaExcepcion <= this.fechaHasta) {
         this.excepcionesMap.set(key, ex);
       }
+    });
+    
+    console.log('[DEBUG] Excepciones filtradas por rango:', {
+      fechaDesde: this.fechaDesde,
+      fechaHasta: this.fechaHasta,
+      totalExcepcionesCompletas: this.excepcionesCompletas.size,
+      totalExcepcionesFiltradas: this.excepcionesMap.size,
+      muestraKeys: Array.from(this.excepcionesMap.keys()).slice(0, 5)
     });
     
     // Filtrar marcajes localmente de los marcajes completos ya cargados
@@ -4302,7 +4337,23 @@ export class MarcajePersonalComponent implements OnInit {
     const key = `${empleado?.id}|${fechaStr}`;
     const ex = this.excepcionesMap.get(key);
     
-    if (ex && ex.plantilla_horario_id) {
+    // PRIORIDAD 1: Si hay excepción con PlantillaHorario, usarla
+    if (ex && ex.PlantillaHorario) {
+      // Construir bloque virtual con la plantilla de la excepción
+      const plantilla = ex.PlantillaHorario;
+      const turno = this.convertirHoraAMinutos(plantilla.hora_entrada) > this.convertirHoraAMinutos(plantilla.hora_salida) ? 'NOCTURNO' : 'DIURNO';
+      return {
+        orden: 1,
+        turno,
+        PlantillaHorario: plantilla,
+        hora_entrada: plantilla.hora_entrada,
+        hora_salida: plantilla.hora_salida,
+        hora_entrada_descanso: plantilla.hora_descanso_entrada,
+        hora_salida_descanso: plantilla.hora_descanso_salida,
+        tiene_descanso: !!(plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida)
+      };
+    } else if (ex && ex.plantilla_horario_id) {
+      // Si hay excepción pero no tiene PlantillaHorario cargado, intentar buscarla
       const plantilla = ex.PlantillaHorario || 
         (this.modalPlantillas || []).find((p: any) => p?.id === ex.plantilla_horario_id);
       
@@ -5159,6 +5210,27 @@ export class MarcajePersonalComponent implements OnInit {
     // Si no está en caché, calcular (fallback para casos edge)
     const key = `${empleado?.id}|${fechaStr}`;
     const ex = this.excepcionesMap.get(key);
+    
+    // DEBUG: Verificar si se encontró excepción
+    if (empleado?.id && fechaStr) {
+      const todasLasKeys = Array.from(this.excepcionesMap.keys());
+      const keysDelEmpleado = todasLasKeys.filter(k => k.startsWith(`${empleado.id}|`));
+      if (keysDelEmpleado.length > 0 && !ex) {
+        console.warn(`[getBloqueHorario] No se encontró excepción para key "${key}"`, {
+          empleadoId: empleado.id,
+          fechaStr,
+          keysDelEmpleado,
+          totalExcepciones: this.excepcionesMap.size
+        });
+      } else if (ex) {
+        console.log(`[getBloqueHorario] Excepción encontrada para ${empleado.nombre} en ${fechaStr}`, {
+          tienePlantillaHorario: !!ex.PlantillaHorario,
+          plantillaId: ex.plantilla_horario_id,
+          excepcion: ex
+        });
+      }
+    }
+    
     if (ex && ex.PlantillaHorario) {
       // Construir bloque virtual con la plantilla de la excepción
       const plantilla = ex.PlantillaHorario;
