@@ -35,6 +35,10 @@ export interface Empleado {
       };
     };
   };
+  // Propiedades opcionales que vienen en la respuesta consolidada del endpoint getEmpleadosBySala con fechas
+  horariosEmpleado?: any[];
+  excepciones?: any[];
+  marcajes?: any[];
 }
 
 @Injectable({
