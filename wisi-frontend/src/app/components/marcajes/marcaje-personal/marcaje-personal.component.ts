@@ -7210,9 +7210,7 @@ export class MarcajePersonalComponent implements OnInit {
         // Obtener información de descanso de la plantilla si está disponible
         const plantillaDescanso = bloque?.PlantillaHorario;
         const tieneDescansoPlantilla = !!(plantillaDescanso?.hora_descanso_entrada && plantillaDescanso?.hora_descanso_salida);
-        // Verificar descanso automático: debe existir y no ser null, undefined, o cadena vacía
-        const descansoAutomaticoValue = plantillaDescanso?.descanso_automatico;
-        const tieneDescansoAutomatico2 = !!(descansoAutomaticoValue && descansoAutomaticoValue !== '' && descansoAutomaticoValue !== null && descansoAutomaticoValue !== undefined);
+        const tieneDescansoAutomatico2 = !!plantillaDescanso?.descanso_automatico;
         
         // Verificar si hay marcajes de descanso válidos (entrada y salida de descanso)
         const tieneMarcajesDescanso = this.esMarcajeDescansoValido(marcajesDescanso.entradaDescanso) && 

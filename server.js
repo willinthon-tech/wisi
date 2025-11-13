@@ -6841,7 +6841,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                   hora_salida: bloque.PlantillaHorario.hora_salida,
                   hora_descanso_entrada: bloque.PlantillaHorario.hora_descanso_entrada,
                   hora_descanso_salida: bloque.PlantillaHorario.hora_descanso_salida,
-                  descanso_automatico: bloque.PlantillaHorario.descanso_automatico || null
+                  descanso_automatico: bloque.PlantillaHorario.descanso_automatico
                 };
               }
             }
