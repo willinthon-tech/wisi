@@ -3813,7 +3813,10 @@ app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
       where,
       include: [
         { model: Empleado, attributes: ['id', 'nombre', 'cedula', 'cargo_id'] },
-        { model: PlantillaHorario }
+        { 
+          model: PlantillaHorario,
+          attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+        }
       ],
       order: [['fecha', 'ASC']]
     });
@@ -4455,7 +4458,10 @@ app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
       where,
       include: [
         { model: Empleado, attributes: ['id', 'nombre', 'cedula', 'cargo_id'] },
-        { model: PlantillaHorario }
+        { 
+          model: PlantillaHorario,
+          attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+        }
       ],
       order: [['fecha', 'ASC']]
     });
