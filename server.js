@@ -6927,15 +6927,17 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
       });
       
       // Agregar horarios al empleado con la misma estructura que el endpoint individual
-      // Incluir PlantillaHorario en cada bloque (igual que el endpoint individual)
-      // IMPORTANTE: Cargar PlantillaHorario para cada bloque (como en el endpoint individual)
+      // IMPORTANTE: Cargar PlantillaHorario manualmente para cada bloque (igual que el endpoint individual)
+      // Esto asegura que los datos estén disponibles incluso si el include falla
       for (let horarioEmp of horariosEmpleado) {
         if (horarioEmp.Horario && horarioEmp.Horario.bloques) {
           for (let bloque of horarioEmp.Horario.bloques) {
-            // Si no tiene PlantillaHorario cargado, cargarlo
-            if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+            // SIEMPRE cargar PlantillaHorario manualmente (igual que el endpoint individual)
+            // No confiar solo en el include porque puede no serializarse correctamente
+            if (bloque.plantilla_horario_id) {
               const plantilla = await PlantillaHorario.findByPk(bloque.plantilla_horario_id);
               if (plantilla) {
+                // Asignar directamente al bloque para que esté disponible
                 bloque.PlantillaHorario = plantilla;
               }
             }
@@ -6954,8 +6956,8 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           };
           
           // Incluir PlantillaHorario directamente en el objeto
-          // Usar bloque.PlantillaHorario (del include o cargado arriba)
-          const plantilla = bloque.PlantillaHorario || bloque.dataValues?.PlantillaHorario;
+          // Usar bloque.PlantillaHorario (cargado manualmente arriba)
+          const plantilla = bloque.PlantillaHorario;
           if (plantilla) {
             bloqueMapeado.PlantillaHorario = {
               id: plantilla.id,

@@ -3622,24 +3622,44 @@ export class MarcajePersonalComponent implements OnInit {
         this.empleadosCompletos = response || [];
         
         // Asegurar que cada empleado tenga horariosEmpleado (ya viene del backend)
-        // DEBUG: Verificar estructura de horarios
+        // DEBUG: Verificar estructura de horarios y log para diagnóstico
         this.empleadosCompletos.forEach(emp => {
           if (!emp.horariosEmpleado) {
             emp.horariosEmpleado = [];
           } else {
             // Verificar que los bloques estén presentes en cada horario
             emp.horariosEmpleado.forEach((he: any) => {
-              if (he.Horario && he.Horario.bloques) {
-                // Asegurar que cada bloque tenga PlantillaHorario
+              if (he.Horario && he.Horario.bloques && he.Horario.bloques.length > 0) {
+                // Verificar que cada bloque tenga PlantillaHorario
                 he.Horario.bloques.forEach((bloque: any) => {
                   if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
-                    console.warn('Bloque sin PlantillaHorario:', bloque);
+                    console.warn(`[DEBUG] Empleado ${emp.nombre} - Bloque sin PlantillaHorario:`, {
+                      bloqueId: bloque.id,
+                      plantillaId: bloque.plantilla_horario_id,
+                      bloque: bloque
+                    });
                   }
                 });
               } else if (he.Horario) {
-                console.warn('Horario sin bloques:', he.Horario);
+                console.warn(`[DEBUG] Empleado ${emp.nombre} - Horario sin bloques:`, {
+                  horarioId: he.Horario.id,
+                  horarioNombre: he.Horario.nombre,
+                  horario: he.Horario
+                });
               }
             });
+            
+            // Log de muestra para el primer empleado con horarios
+            if (emp.horariosEmpleado.length > 0) {
+              const primerHorario = emp.horariosEmpleado[0];
+              console.log(`[DEBUG] Estructura de horarios para ${emp.nombre}:`, {
+                tieneHorario: !!primerHorario.Horario,
+                tieneBloques: !!(primerHorario.Horario?.bloques),
+                cantidadBloques: primerHorario.Horario?.bloques?.length || 0,
+                primerBloque: primerHorario.Horario?.bloques?.[0],
+                estructuraCompleta: primerHorario
+              });
+            }
           }
         });
         
@@ -5074,6 +5094,20 @@ export class MarcajePersonalComponent implements OnInit {
     const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
     
     if (!horarioActivo || !horarioActivo.bloques || horarioActivo.bloques.length === 0) {
+      // DEBUG: Log cuando no hay horario activo
+      if (empleado && empleado.horariosEmpleado && empleado.horariosEmpleado.length > 0) {
+        console.warn(`[getBloqueHorario] No se encontró horario activo para empleado ${empleado.nombre} (${empleado.id}) en fecha ${fechaStr}`, {
+          tieneHorarios: empleado.horariosEmpleado.length > 0,
+          horarios: empleado.horariosEmpleado.map((he: any) => ({
+            id: he.id,
+            primer_dia: he.primer_dia,
+            ultimo_dia: he.ultimo_dia,
+            tieneHorario: !!he.Horario,
+            tieneBloques: !!(he.Horario?.bloques),
+            cantidadBloques: he.Horario?.bloques?.length || 0
+          }))
+        });
+      }
       return null;
     }
 
@@ -5090,22 +5124,32 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Debug solo para casos problemáticos
     if (indiceBloque >= bloques.length || indiceBloque < 0) {
-      
-      
-      
-      
+      console.error(`[getBloqueHorario] Índice de bloque inválido: ${indiceBloque} para ${bloques.length} bloques`);
     }
     
-    return bloques[indiceBloque];
+    const bloqueSeleccionado = bloques[indiceBloque];
+    
+    // DEBUG: Verificar que el bloque tenga PlantillaHorario
+    if (bloqueSeleccionado && !bloqueSeleccionado.PlantillaHorario) {
+      console.warn(`[getBloqueHorario] Bloque ${bloqueSeleccionado.id} no tiene PlantillaHorario`, bloqueSeleccionado);
+    }
+    
+    return bloqueSeleccionado;
   }
 
   // Obtener el horario activo para una fecha específica
   getHorarioActivoParaFecha(empleado: any, dia: Date): any {
-    if (!empleado.horariosEmpleado || empleado.horariosEmpleado.length === 0) {
+    if (!empleado || !empleado.horariosEmpleado || empleado.horariosEmpleado.length === 0) {
       return null;
     }
 
     const fechaStr = dia.toISOString().split('T')[0];
+    
+    // DEBUG: Log para diagnóstico
+    if (!empleado.horariosEmpleado || empleado.horariosEmpleado.length === 0) {
+      console.warn(`[getHorarioActivoParaFecha] Empleado ${empleado?.nombre} (${empleado?.id}) no tiene horariosEmpleado`);
+      return null;
+    }
     
     // Ordenar horarios por fecha de inicio (más reciente primero)
     const horariosOrdenados = empleado.horariosEmpleado.sort((a: any, b: any) => 
@@ -5116,6 +5160,17 @@ export class MarcajePersonalComponent implements OnInit {
     for (const horarioEmpleado of horariosOrdenados) {
       const primerDia = horarioEmpleado.primer_dia ? horarioEmpleado.primer_dia.split('T')[0] : null;
       const ultimoDia = horarioEmpleado.ultimo_dia ? horarioEmpleado.ultimo_dia.split('T')[0] : null;
+      
+      // DEBUG: Log detallado
+      if (!horarioEmpleado.Horario) {
+        console.warn(`[getHorarioActivoParaFecha] HorarioEmpleado ${horarioEmpleado.id} no tiene Horario`, horarioEmpleado);
+        continue;
+      }
+      
+      if (!horarioEmpleado.Horario.bloques || horarioEmpleado.Horario.bloques.length === 0) {
+        console.warn(`[getHorarioActivoParaFecha] Horario ${horarioEmpleado.Horario.id} no tiene bloques`, horarioEmpleado.Horario);
+        continue;
+      }
       
       // Verificar que la fecha esté dentro del rango del horario
       if (primerDia && fechaStr >= primerDia) {
