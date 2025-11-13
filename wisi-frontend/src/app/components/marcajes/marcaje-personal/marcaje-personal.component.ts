@@ -566,7 +566,7 @@ import { FeriadosService } from '../../../services/feriados.service';
       <div class="modal-content">
         <div class="modal-header">
           <h3>Asignación de Horarios</h3>
-          <button class="modal-close" (click)="cerrarModal()">
+          <button type="button" class="modal-close" (click)="cerrarModal()">
             <i class="fas fa-times"></i>
             <span class="close-text">×</span>
           </button>
@@ -632,7 +632,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                   </select>
                 </div>
                 <div class="form-group">
-                  <button class="btn btn-primary" 
+                  <button type="button" class="btn btn-primary" 
                           (click)="guardarHorarioEmpleado()"
                           [disabled]="!nuevoHorario.primer_dia || !nuevoHorario.horario_id">
                     <i class="fas fa-save"></i> Guardar
@@ -670,7 +670,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                       </div>
                     </td>
                     <td>
-                      <button class="btn btn-sm" 
+                      <button type="button" class="btn btn-sm" 
                               [class.btn-danger]="esHorarioMasReciente(horarioEmp.id)"
                               [class.btn-secondary]="!esHorarioMasReciente(horarioEmp.id)"
                               [disabled]="!esHorarioMasReciente(horarioEmp.id)"
@@ -728,7 +728,7 @@ import { FeriadosService } from '../../../services/feriados.service';
                 </td>
                 <td>{{ ex?.PlantillaHorario?.nombre || ex.motivo || '-' }}</td>
                 <td>
-                  <button class="btn btn-sm btn-danger" (click)="eliminarExcepcionDirecta(ex)">Eliminar</button>
+                  <button type="button" class="btn btn-sm btn-danger" (click)="eliminarExcepcionDirecta(ex)">Eliminar</button>
                 </td>
               </tr>
             </tbody>
@@ -757,7 +757,7 @@ import { FeriadosService } from '../../../services/feriados.service';
 
           <!-- Botón Cerrar -->
           <div class="modal-footer">
-            <button class="btn btn-secondary btn-lg" (click)="cerrarModal()">
+            <button type="button" class="btn btn-secondary btn-lg" (click)="cerrarModal()">
               <i class="fas fa-times"></i> Cerrar
             </button>
           </div>
@@ -2950,11 +2950,14 @@ export class MarcajePersonalComponent implements OnInit {
       this.suppressPlantillaChange = false;
     });
     
-    // Cargar plantillas en segundo plano (usando caché si está disponible)
-    // Usar setTimeout con delay 0 para no bloquear el render
-    setTimeout(() => {
-      this.cargarPlantillasParaModal(empleado);
-    }, 0);
+    // OPTIMIZACIÓN: Usar requestAnimationFrame para cargar plantillas después del render
+    // Esto asegura que el modal se muestre inmediatamente sin bloqueos
+    requestAnimationFrame(() => {
+      // Cargar plantillas en segundo plano (usando caché si está disponible)
+      setTimeout(() => {
+        this.cargarPlantillasParaModal(empleado);
+      }, 0);
+    });
   }
 
   // Función optimizada para cargar plantillas usando caché
@@ -3058,7 +3061,8 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   abrirModalMarcajes(empleado: any, dia: Date) {
-    // Mostrar modal INMEDIATAMENTE con datos calculados localmente
+    // OPTIMIZACIÓN: Mostrar modal INMEDIATAMENTE sin cálculos
+    // Los cálculos se harán después del render para no bloquear la apertura
     this.modalEmpleado = empleado;
     this.modalFechaMarcajes = new Date(dia);
     this.marcajesModal = [];
@@ -3066,19 +3070,23 @@ export class MarcajePersonalComponent implements OnInit {
     this.modalMarcajeCalculado = '';
     this.showMarcajesModal = true;
 
-    // Obtener la plantilla de horario para este día (cálculo local, instantáneo)
-    const bloque = this.getBloqueHorario(empleado, dia);
-    if (bloque) {
-      this.modalPlantillaInfo = bloque;
-    }
+    // OPTIMIZACIÓN: Usar requestAnimationFrame para calcular después del render
+    // Esto asegura que el modal se muestre inmediatamente sin bloqueos
+    requestAnimationFrame(() => {
+      // Obtener la plantilla de horario para este día (usando caché si está disponible)
+      const bloque = this.getBloqueHorario(empleado, dia);
+      if (bloque) {
+        this.modalPlantillaInfo = bloque;
+      }
 
-    // Obtener el marcaje calculado para este día (cálculo local, instantáneo)
-    const marcajeInfo = this.getHorarioInfo(empleado, dia, 'Descanso');
-    if (marcajeInfo && marcajeInfo !== 'Sin Registros') {
-      this.modalMarcajeCalculado = marcajeInfo;
-    } else {
-      this.modalMarcajeCalculado = 'Sin Registros';
-    }
+      // Obtener el marcaje calculado para este día (usando caché si está disponible)
+      const marcajeInfo = this.getHorarioInfo(empleado, dia, 'Descanso');
+      if (marcajeInfo && marcajeInfo !== 'Sin Registros') {
+        this.modalMarcajeCalculado = marcajeInfo;
+      } else {
+        this.modalMarcajeCalculado = 'Sin Registros';
+      }
+    });
 
     // Cargar marcajes en segundo plano (no bloquea la apertura del modal)
     setTimeout(() => {
@@ -3616,10 +3624,23 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Optimización: Obtener SOLO los empleados de esa sala (no todos)
     // Pasar fechas para que el backend devuelva todo consolidado (horarios, excepciones, marcajes)
+    console.log('[DEBUG] Llamando getEmpleadosBySala con:', { salaId, fechaDesde: this.fechaDesde, fechaHasta: this.fechaHasta });
     this.empleadosService.getEmpleadosBySala(salaId, this.fechaDesde, this.fechaHasta).subscribe({
       next: (response) => {
+        console.log('[DEBUG] Respuesta de getEmpleadosBySala:', {
+          cantidadEmpleados: response?.length || 0,
+          primerEmpleado: response?.[0] ? {
+            id: response[0].id,
+            nombre: response[0].nombre,
+            tieneHorarios: !!(response[0].horariosEmpleado?.length),
+            tieneExcepciones: !!(response[0].excepciones?.length),
+            tieneMarcajes: !!(response[0].marcajes?.length),
+            estructura: response[0]
+          } : null
+        });
+        
         // Los empleados ya vienen filtrados por sala desde el servidor
-        // OPTIMIZACIÓN: Los horarios ya vienen incluidos en cada empleado
+        // OPTIMIZACIÓN: Los horarios, excepciones y marcajes ya vienen incluidos en cada empleado
         this.empleadosCompletos = response || [];
         
         // Asegurar que cada empleado tenga horariosEmpleado (ya viene del backend)
@@ -3673,17 +3694,40 @@ export class MarcajePersonalComponent implements OnInit {
         }
         
         // OPTIMIZACIÓN: Procesar excepciones y marcajes que ya vienen en la respuesta
+        let totalExcepciones = 0;
         this.empleadosCompletos.forEach(emp => {
           // Procesar excepciones
           if (emp.excepciones && Array.isArray(emp.excepciones)) {
             emp.excepciones.forEach((ex: any) => {
-              const key = `${ex.empleado_id}|${ex.fecha}`;
+              // Normalizar la fecha al formato YYYY-MM-DD para que coincida con el formato usado en getBloqueHorario
+              let fechaNormalizada = ex.fecha;
+              if (fechaNormalizada) {
+                // Si viene como string ISO o Date, convertir a YYYY-MM-DD
+                if (fechaNormalizada instanceof Date) {
+                  fechaNormalizada = this.formatDateLocalYYYYMMDD(fechaNormalizada);
+                } else if (typeof fechaNormalizada === 'string') {
+                  // Si ya está en formato YYYY-MM-DD, usar tal cual
+                  // Si viene en otro formato, convertir
+                  if (!fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+                  }
+                }
+              }
+              const key = `${ex.empleado_id}|${fechaNormalizada}`;
               this.excepcionesCompletas.set(key, ex);
               this.excepcionesMap.set(key, ex);
+              totalExcepciones++;
             });
           }
-          
-          // Procesar marcajes
+        });
+        console.log('[DEBUG] Excepciones procesadas:', {
+          totalExcepciones,
+          totalEmpleados: this.empleadosCompletos.length,
+          muestraExcepciones: Array.from(this.excepcionesMap.entries()).slice(0, 5)
+        });
+        
+        // Procesar marcajes
+        this.empleadosCompletos.forEach(emp => {
           if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
             const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
             marcajesEmpleado.push(...emp.marcajes);
@@ -3732,17 +3776,47 @@ export class MarcajePersonalComponent implements OnInit {
                 }
               });
               
-              // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios individualmente
-              // Los horarios ya vienen en la respuesta de empleados (si el backend los incluye)
-              this.cargarExcepcionesPorRango().then(() => {
-                Promise.all([
-                  this.cargarFeriados(),
-                  this.cargarPlantillasLibres(salaId)
-                ]).then(() => {
-                  this.cargarMarcajesPorRango().then(() => {
-                    this.aplicarFiltrosLocales();
+              // OPTIMIZACIÓN: Procesar excepciones y marcajes que ya vienen en la respuesta consolidada
+              this.empleadosCompletos.forEach(emp => {
+                // Procesar excepciones
+                if (emp.excepciones && Array.isArray(emp.excepciones)) {
+                  emp.excepciones.forEach((ex: any) => {
+                    // Normalizar la fecha al formato YYYY-MM-DD para que coincida con el formato usado en getBloqueHorario
+                    let fechaNormalizada = ex.fecha;
+                    if (fechaNormalizada) {
+                      // Si viene como string ISO o Date, convertir a YYYY-MM-DD
+                      if (fechaNormalizada instanceof Date) {
+                        fechaNormalizada = this.formatDateLocalYYYYMMDD(fechaNormalizada);
+                      } else if (typeof fechaNormalizada === 'string') {
+                        // Si ya está en formato YYYY-MM-DD, usar tal cual
+                        // Si viene en otro formato, convertir
+                        if (!fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                          fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+                        }
+                      }
+                    }
+                    const key = `${ex.empleado_id}|${fechaNormalizada}`;
+                    this.excepcionesCompletas.set(key, ex);
+                    this.excepcionesMap.set(key, ex);
                   });
-                });
+                }
+                
+                // Procesar marcajes
+                if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
+                  const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
+                  marcajesEmpleado.push(...emp.marcajes);
+                  this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+                }
+              });
+              
+              // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios, excepciones ni marcajes individualmente
+              // Todo ya viene en la respuesta consolidada del backend
+              // Solo necesitamos cargar feriados y plantillas libres
+              Promise.all([
+                this.cargarFeriados(),
+                this.cargarPlantillasLibres(salaId)
+              ]).then(() => {
+                this.aplicarFiltrosLocales();
               });
             } else {
               this.loading = false;
@@ -6791,6 +6865,13 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   // Encontrar el marcaje más cercano a una hora programada
+  // LÓGICA DE PRIORIDADES (CORRECTA):
+  // DIURNO:
+  //   - PRIORIDAD 1: Buscar salida en el mismo día después de entrada
+  //   - PRIORIDAD 2: Buscar salida en el día siguiente hasta las 12:00, siempre y cuando no coincida con la entrada del día siguiente
+  // NOCTURNO:
+  //   - PRIORIDAD 1: Buscar salida en el día siguiente
+  //   - PRIORIDAD 2: Buscar salida en el mismo día después de entrada (si no hay marcajes del día siguiente)
   encontrarMarcajeMasCercano(marcajesConHoras: any[], horaProgramada: number, marcajesUsados: Set<any>, esNocturno: boolean = false, esHoraSalida: boolean = false, horaEntradaProgramada: number = 0, entradaAsignada: string = ''): string {
     let marcajeMasCercano = null;
     let menorDiferencia = Infinity;
@@ -6892,18 +6973,20 @@ export class MarcajePersonalComponent implements OnInit {
       
       // PASADA 2: Si no encontramos de prioridad 1, buscar en PRIORIDAD 2
       // Para NOCTURNO: solo buscar en el mismo día si NO hay marcajes del día siguiente disponibles
-      // Para DIURNO: buscar en el primer marcaje del día siguiente
+      // Para DIURNO: buscar en el primer marcaje del día siguiente hasta las 12:00
       if (!esNocturno) {
-        // TURNO DIURNO - PRIORIDAD 2: Primer marcaje del día siguiente
+        // TURNO DIURNO - PRIORIDAD 2: Primer marcaje del día siguiente hasta las 12:00
         // Solo buscar si hay entrada asignada (base principal)
         if (entradaAsignada && entradaAsignada !== 'Sin marcaje') {
           // Ordenar marcajes del día siguiente por hora
+          // IMPORTANTE: Solo considerar marcajes hasta las 12:00 (720 minutos)
+          const medianoche = 12 * 60; // 12:00 en minutos (720)
           const marcajesDiaSiguiente = marcajesConHoras
-            .filter(m => m.esDelDiaSiguiente && !marcajesUsados.has(m.marcaje))
+            .filter(m => m.esDelDiaSiguiente && !marcajesUsados.has(m.marcaje) && m.hora <= medianoche)
             .sort((a, b) => a.hora - b.hora);
           
           if (marcajesDiaSiguiente.length > 0) {
-            // Tomar el primer marcaje del día siguiente como posible salida
+            // Tomar el primer marcaje del día siguiente (hasta las 12:00) como posible salida
             const primerMarcajeDiaSiguiente = marcajesDiaSiguiente[0];
             
             // Calcular la entrada del día siguiente: el primer marcaje del día siguiente
@@ -6917,7 +7000,7 @@ export class MarcajePersonalComponent implements OnInit {
               const horaEntradaDiaSiguiente = entradaDiaSiguiente.hora;
               const horaPrimerMarcaje = primerMarcajeDiaSiguiente.hora;
               
-              // Verificar si el primer marcaje del día siguiente es igual a la entrada del día siguiente
+              // Verificar si el primer marcaje del día siguiente (hasta las 12:00) es igual a la entrada del día siguiente
               // Si son iguales (misma hora), NO puede ser salida del día anterior
               if (horaPrimerMarcaje === horaEntradaDiaSiguiente) {
                 // El primer marcaje del día siguiente es la entrada del día siguiente
@@ -7038,10 +7121,9 @@ export class MarcajePersonalComponent implements OnInit {
         }
         break;
       case 'Descanso':
-        // Mostrar marcajes reales o "Sin Registros" si no hay marcajes
+        // Mostrar marcajes REALES del empleado (entrada, descanso si existe, salida)
         
         const marcajesDescanso = this.calcularMarcajesDelDia(empleado, dia, bloque);
-        
         
         // Obtener información de descanso de la plantilla si está disponible
         const plantillaDescanso = bloque?.PlantillaHorario;
@@ -7057,16 +7139,11 @@ export class MarcajePersonalComponent implements OnInit {
           if (tieneDescansoAutomatico2) {
             // Con descanso automático: verificar si hay marcajes de descanso válidos
             if (tieneMarcajesDescanso) {
-              // Si hay marcajes de descanso válidos, mostrar ambos como descanso manual
+              // Si hay marcajes de descanso válidos, mostrar todos los marcajes reales
               resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
             } else {
-              // Si no hay marcajes de descanso válidos, mostrar "Desc Auto" (solo entrada y salida)
-              // Si la salida es SNM, tratarla como "Sin marcaje"
-              if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
-                resultado = marcajesDescanso.entrada; // Solo mostrar entrada
-              } else {
-                resultado = `${marcajesDescanso.entrada} - Desc Auto - ${marcajesDescanso.salida}`;
-              }
+              // Si no hay marcajes de descanso válidos, mostrar "Desc Auto" con marcajes reales de entrada y salida
+              resultado = `${marcajesDescanso.entrada} - Desc Auto - ${marcajesDescanso.salida}`;
             }
           } else if (tieneDescansoPlantilla) {
             // Si hay descanso programado (manual)
@@ -7074,23 +7151,15 @@ export class MarcajePersonalComponent implements OnInit {
             if (marcajesDescanso.entradaDescanso === 'DNM' || marcajesDescanso.salidaDescanso === 'DNM' || 
                 marcajesDescanso.salidaDescanso === 'SDNM' ||
                 marcajesDescanso.entradaDescanso === 'Sin marcaje' || marcajesDescanso.salidaDescanso === 'Sin marcaje') {
-              // Si no hay descanso válido, mostrar solo entrada y salida (sin descanso)
-              if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
-                resultado = marcajesDescanso.entrada; // Solo mostrar entrada
-              } else {
-                resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
-              }
+              // Si no hay descanso válido, mostrar "Sin descanso" con marcajes reales de entrada y salida
+              resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
             } else {
+              // Si hay marcajes de descanso válidos, mostrar todos los marcajes reales
               resultado = `${marcajesDescanso.entrada} - ${marcajesDescanso.entradaDescanso} - ${marcajesDescanso.salidaDescanso} - ${marcajesDescanso.salida}`;
             }
           } else {
-            // Sin descanso de ningún tipo
-            // Si la salida es SNM, tratarla como "Sin marcaje"
-            if (marcajesDescanso.salida === 'SNM' || marcajesDescanso.salida === 'Sin marcaje') {
-              resultado = marcajesDescanso.entrada; // Solo mostrar entrada
-            } else {
-              resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
-            }
+            // Sin descanso de ningún tipo, mostrar marcajes reales de entrada y salida
+            resultado = `${marcajesDescanso.entrada} - Sin descanso - ${marcajesDescanso.salida}`;
           }
         } else if (marcajesDescanso.entrada !== 'Sin marcaje') {
           // Solo entrada real
@@ -7160,18 +7229,21 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Métodos para el modal
   abrirModalEmpleado(empleado: any) {
-    // Mostrar modal INMEDIATAMENTE (no esperar a cargar datos)
+    // OPTIMIZACIÓN: Mostrar modal INMEDIATAMENTE sin esperar nada
     this.empleadoSeleccionado = empleado;
     this.mostrarModal = true;
     this.resetearFormulario();
     
-    // Inicializar arrays vacíos para que el modal se renderice
+    // Inicializar arrays vacíos para que el modal se renderice inmediatamente
     this.horariosDisponibles = [];
     this.horariosEmpleado = [];
     this.excepcionesEmpleado = [];
     
-    // Cargar datos en PARALELO en segundo plano (no bloquea la apertura del modal)
-    setTimeout(() => {
+    // OPTIMIZACIÓN: Usar requestAnimationFrame para cargar datos después del render
+    // Esto asegura que el modal se muestre inmediatamente sin bloqueos
+    requestAnimationFrame(() => {
+      // Cargar datos en PARALELO en segundo plano (no bloquea la apertura del modal)
+      setTimeout(() => {
       // Cargar todos los datos en paralelo usando forkJoin
       const salaId = empleado?.Cargo?.Area?.Departamento?.Sala?.id;
       
@@ -7227,7 +7299,8 @@ export class MarcajePersonalComponent implements OnInit {
           this.calcularFechaMinimaPermitida();
         }
       });
-    }, 0);
+      }, 0);
+    });
   }
 
   cerrarModal() {
@@ -7239,20 +7312,17 @@ export class MarcajePersonalComponent implements OnInit {
     this.horariosEmpleado = [];
     this.resetearFormulario();
     
-    // Si se cerró el modal después de hacer cambios, refrescar los datos del empleado afectado
-    // para asegurar que la vista principal muestre los datos actualizados
+    // OPTIMIZACIÓN: NO recargar datos automáticamente al cerrar el modal
+    // Los datos ya se actualizan cuando se guardan/eliminan horarios o excepciones
+    // Esto evita recargas innecesarias y mejora el rendimiento
+    // Solo regenerar días y reagrupar si es necesario (sin hacer llamadas HTTP)
     if (empleadoIdAnterior && this.hasSearched) {
-      if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
-        // Recargar datos del empleado para asegurar consistencia
-        this.recargarDatosEmpleado(empleadoIdAnterior);
-      } else if (this.empleados.length > 0) {
-        // Si no hay datos completos, al menos regenerar días y reagrupar
-        if (this.fechaDesde && this.fechaHasta) {
-          this.generarDiasDelMes();
-          this.generarMesesAgrupados();
-        }
-        this.agruparEmpleados();
+      if (this.fechaDesde && this.fechaHasta) {
+        this.generarDiasDelMes();
+        this.generarMesesAgrupados();
       }
+      // Solo reagrupar empleados sin recargar datos del servidor
+      this.agruparEmpleados();
     }
   }
 
