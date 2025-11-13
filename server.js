@@ -6796,6 +6796,50 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         return sala && sala.id === parseInt(salaId);
       });
       
+      // OPTIMIZACIÓN: Incluir horarios de cada empleado en la respuesta
+      // Esto evita hacer 349 llamadas individuales desde el frontend
+      for (let empleado of empleadosFiltrados) {
+        const horariosEmpleado = await HorarioEmpleado.findAll({
+          where: { empleado_id: empleado.id },
+          include: [{
+            model: Horario,
+            as: 'Horario',
+            include: [{
+            model: Bloque,
+            as: 'bloques',
+            order: [['orden', 'ASC']],
+            include: [{
+              model: PlantillaHorario,
+              as: 'PlantillaHorario',
+              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+            }]
+          }]
+          }],
+          order: [['primer_dia', 'ASC']]
+        });
+        
+        // Agregar horarios al empleado con la misma estructura que el endpoint individual
+        empleado.dataValues.horariosEmpleado = horariosEmpleado.map(he => ({
+          id: he.id,
+          empleado_id: he.empleado_id,
+          horario_id: he.horario_id,
+          primer_dia: he.primer_dia,
+          ultimo_dia: he.ultimo_dia,
+          dias_semana: he.dias_semana,
+          Horario: he.Horario ? {
+            id: he.Horario.id,
+            plantilla_horario_id: he.Horario.plantilla_horario_id,
+            bloques: he.Horario.bloques ? he.Horario.bloques.map((bloque: any) => ({
+              id: bloque.id,
+              horario_id: bloque.horario_id,
+              plantilla_horario_id: bloque.plantilla_horario_id,
+              orden: bloque.orden,
+              PlantillaHorario: bloque.PlantillaHorario
+            })) : []
+          } : null
+        }));
+      }
+      
       return res.json(empleadosFiltrados);
     }
     
@@ -6828,6 +6872,50 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
       }],
       order: [['nombre', 'ASC']]
     });
+    
+    // OPTIMIZACIÓN: Incluir horarios de cada empleado en la respuesta
+    // Esto evita hacer 349 llamadas individuales desde el frontend
+    for (let empleado of empleados) {
+      const horariosEmpleado = await HorarioEmpleado.findAll({
+        where: { empleado_id: empleado.id },
+        include: [{
+          model: Horario,
+          as: 'Horario',
+          include: [{
+            model: Bloque,
+            as: 'bloques',
+            order: [['orden', 'ASC']],
+            include: [{
+              model: PlantillaHorario,
+              as: 'PlantillaHorario',
+              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+            }]
+          }]
+        }],
+        order: [['primer_dia', 'ASC']]
+      });
+      
+      // Agregar horarios al empleado con la misma estructura que el endpoint individual
+      empleado.dataValues.horariosEmpleado = horariosEmpleado.map(he => ({
+        id: he.id,
+        empleado_id: he.empleado_id,
+        horario_id: he.horario_id,
+        primer_dia: he.primer_dia,
+        ultimo_dia: he.ultimo_dia,
+        dias_semana: he.dias_semana,
+        Horario: he.Horario ? {
+          id: he.Horario.id,
+          plantilla_horario_id: he.Horario.plantilla_horario_id,
+          bloques: he.Horario.bloques ? he.Horario.bloques.map((bloque: any) => ({
+            id: bloque.id,
+            horario_id: bloque.horario_id,
+            plantilla_horario_id: bloque.plantilla_horario_id,
+            orden: bloque.orden,
+            PlantillaHorario: bloque.PlantillaHorario
+          })) : []
+        } : null
+      }));
+    }
     
     res.json(empleados);
   } catch (error) {
