@@ -6918,6 +6918,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             include: [{
               model: PlantillaHorario,
               as: 'PlantillaHorario',
+              required: false,
               attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
             }]
           }]
@@ -6927,6 +6928,21 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
       
       // Agregar horarios al empleado con la misma estructura que el endpoint individual
       // Incluir PlantillaHorario en cada bloque (igual que el endpoint individual)
+      // IMPORTANTE: Cargar PlantillaHorario para cada bloque (como en el endpoint individual)
+      for (let horarioEmp of horariosEmpleado) {
+        if (horarioEmp.Horario && horarioEmp.Horario.bloques) {
+          for (let bloque of horarioEmp.Horario.bloques) {
+            // Si no tiene PlantillaHorario cargado, cargarlo
+            if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+              const plantilla = await PlantillaHorario.findByPk(bloque.plantilla_horario_id);
+              if (plantilla) {
+                bloque.PlantillaHorario = plantilla;
+              }
+            }
+          }
+        }
+      }
+      
       empleado.dataValues.horariosEmpleado = horariosEmpleado.map(he => {
         // Mapear bloques con PlantillaHorario correctamente
         const bloquesMapeados = he.Horario && he.Horario.bloques ? he.Horario.bloques.map((bloque) => {
@@ -6937,18 +6953,20 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             orden: bloque.orden
           };
           
-          // Incluir PlantillaHorario directamente en el objeto (no en dataValues)
-          if (bloque.PlantillaHorario) {
+          // Incluir PlantillaHorario directamente en el objeto
+          // Usar bloque.PlantillaHorario (del include o cargado arriba)
+          const plantilla = bloque.PlantillaHorario || bloque.dataValues?.PlantillaHorario;
+          if (plantilla) {
             bloqueMapeado.PlantillaHorario = {
-              id: bloque.PlantillaHorario.id,
-              codigo: bloque.PlantillaHorario.codigo,
-              nombre: bloque.PlantillaHorario.nombre,
-              color: bloque.PlantillaHorario.color || '#ffffff',
-              hora_entrada: bloque.PlantillaHorario.hora_entrada,
-              hora_salida: bloque.PlantillaHorario.hora_salida,
-              hora_descanso_entrada: bloque.PlantillaHorario.hora_descanso_entrada,
-              hora_descanso_salida: bloque.PlantillaHorario.hora_descanso_salida,
-              descanso_automatico: bloque.PlantillaHorario.descanso_automatico || null
+              id: plantilla.id,
+              codigo: plantilla.codigo,
+              nombre: plantilla.nombre,
+              color: plantilla.color || '#ffffff',
+              hora_entrada: plantilla.hora_entrada,
+              hora_salida: plantilla.hora_salida,
+              hora_descanso_entrada: plantilla.hora_descanso_entrada,
+              hora_descanso_salida: plantilla.hora_descanso_salida,
+              descanso_automatico: plantilla.descanso_automatico || null
             };
           }
           
