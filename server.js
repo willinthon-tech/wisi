@@ -6886,7 +6886,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             include: [{
               model: PlantillaHorario,
               as: 'PlantillaHorario',
-              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
             }],
             order: [['fecha', 'DESC']]
           });
@@ -6990,7 +6990,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               model: PlantillaHorario,
               as: 'PlantillaHorario',
               required: false,
-              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
             }]
           }]
         }],
@@ -7086,7 +7086,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           include: [{
             model: PlantillaHorario,
             as: 'PlantillaHorario',
-            attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+            attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
           }],
           order: [['fecha', 'DESC']]
         });
