@@ -6906,7 +6906,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         Horario: he.Horario ? {
           id: he.Horario.id,
           plantilla_horario_id: he.Horario.plantilla_horario_id,
-          bloques: he.Horario.bloques ? he.Horario.bloques.map((bloque: any) => ({
+          bloques: he.Horario.bloques ? he.Horario.bloques.map((bloque) => ({
             id: bloque.id,
             horario_id: bloque.horario_id,
             plantilla_horario_id: bloque.plantilla_horario_id,
