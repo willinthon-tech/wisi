@@ -49,8 +49,12 @@ export class EmpleadosService {
     return this.http.get<Empleado[]>(this.apiUrl);
   }
 
-  getEmpleadosBySala(salaId: number): Observable<Empleado[]> {
-    return this.http.get<Empleado[]>(`${this.apiUrl}/sala/${salaId}`);
+  getEmpleadosBySala(salaId: number, fechaDesde?: string, fechaHasta?: string): Observable<Empleado[]> {
+    let url = `${this.apiUrl}/sala/${salaId}`;
+    if (fechaDesde && fechaHasta) {
+      url += `?fechaDesde=${fechaDesde}&fechaHasta=${fechaHasta}`;
+    }
+    return this.http.get<Empleado[]>(url);
   }
 
   getEmpleado(id: number): Observable<Empleado> {

@@ -3615,7 +3615,8 @@ export class MarcajePersonalComponent implements OnInit {
     }
     
     // Optimización: Obtener SOLO los empleados de esa sala (no todos)
-    this.empleadosService.getEmpleadosBySala(salaId).subscribe({
+    // Pasar fechas para que el backend devuelva todo consolidado (horarios, excepciones, marcajes)
+    this.empleadosService.getEmpleadosBySala(salaId, this.fechaDesde, this.fechaHasta).subscribe({
       next: (response) => {
         // Los empleados ya vienen filtrados por sala desde el servidor
         // OPTIMIZACIÓN: Los horarios ya vienen incluidos en cada empleado
@@ -3671,14 +3672,31 @@ export class MarcajePersonalComponent implements OnInit {
           return;
         }
         
-        // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios individualmente
-        // Los horarios ya vienen en la respuesta de empleados
-        // OPTIMIZACIÓN: Cargar todo en paralelo para mayor velocidad
+        // OPTIMIZACIÓN: Procesar excepciones y marcajes que ya vienen en la respuesta
+        this.empleadosCompletos.forEach(emp => {
+          // Procesar excepciones
+          if (emp.excepciones && Array.isArray(emp.excepciones)) {
+            emp.excepciones.forEach((ex: any) => {
+              const key = `${ex.empleado_id}|${ex.fecha}`;
+              this.excepcionesCompletas.set(key, ex);
+              this.excepcionesMap.set(key, ex);
+            });
+          }
+          
+          // Procesar marcajes
+          if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
+            const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
+            marcajesEmpleado.push(...emp.marcajes);
+            this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+          }
+        });
+        
+        // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios, excepciones ni marcajes individualmente
+        // Todo ya viene en la respuesta consolidada del backend
+        // Solo necesitamos cargar feriados y plantillas libres
         Promise.all([
-          this.cargarExcepcionesPorRango(),
           this.cargarFeriados(),
-          this.cargarPlantillasLibres(salaId),
-          this.cargarMarcajesPorRango()
+          this.cargarPlantillasLibres(salaId)
         ]).then(() => {
           // Aplicar filtros locales iniciales para mostrar los datos
           this.aplicarFiltrosLocales();

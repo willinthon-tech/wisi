@@ -6869,6 +6869,77 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
       // Esperar a que todos los horarios se carguen en paralelo
       await Promise.all(horariosPromises);
       
+      // OPTIMIZACIÓN: Incluir excepciones y marcajes de cada empleado en la respuesta
+      const { fechaDesde, fechaHasta } = req.query;
+      
+      // Si hay fechas, cargar excepciones y marcajes para ese rango
+      if (fechaDesde && fechaHasta) {
+        const empleadosConDatos = await Promise.all(empleadosFiltrados.map(async (empleado) => {
+          // Cargar excepciones del empleado en el rango de fechas
+          const excepciones = await ExcepcionHorario.findAll({
+            where: {
+              empleado_id: empleado.id,
+              fecha: {
+                [Op.between]: [fechaDesde, fechaHasta]
+              }
+            },
+            include: [{
+              model: PlantillaHorario,
+              as: 'PlantillaHorario',
+              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+            }],
+            order: [['fecha', 'DESC']]
+          });
+          
+          // Cargar marcajes del empleado en el rango de fechas
+          const dispositivos = await Dispositivo.findAll({
+            where: { sala_id: salaId },
+            attributes: ['id']
+          });
+          const dispositivoIds = dispositivos.map(d => d.id);
+          
+          let marcajes = [];
+          if (dispositivoIds.length > 0 && empleado.cedula) {
+            const fechaInicio = new Date(fechaDesde);
+            fechaInicio.setHours(0, 0, 0, 0);
+            const fechaFin = new Date(fechaHasta);
+            fechaFin.setHours(23, 59, 59, 999);
+            
+            marcajes = await Attlog.findAll({
+              where: {
+                employee_no: empleado.cedula,
+                dispositivo_id: { [Op.in]: dispositivoIds },
+                event_time: {
+                  [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
+                }
+              },
+              order: [['event_time', 'ASC']],
+              attributes: ['id', 'employee_no', 'event_time', 'event_type', 'dispositivo_id']
+            });
+          }
+          
+          empleado.dataValues.excepciones = excepciones.map(ex => ({
+            id: ex.id,
+            empleado_id: ex.empleado_id,
+            fecha: ex.fecha,
+            plantilla_horario_id: ex.plantilla_horario_id,
+            PlantillaHorario: ex.PlantillaHorario
+          }));
+          
+          empleado.dataValues.marcajes = marcajes.map(m => ({
+            id: m.id,
+            employee_no: m.employee_no,
+            event_time: m.event_time,
+            event_type: m.event_type,
+            dispositivo_id: m.dispositivo_id
+          }));
+          
+          return empleado;
+        }));
+        
+        return res.json(empleadosConDatos);
+      }
+      
       return res.json(empleadosFiltrados);
     }
     
@@ -6996,6 +7067,81 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     
     // Esperar a que todos los horarios se carguen en paralelo
     await Promise.all(horariosPromises);
+    
+    // OPTIMIZACIÓN: Incluir excepciones y marcajes de cada empleado en la respuesta
+    // Esto evita múltiples llamadas separadas desde el frontend
+    const { fechaDesde, fechaHasta } = req.query;
+    
+    // Si hay fechas, cargar excepciones y marcajes para ese rango
+    if (fechaDesde && fechaHasta) {
+      const empleadosConDatos = await Promise.all(empleados.map(async (empleado) => {
+        // Cargar excepciones del empleado en el rango de fechas
+        const excepciones = await ExcepcionHorario.findAll({
+          where: {
+            empleado_id: empleado.id,
+            fecha: {
+              [Op.between]: [fechaDesde, fechaHasta]
+            }
+          },
+          include: [{
+            model: PlantillaHorario,
+            as: 'PlantillaHorario',
+            attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+          }],
+          order: [['fecha', 'DESC']]
+        });
+        
+        // Cargar marcajes del empleado en el rango de fechas
+        // Primero obtener los dispositivos de la sala
+        const dispositivos = await Dispositivo.findAll({
+          where: { sala_id: salaId },
+          attributes: ['id']
+        });
+        const dispositivoIds = dispositivos.map(d => d.id);
+        
+        let marcajes = [];
+        if (dispositivoIds.length > 0 && empleado.cedula) {
+          // Convertir fechas a formato ISO para la consulta
+          const fechaInicio = new Date(fechaDesde);
+          fechaInicio.setHours(0, 0, 0, 0);
+          const fechaFin = new Date(fechaHasta);
+          fechaFin.setHours(23, 59, 59, 999);
+          
+          marcajes = await Attlog.findAll({
+            where: {
+              employee_no: empleado.cedula,
+              dispositivo_id: { [Op.in]: dispositivoIds },
+              event_time: {
+                [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
+              }
+            },
+            order: [['event_time', 'ASC']],
+            attributes: ['id', 'employee_no', 'event_time', 'event_type', 'dispositivo_id']
+          });
+        }
+        
+        // Agregar excepciones y marcajes al empleado
+        empleado.dataValues.excepciones = excepciones.map(ex => ({
+          id: ex.id,
+          empleado_id: ex.empleado_id,
+          fecha: ex.fecha,
+          plantilla_horario_id: ex.plantilla_horario_id,
+          PlantillaHorario: ex.PlantillaHorario
+        }));
+        
+        empleado.dataValues.marcajes = marcajes.map(m => ({
+          id: m.id,
+          employee_no: m.employee_no,
+          event_time: m.event_time,
+          event_type: m.event_type,
+          dispositivo_id: m.dispositivo_id
+        }));
+        
+        return empleado;
+      }));
+      
+      return res.json(empleadosConDatos);
+    }
     
     res.json(empleados);
   } catch (error) {

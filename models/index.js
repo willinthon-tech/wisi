@@ -177,6 +177,8 @@ Dispositivo.hasMany(Attlog, { foreignKey: 'dispositivo_id', onDelete: 'RESTRICT'
 // Asociaciones para Bloque
 Bloque.belongsTo(Horario, { foreignKey: 'horario_id', onDelete: 'RESTRICT' });
 Horario.hasMany(Bloque, { foreignKey: 'horario_id', as: 'bloques', onDelete: 'RESTRICT' });
+Bloque.belongsTo(PlantillaHorario, { foreignKey: 'plantilla_horario_id', as: 'PlantillaHorario', onDelete: 'RESTRICT' });
+PlantillaHorario.hasMany(Bloque, { foreignKey: 'plantilla_horario_id', onDelete: 'RESTRICT' });
 
 // Asociaciones para Llave
 Llave.belongsTo(Sala, { foreignKey: 'sala_id', onDelete: 'RESTRICT' });
