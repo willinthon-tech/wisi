@@ -3638,19 +3638,15 @@ export class MarcajePersonalComponent implements OnInit {
         
         // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios individualmente
         // Los horarios ya vienen en la respuesta de empleados
-        // Cargar excepciones solo para el rango de fechas seleccionado
-        this.cargarExcepcionesPorRango().then(() => {
-          // Cargar feriados y plantillas libres para el cálculo de resumen (solo de esta sala)
-          Promise.all([
-            this.cargarFeriados(),
-            this.cargarPlantillasLibres(salaId)
-          ]).then(() => {
-            // Cargar marcajes solo para el rango de fechas seleccionado
-            this.cargarMarcajesPorRango().then(() => {
-              // Aplicar filtros locales iniciales para mostrar los datos
-              this.aplicarFiltrosLocales();
-            });
-          });
+        // OPTIMIZACIÓN: Cargar todo en paralelo para mayor velocidad
+        Promise.all([
+          this.cargarExcepcionesPorRango(),
+          this.cargarFeriados(),
+          this.cargarPlantillasLibres(salaId),
+          this.cargarMarcajesPorRango()
+        ]).then(() => {
+          // Aplicar filtros locales iniciales para mostrar los datos
+          this.aplicarFiltrosLocales();
         });
       },
       error: (error) => {

@@ -6798,22 +6798,23 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
       
       // OPTIMIZACIÓN: Incluir horarios de cada empleado en la respuesta
       // Esto evita hacer 349 llamadas individuales desde el frontend
-      for (let empleado of empleadosFiltrados) {
+      // OPTIMIZACIÓN: Cargar horarios en paralelo usando Promise.all
+      const horariosPromises = empleadosFiltrados.map(async (empleado) => {
         const horariosEmpleado = await HorarioEmpleado.findAll({
           where: { empleado_id: empleado.id },
           include: [{
             model: Horario,
             as: 'Horario',
             include: [{
-            model: Bloque,
-            as: 'bloques',
-            order: [['orden', 'ASC']],
-            include: [{
-              model: PlantillaHorario,
-              as: 'PlantillaHorario',
-              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+              model: Bloque,
+              as: 'bloques',
+              order: [['orden', 'ASC']],
+              include: [{
+                model: PlantillaHorario,
+                as: 'PlantillaHorario',
+                attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'minutos_descanso', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
+              }]
             }]
-          }]
           }],
           order: [['primer_dia', 'ASC']]
         });
@@ -6838,7 +6839,12 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             })) : []
           } : null
         }));
-      }
+        
+        return empleado;
+      });
+      
+      // Esperar a que todos los horarios se carguen en paralelo
+      await Promise.all(horariosPromises);
       
       return res.json(empleadosFiltrados);
     }
@@ -6875,7 +6881,8 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     
     // OPTIMIZACIÓN: Incluir horarios de cada empleado en la respuesta
     // Esto evita hacer 349 llamadas individuales desde el frontend
-    for (let empleado of empleados) {
+    // OPTIMIZACIÓN: Cargar horarios en paralelo usando Promise.all
+    const horariosPromises = empleados.map(async (empleado) => {
       const horariosEmpleado = await HorarioEmpleado.findAll({
         where: { empleado_id: empleado.id },
         include: [{
@@ -6915,7 +6922,12 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           })) : []
         } : null
       }));
-    }
+      
+      return empleado;
+    });
+    
+    // Esperar a que todos los horarios se carguen en paralelo
+    await Promise.all(horariosPromises);
     
     res.json(empleados);
   } catch (error) {
