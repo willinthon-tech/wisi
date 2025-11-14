@@ -6968,7 +6968,20 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             
             // DEBUG: Log para verificar marcajes del primer empleado
             if (empleado.id === empleadosFiltrados[0]?.id) {
-              const dispositivosEnMarcajes = marcajes.length > 0 ? [...new Set(marcajes.map(m => m.dispositivo_id))] : [];
+              // Extraer dispositivo_id de forma segura
+              const dispositivosEnMarcajes = marcajes.length > 0 ? [...new Set(marcajes.map(m => {
+                const devId = m.get ? m.get('dispositivo_id') : (m.dispositivo_id || m.dataValues?.dispositivo_id);
+                return devId;
+              }).filter(id => id != null))] : [];
+              
+              // Contar marcajes por dispositivo
+              const marcajesPorDispositivo = {};
+              marcajes.forEach(m => {
+                const devId = m.get ? m.get('dispositivo_id') : (m.dispositivo_id || m.dataValues?.dispositivo_id);
+                if (devId != null) {
+                  marcajesPorDispositivo[devId] = (marcajesPorDispositivo[devId] || 0) + 1;
+                }
+              });
               
               // Verificar si hay marcajes del dispositivo 24 en la base de datos para este empleado
               const marcajesDispositivo24 = await Attlog.findAll({
@@ -6985,6 +6998,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               console.log(`[DEBUG Backend] Marcajes del primer empleado (${empleado.nombre} - ${empleado.cedula}):`, {
                 cantidadMarcajes: marcajes.length,
                 dispositivosEnMarcajes: dispositivosEnMarcajes.sort((a, b) => a - b),
+                marcajesPorDispositivo: marcajesPorDispositivo,
                 tieneDispositivo24: dispositivosEnMarcajes.includes(24),
                 tieneDispositivo25: dispositivosEnMarcajes.includes(25),
                 tieneDispositivo26: dispositivosEnMarcajes.includes(26),
@@ -6994,13 +7008,17 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                   dispositivo_id: m.dispositivo_id,
                   event_time: m.event_time
                 })),
-                muestraMarcajes: marcajes.slice(0, 10).map(m => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  Dispositivo: m.Dispositivo?.id,
-                  DispositivoNombre: m.Dispositivo?.nombre,
-                  event_time: m.event_time
-                }))
+                muestraMarcajes: marcajes.slice(0, 10).map(m => {
+                  const devId = m.get ? m.get('dispositivo_id') : (m.dispositivo_id || m.dataValues?.dispositivo_id);
+                  const dispositivo = m.get ? m.get('Dispositivo') : (m.Dispositivo || m.dataValues?.Dispositivo);
+                  return {
+                    id: m.get ? m.get('id') : (m.id || m.dataValues?.id),
+                    dispositivo_id: devId,
+                    Dispositivo: dispositivo ? (dispositivo.get ? dispositivo.get('id') : dispositivo.id) : null,
+                    DispositivoNombre: dispositivo ? (dispositivo.get ? dispositivo.get('nombre') : dispositivo.nombre) : null,
+                    event_time: m.get ? m.get('event_time') : (m.event_time || m.dataValues?.event_time)
+                  };
+                })
               });
             }
           }
@@ -7037,42 +7055,48 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           empleado.dataValues.excepciones = excepcionesMapeadas;
           empleado.excepciones = excepcionesMapeadas;
           
-          empleado.dataValues.marcajes = marcajes.map(m => {
+          // Mapear marcajes asegurando que se incluyan TODOS, incluso si no tienen Dispositivo asociado
+          const marcajesMapeados = marcajes.map(m => {
+            // Usar get() para acceder a los datos de Sequelize de forma segura
+            const dispositivoId = m.get ? m.get('dispositivo_id') : (m.dispositivo_id || m.dataValues?.dispositivo_id);
+            const dispositivo = m.get ? m.get('Dispositivo') : (m.Dispositivo || m.dataValues?.Dispositivo);
+            
             const marcajeMapeado = {
-              id: m.id,
-              employee_no: m.employee_no,
-              event_time: m.event_time,
-              dispositivo_id: m.dispositivo_id,
-              nombre: m.nombre
+              id: m.get ? m.get('id') : (m.id || m.dataValues?.id),
+              employee_no: m.get ? m.get('employee_no') : (m.employee_no || m.dataValues?.employee_no),
+              event_time: m.get ? m.get('event_time') : (m.event_time || m.dataValues?.event_time),
+              dispositivo_id: dispositivoId,
+              nombre: m.get ? m.get('nombre') : (m.nombre || m.dataValues?.nombre)
             };
+            
             // Incluir relación Dispositivo si está disponible
-            if (m.Dispositivo) {
+            if (dispositivo) {
+              const dispositivoData = dispositivo.get ? dispositivo.get() : (dispositivo.dataValues || dispositivo);
               marcajeMapeado.Dispositivo = {
-                id: m.Dispositivo.id,
-                nombre: m.Dispositivo.nombre,
-                ip_remota: m.Dispositivo.ip_remota
+                id: dispositivoData.id,
+                nombre: dispositivoData.nombre,
+                ip_remota: dispositivoData.ip_remota
               };
             }
+            
             return marcajeMapeado;
           });
-          empleado.marcajes = marcajes.map(m => {
-            const marcajeMapeado = {
-              id: m.id,
-              employee_no: m.employee_no,
-              event_time: m.event_time,
-              dispositivo_id: m.dispositivo_id,
-              nombre: m.nombre
-            };
-            // Incluir relación Dispositivo si está disponible
-            if (m.Dispositivo) {
-              marcajeMapeado.Dispositivo = {
-                id: m.Dispositivo.id,
-                nombre: m.Dispositivo.nombre,
-                ip_remota: m.Dispositivo.ip_remota
-              };
-            }
-            return marcajeMapeado;
-          });
+          
+          empleado.dataValues.marcajes = marcajesMapeados;
+          empleado.marcajes = marcajesMapeados;
+          
+          // DEBUG: Verificar marcajes mapeados para el primer empleado
+          if (empleado.id === empleadosFiltrados[0]?.id) {
+            const dispositivosEnMapeados = [...new Set(marcajesMapeados.map(m => m.dispositivo_id).filter(id => id != null))];
+            const marcajesDispositivo24Mapeados = marcajesMapeados.filter(m => m.dispositivo_id === 24);
+            console.log(`[DEBUG Backend] Marcajes MAPEADOS del primer empleado:`, {
+              cantidadMarcajesMapeados: marcajesMapeados.length,
+              dispositivosEnMapeados: dispositivosEnMapeados.sort((a, b) => a - b),
+              tieneDispositivo24: dispositivosEnMapeados.includes(24),
+              marcajesDispositivo24: marcajesDispositivo24Mapeados.length,
+              muestraMarcajesDispositivo24: marcajesDispositivo24Mapeados.slice(0, 5)
+            });
+          }
           
           return empleado;
         }));
