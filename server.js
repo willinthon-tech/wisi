@@ -6938,14 +6938,33 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             });
             
             // DEBUG: Log para verificar marcajes del primer empleado
-            if (empleado.id === empleadosFiltrados[0]?.id && marcajes.length > 0) {
-              const dispositivosEnMarcajes = [...new Set(marcajes.map(m => m.dispositivo_id))];
-              console.log(`[DEBUG Backend] Marcajes del primer empleado (${empleado.nombre}):`, {
+            if (empleado.id === empleadosFiltrados[0]?.id) {
+              const dispositivosEnMarcajes = marcajes.length > 0 ? [...new Set(marcajes.map(m => m.dispositivo_id))] : [];
+              
+              // Verificar si hay marcajes del dispositivo 24 en la base de datos para este empleado
+              const marcajesDispositivo24 = await Attlog.findAll({
+                where: {
+                  employee_no: empleado.cedula,
+                  dispositivo_id: 24,
+                  event_time: {
+                    [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
+                  }
+                },
+                limit: 5
+              });
+              
+              console.log(`[DEBUG Backend] Marcajes del primer empleado (${empleado.nombre} - ${empleado.cedula}):`, {
                 cantidadMarcajes: marcajes.length,
                 dispositivosEnMarcajes: dispositivosEnMarcajes.sort((a, b) => a - b),
                 tieneDispositivo24: dispositivosEnMarcajes.includes(24),
                 tieneDispositivo25: dispositivosEnMarcajes.includes(25),
                 tieneDispositivo26: dispositivosEnMarcajes.includes(26),
+                marcajesDispositivo24EnBD: marcajesDispositivo24.length,
+                muestraMarcajesDispositivo24: marcajesDispositivo24.map(m => ({
+                  id: m.id,
+                  dispositivo_id: m.dispositivo_id,
+                  event_time: m.event_time
+                })),
                 muestraMarcajes: marcajes.slice(0, 10).map(m => ({
                   id: m.id,
                   dispositivo_id: m.dispositivo_id,
