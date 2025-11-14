@@ -7009,7 +7009,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           empleado.excepciones = excepcionesMapeadas;
           
           empleado.dataValues.marcajes = marcajes.map(m => {
-            const marcajeMapeado: any = {
+            const marcajeMapeado = {
               id: m.id,
               employee_no: m.employee_no,
               event_time: m.event_time,
@@ -7027,7 +7027,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             return marcajeMapeado;
           });
           empleado.marcajes = marcajes.map(m => {
-            const marcajeMapeado: any = {
+            const marcajeMapeado = {
               id: m.id,
               employee_no: m.employee_no,
               event_time: m.event_time,
