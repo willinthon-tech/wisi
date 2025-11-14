@@ -6921,6 +6921,37 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             fechaFin.setHours(23, 59, 59, 999);
             
             // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
+            // IMPORTANTE: Cargar primero SIN include para verificar que los marcajes existen
+            marcajes = await Attlog.findAll({
+              where: {
+                employee_no: empleado.cedula,
+                event_time: {
+                  [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
+                }
+              },
+              order: [['event_time', 'ASC']],
+              attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre']
+            });
+            
+            // DEBUG: Verificar dispositivos ANTES de agregar el include
+            if (empleado.id === empleadosFiltrados[0]?.id) {
+              const dispositivosAntesInclude = [...new Set(marcajes.map(m => m.dispositivo_id))].sort((a, b) => a - b);
+              console.log(`[DEBUG Backend] Marcajes ANTES de include para ${empleado.nombre}:`, {
+                cantidadMarcajes: marcajes.length,
+                dispositivos: dispositivosAntesInclude,
+                tieneDispositivo24: dispositivosAntesInclude.includes(24),
+                tieneDispositivo25: dispositivosAntesInclude.includes(25),
+                tieneDispositivo26: dispositivosAntesInclude.includes(26),
+                muestraMarcajes: marcajes.slice(0, 10).map(m => ({
+                  id: m.id,
+                  dispositivo_id: m.dispositivo_id,
+                  event_time: m.event_time
+                }))
+              });
+            }
+            
+            // Ahora agregar el include para obtener la relación Dispositivo
+            // Cargar de nuevo con include para tener la relación completa
             marcajes = await Attlog.findAll({
               where: {
                 employee_no: empleado.cedula,
@@ -6933,7 +6964,8 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               include: [{
                 model: Dispositivo,
                 as: 'Dispositivo',
-                attributes: ['id', 'nombre', 'ip_remota']
+                attributes: ['id', 'nombre', 'ip_remota'],
+                required: false // LEFT JOIN en lugar de INNER JOIN - esto es CRÍTICO
               }]
             });
             
