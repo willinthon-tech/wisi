@@ -16,6 +16,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { ExcepcionesHorariosService } from '../../../services/excepciones-horarios.service';
 import { PlantillasHorariosService } from '../../../services/plantillas-horarios.service';
 import { FeriadosService } from '../../../services/feriados.service';
+import { DispositivosService } from '../../../services/dispositivos.service';
 
 @Component({
   selector: 'app-marcaje-personal',
@@ -83,6 +84,29 @@ import { FeriadosService } from '../../../services/feriados.service';
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bloque: Selección de dispositivos biométricos -->
+      <div class="sala-selector-section">
+        <div class="sala-selector-container">
+          <label class="sala-selector-label">Seleccionar Dispositivos Biométricos:</label>
+          <div class="checkbox-buttons-group" *ngIf="dispositivosSala.length > 0">
+            <label class="checkbox-option" *ngFor="let dispositivo of dispositivosSala">
+              <input 
+                type="checkbox" 
+                [value]="dispositivo.id"
+                [checked]="selectedDispositivosIds.includes(dispositivo.id)"
+                [disabled]="loading || !hasSearched || !selectedSalaForDataLoad"
+                (change)="onDispositivoChange(dispositivo.id, $event)"
+                class="checkbox-input">
+              <span class="checkbox-label">{{ dispositivo.nombre }}</span>
+            </label>
+          </div>
+          <div *ngIf="dispositivosSala.length === 0" class="no-dispositivos-message">
+            <span *ngIf="!selectedSalaForDataLoad">Seleccione una sala para ver los dispositivos disponibles.</span>
+            <span *ngIf="selectedSalaForDataLoad">No hay dispositivos biométricos disponibles para esta sala.</span>
           </div>
         </div>
       </div>
@@ -921,6 +945,71 @@ import { FeriadosService } from '../../../services/feriados.service';
       font-size: 14px;
       color: #333;
       user-select: none;
+    }
+
+    .checkbox-buttons-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .checkbox-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 10px 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      transition: all 0.3s;
+      background: #f9f9f9;
+    }
+
+    .checkbox-option:hover {
+      border-color: #4CAF50;
+      background: #f0f8f0;
+    }
+
+    .checkbox-input {
+      cursor: pointer;
+      width: 18px;
+      height: 18px;
+      accent-color: #4CAF50;
+    }
+    
+    .checkbox-input:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+    
+    .checkbox-option:has(.checkbox-input:disabled) {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .checkbox-option:has(.checkbox-input:disabled):hover {
+      border-color: #ddd;
+      background: #f9f9f9;
+    }
+
+    .checkbox-option:has(.checkbox-input:checked) {
+      border-color: #4CAF50;
+      background: #e8f5e8;
+      font-weight: 600;
+    }
+
+    .checkbox-label {
+      font-size: 14px;
+      color: #333;
+      user-select: none;
+    }
+    
+    .no-dispositivos-message {
+      padding: 12px;
+      color: #666;
+      font-size: 14px;
+      font-style: italic;
+      text-align: center;
     }
 
     .filters-section {
@@ -2557,6 +2646,10 @@ export class MarcajePersonalComponent implements OnInit {
   departamentosFiltrados: any[] = [];
   areasFiltradas: any[] = [];
   cargosFiltrados: any[] = [];
+  // Dispositivos biométricos de la sala
+  dispositivosSala: any[] = [];
+  selectedDispositivosIds: number[] = [];
+  todosDispositivos: any[] = []; // Cache de todos los dispositivos precargados
   // Tipo de reporte (global por defecto)
   tipoReporte: 'global' | 'horario' | 'resumen' = 'global';
   // Feriados para el cálculo de resumen
@@ -2626,12 +2719,24 @@ export class MarcajePersonalComponent implements OnInit {
     private excepcionesService: ExcepcionesHorariosService,
     private plantillasService: PlantillasHorariosService,
     private feriadosService: FeriadosService,
+    private dispositivosService: DispositivosService,
     private sanitizer: DomSanitizer,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
+    // Precargar todos los dispositivos al inicio para que estén disponibles inmediatamente
+    this.dispositivosService.getDispositivos().subscribe({
+      next: (dispositivos: any[]) => {
+        this.todosDispositivos = dispositivos || [];
+      },
+      error: (error) => {
+        console.error('[ERROR] Error al precargar dispositivos:', error);
+        this.todosDispositivos = [];
+      }
+    });
+    
     // Cargar salas del usuario primero
     this.cargarSalasUsuario(() => {
       // Calcular fechas mínima y máxima permitidas (2 años atrás, 4 meses adelante)
@@ -3161,6 +3266,29 @@ export class MarcajePersonalComponent implements OnInit {
         fechaRef.setHours(0, 0, 0, 0);
         const fechaRefStr = fechaRef.toISOString().split('T')[0];
         
+        // Filtrar marcajes por dispositivos seleccionados PRIMERO (si hay alguno seleccionado)
+        let marcajesFiltrados = marcajes;
+        if (this.selectedDispositivosIds.length > 0) {
+          // Normalizar los IDs seleccionados para comparación
+          const selectedIdsNormalized = this.selectedDispositivosIds.map(id => Number(id));
+          
+          marcajesFiltrados = marcajes.filter((m: any) => {
+            // Obtener el ID del dispositivo del marcaje y normalizarlo
+            let dispositivoIdMarcaje: number | null = null;
+            
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoIdMarcaje = Number(m.dispositivo_id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoIdMarcaje = Number(m.Dispositivo.id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoIdMarcaje = Number(m.dispositivo.id);
+            }
+            
+            // Verificar que el dispositivo esté en la lista de seleccionados
+            return dispositivoIdMarcaje !== null && !isNaN(dispositivoIdMarcaje) && selectedIdsNormalized.includes(dispositivoIdMarcaje);
+          });
+        }
+        
         // Obtener el bloque de horario para calcular qué marcajes se usaron como entrada y salida
         const bloque = this.getBloqueHorario(empleado, dia);
         let horaEntradaCalculada = '';
@@ -3174,9 +3302,9 @@ export class MarcajePersonalComponent implements OnInit {
           horaEntradaCalculada = marcajesCalculados.entrada;
           horaSalidaCalculada = marcajesCalculados.salida;
           
-          // Buscar los marcajes reales que coinciden con las horas calculadas
+          // Buscar los marcajes reales que coinciden con las horas calculadas (solo en los marcajes filtrados)
           // IMPORTANTE: La entrada DEBE ser del día de referencia, la salida puede ser del día siguiente (turno nocturno)
-          marcajes.forEach((m: any) => {
+          marcajesFiltrados.forEach((m: any) => {
             const fechaHora = new Date(m.event_time);
             const horaMarcaje = fechaHora.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
             const fechaMarcaje = new Date(fechaHora);
@@ -3207,8 +3335,8 @@ export class MarcajePersonalComponent implements OnInit {
           });
         }
         
-        // Formatear marcajes para el modal
-        this.marcajesModal = marcajes.map((m: any) => {
+        // Formatear marcajes para el modal (solo los de los dispositivos seleccionados)
+        this.marcajesModal = marcajesFiltrados.map((m: any) => {
           const fechaHora = new Date(m.event_time);
           const fechaMarcaje = new Date(fechaHora);
           fechaMarcaje.setHours(0, 0, 0, 0);
@@ -3862,6 +3990,9 @@ export class MarcajePersonalComponent implements OnInit {
       this.searchText = '';
       this.fechaDesde = '';
       this.fechaHasta = '';
+      // Limpiar dispositivos
+      this.dispositivosSala = [];
+      this.selectedDispositivosIds = [];
       return;
     }
     
@@ -3883,6 +4014,9 @@ export class MarcajePersonalComponent implements OnInit {
     this.selectedCargoId = null;
     this.selectedSexo = null;
     this.searchText = '';
+    
+    // Cargar dispositivos de la sala seleccionada
+    this.cargarDispositivosDeSala(salaId);
     
     // Establecer fechas por defecto según el día del mes actual
     this.establecerFechasPorDefecto();
@@ -3925,6 +4059,18 @@ export class MarcajePersonalComponent implements OnInit {
     this.grupos = [];
     this.marcajesCompletos.clear();
     this.marcajesPorEmpleado.clear();
+    
+    // Limpiar filtros de abajo (departamento, área, cargo, sexo, búsqueda)
+    this.selectedDepartamentoId = null;
+    this.selectedAreaId = null;
+    this.selectedCargoId = null;
+    this.selectedSexo = null;
+    this.searchText = '';
+    
+    // Limpiar listas filtradas para que se recarguen
+    this.departamentosFiltrados = [];
+    this.areasFiltradas = [];
+    this.cargosFiltrados = [];
     
     // Cargar todos los datos de la sala con el rango de fechas seleccionado
     this.cargarDatosCompletosPorSala(this.selectedSalaForDataLoad);
@@ -4072,13 +4218,30 @@ export class MarcajePersonalComponent implements OnInit {
         });
         
         // Procesar marcajes
+        let totalMarcajes = 0;
         this.empleadosCompletos.forEach(emp => {
           if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
             const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
             marcajesEmpleado.push(...emp.marcajes);
             this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+            totalMarcajes += emp.marcajes.length;
+            
+            // DEBUG: Log para verificar estructura de marcajes
+            if (emp.marcajes.length > 0 && totalMarcajes <= 10) {
+              const primerMarcaje = emp.marcajes[0];
+              console.log('[DEBUG] Estructura de marcaje para', emp.nombre, ':', {
+                tieneDispositivoId: primerMarcaje.dispositivo_id !== undefined,
+                dispositivoId: primerMarcaje.dispositivo_id,
+                tieneDispositivo: !!primerMarcaje.dispositivo,
+                dispositivo: primerMarcaje.dispositivo,
+                tieneDispositivoRelacion: !!primerMarcaje.Dispositivo,
+                Dispositivo: primerMarcaje.Dispositivo,
+                marcajeCompleto: primerMarcaje
+              });
+            }
           }
         });
+        console.log('[DEBUG] Total marcajes cargados:', totalMarcajes);
         
         // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios, excepciones ni marcajes individualmente
         // Todo ya viene en la respuesta consolidada del backend
@@ -4087,6 +4250,8 @@ export class MarcajePersonalComponent implements OnInit {
           this.cargarFeriados(),
           this.cargarPlantillasLibres(salaId)
         ]).then(() => {
+          // Actualizar listas de filtros (departamentos, áreas, cargos) con los empleados cargados
+          this.actualizarListasCascada();
           // Aplicar filtros locales iniciales para mostrar los datos
           this.aplicarFiltrosLocales();
         });
@@ -4576,10 +4741,6 @@ export class MarcajePersonalComponent implements OnInit {
     this.generarDiasDelMes();
     this.generarMesesAgrupados();
     
-    // Filtrar empleados localmente
-    this.empleados = [...this.empleadosCompletos];
-    this.aplicarFiltrosCascada();
-    
     // Filtrar excepciones por rango de fechas localmente
     this.excepcionesMap.clear();
     this.excepcionesCompletas.forEach((ex, key) => {
@@ -4613,15 +4774,22 @@ export class MarcajePersonalComponent implements OnInit {
       }
     });
     
-    // Filtrar marcajes localmente de los marcajes completos ya cargados
+    // PRIMERO: Filtrar marcajes localmente de los marcajes completos ya cargados
+    // Esto debe hacerse antes de filtrar empleados para que marcajesPorEmpleado esté disponible
     this.filtrarMarcajesLocalmente();
+    
+    // SEGUNDO: Filtrar empleados localmente (después de filtrar marcajes)
+    this.empleados = [...this.empleadosCompletos];
+    this.aplicarFiltrosCascada();
   }
 
   // Filtrar marcajes localmente de los marcajes completos ya cargados
   filtrarMarcajesLocalmente(): void {
     this.marcajesPorEmpleado.clear();
     
-    const base = this.obtenerBaseEmpleados();
+    // Usar empleadosCompletos directamente, no obtenerBaseEmpleados() que depende de empleadosFiltrados
+    // que aún no se ha calculado
+    const base = this.empleadosCompletos || [];
     
     if (base.length === 0) {
       this.agruparEmpleados();
@@ -4634,19 +4802,115 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Si tenemos marcajes completos cargados, filtrarlos localmente
     if (this.marcajesCompletos.size > 0) {
+      // FILTRADO SÍNCRONO: Filtrar marcajes primero para que estén disponibles al filtrar empleados
       base.forEach(empleado => {
         if (empleado.cedula) {
           const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
-          // Filtrar marcajes por rango de fechas
+          
+          // DEBUG: Log para verificar marcajes completos del empleado
+          if (marcajesCompletos.length > 0 && this.selectedDispositivosIds.length > 0) {
+            const muestraMarcajes = marcajesCompletos.slice(0, 3).map((m: any) => ({
+              id: m.id,
+              dispositivo_id: m.dispositivo_id,
+              dispositivo: m.dispositivo?.id,
+              Dispositivo: m.Dispositivo?.id,
+              event_time: m.event_time
+            }));
+            console.log('[DEBUG] Muestra marcajes completos para', empleado.nombre, ':', muestraMarcajes);
+          }
+          
+          // Filtrar marcajes por rango de fechas y dispositivos seleccionados
           const marcajesFiltrados = marcajesCompletos.filter((marcaje: any) => {
             if (!marcaje.event_time) return false;
             const fechaMarcaje = new Date(marcaje.event_time).toISOString().split('T')[0];
-            return fechaMarcaje >= this.fechaDesde && fechaMarcaje <= this.fechaHasta;
+            
+            // Filtrar por fecha
+            if (fechaMarcaje < this.fechaDesde || fechaMarcaje > this.fechaHasta) {
+              return false;
+            }
+            
+            // Filtrar por dispositivos seleccionados (si hay alguno seleccionado)
+            // Si no hay dispositivos seleccionados, no mostrar ningún marcaje
+            if (this.selectedDispositivosIds.length > 0) {
+              // Obtener el ID del dispositivo del marcaje y normalizarlo
+              // Los marcajes del backend vienen con dispositivo_id directamente
+              let dispositivoIdMarcaje: number | null = null;
+              
+              // Prioridad 1: dispositivo_id directo (formato más común del backend)
+              if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
+                dispositivoIdMarcaje = Number(marcaje.dispositivo_id);
+              } 
+              // Prioridad 2: dispositivo.id (formato alternativo)
+              else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
+                dispositivoIdMarcaje = Number(marcaje.dispositivo.id);
+              } 
+              // Prioridad 3: Dispositivo.id (formato con relación Sequelize)
+              else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
+                dispositivoIdMarcaje = Number(marcaje.Dispositivo.id);
+              }
+              
+              // Si el marcaje tiene un dispositivo, verificar que esté en la lista de seleccionados
+              if (dispositivoIdMarcaje !== null && !isNaN(dispositivoIdMarcaje)) {
+                // Normalizar los IDs seleccionados para comparación
+                const selectedIdsNormalized = this.selectedDispositivosIds.map(id => Number(id));
+                const estaSeleccionado = selectedIdsNormalized.includes(dispositivoIdMarcaje);
+                
+                // DEBUG: Log detallado para todos los marcajes (temporal para diagnóstico)
+                if (marcajesCompletos.length > 0 && marcajesCompletos.indexOf(marcaje) < 5) {
+                  console.log('[DEBUG] Filtrado de marcaje:', {
+                    empleado: empleado.nombre,
+                    marcajeId: marcaje.id,
+                    dispositivoIdMarcaje,
+                    tipoDispositivoId: typeof marcaje.dispositivo_id,
+                    selectedIds: selectedIdsNormalized,
+                    estaSeleccionado,
+                    marcajeCompleto: marcaje
+                  });
+                }
+                
+                if (!estaSeleccionado) {
+                  return false;
+                }
+              } else {
+                // Si el marcaje no tiene dispositivo y hay dispositivos seleccionados, excluirlo
+                // DEBUG: Log para marcajes sin dispositivo_id
+                if (marcajesCompletos.indexOf(marcaje) < 3) {
+                  console.log('[DEBUG] Marcaje sin dispositivo_id:', {
+                    empleado: empleado.nombre,
+                    marcajeId: marcaje.id,
+                    estructuraMarcaje: Object.keys(marcaje),
+                    marcaje: marcaje
+                  });
+                }
+                return false;
+              }
+            } else {
+              // Si no hay dispositivos seleccionados, no mostrar ningún marcaje
+              return false;
+            }
+            
+            return true;
           });
+          
+          // DEBUG: Log del resultado del filtrado
+          if (marcajesCompletos.length > 0) {
+            console.log('[DEBUG] Resultado filtrado para', empleado.nombre, ':', {
+              totalMarcajes: marcajesCompletos.length,
+              marcajesFiltrados: marcajesFiltrados.length,
+              selectedDispositivosIds: this.selectedDispositivosIds,
+              muestraMarcajesFiltrados: marcajesFiltrados.slice(0, 3).map((m: any) => ({
+                id: m.id,
+                dispositivo_id: m.dispositivo_id,
+                event_time: m.event_time
+              }))
+            });
+          }
+          
           this.marcajesPorEmpleado.set(empleado.cedula, marcajesFiltrados);
         }
       });
-      // OPTIMIZACIÓN CRÍTICA: Pre-calcular todos los bloques y horarios antes de agrupar
+      
+      // PROCESO ASÍNCRONO: Pre-calcular todos los bloques y horarios después de filtrar
       // Usar setTimeout para no bloquear la UI durante el pre-cálculo
       setTimeout(() => {
         this.precalcularBloquesYHorarios();
@@ -5220,16 +5484,231 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
-  actualizarListasCascada() {
-    // Usar selectedSalaId si está seleccionado, si no usar selectedSalaForDataLoad
-    const salaParaFiltrar = this.selectedSalaId || this.selectedSalaForDataLoad;
+  // Manejar cambio de selección de dispositivos biométricos
+  onDispositivoChange(dispositivoId: number, event: Event) {
+    const target = event.target as HTMLInputElement;
+    const isChecked = target.checked;
     
-    // Filtrar departamentos por sala
-    this.departamentosFiltrados = (this.departamentosAll || []).filter(d => !salaParaFiltrar || d.sala_id === salaParaFiltrar);
-    // Filtrar áreas por departamento
-    this.areasFiltradas = (this.areasAll || []).filter(a => !this.selectedDepartamentoId || a.departamento_id === this.selectedDepartamentoId);
-    // Filtrar cargos por área
-    this.cargosFiltrados = (this.cargosAll || []).filter(c => !this.selectedAreaId || c.area_id === this.selectedAreaId);
+    // Normalizar el ID a número para consistencia
+    const dispositivoIdNum = Number(dispositivoId);
+    
+    if (isChecked) {
+      // Agregar el dispositivo a la lista de seleccionados
+      // Normalizar todos los IDs para comparación
+      const selectedIdsNormalized = this.selectedDispositivosIds.map(id => Number(id));
+      if (!selectedIdsNormalized.includes(dispositivoIdNum)) {
+        this.selectedDispositivosIds.push(dispositivoIdNum);
+      }
+    } else {
+      // Remover el dispositivo de la lista de seleccionados
+      // Normalizar para comparación
+      this.selectedDispositivosIds = this.selectedDispositivosIds
+        .map(id => Number(id))
+        .filter(id => id !== dispositivoIdNum);
+    }
+    
+    // Actualizar los marcajes filtrados cuando cambia la selección de dispositivos
+    // aplicarFiltrosLocales() ya llama a filtrarMarcajesLocalmente(), así que no es necesario llamarlo dos veces
+    if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
+      this.aplicarFiltrosLocales();
+    } else {
+      this.aplicarFiltrosCascada();
+    }
+  }
+
+  // Cargar dispositivos directamente de la sala (no de los empleados)
+  // Usa los dispositivos precargados para respuesta inmediata
+  cargarDispositivosDeSala(salaId: number) {
+    if (!salaId) {
+      this.dispositivosSala = [];
+      this.selectedDispositivosIds = [];
+      return;
+    }
+    
+    // Si ya tenemos dispositivos precargados, filtrar inmediatamente
+    if (this.todosDispositivos.length > 0) {
+      this.filtrarDispositivosPorSala(salaId);
+      return;
+    }
+    
+    // Si no están precargados aún, cargarlos (fallback)
+    this.dispositivosService.getDispositivos().subscribe({
+      next: (dispositivos: any[]) => {
+        this.todosDispositivos = dispositivos || [];
+        this.filtrarDispositivosPorSala(salaId);
+      },
+      error: (error) => {
+        console.error('[ERROR] Error al cargar dispositivos de la sala:', error);
+        this.dispositivosSala = [];
+        this.selectedDispositivosIds = [];
+        this.cdr.detectChanges();
+      }
+    });
+  }
+  
+  // Filtrar dispositivos por sala (usando dispositivos precargados)
+  filtrarDispositivosPorSala(salaId: number) {
+    // Filtrar dispositivos por sala_id
+    // Normalizar salaId a número para comparación
+    const salaIdNum = Number(salaId);
+    
+    const dispositivosFiltrados = this.todosDispositivos.filter((d: any) => {
+      // Obtener sala_id del dispositivo de diferentes formas posibles
+      let salaIdDispositivo: number | null = null;
+      
+      if (d.sala_id !== undefined && d.sala_id !== null) {
+        salaIdDispositivo = Number(d.sala_id);
+      } else if (d.Sala?.id !== undefined && d.Sala?.id !== null) {
+        salaIdDispositivo = Number(d.Sala.id);
+      } else if (d.sala?.id !== undefined && d.sala?.id !== null) {
+        salaIdDispositivo = Number(d.sala.id);
+      }
+      
+      // Comparar solo si ambos son números válidos
+      if (salaIdDispositivo === null || isNaN(salaIdDispositivo)) {
+        return false;
+      }
+      
+      return salaIdDispositivo === salaIdNum;
+    });
+    
+    // Mapear a formato consistente
+    this.dispositivosSala = dispositivosFiltrados.map((d: any) => ({
+      id: Number(d.id), // Asegurar que el ID sea número
+      nombre: d.nombre || `Dispositivo ${d.id}`
+    })).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+    
+    // DEBUG: Log para verificar dispositivos cargados
+    console.log('[DEBUG] Dispositivos cargados para sala:', {
+      salaId,
+      cantidad: this.dispositivosSala.length,
+      dispositivos: this.dispositivosSala.map(d => ({ id: d.id, nombre: d.nombre }))
+    });
+    
+    // Seleccionar automáticamente los dispositivos que contengan "Marcaje" en el nombre
+    if (this.dispositivosSala.length > 0) {
+      const dispositivosConMarcaje = this.dispositivosSala.filter(d => 
+        d.nombre && d.nombre.toLowerCase().includes('marcaje')
+      );
+      
+      if (dispositivosConMarcaje.length > 0) {
+        // Seleccionar solo los que contienen "Marcaje" (asegurar que sean números)
+        this.selectedDispositivosIds = dispositivosConMarcaje.map(d => Number(d.id));
+      } else {
+        // Si no hay dispositivos con "Marcaje", seleccionar todos por defecto
+        this.selectedDispositivosIds = this.dispositivosSala.map(d => Number(d.id));
+      }
+      
+      // DEBUG: Log para verificar selección automática
+      console.log('[DEBUG] Dispositivos seleccionados automáticamente:', {
+        total: this.dispositivosSala.length,
+        conMarcaje: dispositivosConMarcaje.length,
+        selectedIds: this.selectedDispositivosIds,
+        dispositivosSeleccionados: this.dispositivosSala.filter(d => this.selectedDispositivosIds.includes(Number(d.id))).map(d => d.nombre)
+      });
+    }
+    
+    this.cdr.detectChanges();
+  }
+
+  actualizarListasCascada() {
+    // Si tenemos empleados completos cargados, extraer departamentos, áreas y cargos de ellos
+    if (this.empleadosCompletos.length > 0) {
+      const departamentosMap = new Map<number, any>();
+      const areasMap = new Map<number, any>();
+      const cargosMap = new Map<number, any>();
+      
+      this.empleadosCompletos.forEach(emp => {
+        const depto = emp?.Cargo?.Area?.Departamento;
+        const area = emp?.Cargo?.Area;
+        const cargo = emp?.Cargo;
+        
+        if (depto && !departamentosMap.has(depto.id)) {
+          departamentosMap.set(depto.id, depto);
+        }
+        if (area && !areasMap.has(area.id)) {
+          areasMap.set(area.id, area);
+        }
+        if (cargo && !cargosMap.has(cargo.id)) {
+          cargosMap.set(cargo.id, cargo);
+        }
+      });
+      
+      this.departamentosFiltrados = Array.from(departamentosMap.values()).sort((a, b) => 
+        (a.nombre || '').localeCompare(b.nombre || '')
+      );
+      
+      // Filtrar áreas por departamento seleccionado
+      // El área puede tener departamento_id directamente o a través de Area.Departamento.id
+      this.areasFiltradas = Array.from(areasMap.values())
+        .filter(a => {
+          if (!this.selectedDepartamentoId) return true;
+          // Verificar departamento_id directo
+          if (a.departamento_id === this.selectedDepartamentoId) return true;
+          // Verificar a través de la relación Departamento
+          if (a.Departamento && a.Departamento.id === this.selectedDepartamentoId) return true;
+          // Si el área viene de un empleado, verificar a través de la estructura completa
+          // Buscar en empleadosCompletos para encontrar el departamento del área
+          const empleadoConArea = this.empleadosCompletos.find(emp => 
+            emp?.Cargo?.Area?.id === a.id
+          );
+          if (empleadoConArea) {
+            const deptoId = empleadoConArea?.Cargo?.Area?.Departamento?.id;
+            return deptoId === this.selectedDepartamentoId;
+          }
+          return false;
+        })
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+      
+      // Filtrar cargos por área seleccionada
+      // El cargo puede tener area_id directamente o a través de Cargo.Area.id
+      this.cargosFiltrados = Array.from(cargosMap.values())
+        .filter(c => {
+          if (!this.selectedAreaId) return true;
+          // Verificar area_id directo
+          if (c.area_id === this.selectedAreaId) return true;
+          // Verificar a través de la relación Area
+          if (c.Area && c.Area.id === this.selectedAreaId) return true;
+          // Si el cargo viene de un empleado, verificar a través de la estructura completa
+          const empleadoConCargo = this.empleadosCompletos.find(emp => 
+            emp?.Cargo?.id === c.id
+          );
+          if (empleadoConCargo) {
+            const areaId = empleadoConCargo?.Cargo?.Area?.id;
+            return areaId === this.selectedAreaId;
+          }
+          return false;
+        })
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+    } else {
+      // Si no hay empleados completos, usar los catálogos generales
+      const salaParaFiltrar = this.selectedSalaId || this.selectedSalaForDataLoad;
+      
+      // Filtrar departamentos por sala
+      this.departamentosFiltrados = (this.departamentosAll || []).filter(d => !salaParaFiltrar || d.sala_id === salaParaFiltrar);
+      
+      // Filtrar áreas por departamento
+      // El área puede tener departamento_id directamente o a través de Area.Departamento.id
+      this.areasFiltradas = (this.areasAll || []).filter(a => {
+        if (!this.selectedDepartamentoId) return true;
+        // Verificar departamento_id directo
+        if (a.departamento_id === this.selectedDepartamentoId) return true;
+        // Verificar a través de la relación Departamento
+        if (a.Departamento && a.Departamento.id === this.selectedDepartamentoId) return true;
+        return false;
+      });
+      
+      // Filtrar cargos por área
+      // El cargo puede tener area_id directamente o a través de Cargo.Area.id
+      this.cargosFiltrados = (this.cargosAll || []).filter(c => {
+        if (!this.selectedAreaId) return true;
+        // Verificar area_id directo
+        if (c.area_id === this.selectedAreaId) return true;
+        // Verificar a través de la relación Area
+        if (c.Area && c.Area.id === this.selectedAreaId) return true;
+        return false;
+      });
+    }
   }
 
   private aplicarFiltrosCascada() {
@@ -5256,6 +5735,47 @@ export class MarcajePersonalComponent implements OnInit {
     if (this.selectedCargoId && cargoId !== this.selectedCargoId) return false;
     if (this.selectedSexo && sexo !== this.selectedSexo) return false;
     if (term && !(nombre.includes(term) || cedula.includes(term))) return false;
+    
+    // Filtrar por dispositivos biométricos seleccionados
+    // Si hay dispositivos seleccionados, verificar que el empleado tenga marcajes de esos dispositivos
+    if (this.selectedDispositivosIds.length > 0) {
+      // Obtener los marcajes del empleado que coincidan con los dispositivos seleccionados
+      // IMPORTANTE: Usar marcajesPorEmpleado que ya está filtrado por dispositivos
+      const marcajesEmpleado = this.marcajesPorEmpleado.get(empleado.cedula) || [];
+      
+      // DEBUG: Log para verificar filtrado de empleados por dispositivos
+      if (marcajesEmpleado.length === 0) {
+        // Si no hay marcajes filtrados, verificar si hay marcajes completos
+        const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
+        if (marcajesCompletos.length > 0) {
+          console.log('[DEBUG] Empleado filtrado - tiene marcajes completos pero no filtrados:', {
+            empleado: empleado.nombre,
+            cedula: empleado.cedula,
+            totalMarcajesCompletos: marcajesCompletos.length,
+            selectedDispositivosIds: this.selectedDispositivosIds,
+            muestraMarcajesCompletos: marcajesCompletos.slice(0, 3).map((m: any) => ({
+              id: m.id,
+              dispositivo_id: m.dispositivo_id,
+              tipo: typeof m.dispositivo_id
+            }))
+          });
+        }
+      }
+      
+      // Verificar si hay al menos un marcaje de los dispositivos seleccionados
+      // Normalizar los IDs seleccionados para comparación
+      const selectedIdsNormalized = this.selectedDispositivosIds.map(id => Number(id));
+      
+      const tieneMarcajeDeDispositivoSeleccionado = marcajesEmpleado.length > 0;
+      
+      // Si no hay marcajes de los dispositivos seleccionados, no mostrar el empleado
+      if (!tieneMarcajeDeDispositivoSeleccionado) {
+        return false;
+      }
+    }
+    // Si no hay dispositivos seleccionados, permitir que se muestren empleados
+    // (pero no habrá marcajes, así que mostrará "No hay registros")
+    
     return true;
   }
 
