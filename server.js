@@ -6922,8 +6922,39 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             console.log(`[DEBUG Backend] Dispositivos de sala ${salaId}:`, {
               cantidad: dispositivos.length,
               dispositivos: dispositivos.map(d => ({ id: d.id, nombre: d.nombre })),
-              dispositivoIds
+              dispositivoIds,
+              tieneDispositivo24: dispositivoIds.includes(24),
+              tieneDispositivo25: dispositivoIds.includes(25),
+              tieneDispositivo26: dispositivoIds.includes(26)
             });
+            
+            // DEBUG: Verificar si hay marcajes del dispositivo 24 en la base de datos (sin filtrar por dispositivo)
+            if (empleado.cedula) {
+              const fechaInicio = new Date(fechaDesde);
+              fechaInicio.setHours(0, 0, 0, 0);
+              const fechaFin = new Date(fechaHasta);
+              fechaFin.setHours(23, 59, 59, 999);
+              
+              const marcajesDispositivo24 = await Attlog.findAll({
+                where: {
+                  employee_no: empleado.cedula,
+                  dispositivo_id: 24,
+                  event_time: {
+                    [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
+                  }
+                },
+                limit: 5
+              });
+              
+              console.log(`[DEBUG Backend] Marcajes del dispositivo 24 para ${empleado.nombre} (${empleado.cedula}):`, {
+                cantidad: marcajesDispositivo24.length,
+                muestra: marcajesDispositivo24.map(m => ({
+                  id: m.id,
+                  dispositivo_id: m.dispositivo_id,
+                  event_time: m.event_time
+                }))
+              });
+            }
           }
           
           let marcajes = [];
@@ -6998,20 +7029,42 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           empleado.dataValues.excepciones = excepcionesMapeadas;
           empleado.excepciones = excepcionesMapeadas;
           
-          empleado.dataValues.marcajes = marcajes.map(m => ({
-            id: m.id,
-            employee_no: m.employee_no,
-            event_time: m.event_time,
-            dispositivo_id: m.dispositivo_id,
-            nombre: m.nombre
-          }));
-          empleado.marcajes = marcajes.map(m => ({
-            id: m.id,
-            employee_no: m.employee_no,
-            event_time: m.event_time,
-            dispositivo_id: m.dispositivo_id,
-            nombre: m.nombre
-          }));
+          empleado.dataValues.marcajes = marcajes.map(m => {
+            const marcajeMapeado: any = {
+              id: m.id,
+              employee_no: m.employee_no,
+              event_time: m.event_time,
+              dispositivo_id: m.dispositivo_id,
+              nombre: m.nombre
+            };
+            // Incluir relación Dispositivo si está disponible
+            if (m.Dispositivo) {
+              marcajeMapeado.Dispositivo = {
+                id: m.Dispositivo.id,
+                nombre: m.Dispositivo.nombre,
+                ip_remota: m.Dispositivo.ip_remota
+              };
+            }
+            return marcajeMapeado;
+          });
+          empleado.marcajes = marcajes.map(m => {
+            const marcajeMapeado: any = {
+              id: m.id,
+              employee_no: m.employee_no,
+              event_time: m.event_time,
+              dispositivo_id: m.dispositivo_id,
+              nombre: m.nombre
+            };
+            // Incluir relación Dispositivo si está disponible
+            if (m.Dispositivo) {
+              marcajeMapeado.Dispositivo = {
+                id: m.Dispositivo.id,
+                nombre: m.Dispositivo.nombre,
+                ip_remota: m.Dispositivo.ip_remota
+              };
+            }
+            return marcajeMapeado;
+          });
           
           return empleado;
         }));
