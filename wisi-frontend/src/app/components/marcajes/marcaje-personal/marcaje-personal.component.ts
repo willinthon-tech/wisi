@@ -97,7 +97,7 @@ import { DispositivosService } from '../../../services/dispositivos.service';
               <input 
                 type="checkbox" 
                 [value]="dispositivo.id"
-                [checked]="selectedDispositivosIds.includes(dispositivo.id)"
+                [checked]="isDispositivoSeleccionado(dispositivo.id)"
                 [disabled]="loading || !hasSearched || !selectedSalaForDataLoad"
                 (change)="onDispositivoChange(dispositivo.id, $event)"
                 class="checkbox-input">
@@ -4219,12 +4219,53 @@ export class MarcajePersonalComponent implements OnInit {
         
         // Procesar marcajes
         let totalMarcajes = 0;
+        const dispositivosEnMarcajes = new Set<number>();
+        const muestraMarcajes: Array<{
+          empleado: string;
+          cedula: string;
+          marcajeId: number;
+          dispositivo_id: number | null;
+          Dispositivo: number | null;
+          dispositivo: number | null;
+          dispositivoIdNormalizado: number | null;
+          event_time: string;
+        }> = [];
+        
         this.empleadosCompletos.forEach(emp => {
           if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
             const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
             marcajesEmpleado.push(...emp.marcajes);
             this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
             totalMarcajes += emp.marcajes.length;
+            
+            // Analizar dispositivos en los marcajes
+            emp.marcajes.forEach((marcaje: any) => {
+              let dispositivoId: number | null = null;
+              if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
+                dispositivoId = Number(marcaje.dispositivo_id);
+              } else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.Dispositivo.id);
+              } else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.dispositivo.id);
+              }
+              if (dispositivoId !== null && !isNaN(dispositivoId)) {
+                dispositivosEnMarcajes.add(dispositivoId);
+              }
+              
+              // Guardar muestra de marcajes para el log
+              if (muestraMarcajes.length < 10) {
+                muestraMarcajes.push({
+                  empleado: emp.nombre,
+                  cedula: emp.cedula,
+                  marcajeId: marcaje.id,
+                  dispositivo_id: marcaje.dispositivo_id,
+                  Dispositivo: marcaje.Dispositivo?.id,
+                  dispositivo: marcaje.dispositivo?.id,
+                  dispositivoIdNormalizado: dispositivoId,
+                  event_time: marcaje.event_time
+                });
+              }
+            });
             
             // DEBUG: Log para verificar estructura de marcajes
             if (emp.marcajes.length > 0 && totalMarcajes <= 10) {
@@ -4241,7 +4282,40 @@ export class MarcajePersonalComponent implements OnInit {
             }
           }
         });
-        console.log('[DEBUG] Total marcajes cargados:', totalMarcajes);
+        
+        // DEBUG: Verificar específicamente el dispositivo 24
+        const marcajesDispositivo24 = Array.from(this.marcajesCompletos.entries())
+          .flatMap(([cedula, marcajes]) => 
+            marcajes.filter((m: any) => {
+              let dispositivoId: number | null = null;
+              if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+                dispositivoId = Number(m.dispositivo_id);
+              } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+                dispositivoId = Number(m.Dispositivo.id);
+              } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+                dispositivoId = Number(m.dispositivo.id);
+              }
+              return dispositivoId === 24;
+            })
+          );
+        
+        // DEBUG: Log detallado de dispositivos en marcajes
+        console.log('[DEBUG] Total marcajes cargados desde backend:', {
+          totalMarcajes,
+          dispositivosEnMarcajes: Array.from(dispositivosEnMarcajes).sort((a, b) => a - b),
+          tieneDispositivo24: dispositivosEnMarcajes.has(24),
+          marcajesDispositivo24: marcajesDispositivo24.length,
+          muestraMarcajesDispositivo24: marcajesDispositivo24.slice(0, 5).map((m: any) => ({
+            id: m.id,
+            employee_no: m.employee_no,
+            dispositivo_id: m.dispositivo_id,
+            Dispositivo: m.Dispositivo?.id,
+            event_time: m.event_time
+          })),
+          muestraMarcajes,
+          totalEmpleados: this.empleadosCompletos.length,
+          empleadosConMarcajes: Array.from(this.marcajesCompletos.entries()).filter(([_, marcajes]) => marcajes.length > 0).length
+        });
         
         // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios, excepciones ni marcajes individualmente
         // Todo ya viene en la respuesta consolidada del backend
@@ -4538,16 +4612,72 @@ export class MarcajePersonalComponent implements OnInit {
       
       // OPTIMIZACIÓN: UNA SOLA llamada para traer TODOS los marcajes del rango de fechas
       // NO filtrar por employee_no - traer todos y filtrar localmente
+      // IMPORTANTE: No pasar limit para obtener TODOS los marcajes sin límite
       this.marcajesService.getMarcajes({
         fecha_inicio: this.fechaDesde,
         fecha_fin: this.fechaHasta
         // NO incluir employee_no - traer todos los marcajes del rango
+        // NO incluir limit - traer TODOS sin límite
       }).subscribe({
         next: (response) => {
           const todosLosMarcajes = response.attlogs || [];
           
+          // DEBUG: Analizar dispositivos en la respuesta del backend ANTES de filtrar
+          const dispositivosEnRespuesta = new Set<number>();
+          const muestraMarcajes = todosLosMarcajes.slice(0, 10).map((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnRespuesta.add(dispositivoId);
+            }
+            return {
+              id: m.id,
+              employee_no: m.employee_no,
+              dispositivo_id: m.dispositivo_id,
+              dispositivo: m.dispositivo?.id,
+              Dispositivo: m.Dispositivo?.id,
+              dispositivoIdNormalizado: dispositivoId,
+              event_time: m.event_time
+            };
+          });
+          
+          // Analizar TODOS los marcajes para obtener dispositivos únicos
+          todosLosMarcajes.forEach((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnRespuesta.add(dispositivoId);
+            }
+          });
+          
+          console.log('[DEBUG] Marcajes recibidos del backend:', {
+            totalMarcajes: todosLosMarcajes.length,
+            dispositivosEnRespuesta: Array.from(dispositivosEnRespuesta).sort((a, b) => a - b),
+            muestraMarcajes,
+            fechaDesde: this.fechaDesde,
+            fechaHasta: this.fechaHasta,
+            totalEmpleados: empleadosConCedula.length
+          });
+          
           // Crear un mapa de cédulas para búsqueda rápida
           const cedulasSet = new Set(empleadosConCedula.map(e => e.cedula));
+          
+          // DEBUG: Contadores para ver qué se está filtrando
+          const dispositivosEnMarcajesFiltrados = new Set<number>();
+          let marcajesFiltradosPorEmpleado = 0;
+          let marcajesDescartadosPorEmpleado = 0;
           
           // Agrupar marcajes por employee_no (cedula) localmente
           todosLosMarcajes.forEach((marcaje: any) => {
@@ -4558,6 +4688,22 @@ export class MarcajePersonalComponent implements OnInit {
                 this.marcajesCompletos.set(cedula, []);
               }
               this.marcajesCompletos.get(cedula)!.push(marcaje);
+              marcajesFiltradosPorEmpleado++;
+              
+              // Extraer dispositivo_id para el log
+              let dispositivoId: number | null = null;
+              if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
+                dispositivoId = Number(marcaje.dispositivo_id);
+              } else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.Dispositivo.id);
+              } else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.dispositivo.id);
+              }
+              if (dispositivoId !== null && !isNaN(dispositivoId)) {
+                dispositivosEnMarcajesFiltrados.add(dispositivoId);
+              }
+            } else {
+              marcajesDescartadosPorEmpleado++;
             }
           });
           
@@ -4566,6 +4712,41 @@ export class MarcajePersonalComponent implements OnInit {
             if (!this.marcajesCompletos.has(empleado.cedula)) {
               this.marcajesCompletos.set(empleado.cedula, []);
             }
+          });
+          
+          // DEBUG: Verificar marcajes específicos del dispositivo 24 (Puerta Cecom)
+          const marcajesDispositivo24 = Array.from(this.marcajesCompletos.entries())
+            .flatMap(([cedula, marcajes]) => 
+              marcajes.filter((m: any) => {
+                let dispositivoId: number | null = null;
+                if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+                  dispositivoId = Number(m.dispositivo_id);
+                } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+                  dispositivoId = Number(m.Dispositivo.id);
+                } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+                  dispositivoId = Number(m.dispositivo.id);
+                }
+                return dispositivoId === 24;
+              })
+            );
+          
+          // DEBUG: Log detallado después del filtrado
+          console.log('[DEBUG] Marcajes después de filtrar por empleado:', {
+            totalMarcajesRecibidos: todosLosMarcajes.length,
+            marcajesFiltradosPorEmpleado,
+            marcajesDescartadosPorEmpleado,
+            dispositivosEnMarcajesFiltrados: Array.from(dispositivosEnMarcajesFiltrados).sort((a, b) => a - b),
+            dispositivosEnRespuestaCompleta: Array.from(dispositivosEnRespuesta).sort((a, b) => a - b),
+            totalEmpleados: empleadosConCedula.length,
+            empleadosConMarcajes: Array.from(this.marcajesCompletos.entries()).filter(([_, marcajes]) => marcajes.length > 0).length,
+            marcajesDispositivo24: marcajesDispositivo24.length,
+            muestraMarcajesDispositivo24: marcajesDispositivo24.slice(0, 5).map((m: any) => ({
+              id: m.id,
+              employee_no: m.employee_no,
+              dispositivo_id: m.dispositivo_id,
+              Dispositivo: m.Dispositivo?.id,
+              event_time: m.event_time
+            }))
           });
           
           resolve();
@@ -4807,18 +4988,6 @@ export class MarcajePersonalComponent implements OnInit {
         if (empleado.cedula) {
           const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
           
-          // DEBUG: Log para verificar marcajes completos del empleado
-          if (marcajesCompletos.length > 0 && this.selectedDispositivosIds.length > 0) {
-            const muestraMarcajes = marcajesCompletos.slice(0, 3).map((m: any) => ({
-              id: m.id,
-              dispositivo_id: m.dispositivo_id,
-              dispositivo: m.dispositivo?.id,
-              Dispositivo: m.Dispositivo?.id,
-              event_time: m.event_time
-            }));
-            console.log('[DEBUG] Muestra marcajes completos para', empleado.nombre, ':', muestraMarcajes);
-          }
-          
           // Filtrar marcajes por rango de fechas y dispositivos seleccionados
           const marcajesFiltrados = marcajesCompletos.filter((marcaje: any) => {
             if (!marcaje.event_time) return false;
@@ -4840,74 +5009,86 @@ export class MarcajePersonalComponent implements OnInit {
               if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
                 dispositivoIdMarcaje = Number(marcaje.dispositivo_id);
               } 
-              // Prioridad 2: dispositivo.id (formato alternativo)
-              else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
-                dispositivoIdMarcaje = Number(marcaje.dispositivo.id);
-              } 
-              // Prioridad 3: Dispositivo.id (formato con relación Sequelize)
+              // Prioridad 2: Dispositivo.id (formato con relación Sequelize - más común)
               else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
                 dispositivoIdMarcaje = Number(marcaje.Dispositivo.id);
+              } 
+              // Prioridad 3: dispositivo.id (formato alternativo)
+              else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
+                dispositivoIdMarcaje = Number(marcaje.dispositivo.id);
               }
               
               // Si el marcaje tiene un dispositivo, verificar que esté en la lista de seleccionados
               if (dispositivoIdMarcaje !== null && !isNaN(dispositivoIdMarcaje)) {
                 // Normalizar los IDs seleccionados para comparación
+                // IMPORTANTE: Asegurar que ambos sean números para comparación estricta
                 const selectedIdsNormalized = this.selectedDispositivosIds.map(id => Number(id));
-                const estaSeleccionado = selectedIdsNormalized.includes(dispositivoIdMarcaje);
+                // Usar comparación estricta con números normalizados
+                const estaSeleccionado = selectedIdsNormalized.some(id => Number(id) === Number(dispositivoIdMarcaje));
                 
-                // DEBUG: Log detallado para todos los marcajes (temporal para diagnóstico)
-                if (marcajesCompletos.length > 0 && marcajesCompletos.indexOf(marcaje) < 5) {
-                  console.log('[DEBUG] Filtrado de marcaje:', {
-                    empleado: empleado.nombre,
-                    marcajeId: marcaje.id,
-                    dispositivoIdMarcaje,
-                    tipoDispositivoId: typeof marcaje.dispositivo_id,
-                    selectedIds: selectedIdsNormalized,
-                    estaSeleccionado,
-                    marcajeCompleto: marcaje
-                  });
-                }
-                
-                if (!estaSeleccionado) {
-                  return false;
-                }
+                return estaSeleccionado;
               } else {
                 // Si el marcaje no tiene dispositivo y hay dispositivos seleccionados, excluirlo
-                // DEBUG: Log para marcajes sin dispositivo_id
-                if (marcajesCompletos.indexOf(marcaje) < 3) {
-                  console.log('[DEBUG] Marcaje sin dispositivo_id:', {
-                    empleado: empleado.nombre,
-                    marcajeId: marcaje.id,
-                    estructuraMarcaje: Object.keys(marcaje),
-                    marcaje: marcaje
-                  });
-                }
                 return false;
               }
             } else {
               // Si no hay dispositivos seleccionados, no mostrar ningún marcaje
               return false;
             }
-            
-            return true;
           });
-          
-          // DEBUG: Log del resultado del filtrado
-          if (marcajesCompletos.length > 0) {
-            console.log('[DEBUG] Resultado filtrado para', empleado.nombre, ':', {
-              totalMarcajes: marcajesCompletos.length,
-              marcajesFiltrados: marcajesFiltrados.length,
-              selectedDispositivosIds: this.selectedDispositivosIds,
-              muestraMarcajesFiltrados: marcajesFiltrados.slice(0, 3).map((m: any) => ({
-                id: m.id,
-                dispositivo_id: m.dispositivo_id,
-                event_time: m.event_time
-              }))
-            });
-          }
           
           this.marcajesPorEmpleado.set(empleado.cedula, marcajesFiltrados);
         }
+      });
+      
+      // Resumen general del filtrado (solo un log al final)
+      let totalMarcajesCompletos = 0;
+      let totalMarcajesFiltrados = 0;
+      let empleadosConMarcajes = 0;
+      let empleadosSinMarcajes = 0;
+      const dispositivosEnMarcajes = new Set<number>();
+      
+      base.forEach(empleado => {
+        if (empleado.cedula) {
+          const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
+          const marcajesFiltrados = this.marcajesPorEmpleado.get(empleado.cedula) || [];
+          
+          totalMarcajesCompletos += marcajesCompletos.length;
+          totalMarcajesFiltrados += marcajesFiltrados.length;
+          
+          if (marcajesFiltrados.length > 0) {
+            empleadosConMarcajes++;
+          } else if (marcajesCompletos.length > 0) {
+            empleadosSinMarcajes++;
+          }
+          
+          // Recopilar dispositivos únicos en marcajes completos
+          marcajesCompletos.forEach((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnMarcajes.add(dispositivoId);
+            }
+          });
+        }
+      });
+      
+      console.log('[DEBUG] Resumen filtrado de marcajes:', {
+        totalEmpleados: base.length,
+        empleadosConMarcajes,
+        empleadosSinMarcajes,
+        totalMarcajesCompletos,
+        totalMarcajesFiltrados,
+        selectedDispositivosIds: this.selectedDispositivosIds,
+        dispositivosEnMarcajesCompletos: Array.from(dispositivosEnMarcajes).sort((a, b) => a - b),
+        fechaDesde: this.fechaDesde,
+        fechaHasta: this.fechaHasta
       });
       
       // PROCESO ASÍNCRONO: Pre-calcular todos los bloques y horarios después de filtrar
@@ -5484,6 +5665,12 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
+  // Verificar si un dispositivo está seleccionado (helper para el template)
+  isDispositivoSeleccionado(dispositivoId: number | string): boolean {
+    const idNormalizado = Number(dispositivoId);
+    return this.selectedDispositivosIds.some(id => Number(id) === idNormalizado);
+  }
+
   // Manejar cambio de selección de dispositivos biométricos
   onDispositivoChange(dispositivoId: number, event: Event) {
     const target = event.target as HTMLInputElement;
@@ -5491,6 +5678,8 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Normalizar el ID a número para consistencia
     const dispositivoIdNum = Number(dispositivoId);
+    
+    const selectedIdsAntes = [...this.selectedDispositivosIds];
     
     if (isChecked) {
       // Agregar el dispositivo a la lista de seleccionados
@@ -5506,6 +5695,18 @@ export class MarcajePersonalComponent implements OnInit {
         .map(id => Number(id))
         .filter(id => id !== dispositivoIdNum);
     }
+    
+    // DEBUG: Log del cambio de dispositivo
+    console.log('[DEBUG] Cambio de dispositivo:', {
+      dispositivoId,
+      dispositivoIdNum,
+      isChecked,
+      selectedIdsAntes,
+      selectedIdsDespues: [...this.selectedDispositivosIds],
+      tieneSala: !!this.selectedSalaForDataLoad,
+      tieneEmpleados: this.empleadosCompletos.length > 0,
+      totalMarcajesCompletos: Array.from(this.marcajesCompletos.values()).reduce((sum, arr) => sum + arr.length, 0)
+    });
     
     // Actualizar los marcajes filtrados cuando cambia la selección de dispositivos
     // aplicarFiltrosLocales() ya llama a filtrarMarcajesLocalmente(), así que no es necesario llamarlo dos veces
@@ -5582,7 +5783,12 @@ export class MarcajePersonalComponent implements OnInit {
     console.log('[DEBUG] Dispositivos cargados para sala:', {
       salaId,
       cantidad: this.dispositivosSala.length,
-      dispositivos: this.dispositivosSala.map(d => ({ id: d.id, nombre: d.nombre }))
+      dispositivos: this.dispositivosSala.map(d => ({ 
+        id: d.id, 
+        idTipo: typeof d.id,
+        idNormalizado: Number(d.id),
+        nombre: d.nombre 
+      }))
     });
     
     // Seleccionar automáticamente los dispositivos que contengan "Marcaje" en el nombre
@@ -5599,12 +5805,15 @@ export class MarcajePersonalComponent implements OnInit {
         this.selectedDispositivosIds = this.dispositivosSala.map(d => Number(d.id));
       }
       
-      // DEBUG: Log para verificar selección automática
+      // DEBUG: Log para verificar selección automática con más detalle
       console.log('[DEBUG] Dispositivos seleccionados automáticamente:', {
         total: this.dispositivosSala.length,
         conMarcaje: dispositivosConMarcaje.length,
         selectedIds: this.selectedDispositivosIds,
-        dispositivosSeleccionados: this.dispositivosSala.filter(d => this.selectedDispositivosIds.includes(Number(d.id))).map(d => d.nombre)
+        selectedIdsTipos: this.selectedDispositivosIds.map(id => typeof id),
+        dispositivosSeleccionados: this.dispositivosSala
+          .filter(d => this.selectedDispositivosIds.includes(Number(d.id)))
+          .map(d => ({ id: d.id, idNormalizado: Number(d.id), nombre: d.nombre }))
       });
     }
     
@@ -5742,25 +5951,6 @@ export class MarcajePersonalComponent implements OnInit {
       // Obtener los marcajes del empleado que coincidan con los dispositivos seleccionados
       // IMPORTANTE: Usar marcajesPorEmpleado que ya está filtrado por dispositivos
       const marcajesEmpleado = this.marcajesPorEmpleado.get(empleado.cedula) || [];
-      
-      // DEBUG: Log para verificar filtrado de empleados por dispositivos
-      if (marcajesEmpleado.length === 0) {
-        // Si no hay marcajes filtrados, verificar si hay marcajes completos
-        const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
-        if (marcajesCompletos.length > 0) {
-          console.log('[DEBUG] Empleado filtrado - tiene marcajes completos pero no filtrados:', {
-            empleado: empleado.nombre,
-            cedula: empleado.cedula,
-            totalMarcajesCompletos: marcajesCompletos.length,
-            selectedDispositivosIds: this.selectedDispositivosIds,
-            muestraMarcajesCompletos: marcajesCompletos.slice(0, 3).map((m: any) => ({
-              id: m.id,
-              dispositivo_id: m.dispositivo_id,
-              tipo: typeof m.dispositivo_id
-            }))
-          });
-        }
-      }
       
       // Verificar si hay al menos un marcaje de los dispositivos seleccionados
       // Normalizar los IDs seleccionados para comparación

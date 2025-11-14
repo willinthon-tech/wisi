@@ -6913,9 +6913,18 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           // Cargar marcajes del empleado en el rango de fechas
           const dispositivos = await Dispositivo.findAll({
             where: { sala_id: salaId },
-            attributes: ['id']
+            attributes: ['id', 'nombre']
           });
           const dispositivoIds = dispositivos.map(d => d.id);
+          
+          // DEBUG: Log para verificar dispositivos de la sala
+          if (empleado.id === empleadosFiltrados[0]?.id) {
+            console.log(`[DEBUG Backend] Dispositivos de sala ${salaId}:`, {
+              cantidad: dispositivos.length,
+              dispositivos: dispositivos.map(d => ({ id: d.id, nombre: d.nombre })),
+              dispositivoIds
+            });
+          }
           
           let marcajes = [];
           if (dispositivoIds.length > 0 && empleado.cedula) {
@@ -6933,8 +6942,28 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                 }
               },
               order: [['event_time', 'ASC']],
-              attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre']
+              attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre'],
+              include: [{
+                model: Dispositivo,
+                as: 'Dispositivo',
+                attributes: ['id', 'nombre', 'ip_remota']
+              }]
             });
+            
+            // DEBUG: Log para verificar marcajes del primer empleado
+            if (empleado.id === empleadosFiltrados[0]?.id && marcajes.length > 0) {
+              const dispositivosEnMarcajes = [...new Set(marcajes.map(m => m.dispositivo_id))];
+              console.log(`[DEBUG Backend] Marcajes del primer empleado (${empleado.nombre}):`, {
+                cantidadMarcajes: marcajes.length,
+                dispositivosEnMarcajes,
+                muestraMarcajes: marcajes.slice(0, 5).map(m => ({
+                  id: m.id,
+                  dispositivo_id: m.dispositivo_id,
+                  Dispositivo: m.Dispositivo?.id,
+                  event_time: m.event_time
+                }))
+              });
+            }
           }
           
           // Agregar excepciones y marcajes directamente al objeto del empleado (no solo en dataValues)
