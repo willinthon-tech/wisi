@@ -6920,38 +6920,34 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             const fechaFin = new Date(fechaHasta);
             fechaFin.setHours(23, 59, 59, 999);
             
-            // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
-            // IMPORTANTE: Cargar primero SIN include para verificar que los marcajes existen
-            marcajes = await Attlog.findAll({
-              where: {
-                employee_no: empleado.cedula,
-                event_time: {
-                  [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
-                }
-              },
-              order: [['event_time', 'ASC']],
-              attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre']
-            });
-            
-            // DEBUG: Verificar dispositivos ANTES de agregar el include
+            // DEBUG: Verificar directamente en la base de datos si hay marcajes del dispositivo 24
             if (empleado.id === empleadosFiltrados[0]?.id) {
-              const dispositivosAntesInclude = [...new Set(marcajes.map(m => m.dispositivo_id))].sort((a, b) => a - b);
-              console.log(`[DEBUG Backend] Marcajes ANTES de include para ${empleado.nombre}:`, {
-                cantidadMarcajes: marcajes.length,
-                dispositivos: dispositivosAntesInclude,
-                tieneDispositivo24: dispositivosAntesInclude.includes(24),
-                tieneDispositivo25: dispositivosAntesInclude.includes(25),
-                tieneDispositivo26: dispositivosAntesInclude.includes(26),
-                muestraMarcajes: marcajes.slice(0, 10).map(m => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  event_time: m.event_time
-                }))
+              const marcajesDispositivo24Directo = await sequelize.query(
+                `SELECT id, employee_no, dispositivo_id, event_time, nombre 
+                 FROM attlogs 
+                 WHERE employee_no = :cedula 
+                 AND dispositivo_id = 24 
+                 AND event_time BETWEEN :fechaInicio AND :fechaFin 
+                 ORDER BY event_time ASC 
+                 LIMIT 10`,
+                {
+                  replacements: {
+                    cedula: empleado.cedula,
+                    fechaInicio: fechaInicio.toISOString(),
+                    fechaFin: fechaFin.toISOString()
+                  },
+                  type: sequelize.QueryTypes.SELECT
+                }
+              );
+              
+              console.log(`[DEBUG Backend] Consulta directa SQL para dispositivo 24 - ${empleado.nombre} (${empleado.cedula}):`, {
+                cantidadMarcajes: marcajesDispositivo24Directo.length,
+                muestraMarcajes: marcajesDispositivo24Directo
               });
             }
             
-            // Ahora agregar el include para obtener la relación Dispositivo
-            // Cargar de nuevo con include para tener la relación completa
+            // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
+            // Usar required: false para LEFT JOIN (incluir marcajes aunque no tengan Dispositivo asociado)
             marcajes = await Attlog.findAll({
               where: {
                 employee_no: empleado.cedula,
@@ -6965,8 +6961,9 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                 model: Dispositivo,
                 as: 'Dispositivo',
                 attributes: ['id', 'nombre', 'ip_remota'],
-                required: false // LEFT JOIN en lugar de INNER JOIN - esto es CRÍTICO
-              }]
+                required: false // LEFT JOIN - CRÍTICO para incluir todos los marcajes
+              }],
+              raw: false // Asegurar que devuelva instancias de Sequelize para tener acceso a relaciones
             });
             
             // DEBUG: Log para verificar marcajes del primer empleado
