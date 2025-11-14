@@ -4226,9 +4226,11 @@ export class MarcajePersonalComponent implements OnInit {
           marcajeId: number;
           dispositivo_id: number | null;
           Dispositivo: number | null;
+          DispositivoNombre?: string | null;
           dispositivo: number | null;
           dispositivoIdNormalizado: number | null;
           event_time: string;
+          marcajeCompleto?: any;
         }> = [];
         
         this.empleadosCompletos.forEach(emp => {
@@ -4252,20 +4254,43 @@ export class MarcajePersonalComponent implements OnInit {
                 dispositivosEnMarcajes.add(dispositivoId);
               }
               
-              // Guardar muestra de marcajes para el log
-              if (muestraMarcajes.length < 10) {
+              // Guardar muestra de marcajes para el log (especialmente los del dispositivo 24)
+              if (muestraMarcajes.length < 20 || dispositivoId === 24 || dispositivoId === 25 || dispositivoId === 26) {
                 muestraMarcajes.push({
                   empleado: emp.nombre,
                   cedula: emp.cedula,
                   marcajeId: marcaje.id,
                   dispositivo_id: marcaje.dispositivo_id,
                   Dispositivo: marcaje.Dispositivo?.id,
+                  DispositivoNombre: marcaje.Dispositivo?.nombre,
                   dispositivo: marcaje.dispositivo?.id,
                   dispositivoIdNormalizado: dispositivoId,
-                  event_time: marcaje.event_time
+                  event_time: marcaje.event_time,
+                  marcajeCompleto: marcaje // Incluir el marcaje completo para debug
                 });
               }
             });
+            
+            // DEBUG: Buscar marcajes del dispositivo 24 específicamente
+            const marcajesDispositivo24Empleado = emp.marcajes.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id || m.Dispositivo?.id || m.dispositivo?.id;
+              return Number(dispositivoId) === 24;
+            });
+            
+            if (marcajesDispositivo24Empleado.length > 0) {
+              console.log(`[DEBUG] Empleado ${emp.nombre} tiene ${marcajesDispositivo24Empleado.length} marcajes del dispositivo 24:`, {
+                empleado: emp.nombre,
+                cedula: emp.cedula,
+                cantidad: marcajesDispositivo24Empleado.length,
+                muestra: marcajesDispositivo24Empleado.slice(0, 3).map((m: any) => ({
+                  id: m.id,
+                  dispositivo_id: m.dispositivo_id,
+                  Dispositivo: m.Dispositivo?.id,
+                  DispositivoNombre: m.Dispositivo?.nombre,
+                  event_time: m.event_time
+                }))
+              });
+            }
             
             // DEBUG: Log para verificar estructura de marcajes
             if (emp.marcajes.length > 0 && totalMarcajes <= 10) {
@@ -4304,15 +4329,18 @@ export class MarcajePersonalComponent implements OnInit {
           totalMarcajes,
           dispositivosEnMarcajes: Array.from(dispositivosEnMarcajes).sort((a, b) => a - b),
           tieneDispositivo24: dispositivosEnMarcajes.has(24),
+          tieneDispositivo25: dispositivosEnMarcajes.has(25),
+          tieneDispositivo26: dispositivosEnMarcajes.has(26),
           marcajesDispositivo24: marcajesDispositivo24.length,
-          muestraMarcajesDispositivo24: marcajesDispositivo24.slice(0, 5).map((m: any) => ({
+          muestraMarcajesDispositivo24: marcajesDispositivo24.slice(0, 10).map((m: any) => ({
             id: m.id,
             employee_no: m.employee_no,
             dispositivo_id: m.dispositivo_id,
             Dispositivo: m.Dispositivo?.id,
+            DispositivoNombre: m.Dispositivo?.nombre,
             event_time: m.event_time
           })),
-          muestraMarcajes,
+          muestraMarcajes: muestraMarcajes.filter(m => m.dispositivoIdNormalizado === 24 || m.dispositivoIdNormalizado === 25 || m.dispositivoIdNormalizado === 26 || muestraMarcajes.indexOf(m) < 5),
           totalEmpleados: this.empleadosCompletos.length,
           empleadosConMarcajes: Array.from(this.marcajesCompletos.entries()).filter(([_, marcajes]) => marcajes.length > 0).length
         });

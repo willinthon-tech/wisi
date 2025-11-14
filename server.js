@@ -6911,63 +6911,19 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           }
           
           // Cargar marcajes del empleado en el rango de fechas
-          const dispositivos = await Dispositivo.findAll({
-            where: { sala_id: salaId },
-            attributes: ['id', 'nombre']
-          });
-          const dispositivoIds = dispositivos.map(d => d.id);
-          
-          // DEBUG: Log para verificar dispositivos de la sala
-          if (empleado.id === empleadosFiltrados[0]?.id) {
-            console.log(`[DEBUG Backend] Dispositivos de sala ${salaId}:`, {
-              cantidad: dispositivos.length,
-              dispositivos: dispositivos.map(d => ({ id: d.id, nombre: d.nombre })),
-              dispositivoIds,
-              tieneDispositivo24: dispositivoIds.includes(24),
-              tieneDispositivo25: dispositivoIds.includes(25),
-              tieneDispositivo26: dispositivoIds.includes(26)
-            });
-            
-            // DEBUG: Verificar si hay marcajes del dispositivo 24 en la base de datos (sin filtrar por dispositivo)
-            if (empleado.cedula) {
-              const fechaInicio = new Date(fechaDesde);
-              fechaInicio.setHours(0, 0, 0, 0);
-              const fechaFin = new Date(fechaHasta);
-              fechaFin.setHours(23, 59, 59, 999);
-              
-              const marcajesDispositivo24 = await Attlog.findAll({
-                where: {
-                  employee_no: empleado.cedula,
-                  dispositivo_id: 24,
-                  event_time: {
-                    [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
-                  }
-                },
-                limit: 5
-              });
-              
-              console.log(`[DEBUG Backend] Marcajes del dispositivo 24 para ${empleado.nombre} (${empleado.cedula}):`, {
-                cantidad: marcajesDispositivo24.length,
-                muestra: marcajesDispositivo24.map(m => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  event_time: m.event_time
-                }))
-              });
-            }
-          }
-          
+          // IMPORTANTE: NO filtrar por dispositivos de la sala - cargar TODOS los marcajes
+          // El frontend filtrará por los dispositivos seleccionados
           let marcajes = [];
-          if (dispositivoIds.length > 0 && empleado.cedula) {
+          if (empleado.cedula) {
             const fechaInicio = new Date(fechaDesde);
             fechaInicio.setHours(0, 0, 0, 0);
             const fechaFin = new Date(fechaHasta);
             fechaFin.setHours(23, 59, 59, 999);
             
+            // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
             marcajes = await Attlog.findAll({
               where: {
                 employee_no: empleado.cedula,
-                dispositivo_id: { [Op.in]: dispositivoIds },
                 event_time: {
                   [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
                 }
@@ -6986,11 +6942,15 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               const dispositivosEnMarcajes = [...new Set(marcajes.map(m => m.dispositivo_id))];
               console.log(`[DEBUG Backend] Marcajes del primer empleado (${empleado.nombre}):`, {
                 cantidadMarcajes: marcajes.length,
-                dispositivosEnMarcajes,
-                muestraMarcajes: marcajes.slice(0, 5).map(m => ({
+                dispositivosEnMarcajes: dispositivosEnMarcajes.sort((a, b) => a - b),
+                tieneDispositivo24: dispositivosEnMarcajes.includes(24),
+                tieneDispositivo25: dispositivosEnMarcajes.includes(25),
+                tieneDispositivo26: dispositivosEnMarcajes.includes(26),
+                muestraMarcajes: marcajes.slice(0, 10).map(m => ({
                   id: m.id,
                   dispositivo_id: m.dispositivo_id,
                   Dispositivo: m.Dispositivo?.id,
+                  DispositivoNombre: m.Dispositivo?.nombre,
                   event_time: m.event_time
                 }))
               });
