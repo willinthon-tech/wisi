@@ -6949,6 +6949,39 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
             // IMPORTANTE: No usar include con Dispositivo porque puede causar problemas con el JOIN
             // En su lugar, cargar los marcajes directamente y luego obtener los dispositivos si es necesario
+            
+            // DEBUG: Verificar directamente en la base de datos antes de la consulta
+            if (empleado.id === empleadosFiltrados[0]?.id) {
+              const marcajesDirectosSQL = await sequelize.query(
+                `SELECT id, employee_no, dispositivo_id, event_time, nombre 
+                 FROM attlogs 
+                 WHERE employee_no = :cedula 
+                 AND event_time BETWEEN :fechaInicio AND :fechaFin 
+                 ORDER BY event_time ASC`,
+                {
+                  replacements: {
+                    cedula: empleado.cedula,
+                    fechaInicio: fechaInicio.toISOString(),
+                    fechaFin: fechaFin.toISOString()
+                  },
+                  type: sequelize.QueryTypes.SELECT
+                }
+              );
+              
+              console.log(`[DEBUG Backend] Consulta SQL DIRECTA para ${empleado.nombre} (${empleado.cedula}):`, {
+                cantidadMarcajesSQL: marcajesDirectosSQL.length,
+                dispositivosEnSQL: [...new Set(marcajesDirectosSQL.map(m => m.dispositivo_id).filter(id => id != null))].sort((a, b) => a - b),
+                tieneDispositivo24: marcajesDirectosSQL.some(m => m.dispositivo_id === 24),
+                tieneDispositivo25: marcajesDirectosSQL.some(m => m.dispositivo_id === 25),
+                tieneDispositivo26: marcajesDirectosSQL.some(m => m.dispositivo_id === 26),
+                muestraMarcajes: marcajesDirectosSQL.slice(0, 10).map(m => ({
+                  id: m.id,
+                  dispositivo_id: m.dispositivo_id,
+                  event_time: m.event_time
+                }))
+              });
+            }
+            
             marcajes = await Attlog.findAll({
               where: {
                 employee_no: empleado.cedula,
@@ -6960,6 +6993,22 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre'],
               raw: true // Usar raw para obtener objetos planos directamente
             });
+            
+            // DEBUG: Comparar resultados de Sequelize vs SQL directa
+            if (empleado.id === empleadosFiltrados[0]?.id) {
+              console.log(`[DEBUG Backend] Resultados de Sequelize para ${empleado.nombre}:`, {
+                cantidadMarcajes: marcajes.length,
+                dispositivosEnMarcajes: [...new Set(marcajes.map(m => m.dispositivo_id).filter(id => id != null))].sort((a, b) => a - b),
+                tieneDispositivo24: marcajes.some(m => m.dispositivo_id === 24),
+                tieneDispositivo25: marcajes.some(m => m.dispositivo_id === 25),
+                tieneDispositivo26: marcajes.some(m => m.dispositivo_id === 26),
+                muestraMarcajes: marcajes.slice(0, 10).map(m => ({
+                  id: m.id,
+                  dispositivo_id: m.dispositivo_id,
+                  event_time: m.event_time
+                }))
+              });
+            }
             
             // Si hay marcajes, cargar los dispositivos asociados por separado para evitar problemas con JOIN
             if (marcajes.length > 0) {
@@ -7350,6 +7399,39 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
           // IMPORTANTE: No usar include con Dispositivo porque puede causar problemas con el JOIN
           // En su lugar, cargar los marcajes directamente y luego obtener los dispositivos si es necesario
+          
+          // DEBUG: Verificar directamente en la base de datos antes de la consulta
+          if (empleado.id === empleados[0]?.id) {
+            const marcajesDirectosSQL = await sequelize.query(
+              `SELECT id, employee_no, dispositivo_id, event_time, nombre 
+               FROM attlogs 
+               WHERE employee_no = :cedula 
+               AND event_time BETWEEN :fechaInicio AND :fechaFin 
+               ORDER BY event_time ASC`,
+              {
+                replacements: {
+                  cedula: empleado.cedula,
+                  fechaInicio: fechaInicio.toISOString(),
+                  fechaFin: fechaFin.toISOString()
+                },
+                type: sequelize.QueryTypes.SELECT
+              }
+            );
+            
+            console.log(`[DEBUG Backend] Consulta SQL DIRECTA (ruta normal) para ${empleado.nombre} (${empleado.cedula}):`, {
+              cantidadMarcajesSQL: marcajesDirectosSQL.length,
+              dispositivosEnSQL: [...new Set(marcajesDirectosSQL.map(m => m.dispositivo_id).filter(id => id != null))].sort((a, b) => a - b),
+              tieneDispositivo24: marcajesDirectosSQL.some(m => m.dispositivo_id === 24),
+              tieneDispositivo25: marcajesDirectosSQL.some(m => m.dispositivo_id === 25),
+              tieneDispositivo26: marcajesDirectosSQL.some(m => m.dispositivo_id === 26),
+              muestraMarcajes: marcajesDirectosSQL.slice(0, 10).map(m => ({
+                id: m.id,
+                dispositivo_id: m.dispositivo_id,
+                event_time: m.event_time
+              }))
+            });
+          }
+          
           marcajes = await Attlog.findAll({
             where: {
               employee_no: empleado.cedula,
@@ -7361,6 +7443,22 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre'],
             raw: true // Usar raw para obtener objetos planos directamente
           });
+          
+          // DEBUG: Comparar resultados de Sequelize vs SQL directa
+          if (empleado.id === empleados[0]?.id) {
+            console.log(`[DEBUG Backend] Resultados de Sequelize (ruta normal) para ${empleado.nombre}:`, {
+              cantidadMarcajes: marcajes.length,
+              dispositivosEnMarcajes: [...new Set(marcajes.map(m => m.dispositivo_id).filter(id => id != null))].sort((a, b) => a - b),
+              tieneDispositivo24: marcajes.some(m => m.dispositivo_id === 24),
+              tieneDispositivo25: marcajes.some(m => m.dispositivo_id === 25),
+              tieneDispositivo26: marcajes.some(m => m.dispositivo_id === 26),
+              muestraMarcajes: marcajes.slice(0, 10).map(m => ({
+                id: m.id,
+                dispositivo_id: m.dispositivo_id,
+                event_time: m.event_time
+              }))
+            });
+          }
           
           // Si hay marcajes, cargar los dispositivos asociados por separado para evitar problemas con JOIN
           if (marcajes.length > 0) {
