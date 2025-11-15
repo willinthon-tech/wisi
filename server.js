@@ -6948,7 +6948,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             
             // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
             // Usar required: false para LEFT JOIN (incluir marcajes aunque no tengan Dispositivo asociado)
-            marcajes = await Attlog.findAll({
+            const queryOptions = {
               where: {
                 employee_no: empleado.cedula,
                 event_time: {
@@ -6964,20 +6964,28 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                 required: false // LEFT JOIN - CRÍTICO para incluir todos los marcajes
               }],
               raw: false // Asegurar que devuelva instancias de Sequelize para tener acceso a relaciones
-            });
+            };
+            
+            // DEBUG: Mostrar la consulta SQL para el primer empleado
+            if (empleado.id === empleadosFiltrados[0]?.id) {
+              const sqlQuery = Attlog.findOne(queryOptions).toSQL();
+              console.log(`[DEBUG Backend] SQL Query para marcajes:`, sqlQuery);
+            }
+            
+            marcajes = await Attlog.findAll(queryOptions);
             
             // DEBUG: Log para verificar marcajes del primer empleado
             if (empleado.id === empleadosFiltrados[0]?.id) {
+              // Convertir marcajes a objetos planos para análisis
+              const marcajesPlano = marcajes.map(m => m.toJSON ? m.toJSON() : (m.dataValues || m));
+              
               // Extraer dispositivo_id de forma segura
-              const dispositivosEnMarcajes = marcajes.length > 0 ? [...new Set(marcajes.map(m => {
-                const devId = m.get ? m.get('dispositivo_id') : (m.dispositivo_id || m.dataValues?.dispositivo_id);
-                return devId;
-              }).filter(id => id != null))] : [];
+              const dispositivosEnMarcajes = marcajesPlano.length > 0 ? [...new Set(marcajesPlano.map(m => m.dispositivo_id).filter(id => id != null))] : [];
               
               // Contar marcajes por dispositivo
               const marcajesPorDispositivo = {};
-              marcajes.forEach(m => {
-                const devId = m.get ? m.get('dispositivo_id') : (m.dispositivo_id || m.dataValues?.dispositivo_id);
+              marcajesPlano.forEach(m => {
+                const devId = m.dispositivo_id;
                 if (devId != null) {
                   marcajesPorDispositivo[devId] = (marcajesPorDispositivo[devId] || 0) + 1;
                 }
@@ -7008,17 +7016,13 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                   dispositivo_id: m.dispositivo_id,
                   event_time: m.event_time
                 })),
-                muestraMarcajes: marcajes.slice(0, 10).map(m => {
-                  const devId = m.get ? m.get('dispositivo_id') : (m.dispositivo_id || m.dataValues?.dispositivo_id);
-                  const dispositivo = m.get ? m.get('Dispositivo') : (m.Dispositivo || m.dataValues?.Dispositivo);
-                  return {
-                    id: m.get ? m.get('id') : (m.id || m.dataValues?.id),
-                    dispositivo_id: devId,
-                    Dispositivo: dispositivo ? (dispositivo.get ? dispositivo.get('id') : dispositivo.id) : null,
-                    DispositivoNombre: dispositivo ? (dispositivo.get ? dispositivo.get('nombre') : dispositivo.nombre) : null,
-                    event_time: m.get ? m.get('event_time') : (m.event_time || m.dataValues?.event_time)
-                  };
-                })
+                muestraMarcajes: marcajesPlano.slice(0, 10).map(m => ({
+                  id: m.id,
+                  dispositivo_id: m.dispositivo_id,
+                  Dispositivo: m.Dispositivo ? m.Dispositivo.id : null,
+                  DispositivoNombre: m.Dispositivo ? m.Dispositivo.nombre : null,
+                  event_time: m.event_time
+                }))
               });
             }
           }
@@ -7057,25 +7061,23 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           
           // Mapear marcajes asegurando que se incluyan TODOS, incluso si no tienen Dispositivo asociado
           const marcajesMapeados = marcajes.map(m => {
-            // Usar get() para acceder a los datos de Sequelize de forma segura
-            const dispositivoId = m.get ? m.get('dispositivo_id') : (m.dispositivo_id || m.dataValues?.dispositivo_id);
-            const dispositivo = m.get ? m.get('Dispositivo') : (m.Dispositivo || m.dataValues?.Dispositivo);
+            // Convertir a objeto plano para evitar problemas con Sequelize
+            const marcajeData = m.toJSON ? m.toJSON() : (m.dataValues || m);
             
             const marcajeMapeado = {
-              id: m.get ? m.get('id') : (m.id || m.dataValues?.id),
-              employee_no: m.get ? m.get('employee_no') : (m.employee_no || m.dataValues?.employee_no),
-              event_time: m.get ? m.get('event_time') : (m.event_time || m.dataValues?.event_time),
-              dispositivo_id: dispositivoId,
-              nombre: m.get ? m.get('nombre') : (m.nombre || m.dataValues?.nombre)
+              id: marcajeData.id,
+              employee_no: marcajeData.employee_no,
+              event_time: marcajeData.event_time,
+              dispositivo_id: marcajeData.dispositivo_id,
+              nombre: marcajeData.nombre
             };
             
             // Incluir relación Dispositivo si está disponible
-            if (dispositivo) {
-              const dispositivoData = dispositivo.get ? dispositivo.get() : (dispositivo.dataValues || dispositivo);
+            if (marcajeData.Dispositivo) {
               marcajeMapeado.Dispositivo = {
-                id: dispositivoData.id,
-                nombre: dispositivoData.nombre,
-                ip_remota: dispositivoData.ip_remota
+                id: marcajeData.Dispositivo.id,
+                nombre: marcajeData.Dispositivo.nombre,
+                ip_remota: marcajeData.Dispositivo.ip_remota
               };
             }
             
