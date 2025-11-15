@@ -1,0 +1,31 @@
+# Comandos para ejecutar en el servidor para corregir el problema de PM2
+
+# PASO 1: Verificar que el archivo en el servidor esté correcto
+sed -n '7012p' /var/www/wisi.space/server.js
+grep -n "marcajeMapeado.*: any" /var/www/wisi.space/server.js
+
+# PASO 2: Si el archivo tiene el error, necesitas subir el archivo correcto desde tu máquina local
+
+# PASO 3: Detener y eliminar completamente PM2
+pm2 stop all
+pm2 delete all
+
+# PASO 4: Limpiar caché
+find /var/www/wisi.space -name ".cache" -type d -exec rm -rf {} + 2>/dev/null
+rm -rf /tmp/node-* 2>/dev/null
+
+# PASO 5: Verificar sintaxis del archivo
+cd /var/www/wisi.space
+node -c server.js
+
+# PASO 6: Reiniciar PM2
+pm2 start server.js --name server
+pm2 save
+
+# PASO 7: Verificar logs (esperar 3 segundos primero)
+sleep 3
+pm2 logs server --lines 30 --nostream
+
+# PASO 8: Verificar estado
+pm2 status
+
