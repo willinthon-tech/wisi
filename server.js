@@ -7365,6 +7365,36 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     
     console.log('[DEBUG] Endpoint /api/empleados/sala/:salaId - Parámetros:', { salaId, fechaDesde, fechaHasta, tieneFechas: !!(fechaDesde && fechaHasta) });
     
+    // DEBUG: Verificar si hay marcajes del dispositivo 24, 25, 26 en la base de datos para cualquier empleado
+    if (fechaDesde && fechaHasta) {
+      const fechaInicio = new Date(fechaDesde);
+      fechaInicio.setHours(0, 0, 0, 0);
+      const fechaFin = new Date(fechaHasta);
+      fechaFin.setHours(23, 59, 59, 999);
+      
+      const marcajesDispositivosProblematicos = await sequelize.query(
+        `SELECT dispositivo_id, COUNT(*) as cantidad
+         FROM attlogs 
+         WHERE dispositivo_id IN (24, 25, 26)
+         AND event_time BETWEEN :fechaInicio AND :fechaFin 
+         GROUP BY dispositivo_id`,
+        {
+          replacements: {
+            fechaInicio: fechaInicio.toISOString(),
+            fechaFin: fechaFin.toISOString()
+          },
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      
+      console.log('[DEBUG Backend] Marcajes de dispositivos 24, 25, 26 en la base de datos (TODOS los empleados):', {
+        marcajesDispositivosProblematicos,
+        tieneDispositivo24: marcajesDispositivosProblematicos.some(m => m.dispositivo_id === 24),
+        tieneDispositivo25: marcajesDispositivosProblematicos.some(m => m.dispositivo_id === 25),
+        tieneDispositivo26: marcajesDispositivosProblematicos.some(m => m.dispositivo_id === 26)
+      });
+    }
+    
     // Si hay fechas, cargar excepciones y marcajes para ese rango
     if (fechaDesde && fechaHasta) {
       console.log('[DEBUG] Cargando excepciones y marcajes consolidados para rango:', { fechaDesde, fechaHasta, cantidadEmpleados: empleados.length });
