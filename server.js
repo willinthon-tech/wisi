@@ -7393,6 +7393,60 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         tieneDispositivo25: marcajesDispositivosProblematicos.some(m => m.dispositivo_id === 25),
         tieneDispositivo26: marcajesDispositivosProblematicos.some(m => m.dispositivo_id === 26)
       });
+      
+      // Obtener los employee_no únicos que tienen marcajes de dispositivos 24, 25, 26
+      const employeeNosConMarcajesProblematicos = await sequelize.query(
+        `SELECT DISTINCT employee_no, dispositivo_id, COUNT(*) as cantidad
+         FROM attlogs 
+         WHERE dispositivo_id IN (24, 25, 26)
+         AND event_time BETWEEN :fechaInicio AND :fechaFin 
+         GROUP BY employee_no, dispositivo_id
+         ORDER BY employee_no, dispositivo_id
+         LIMIT 50`,
+        {
+          replacements: {
+            fechaInicio: fechaInicio.toISOString(),
+            fechaFin: fechaFin.toISOString()
+          },
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      
+      // Obtener los employee_no de los empleados de la sala
+      const employeeNosDeSala = empleados.map(e => e.employee_no);
+      
+      // Verificar si hay coincidencias
+      const employeeNosConMarcajes24 = employeeNosConMarcajesProblematicos
+        .filter(m => m.dispositivo_id === 24)
+        .map(m => m.employee_no);
+      const employeeNosConMarcajes25 = employeeNosConMarcajesProblematicos
+        .filter(m => m.dispositivo_id === 25)
+        .map(m => m.employee_no);
+      const employeeNosConMarcajes26 = employeeNosConMarcajesProblematicos
+        .filter(m => m.dispositivo_id === 26)
+        .map(m => m.employee_no);
+      
+      const coincidencias24 = employeeNosConMarcajes24.filter(eno => employeeNosDeSala.includes(eno));
+      const coincidencias25 = employeeNosConMarcajes25.filter(eno => employeeNosDeSala.includes(eno));
+      const coincidencias26 = employeeNosConMarcajes26.filter(eno => employeeNosDeSala.includes(eno));
+      
+      console.log('[DEBUG Backend] Análisis de employee_no con marcajes de dispositivos 24, 25, 26:', {
+        totalEmployeeNosEnSala: employeeNosDeSala.length,
+        muestraEmployeeNosEnSala: employeeNosDeSala.slice(0, 10),
+        totalEmployeeNosConMarcajes24: employeeNosConMarcajes24.length,
+        muestraEmployeeNosConMarcajes24: employeeNosConMarcajes24.slice(0, 10),
+        totalEmployeeNosConMarcajes25: employeeNosConMarcajes25.length,
+        muestraEmployeeNosConMarcajes25: employeeNosConMarcajes25.slice(0, 10),
+        totalEmployeeNosConMarcajes26: employeeNosConMarcajes26.length,
+        muestraEmployeeNosConMarcajes26: employeeNosConMarcajes26.slice(0, 10),
+        coincidencias24: coincidencias24.length,
+        muestraCoincidencias24: coincidencias24.slice(0, 10),
+        coincidencias25: coincidencias25.length,
+        muestraCoincidencias25: coincidencias25.slice(0, 10),
+        coincidencias26: coincidencias26.length,
+        muestraCoincidencias26: coincidencias26.slice(0, 10),
+        muestraMarcajesProblematicos: employeeNosConMarcajesProblematicos.slice(0, 20)
+      });
     }
     
     // Si hay fechas, cargar excepciones y marcajes para ese rango
