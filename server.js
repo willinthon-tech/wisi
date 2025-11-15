@@ -7326,31 +7326,34 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         });
         
         // Cargar marcajes del empleado en el rango de fechas
-        // Primero obtener los dispositivos de la sala
-        const dispositivos = await Dispositivo.findAll({
-          where: { sala_id: salaId },
-          attributes: ['id']
-        });
-        const dispositivoIds = dispositivos.map(d => d.id);
-        
+        // IMPORTANTE: NO filtrar por dispositivos de la sala - cargar TODOS los marcajes
+        // El frontend filtrará por los dispositivos seleccionados
         let marcajes = [];
-        if (dispositivoIds.length > 0 && empleado.cedula) {
+        if (empleado.cedula) {
           // Convertir fechas a formato ISO para la consulta
           const fechaInicio = new Date(fechaDesde);
           fechaInicio.setHours(0, 0, 0, 0);
           const fechaFin = new Date(fechaHasta);
           fechaFin.setHours(23, 59, 59, 999);
           
+          // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
+          // Usar required: false para LEFT JOIN (incluir marcajes aunque no tengan Dispositivo asociado)
           marcajes = await Attlog.findAll({
             where: {
               employee_no: empleado.cedula,
-              dispositivo_id: { [Op.in]: dispositivoIds },
               event_time: {
                 [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
               }
             },
             order: [['event_time', 'ASC']],
-            attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre']
+            attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre'],
+            include: [{
+              model: Dispositivo,
+              as: 'Dispositivo',
+              attributes: ['id', 'nombre', 'ip_remota'],
+              required: false // LEFT JOIN - CRÍTICO para incluir todos los marcajes
+            }],
+            raw: false // Asegurar que devuelva instancias de Sequelize para tener acceso a relaciones
           });
         }
         
@@ -7399,30 +7402,80 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         empleado.dataValues.excepciones = excepcionesMapeadas;
         empleado.excepciones = excepcionesMapeadas;
         
-        empleado.dataValues.marcajes = marcajes.map(m => ({
-          id: m.id,
-          employee_no: m.employee_no,
-          event_time: m.event_time,
-          nombre: m.nombre,
-          dispositivo_id: m.dispositivo_id
-        }));
-        empleado.marcajes = marcajes.map(m => ({
-          id: m.id,
-          employee_no: m.employee_no,
-          event_time: m.event_time,
-          nombre: m.nombre,
-          dispositivo_id: m.dispositivo_id
-        }));
+        // Mapear marcajes asegurando que se incluyan TODOS, incluso si no tienen Dispositivo asociado
+        const marcajesMapeados = marcajes.map(m => {
+          // Convertir a objeto plano para evitar problemas con Sequelize
+          const marcajeData = m.toJSON ? m.toJSON() : (m.dataValues || m);
+          
+          const marcajeMapeado = {
+            id: marcajeData.id,
+            employee_no: marcajeData.employee_no,
+            event_time: marcajeData.event_time,
+            dispositivo_id: marcajeData.dispositivo_id,
+            nombre: marcajeData.nombre
+          };
+          
+          // Incluir relación Dispositivo si está disponible
+          if (marcajeData.Dispositivo) {
+            marcajeMapeado.Dispositivo = {
+              id: marcajeData.Dispositivo.id,
+              nombre: marcajeData.Dispositivo.nombre,
+              ip_remota: marcajeData.Dispositivo.ip_remota
+            };
+          }
+          
+          return marcajeMapeado;
+        });
+        
+        empleado.dataValues.marcajes = marcajesMapeados;
+        empleado.marcajes = marcajesMapeados;
         
         return empleado;
       }));
       
-      // DEBUG: Contar total de excepciones
+      // DEBUG: Contar total de excepciones y marcajes
       const totalExcepciones = empleadosConDatos.reduce((sum, emp) => sum + (emp.excepciones?.length || 0), 0);
-      console.log('[DEBUG Backend] Total excepciones en respuesta:', {
+      const totalMarcajes = empleadosConDatos.reduce((sum, emp) => sum + (emp.marcajes?.length || 0), 0);
+      
+      // Contar dispositivos en todos los marcajes devueltos
+      const todosDispositivosEnMarcajes = new Set();
+      empleadosConDatos.forEach(emp => {
+        if (emp.marcajes && Array.isArray(emp.marcajes)) {
+          emp.marcajes.forEach(m => {
+            if (m.dispositivo_id != null) {
+              todosDispositivosEnMarcajes.add(m.dispositivo_id);
+            }
+          });
+        }
+      });
+      
+      // Contar marcajes por dispositivo en TODOS los empleados
+      const marcajesPorDispositivoTotal = {};
+      empleadosConDatos.forEach(emp => {
+        if (emp.marcajes && Array.isArray(emp.marcajes)) {
+          emp.marcajes.forEach(m => {
+            const devId = m.dispositivo_id;
+            if (devId != null) {
+              marcajesPorDispositivoTotal[devId] = (marcajesPorDispositivoTotal[devId] || 0) + 1;
+            }
+          });
+        }
+      });
+      
+      console.log('[DEBUG Backend] Resumen TOTAL de respuesta (ruta normal):', {
         totalExcepciones,
+        totalMarcajes,
         cantidadEmpleados: empleadosConDatos.length,
-        empleadosConExcepciones: empleadosConDatos.filter(emp => emp.excepciones?.length > 0).length
+        empleadosConExcepciones: empleadosConDatos.filter(emp => emp.excepciones?.length > 0).length,
+        empleadosConMarcajes: empleadosConDatos.filter(emp => emp.marcajes?.length > 0).length,
+        todosDispositivosEnMarcajes: Array.from(todosDispositivosEnMarcajes).sort((a, b) => a - b),
+        marcajesPorDispositivoTotal: marcajesPorDispositivoTotal,
+        tieneDispositivo24: todosDispositivosEnMarcajes.has(24),
+        tieneDispositivo25: todosDispositivosEnMarcajes.has(25),
+        tieneDispositivo26: todosDispositivosEnMarcajes.has(26),
+        marcajesDispositivo24Total: marcajesPorDispositivoTotal[24] || 0,
+        marcajesDispositivo25Total: marcajesPorDispositivoTotal[25] || 0,
+        marcajesDispositivo26Total: marcajesPorDispositivoTotal[26] || 0
       });
       
       console.log('[DEBUG] Devolviendo empleados con datos consolidados:', {
