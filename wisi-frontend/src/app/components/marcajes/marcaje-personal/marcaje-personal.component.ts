@@ -4370,10 +4370,85 @@ export class MarcajePersonalComponent implements OnInit {
         );
         
         Promise.all(cargarPlantillasPromises).then(() => {
-          // Actualizar listas de filtros (departamentos, áreas, cargos) con los empleados cargados
-          this.actualizarListasCascada();
-          // Aplicar filtros locales iniciales para mostrar los datos
-          this.aplicarFiltrosLocales();
+          // CRÍTICO: Identificar todas las plantillas necesarias de los bloques de horario
+          // y cargarlas si no están en los caches
+          const plantillaIdsNecesarios = new Set<number>();
+          
+          // Recorrer todos los empleados y extraer todos los plantilla_horario_id de sus horarios
+          this.empleadosCompletos.forEach((emp: any) => {
+            if (emp.horariosEmpleado && Array.isArray(emp.horariosEmpleado)) {
+              emp.horariosEmpleado.forEach((he: any) => {
+                if (he.Horario && he.Horario.bloques && Array.isArray(he.Horario.bloques)) {
+                  he.Horario.bloques.forEach((bloque: any) => {
+                    if (bloque.plantilla_horario_id) {
+                      plantillaIdsNecesarios.add(bloque.plantilla_horario_id);
+                    }
+                  });
+                }
+              });
+            }
+          });
+          
+          // Cargar las plantillas que no están en los caches
+          const plantillasFaltantes: Promise<void>[] = [];
+          plantillaIdsNecesarios.forEach((plantillaId: number) => {
+            // Verificar si la plantilla ya está en algún cache
+            const enModalPlantillas = this.modalPlantillas?.some((p: any) => p.id === plantillaId);
+            const enTodasLasPlantillas = this.todasLasPlantillasCache?.some((p: any) => p.id === plantillaId);
+            let enPlantillasPorSala = false;
+            if (salaId) {
+              const plantillasSala = this.plantillasPorSalaCache.get(salaId);
+              enPlantillasPorSala = plantillasSala?.some((p: any) => p.id === plantillaId) || false;
+            }
+            
+            // Si no está en ningún cache, cargarla directamente
+            if (!enModalPlantillas && !enTodasLasPlantillas && !enPlantillasPorSala) {
+              plantillasFaltantes.push(
+                new Promise<void>((resolve) => {
+                  this.plantillasService.getPlantillaHorario(plantillaId).subscribe({
+                    next: (plantilla: any) => {
+                      if (plantilla) {
+                        // Agregar a modalPlantillas
+                        if (!this.modalPlantillas) {
+                          this.modalPlantillas = [];
+                        }
+                        if (!this.modalPlantillas.some((p: any) => p.id === plantilla.id)) {
+                          this.modalPlantillas.push(plantilla);
+                        }
+                        // Agregar a todasLasPlantillasCache
+                        if (!this.todasLasPlantillasCache) {
+                          this.todasLasPlantillasCache = [];
+                        }
+                        if (!this.todasLasPlantillasCache.some((p: any) => p.id === plantilla.id)) {
+                          this.todasLasPlantillasCache.push(plantilla);
+                        }
+                        // Agregar a plantillasPorSalaCache si hay sala
+                        if (salaId && plantilla.sala_id === salaId) {
+                          if (!this.plantillasPorSalaCache.has(salaId)) {
+                            this.plantillasPorSalaCache.set(salaId, []);
+                          }
+                          const plantillasSala = this.plantillasPorSalaCache.get(salaId)!;
+                          if (!plantillasSala.some((p: any) => p.id === plantilla.id)) {
+                            plantillasSala.push(plantilla);
+                          }
+                        }
+                      }
+                      resolve();
+                    },
+                    error: () => resolve() // Continuar aunque falle
+                  });
+                })
+              );
+            }
+          });
+          
+          // Esperar a que se carguen todas las plantillas faltantes
+          Promise.all(plantillasFaltantes).then(() => {
+            // Actualizar listas de filtros (departamentos, áreas, cargos) con los empleados cargados
+            this.actualizarListasCascada();
+            // Aplicar filtros locales iniciales para mostrar los datos
+            this.aplicarFiltrosLocales();
+          });
         });
       },
       error: (error) => {
