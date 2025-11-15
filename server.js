@@ -7400,35 +7400,59 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           // IMPORTANTE: No usar include con Dispositivo porque puede causar problemas con el JOIN
           // En su lugar, cargar los marcajes directamente y luego obtener los dispositivos si es necesario
           
-          // DEBUG: Verificar directamente en la base de datos antes de la consulta
+          // DEBUG: Verificar directamente en la base de datos antes de la consulta (para TODOS los empleados)
+          // Verificar específicamente si hay marcajes del dispositivo 24, 25, 26
+          const marcajesDirectosSQL = await sequelize.query(
+            `SELECT id, employee_no, dispositivo_id, event_time, nombre 
+             FROM attlogs 
+             WHERE employee_no = :cedula 
+             AND event_time BETWEEN :fechaInicio AND :fechaFin 
+             ORDER BY event_time ASC`,
+            {
+              replacements: {
+                cedula: empleado.cedula,
+                fechaInicio: fechaInicio.toISOString(),
+                fechaFin: fechaFin.toISOString()
+              },
+              type: sequelize.QueryTypes.SELECT
+            }
+          );
+          
+          // Solo log detallado para el primer empleado
           if (empleado.id === empleados[0]?.id) {
-            const marcajesDirectosSQL = await sequelize.query(
-              `SELECT id, employee_no, dispositivo_id, event_time, nombre 
-               FROM attlogs 
-               WHERE employee_no = :cedula 
-               AND event_time BETWEEN :fechaInicio AND :fechaFin 
-               ORDER BY event_time ASC`,
-              {
-                replacements: {
-                  cedula: empleado.cedula,
-                  fechaInicio: fechaInicio.toISOString(),
-                  fechaFin: fechaFin.toISOString()
-                },
-                type: sequelize.QueryTypes.SELECT
-              }
-            );
-            
             console.log(`[DEBUG Backend] Consulta SQL DIRECTA (ruta normal) para ${empleado.nombre} (${empleado.cedula}):`, {
               cantidadMarcajesSQL: marcajesDirectosSQL.length,
               dispositivosEnSQL: [...new Set(marcajesDirectosSQL.map(m => m.dispositivo_id).filter(id => id != null))].sort((a, b) => a - b),
               tieneDispositivo24: marcajesDirectosSQL.some(m => m.dispositivo_id === 24),
               tieneDispositivo25: marcajesDirectosSQL.some(m => m.dispositivo_id === 25),
               tieneDispositivo26: marcajesDirectosSQL.some(m => m.dispositivo_id === 26),
+              marcajesDispositivo24: marcajesDirectosSQL.filter(m => m.dispositivo_id === 24).length,
+              marcajesDispositivo25: marcajesDirectosSQL.filter(m => m.dispositivo_id === 25).length,
+              marcajesDispositivo26: marcajesDirectosSQL.filter(m => m.dispositivo_id === 26).length,
               muestraMarcajes: marcajesDirectosSQL.slice(0, 10).map(m => ({
                 id: m.id,
                 dispositivo_id: m.dispositivo_id,
                 event_time: m.event_time
-              }))
+              })),
+              muestraMarcajes24: marcajesDirectosSQL.filter(m => m.dispositivo_id === 24).slice(0, 5),
+              muestraMarcajes25: marcajesDirectosSQL.filter(m => m.dispositivo_id === 25).slice(0, 5),
+              muestraMarcajes26: marcajesDirectosSQL.filter(m => m.dispositivo_id === 26).slice(0, 5)
+            });
+          }
+          
+          // Verificar si hay marcajes del dispositivo 24, 25, 26 en cualquier empleado
+          const tieneMarcajes24 = marcajesDirectosSQL.some(m => m.dispositivo_id === 24);
+          const tieneMarcajes25 = marcajesDirectosSQL.some(m => m.dispositivo_id === 25);
+          const tieneMarcajes26 = marcajesDirectosSQL.some(m => m.dispositivo_id === 26);
+          
+          if (tieneMarcajes24 || tieneMarcajes25 || tieneMarcajes26) {
+            console.log(`[DEBUG Backend] Empleado ${empleado.nombre} (${empleado.cedula}) tiene marcajes de dispositivos problemáticos:`, {
+              tiene24: tieneMarcajes24,
+              tiene25: tieneMarcajes25,
+              tiene26: tieneMarcajes26,
+              cantidad24: marcajesDirectosSQL.filter(m => m.dispositivo_id === 24).length,
+              cantidad25: marcajesDirectosSQL.filter(m => m.dispositivo_id === 25).length,
+              cantidad26: marcajesDirectosSQL.filter(m => m.dispositivo_id === 26).length
             });
           }
           
