@@ -6947,8 +6947,9 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             }
             
             // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
-            // Usar required: false para LEFT JOIN (incluir marcajes aunque no tengan Dispositivo asociado)
-            const queryOptions = {
+            // IMPORTANTE: No usar include con Dispositivo porque puede causar problemas con el JOIN
+            // En su lugar, cargar los marcajes directamente y luego obtener los dispositivos si es necesario
+            marcajes = await Attlog.findAll({
               where: {
                 employee_no: empleado.cedula,
                 event_time: {
@@ -6957,22 +6958,35 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               },
               order: [['event_time', 'ASC']],
               attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre'],
-              include: [{
-                model: Dispositivo,
-                as: 'Dispositivo',
-                attributes: ['id', 'nombre', 'ip_remota'],
-                required: false // LEFT JOIN - CRÍTICO para incluir todos los marcajes
-              }],
-              raw: false // Asegurar que devuelva instancias de Sequelize para tener acceso a relaciones
-            };
+              raw: true // Usar raw para obtener objetos planos directamente
+            });
             
-            // DEBUG: Mostrar la consulta SQL para el primer empleado
-            if (empleado.id === empleadosFiltrados[0]?.id) {
-              const sqlQuery = Attlog.findOne(queryOptions).toSQL();
-              console.log(`[DEBUG Backend] SQL Query para marcajes:`, sqlQuery);
+            // Si hay marcajes, cargar los dispositivos asociados por separado para evitar problemas con JOIN
+            if (marcajes.length > 0) {
+              const dispositivoIds = [...new Set(marcajes.map(m => m.dispositivo_id).filter(id => id != null))];
+              if (dispositivoIds.length > 0) {
+                const dispositivos = await Dispositivo.findAll({
+                  where: { id: { [Op.in]: dispositivoIds } },
+                  attributes: ['id', 'nombre', 'ip_remota'],
+                  raw: true
+                });
+                
+                // Crear un mapa de dispositivos por ID para acceso rápido
+                const dispositivosMap = {};
+                dispositivos.forEach(d => {
+                  dispositivosMap[d.id] = d;
+                });
+                
+                // Agregar la información del dispositivo a cada marcaje
+                marcajes = marcajes.map(m => {
+                  const marcajeConDispositivo = { ...m };
+                  if (m.dispositivo_id && dispositivosMap[m.dispositivo_id]) {
+                    marcajeConDispositivo.Dispositivo = dispositivosMap[m.dispositivo_id];
+                  }
+                  return marcajeConDispositivo;
+                });
+              }
             }
-            
-            marcajes = await Attlog.findAll(queryOptions);
             
             // DEBUG: Log para verificar marcajes del primer empleado
             if (empleado.id === empleadosFiltrados[0]?.id) {
@@ -7059,25 +7073,22 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           empleado.dataValues.excepciones = excepcionesMapeadas;
           empleado.excepciones = excepcionesMapeadas;
           
-          // Mapear marcajes asegurando que se incluyan TODOS, incluso si no tienen Dispositivo asociado
+          // Mapear marcajes (ya son objetos planos, no necesitan conversión)
           const marcajesMapeados = marcajes.map(m => {
-            // Convertir a objeto plano para evitar problemas con Sequelize
-            const marcajeData = m.toJSON ? m.toJSON() : (m.dataValues || m);
-            
             const marcajeMapeado = {
-              id: marcajeData.id,
-              employee_no: marcajeData.employee_no,
-              event_time: marcajeData.event_time,
-              dispositivo_id: marcajeData.dispositivo_id,
-              nombre: marcajeData.nombre
+              id: m.id,
+              employee_no: m.employee_no,
+              event_time: m.event_time,
+              dispositivo_id: m.dispositivo_id,
+              nombre: m.nombre
             };
             
-            // Incluir relación Dispositivo si está disponible
-            if (marcajeData.Dispositivo) {
+            // Incluir relación Dispositivo si está disponible (ya viene agregada en el paso anterior)
+            if (m.Dispositivo) {
               marcajeMapeado.Dispositivo = {
-                id: marcajeData.Dispositivo.id,
-                nombre: marcajeData.Dispositivo.nombre,
-                ip_remota: marcajeData.Dispositivo.ip_remota
+                id: m.Dispositivo.id,
+                nombre: m.Dispositivo.nombre,
+                ip_remota: m.Dispositivo.ip_remota
               };
             }
             
@@ -7337,7 +7348,8 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           fechaFin.setHours(23, 59, 59, 999);
           
           // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
-          // Usar required: false para LEFT JOIN (incluir marcajes aunque no tengan Dispositivo asociado)
+          // IMPORTANTE: No usar include con Dispositivo porque puede causar problemas con el JOIN
+          // En su lugar, cargar los marcajes directamente y luego obtener los dispositivos si es necesario
           marcajes = await Attlog.findAll({
             where: {
               employee_no: empleado.cedula,
@@ -7347,14 +7359,35 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             },
             order: [['event_time', 'ASC']],
             attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre'],
-            include: [{
-              model: Dispositivo,
-              as: 'Dispositivo',
-              attributes: ['id', 'nombre', 'ip_remota'],
-              required: false // LEFT JOIN - CRÍTICO para incluir todos los marcajes
-            }],
-            raw: false // Asegurar que devuelva instancias de Sequelize para tener acceso a relaciones
+            raw: true // Usar raw para obtener objetos planos directamente
           });
+          
+          // Si hay marcajes, cargar los dispositivos asociados por separado para evitar problemas con JOIN
+          if (marcajes.length > 0) {
+            const dispositivoIds = [...new Set(marcajes.map(m => m.dispositivo_id).filter(id => id != null))];
+            if (dispositivoIds.length > 0) {
+              const dispositivos = await Dispositivo.findAll({
+                where: { id: { [Op.in]: dispositivoIds } },
+                attributes: ['id', 'nombre', 'ip_remota'],
+                raw: true
+              });
+              
+              // Crear un mapa de dispositivos por ID para acceso rápido
+              const dispositivosMap = {};
+              dispositivos.forEach(d => {
+                dispositivosMap[d.id] = d;
+              });
+              
+              // Agregar la información del dispositivo a cada marcaje
+              marcajes = marcajes.map(m => {
+                const marcajeConDispositivo = { ...m };
+                if (m.dispositivo_id && dispositivosMap[m.dispositivo_id]) {
+                  marcajeConDispositivo.Dispositivo = dispositivosMap[m.dispositivo_id];
+                }
+                return marcajeConDispositivo;
+              });
+            }
+          }
         }
         
         // DEBUG: Log para verificar excepciones encontradas
@@ -7402,25 +7435,22 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         empleado.dataValues.excepciones = excepcionesMapeadas;
         empleado.excepciones = excepcionesMapeadas;
         
-        // Mapear marcajes asegurando que se incluyan TODOS, incluso si no tienen Dispositivo asociado
+        // Mapear marcajes (ya son objetos planos, no necesitan conversión)
         const marcajesMapeados = marcajes.map(m => {
-          // Convertir a objeto plano para evitar problemas con Sequelize
-          const marcajeData = m.toJSON ? m.toJSON() : (m.dataValues || m);
-          
           const marcajeMapeado = {
-            id: marcajeData.id,
-            employee_no: marcajeData.employee_no,
-            event_time: marcajeData.event_time,
-            dispositivo_id: marcajeData.dispositivo_id,
-            nombre: marcajeData.nombre
+            id: m.id,
+            employee_no: m.employee_no,
+            event_time: m.event_time,
+            dispositivo_id: m.dispositivo_id,
+            nombre: m.nombre
           };
           
-          // Incluir relación Dispositivo si está disponible
-          if (marcajeData.Dispositivo) {
+          // Incluir relación Dispositivo si está disponible (ya viene agregada en el paso anterior)
+          if (m.Dispositivo) {
             marcajeMapeado.Dispositivo = {
-              id: marcajeData.Dispositivo.id,
-              nombre: marcajeData.Dispositivo.nombre,
-              ip_remota: marcajeData.Dispositivo.ip_remota
+              id: m.Dispositivo.id,
+              nombre: m.Dispositivo.nombre,
+              ip_remota: m.Dispositivo.ip_remota
             };
           }
           
