@@ -7413,7 +7413,9 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
       );
       
       // Obtener los employee_no de los empleados de la sala
-      const employeeNosDeSala = empleados.map(e => e.employee_no);
+      // IMPORTANTE: En el modelo Empleado, el campo es 'cedula', no 'employee_no'
+      // Los marcajes usan 'employee_no' que corresponde a la 'cedula' del empleado
+      const employeeNosDeSala = empleados.map(e => e.cedula);
       
       // Verificar si hay coincidencias
       const employeeNosConMarcajes24 = employeeNosConMarcajesProblematicos
