@@ -2732,7 +2732,6 @@ export class MarcajePersonalComponent implements OnInit {
         this.todosDispositivos = dispositivos || [];
       },
       error: (error) => {
-        console.error('[ERROR] Error al precargar dispositivos:', error);
         this.todosDispositivos = [];
       }
     });
@@ -3383,7 +3382,6 @@ export class MarcajePersonalComponent implements OnInit {
         this.cdr.detectChanges();
       },
       error: (error) => {
-        console.error('Error al cargar marcajes:', error);
         this.marcajesModal = [];
         // Actualizar SOLO la modal incluso en caso de error
         this.cdr.detectChanges();
@@ -3461,7 +3459,6 @@ export class MarcajePersonalComponent implements OnInit {
           }
         },
         error: (err) => { 
-          console.error('Error al guardar excepción:', err);
           this.savingExcepcion = false; 
         }
       });
@@ -3553,7 +3550,6 @@ export class MarcajePersonalComponent implements OnInit {
                   }
                 },
                 error: (err) => { 
-                  console.error('Error al guardar excepción:', err);
                   this.savingExcepcion = false; 
                 }
               });
@@ -3618,7 +3614,6 @@ export class MarcajePersonalComponent implements OnInit {
           }
         },
         error: (err) => { 
-          console.error('Error al guardar excepción:', err);
           this.savingExcepcion = false; 
         }
       });
@@ -3715,7 +3710,6 @@ export class MarcajePersonalComponent implements OnInit {
                   }
                 },
                 error: (err) => { 
-                  console.error('Error al guardar excepción:', err);
                   this.savingExcepcion = false; 
                 }
               });
@@ -4101,21 +4095,8 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Optimización: Obtener SOLO los empleados de esa sala (no todos)
     // Pasar fechas para que el backend devuelva todo consolidado (horarios, excepciones, marcajes)
-    console.log('[DEBUG] Llamando getEmpleadosBySala con:', { salaId, fechaDesde: this.fechaDesde, fechaHasta: this.fechaHasta });
     this.empleadosService.getEmpleadosBySala(salaId, this.fechaDesde, this.fechaHasta).subscribe({
       next: (response) => {
-        console.log('[DEBUG] Respuesta de getEmpleadosBySala:', {
-          cantidadEmpleados: response?.length || 0,
-          primerEmpleado: response?.[0] ? {
-            id: response[0].id,
-            nombre: response[0].nombre,
-            tieneHorarios: !!(response[0].horariosEmpleado?.length),
-            tieneExcepciones: !!(response[0].excepciones?.length),
-            tieneMarcajes: !!(response[0].marcajes?.length),
-            estructura: response[0]
-          } : null
-        });
-        
         // Los empleados ya vienen filtrados por sala desde el servidor
         // OPTIMIZACIÓN: Los horarios, excepciones y marcajes ya vienen incluidos en cada empleado
         this.empleadosCompletos = response || [];
@@ -4132,32 +4113,15 @@ export class MarcajePersonalComponent implements OnInit {
                 // Verificar que cada bloque tenga PlantillaHorario
                 he.Horario.bloques.forEach((bloque: any) => {
                   if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
-                    console.warn(`[DEBUG] Empleado ${emp.nombre} - Bloque sin PlantillaHorario:`, {
-                      bloqueId: bloque.id,
-                      plantillaId: bloque.plantilla_horario_id,
-                      bloque: bloque
-                    });
                   }
                 });
               } else if (he.Horario) {
-                console.warn(`[DEBUG] Empleado ${emp.nombre} - Horario sin bloques:`, {
-                  horarioId: he.Horario.id,
-                  horarioNombre: he.Horario.nombre,
-                  horario: he.Horario
-                });
               }
             });
             
             // Log de muestra para el primer empleado con horarios
             if (emp.horariosEmpleado.length > 0) {
               const primerHorario = emp.horariosEmpleado[0];
-              console.log(`[DEBUG] Estructura de horarios para ${emp.nombre}:`, {
-                tieneHorario: !!primerHorario.Horario,
-                tieneBloques: !!(primerHorario.Horario?.bloques),
-                cantidadBloques: primerHorario.Horario?.bloques?.length || 0,
-                primerBloque: primerHorario.Horario?.bloques?.[0],
-                estructuraCompleta: primerHorario
-              });
             }
           }
         });
@@ -4197,24 +4161,9 @@ export class MarcajePersonalComponent implements OnInit {
               
               // DEBUG: Log para verificar que se está guardando correctamente
               if (totalExcepciones <= 3) {
-                console.log(`[DEBUG] Excepción guardada:`, {
-                  key,
-                  empleado_id: ex.empleado_id,
-                  fechaOriginal: ex.fecha,
-                  fechaNormalizada,
-                  tienePlantillaHorario: !!ex.PlantillaHorario,
-                  plantillaId: ex.plantilla_horario_id,
-                  excepcion: ex
-                });
               }
             });
           }
-        });
-        console.log('[DEBUG] Excepciones procesadas:', {
-          totalExcepciones,
-          totalEmpleados: this.empleadosCompletos.length,
-          muestraExcepciones: Array.from(this.excepcionesMap.entries()).slice(0, 5),
-          todasLasKeys: Array.from(this.excepcionesMap.keys()).slice(0, 10)
         });
         
         // Procesar marcajes
@@ -4307,47 +4256,11 @@ export class MarcajePersonalComponent implements OnInit {
             });
             
             if (marcajesDispositivo24Empleado.length > 0 || marcajesDispositivo25Empleado.length > 0 || marcajesDispositivo26Empleado.length > 0) {
-              console.log(`[DEBUG] Empleado ${emp.nombre} (${emp.cedula}) - Marcajes de dispositivos problemáticos:`, {
-                empleado: emp.nombre,
-                cedula: emp.cedula,
-                marcajesDispositivo24: marcajesDispositivo24Empleado.length,
-                marcajesDispositivo25: marcajesDispositivo25Empleado.length,
-                marcajesDispositivo26: marcajesDispositivo26Empleado.length,
-                muestra24: marcajesDispositivo24Empleado.slice(0, 3).map((m: any) => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  Dispositivo: m.Dispositivo?.id,
-                  DispositivoNombre: m.Dispositivo?.nombre,
-                  event_time: m.event_time
-                })),
-                muestra25: marcajesDispositivo25Empleado.slice(0, 3).map((m: any) => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  Dispositivo: m.Dispositivo?.id,
-                  event_time: m.event_time
-                })),
-                muestra26: marcajesDispositivo26Empleado.slice(0, 3).map((m: any) => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  Dispositivo: m.Dispositivo?.id,
-                  event_time: m.event_time
-                }))
-              });
             }
             
             // DEBUG: Log para verificar estructura de marcajes normalizados
             if (marcajesNormalizados.length > 0 && totalMarcajes <= 10) {
               const primerMarcaje = marcajesNormalizados[0];
-              console.log('[DEBUG] Estructura de marcaje NORMALIZADO para', emp.nombre, ':', {
-                tieneDispositivoId: primerMarcaje.dispositivo_id !== undefined,
-                dispositivoId: primerMarcaje.dispositivo_id,
-                tipoDispositivoId: typeof primerMarcaje.dispositivo_id,
-                tieneDispositivo: !!primerMarcaje.dispositivo,
-                dispositivo: primerMarcaje.dispositivo,
-                tieneDispositivoRelacion: !!primerMarcaje.Dispositivo,
-                Dispositivo: primerMarcaje.Dispositivo,
-                marcajeCompleto: primerMarcaje
-              });
             }
           }
         });
@@ -4376,40 +4289,6 @@ export class MarcajePersonalComponent implements OnInit {
               return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 26;
             })
           );
-        
-        // DEBUG: Log detallado de dispositivos en marcajes
-        console.log('[DEBUG] Total marcajes cargados desde backend (NORMALIZADOS):', {
-          totalMarcajes,
-          dispositivosEnMarcajes: Array.from(dispositivosEnMarcajes).sort((a, b) => a - b),
-          tieneDispositivo24: dispositivosEnMarcajes.has(24),
-          tieneDispositivo25: dispositivosEnMarcajes.has(25),
-          tieneDispositivo26: dispositivosEnMarcajes.has(26),
-          marcajesDispositivo24: marcajesDispositivo24.length,
-          marcajesDispositivo25: marcajesDispositivo25.length,
-          marcajesDispositivo26: marcajesDispositivo26.length,
-          muestraMarcajesDispositivo24: marcajesDispositivo24.slice(0, 10).map((m: any) => ({
-            id: m.id,
-            employee_no: m.employee_no,
-            dispositivo_id: m.dispositivo_id,
-            tipoDispositivoId: typeof m.dispositivo_id,
-            Dispositivo: m.Dispositivo?.id,
-            DispositivoNombre: m.Dispositivo?.nombre,
-            event_time: m.event_time
-          })),
-          muestraMarcajesDispositivo25: marcajesDispositivo25.slice(0, 5).map((m: any) => ({
-            id: m.id,
-            dispositivo_id: m.dispositivo_id,
-            event_time: m.event_time
-          })),
-          muestraMarcajesDispositivo26: marcajesDispositivo26.slice(0, 5).map((m: any) => ({
-            id: m.id,
-            dispositivo_id: m.dispositivo_id,
-            event_time: m.event_time
-          })),
-          muestraMarcajes: muestraMarcajes.filter(m => m.dispositivoIdNormalizado === 24 || m.dispositivoIdNormalizado === 25 || m.dispositivoIdNormalizado === 26 || muestraMarcajes.indexOf(m) < 5),
-          totalEmpleados: this.empleadosCompletos.length,
-          empleadosConMarcajes: Array.from(this.marcajesCompletos.entries()).filter(([_, marcajes]) => marcajes.length > 0).length
-        });
         
         // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios, excepciones ni marcajes individualmente
         // Todo ya viene en la respuesta consolidada del backend
@@ -4756,15 +4635,6 @@ export class MarcajePersonalComponent implements OnInit {
             }
           });
           
-          console.log('[DEBUG] Marcajes recibidos del backend:', {
-            totalMarcajes: todosLosMarcajes.length,
-            dispositivosEnRespuesta: Array.from(dispositivosEnRespuesta).sort((a, b) => a - b),
-            muestraMarcajes,
-            fechaDesde: this.fechaDesde,
-            fechaHasta: this.fechaHasta,
-            totalEmpleados: empleadosConCedula.length
-          });
-          
           // Crear un mapa de cédulas para búsqueda rápida
           const cedulasSet = new Set(empleadosConCedula.map(e => e.cedula));
           
@@ -4824,29 +4694,9 @@ export class MarcajePersonalComponent implements OnInit {
               })
             );
           
-          // DEBUG: Log detallado después del filtrado
-          console.log('[DEBUG] Marcajes después de filtrar por empleado:', {
-            totalMarcajesRecibidos: todosLosMarcajes.length,
-            marcajesFiltradosPorEmpleado,
-            marcajesDescartadosPorEmpleado,
-            dispositivosEnMarcajesFiltrados: Array.from(dispositivosEnMarcajesFiltrados).sort((a, b) => a - b),
-            dispositivosEnRespuestaCompleta: Array.from(dispositivosEnRespuesta).sort((a, b) => a - b),
-            totalEmpleados: empleadosConCedula.length,
-            empleadosConMarcajes: Array.from(this.marcajesCompletos.entries()).filter(([_, marcajes]) => marcajes.length > 0).length,
-            marcajesDispositivo24: marcajesDispositivo24.length,
-            muestraMarcajesDispositivo24: marcajesDispositivo24.slice(0, 5).map((m: any) => ({
-              id: m.id,
-              employee_no: m.employee_no,
-              dispositivo_id: m.dispositivo_id,
-              Dispositivo: m.Dispositivo?.id,
-              event_time: m.event_time
-            }))
-          });
-          
           resolve();
         },
         error: (err) => {
-          console.error('Error al cargar marcajes:', err);
           // Si hay error, inicializar arrays vacíos para todos los empleados
           empleadosConCedula.forEach(empleado => {
             this.marcajesCompletos.set(empleado.cedula, []);
@@ -4902,7 +4752,6 @@ export class MarcajePersonalComponent implements OnInit {
           resolve();
         },
         error: (err) => {
-          console.error('Error al cargar marcajes completos:', err);
           // Si hay error, inicializar arrays vacíos para todos los empleados
           empleadosConCedula.forEach(empleado => {
             this.marcajesCompletos.set(empleado.cedula, []);
@@ -5060,10 +4909,6 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Filtrar marcajes localmente de los marcajes completos ya cargados
   filtrarMarcajesLocalmente(): void {
-    console.log('[DEBUG] ===== INICIANDO filtrarMarcajesLocalmente =====');
-    console.log('[DEBUG] selectedDispositivosIds:', this.selectedDispositivosIds);
-    console.log('[DEBUG] marcajesCompletos.size:', this.marcajesCompletos.size);
-    
     this.marcajesPorEmpleado.clear();
     
     // Usar empleadosCompletos directamente, no obtenerBaseEmpleados() que depende de empleadosFiltrados
@@ -5081,7 +4926,6 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Si tenemos marcajes completos cargados, filtrarlos localmente
     if (this.marcajesCompletos.size > 0) {
-      console.log('[DEBUG] Filtrando marcajes de', base.length, 'empleados');
       // FILTRADO SÍNCRONO: Filtrar marcajes primero para que estén disponibles al filtrar empleados
       base.forEach(empleado => {
         if (empleado.cedula) {
@@ -5180,32 +5024,6 @@ export class MarcajePersonalComponent implements OnInit {
                 }
               }
               
-              console.log(`[DEBUG FILTRADO] Empleado ${empleado.nombre} (${empleado.cedula}):`, {
-                marcajesCompletos: marcajesCompletos.length,
-                marcajesDispositivo24: marcajesDispositivo24.length,
-                marcajesDispositivo25: marcajesDispositivo25.length,
-                marcajesDispositivo26: marcajesDispositivo26.length,
-                marcajesFiltrados: marcajesFiltrados.length,
-                marcajesFiltrados24: marcajesFiltrados24.length,
-                marcajesFiltrados25: marcajesFiltrados25.length,
-                marcajesFiltrados26: marcajesFiltrados26.length,
-                selectedDispositivosIds: this.selectedDispositivosIds,
-                selectedDispositivosIdsNormalized: this.selectedDispositivosIds.map(id => Number(id)),
-                tiene24Seleccionado: this.selectedDispositivosIds.some(id => Number(id) === 24),
-                tiene25Seleccionado: this.selectedDispositivosIds.some(id => Number(id) === 25),
-                tiene26Seleccionado: this.selectedDispositivosIds.some(id => Number(id) === 26),
-                marcajeEjemplo: marcajeEjemplo ? {
-                  id: marcajeEjemplo.id,
-                  dispositivo_id: marcajeEjemplo.dispositivo_id,
-                  dispositivo_idTipo: typeof marcajeEjemplo.dispositivo_id,
-                  Dispositivo: marcajeEjemplo.Dispositivo?.id,
-                  DispositivoTipo: typeof marcajeEjemplo.Dispositivo?.id,
-                  dispositivo: marcajeEjemplo.dispositivo?.id,
-                  dispositivoIdExtraido: dispositivoIdEjemplo,
-                  event_time: marcajeEjemplo.event_time,
-                  estructuraCompleta: marcajeEjemplo
-                } : null
-              });
             }
           }
           
@@ -5217,7 +5035,6 @@ export class MarcajePersonalComponent implements OnInit {
               return Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
             }).filter((id: any) => !isNaN(id) && id > 0))];
             if (dispositivosEnFiltrados.some(id => [24, 25, 26].includes(id))) {
-              console.log(`[DEBUG] Empleado ${empleado.nombre} (${empleado.cedula}) tiene ${marcajesFiltrados.length} marcajes filtrados de dispositivos:`, dispositivosEnFiltrados);
             }
           }
         }
@@ -5286,26 +5103,6 @@ export class MarcajePersonalComponent implements OnInit {
             if (devId === 26) marcajesDispositivo26Completos++;
           });
         }
-      });
-      
-      console.log('[DEBUG] Resumen filtrado de marcajes:', {
-        totalEmpleados: base.length,
-        empleadosConMarcajes,
-        empleadosSinMarcajes,
-        empleadosQuePasaranFiltro,
-        totalMarcajesCompletos,
-        totalMarcajesFiltrados,
-        selectedDispositivosIds: this.selectedDispositivosIds,
-        selectedDispositivosIdsNormalizados: this.selectedDispositivosIds.map(id => Number(id)),
-        dispositivosEnMarcajesCompletos: Array.from(dispositivosEnMarcajes).sort((a, b) => a - b),
-        tieneDispositivo24: Array.from(dispositivosEnMarcajes).includes(24),
-        tieneDispositivo25: Array.from(dispositivosEnMarcajes).includes(25),
-        tieneDispositivo26: Array.from(dispositivosEnMarcajes).includes(26),
-        marcajesDispositivo24Completos,
-        marcajesDispositivo25Completos,
-        marcajesDispositivo26Completos,
-        fechaDesde: this.fechaDesde,
-        fechaHasta: this.fechaHasta
       });
       
       // PROCESO ASÍNCRONO: Pre-calcular todos los bloques y horarios después de filtrar
@@ -5756,7 +5553,6 @@ export class MarcajePersonalComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        console.error('Error al cargar marcajes (fallback):', err);
         // Si hay error, inicializar arrays vacíos para todos los empleados
         empleadosConCedula.forEach(empleado => {
           this.marcajesPorEmpleado.set(empleado.cedula, []);
@@ -5890,9 +5686,6 @@ export class MarcajePersonalComponent implements OnInit {
 
   // Manejar cambio de selección de dispositivos biométricos
   onDispositivoChange(dispositivoId: number, event: Event) {
-    console.log('[DEBUG] ===== onDispositivoChange LLAMADO =====');
-    console.log('[DEBUG] dispositivoId recibido:', dispositivoId, 'tipo:', typeof dispositivoId);
-    
     const target = event.target as HTMLInputElement;
     const isChecked = target.checked;
     
@@ -5916,26 +5709,11 @@ export class MarcajePersonalComponent implements OnInit {
         .filter(id => id !== dispositivoIdNum);
     }
     
-    // DEBUG: Log del cambio de dispositivo
-    console.log('[DEBUG] Cambio de dispositivo:', {
-      dispositivoId,
-      dispositivoIdNum,
-      isChecked,
-      selectedIdsAntes,
-      selectedIdsDespues: [...this.selectedDispositivosIds],
-      selectedIdsDespuesNormalizados: [...this.selectedDispositivosIds].map(id => Number(id)),
-      tieneSala: !!this.selectedSalaForDataLoad,
-      tieneEmpleados: this.empleadosCompletos.length > 0,
-      totalMarcajesCompletos: Array.from(this.marcajesCompletos.values()).reduce((sum, arr) => sum + arr.length, 0)
-    });
-    
     // Actualizar los marcajes filtrados cuando cambia la selección de dispositivos
     // aplicarFiltrosLocales() ya llama a filtrarMarcajesLocalmente(), así que no es necesario llamarlo dos veces
     if (this.selectedSalaForDataLoad && this.empleadosCompletos.length > 0) {
-      console.log('[DEBUG] Llamando aplicarFiltrosLocales() después de cambio de dispositivo');
       this.aplicarFiltrosLocales();
     } else {
-      console.log('[DEBUG] Llamando aplicarFiltrosCascada() después de cambio de dispositivo');
       this.aplicarFiltrosCascada();
     }
   }
@@ -5962,7 +5740,6 @@ export class MarcajePersonalComponent implements OnInit {
         this.filtrarDispositivosPorSala(salaId);
       },
       error: (error) => {
-        console.error('[ERROR] Error al cargar dispositivos de la sala:', error);
         this.dispositivosSala = [];
         this.selectedDispositivosIds = [];
         this.cdr.detectChanges();
@@ -6002,18 +5779,6 @@ export class MarcajePersonalComponent implements OnInit {
       nombre: d.nombre || `Dispositivo ${d.id}`
     })).sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
     
-    // DEBUG: Log para verificar dispositivos cargados
-    console.log('[DEBUG] Dispositivos cargados para sala:', {
-      salaId,
-      cantidad: this.dispositivosSala.length,
-      dispositivos: this.dispositivosSala.map(d => ({ 
-        id: d.id, 
-        idTipo: typeof d.id,
-        idNormalizado: Number(d.id),
-        nombre: d.nombre 
-      }))
-    });
-    
     // Seleccionar automáticamente los dispositivos que contengan "Marcaje" en el nombre
     if (this.dispositivosSala.length > 0) {
       const dispositivosConMarcaje = this.dispositivosSala.filter(d => 
@@ -6028,16 +5793,6 @@ export class MarcajePersonalComponent implements OnInit {
         this.selectedDispositivosIds = this.dispositivosSala.map(d => Number(d.id));
       }
       
-      // DEBUG: Log para verificar selección automática con más detalle
-      console.log('[DEBUG] Dispositivos seleccionados automáticamente:', {
-        total: this.dispositivosSala.length,
-        conMarcaje: dispositivosConMarcaje.length,
-        selectedIds: this.selectedDispositivosIds,
-        selectedIdsTipos: this.selectedDispositivosIds.map(id => typeof id),
-        dispositivosSeleccionados: this.dispositivosSala
-          .filter(d => this.selectedDispositivosIds.includes(Number(d.id)))
-          .map(d => ({ id: d.id, idNormalizado: Number(d.id), nombre: d.nombre }))
-      });
     }
     
     this.cdr.detectChanges();
@@ -6246,7 +6001,6 @@ export class MarcajePersonalComponent implements OnInit {
           this.cargarExcepcionesRango();
         },
         error: (err) => {
-          console.error('Error al cargar marcajes:', err);
           // Si hay error, inicializar arrays vacíos
           empleadosConCedula.forEach(empleado => {
             this.marcajesPorEmpleado.set(empleado.cedula, []);
@@ -6362,7 +6116,6 @@ export class MarcajePersonalComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        console.error('Error al cargar marcajes:', err);
         // Si hay error, inicializar arrays vacíos para todos los empleados
         empleadosConCedula.forEach(empleado => {
           this.marcajesPorEmpleado.set(empleado.cedula, []);
@@ -6786,7 +6539,6 @@ export class MarcajePersonalComponent implements OnInit {
     
     // Debug solo para casos problemáticos
     if (indiceBloque >= bloques.length || indiceBloque < 0) {
-      console.error(`[getBloqueHorario] Índice de bloque inválido: ${indiceBloque} para ${bloques.length} bloques`);
     }
     
     return bloques[indiceBloque];
@@ -6802,7 +6554,6 @@ export class MarcajePersonalComponent implements OnInit {
     
     // DEBUG: Log para diagnóstico
     if (!empleado.horariosEmpleado || empleado.horariosEmpleado.length === 0) {
-      console.warn(`[getHorarioActivoParaFecha] Empleado ${empleado?.nombre} (${empleado?.id}) no tiene horariosEmpleado`);
       return null;
     }
     
@@ -6818,12 +6569,10 @@ export class MarcajePersonalComponent implements OnInit {
       
       // DEBUG: Log detallado
       if (!horarioEmpleado.Horario) {
-        console.warn(`[getHorarioActivoParaFecha] HorarioEmpleado ${horarioEmpleado.id} no tiene Horario`, horarioEmpleado);
         continue;
       }
       
       if (!horarioEmpleado.Horario.bloques || horarioEmpleado.Horario.bloques.length === 0) {
-        console.warn(`[getHorarioActivoParaFecha] Horario ${horarioEmpleado.Horario.id} no tiene bloques`, horarioEmpleado.Horario);
         continue;
       }
       

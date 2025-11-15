@@ -6899,15 +6899,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           
           // DEBUG: Log para verificar excepciones encontradas
           if (excepciones.length > 0) {
-            console.log(`[DEBUG Backend] Empleado ${empleado.nombre} (${empleado.id}) tiene ${excepciones.length} excepciones`, {
-              excepciones: excepciones.map(ex => ({
-                id: ex.id,
-                empleado_id: ex.empleado_id,
-                fecha: ex.fecha,
-                plantilla_horario_id: ex.plantilla_horario_id,
-                tienePlantillaHorario: !!ex.PlantillaHorario
-              }))
-            });
           }
           
           // Cargar marcajes del empleado en el rango de fechas
@@ -6940,10 +6931,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                 }
               );
               
-              console.log(`[DEBUG Backend] Consulta directa SQL para dispositivo 24 - ${empleado.nombre} (${empleado.cedula}):`, {
-                cantidadMarcajes: marcajesDispositivo24Directo.length,
-                muestraMarcajes: marcajesDispositivo24Directo
-              });
             }
             
             // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
@@ -6969,18 +6956,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                 }
               );
               
-              console.log(`[DEBUG Backend] Consulta SQL DIRECTA para ${empleado.nombre} (${empleado.cedula}):`, {
-                cantidadMarcajesSQL: marcajesDirectosSQL.length,
-                dispositivosEnSQL: [...new Set(marcajesDirectosSQL.map(m => m.dispositivo_id).filter(id => id != null))].sort((a, b) => a - b),
-                tieneDispositivo24: marcajesDirectosSQL.some(m => m.dispositivo_id === 24),
-                tieneDispositivo25: marcajesDirectosSQL.some(m => m.dispositivo_id === 25),
-                tieneDispositivo26: marcajesDirectosSQL.some(m => m.dispositivo_id === 26),
-                muestraMarcajes: marcajesDirectosSQL.slice(0, 10).map(m => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  event_time: m.event_time
-                }))
-              });
             }
             
             // Buscar marcajes con búsqueda exacta solamente - validación estricta
@@ -6998,18 +6973,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             
             // DEBUG: Comparar resultados de Sequelize vs SQL directa
             if (empleado.id === empleadosFiltrados[0]?.id) {
-              console.log(`[DEBUG Backend] Resultados de Sequelize para ${empleado.nombre}:`, {
-                cantidadMarcajes: marcajes.length,
-                dispositivosEnMarcajes: [...new Set(marcajes.map(m => m.dispositivo_id).filter(id => id != null))].sort((a, b) => a - b),
-                tieneDispositivo24: marcajes.some(m => m.dispositivo_id === 24),
-                tieneDispositivo25: marcajes.some(m => m.dispositivo_id === 25),
-                tieneDispositivo26: marcajes.some(m => m.dispositivo_id === 26),
-                muestraMarcajes: marcajes.slice(0, 10).map(m => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  event_time: m.event_time
-                }))
-              });
             }
             
             // Si hay marcajes, cargar los dispositivos asociados por separado para evitar problemas con JOIN
@@ -7069,27 +7032,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
                 limit: 5
               });
               
-              console.log(`[DEBUG Backend] Marcajes del primer empleado (${empleado.nombre} - ${empleado.cedula}):`, {
-                cantidadMarcajes: marcajes.length,
-                dispositivosEnMarcajes: dispositivosEnMarcajes.sort((a, b) => a - b),
-                marcajesPorDispositivo: marcajesPorDispositivo,
-                tieneDispositivo24: dispositivosEnMarcajes.includes(24),
-                tieneDispositivo25: dispositivosEnMarcajes.includes(25),
-                tieneDispositivo26: dispositivosEnMarcajes.includes(26),
-                marcajesDispositivo24EnBD: marcajesDispositivo24.length,
-                muestraMarcajesDispositivo24: marcajesDispositivo24.map(m => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  event_time: m.event_time
-                })),
-                muestraMarcajes: marcajesPlano.slice(0, 10).map(m => ({
-                  id: m.id,
-                  dispositivo_id: m.dispositivo_id,
-                  Dispositivo: m.Dispositivo ? m.Dispositivo.id : null,
-                  DispositivoNombre: m.Dispositivo ? m.Dispositivo.nombre : null,
-                  event_time: m.event_time
-                }))
-              });
             }
           }
           
@@ -7166,21 +7108,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               }
             });
             
-            console.log(`[DEBUG Backend] Marcajes MAPEADOS del primer empleado:`, {
-              cantidadMarcajesMapeados: marcajesMapeados.length,
-              cantidadMarcajesOriginales: marcajes.length,
-              dispositivosEnMapeados: dispositivosEnMapeados.sort((a, b) => a - b),
-              marcajesPorDispositivoMapeados: marcajesPorDispositivoMapeados,
-              tieneDispositivo24: dispositivosEnMapeados.includes(24),
-              tieneDispositivo25: dispositivosEnMapeados.includes(25),
-              tieneDispositivo26: dispositivosEnMapeados.includes(26),
-              marcajesDispositivo24: marcajesDispositivo24Mapeados.length,
-              marcajesDispositivo25: marcajesDispositivo25Mapeados.length,
-              marcajesDispositivo26: marcajesDispositivo26Mapeados.length,
-              muestraMarcajesDispositivo24: marcajesDispositivo24Mapeados.slice(0, 5),
-              muestraMarcajesDispositivo25: marcajesDispositivo25Mapeados.slice(0, 5),
-              muestraMarcajesDispositivo26: marcajesDispositivo26Mapeados.slice(0, 5)
-            });
           }
           
           return empleado;
@@ -7215,21 +7142,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           }
         });
         
-        console.log('[DEBUG Backend] Resumen TOTAL de respuesta:', {
-          totalExcepciones,
-          totalMarcajes,
-          cantidadEmpleados: empleadosConDatos.length,
-          empleadosConExcepciones: empleadosConDatos.filter(emp => emp.excepciones?.length > 0).length,
-          empleadosConMarcajes: empleadosConDatos.filter(emp => emp.marcajes?.length > 0).length,
-          todosDispositivosEnMarcajes: Array.from(todosDispositivosEnMarcajes).sort((a, b) => a - b),
-          marcajesPorDispositivoTotal: marcajesPorDispositivoTotal,
-          tieneDispositivo24: todosDispositivosEnMarcajes.has(24),
-          tieneDispositivo25: todosDispositivosEnMarcajes.has(25),
-          tieneDispositivo26: todosDispositivosEnMarcajes.has(26),
-          marcajesDispositivo24Total: marcajesPorDispositivoTotal[24] || 0,
-          marcajesDispositivo25Total: marcajesPorDispositivoTotal[25] || 0,
-          marcajesDispositivo26Total: marcajesPorDispositivoTotal[26] || 0
-        });
         
         return res.json(empleadosConDatos);
       }
@@ -7366,8 +7278,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     // Esto evita múltiples llamadas separadas desde el frontend
     const { fechaDesde, fechaHasta } = req.query;
     
-    console.log('[DEBUG] Endpoint /api/empleados/sala/:salaId - Parámetros:', { salaId, fechaDesde, fechaHasta, tieneFechas: !!(fechaDesde && fechaHasta) });
-    
     // DEBUG: Verificar si hay marcajes del dispositivo 24, 25, 26 en la base de datos para cualquier empleado
     if (fechaDesde && fechaHasta) {
       const fechaInicio = new Date(fechaDesde);
@@ -7390,12 +7300,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         }
       );
       
-      console.log('[DEBUG Backend] Marcajes de dispositivos 24, 25, 26 en la base de datos (TODOS los empleados):', {
-        marcajesDispositivosProblematicos,
-        tieneDispositivo24: marcajesDispositivosProblematicos.some(m => m.dispositivo_id === 24),
-        tieneDispositivo25: marcajesDispositivosProblematicos.some(m => m.dispositivo_id === 25),
-        tieneDispositivo26: marcajesDispositivosProblematicos.some(m => m.dispositivo_id === 26)
-      });
       
       // Obtener los employee_no únicos que tienen marcajes de dispositivos 24, 25, 26
       const employeeNosConMarcajesProblematicos = await sequelize.query(
@@ -7449,28 +7353,10 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         employeeNosDeSala.some(cedula => compararEmployeeNo(eno, cedula))
       );
       
-      console.log('[DEBUG Backend] Análisis de employee_no con marcajes de dispositivos 24, 25, 26:', {
-        totalEmployeeNosEnSala: employeeNosDeSala.length,
-        muestraEmployeeNosEnSala: employeeNosDeSala.slice(0, 10),
-        totalEmployeeNosConMarcajes24: employeeNosConMarcajes24.length,
-        muestraEmployeeNosConMarcajes24: employeeNosConMarcajes24.slice(0, 10),
-        totalEmployeeNosConMarcajes25: employeeNosConMarcajes25.length,
-        muestraEmployeeNosConMarcajes25: employeeNosConMarcajes25.slice(0, 10),
-        totalEmployeeNosConMarcajes26: employeeNosConMarcajes26.length,
-        muestraEmployeeNosConMarcajes26: employeeNosConMarcajes26.slice(0, 10),
-        coincidencias24: coincidencias24.length,
-        muestraCoincidencias24: coincidencias24.slice(0, 10),
-        coincidencias25: coincidencias25.length,
-        muestraCoincidencias25: coincidencias25.slice(0, 10),
-        coincidencias26: coincidencias26.length,
-        muestraCoincidencias26: coincidencias26.slice(0, 10),
-        muestraMarcajesProblematicos: employeeNosConMarcajesProblematicos.slice(0, 20)
-      });
     }
     
     // Si hay fechas, cargar excepciones y marcajes para ese rango
     if (fechaDesde && fechaHasta) {
-      console.log('[DEBUG] Cargando excepciones y marcajes consolidados para rango:', { fechaDesde, fechaHasta, cantidadEmpleados: empleados.length });
       const empleadosConDatos = await Promise.all(empleados.map(async (empleado) => {
         // Cargar excepciones del empleado en el rango de fechas
         const excepciones = await ExcepcionHorario.findAll({
@@ -7524,24 +7410,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           
           // Solo log detallado para el primer empleado
           if (empleado.id === empleados[0]?.id) {
-            console.log(`[DEBUG Backend] Consulta SQL DIRECTA (ruta normal) para ${empleado.nombre} (${empleado.cedula}):`, {
-              cantidadMarcajesSQL: marcajesDirectosSQL.length,
-              dispositivosEnSQL: [...new Set(marcajesDirectosSQL.map(m => m.dispositivo_id).filter(id => id != null))].sort((a, b) => a - b),
-              tieneDispositivo24: marcajesDirectosSQL.some(m => m.dispositivo_id === 24),
-              tieneDispositivo25: marcajesDirectosSQL.some(m => m.dispositivo_id === 25),
-              tieneDispositivo26: marcajesDirectosSQL.some(m => m.dispositivo_id === 26),
-              marcajesDispositivo24: marcajesDirectosSQL.filter(m => m.dispositivo_id === 24).length,
-              marcajesDispositivo25: marcajesDirectosSQL.filter(m => m.dispositivo_id === 25).length,
-              marcajesDispositivo26: marcajesDirectosSQL.filter(m => m.dispositivo_id === 26).length,
-              muestraMarcajes: marcajesDirectosSQL.slice(0, 10).map(m => ({
-                id: m.id,
-                dispositivo_id: m.dispositivo_id,
-                event_time: m.event_time
-              })),
-              muestraMarcajes24: marcajesDirectosSQL.filter(m => m.dispositivo_id === 24).slice(0, 5),
-              muestraMarcajes25: marcajesDirectosSQL.filter(m => m.dispositivo_id === 25).slice(0, 5),
-              muestraMarcajes26: marcajesDirectosSQL.filter(m => m.dispositivo_id === 26).slice(0, 5)
-            });
           }
           
           // Verificar si hay marcajes del dispositivo 24, 25, 26 en cualquier empleado
@@ -7550,14 +7418,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           const tieneMarcajes26 = marcajesDirectosSQL.some(m => m.dispositivo_id === 26);
           
           if (tieneMarcajes24 || tieneMarcajes25 || tieneMarcajes26) {
-            console.log(`[DEBUG Backend] Empleado ${empleado.nombre} (${empleado.cedula}) tiene marcajes de dispositivos problemáticos:`, {
-              tiene24: tieneMarcajes24,
-              tiene25: tieneMarcajes25,
-              tiene26: tieneMarcajes26,
-              cantidad24: marcajesDirectosSQL.filter(m => m.dispositivo_id === 24).length,
-              cantidad25: marcajesDirectosSQL.filter(m => m.dispositivo_id === 25).length,
-              cantidad26: marcajesDirectosSQL.filter(m => m.dispositivo_id === 26).length
-            });
           }
           
           // Buscar marcajes con búsqueda exacta solamente - validación estricta
@@ -7575,18 +7435,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           
           // DEBUG: Comparar resultados de Sequelize vs SQL directa
           if (empleado.id === empleados[0]?.id) {
-            console.log(`[DEBUG Backend] Resultados de Sequelize (ruta normal) para ${empleado.nombre}:`, {
-              cantidadMarcajes: marcajes.length,
-              dispositivosEnMarcajes: [...new Set(marcajes.map(m => m.dispositivo_id).filter(id => id != null))].sort((a, b) => a - b),
-              tieneDispositivo24: marcajes.some(m => m.dispositivo_id === 24),
-              tieneDispositivo25: marcajes.some(m => m.dispositivo_id === 25),
-              tieneDispositivo26: marcajes.some(m => m.dispositivo_id === 26),
-              muestraMarcajes: marcajes.slice(0, 10).map(m => ({
-                id: m.id,
-                dispositivo_id: m.dispositivo_id,
-                event_time: m.event_time
-              }))
-            });
           }
           
           // Si hay marcajes, cargar los dispositivos asociados por separado para evitar problemas con JOIN
@@ -7619,15 +7467,6 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         
         // DEBUG: Log para verificar excepciones encontradas
         if (excepciones.length > 0) {
-          console.log(`[DEBUG Backend] Empleado ${empleado.nombre} (${empleado.id}) tiene ${excepciones.length} excepciones`, {
-            excepciones: excepciones.map(ex => ({
-              id: ex.id,
-              empleado_id: ex.empleado_id,
-              fecha: ex.fecha,
-              plantilla_horario_id: ex.plantilla_horario_id,
-              tienePlantillaHorario: !!ex.PlantillaHorario
-            }))
-          });
         }
         
         // Agregar excepciones y marcajes directamente al objeto del empleado (no solo en dataValues)
@@ -7719,40 +7558,8 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         }
       });
       
-      console.log('[DEBUG Backend] Resumen TOTAL de respuesta (ruta normal):', {
-        totalExcepciones,
-        totalMarcajes,
-        cantidadEmpleados: empleadosConDatos.length,
-        empleadosConExcepciones: empleadosConDatos.filter(emp => emp.excepciones?.length > 0).length,
-        empleadosConMarcajes: empleadosConDatos.filter(emp => emp.marcajes?.length > 0).length,
-        todosDispositivosEnMarcajes: Array.from(todosDispositivosEnMarcajes).sort((a, b) => a - b),
-        marcajesPorDispositivoTotal: marcajesPorDispositivoTotal,
-        tieneDispositivo24: todosDispositivosEnMarcajes.has(24),
-        tieneDispositivo25: todosDispositivosEnMarcajes.has(25),
-        tieneDispositivo26: todosDispositivosEnMarcajes.has(26),
-        marcajesDispositivo24Total: marcajesPorDispositivoTotal[24] || 0,
-        marcajesDispositivo25Total: marcajesPorDispositivoTotal[25] || 0,
-        marcajesDispositivo26Total: marcajesPorDispositivoTotal[26] || 0
-      });
-      
-      console.log('[DEBUG] Devolviendo empleados con datos consolidados:', {
-        cantidad: empleadosConDatos.length,
-        primerEmpleado: empleadosConDatos[0] ? {
-          id: empleadosConDatos[0].id,
-          nombre: empleadosConDatos[0].nombre,
-          tieneHorarios: !!(empleadosConDatos[0].horariosEmpleado?.length),
-          tieneExcepciones: !!(empleadosConDatos[0].excepciones?.length),
-          tieneMarcajes: !!(empleadosConDatos[0].marcajes?.length)
-        } : null
-      });
       return res.json(empleadosConDatos);
     }
-    
-    console.log('[DEBUG] Devolviendo empleados SIN datos consolidados (no hay fechas):', {
-      cantidad: empleados.length,
-      fechaDesde,
-      fechaHasta
-    });
     res.json(empleados);
   } catch (error) {
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
