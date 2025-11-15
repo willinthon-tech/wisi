@@ -508,13 +508,10 @@ import { DispositivosService } from '../../../services/dispositivos.service';
               <div class="mb-2" *ngIf="!modalPlantillaInfo">
                 <strong>Plantilla de horario:</strong> <span class="text-muted">Sin horario asignado</span>
               </div>
-              <div class="mb-3" *ngIf="modalMarcajeCalculado">
+              <div class="mb-3">
                 <strong>Marcaje calculado:</strong> 
-                <span [innerHTML]="modalMarcajeCalculado"></span>
-              </div>
-              <div class="mb-3" *ngIf="!modalMarcajeCalculado || modalMarcajeCalculado === 'Sin Registros'">
-                <strong>Marcaje calculado:</strong> 
-                <span class="text-muted">Sin Registros</span>
+                <span *ngIf="modalMarcajeCalculado && modalMarcajeCalculado !== 'Sin Registros'" [innerHTML]="modalMarcajeCalculado"></span>
+                <span *ngIf="!modalMarcajeCalculado || modalMarcajeCalculado === 'Sin Registros'" class="text-muted">Sin Registros</span>
               </div>
               <div class="table-responsive">
                 <table class="table table-striped">
@@ -3225,9 +3222,19 @@ export class MarcajePersonalComponent implements OnInit {
       }
 
       // Obtener el marcaje calculado para este día (usando caché si está disponible)
+      // Asegurar que se use el caché de marcajes calculados (después de segunda vuelta)
       const marcajeInfo = this.getHorarioInfo(empleado, dia, 'Descanso');
+      // Verificar también directamente en el caché si hay marcajes válidos
+      const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+      const keyCache = `${empleado?.id}|${fechaStr}`;
+      const marcajesCache = this.cacheMarcajesCalculados.get(keyCache);
+      
       if (marcajeInfo && marcajeInfo !== 'Sin Registros') {
         this.modalMarcajeCalculado = marcajeInfo;
+      } else if (marcajesCache && marcajesCache.entrada !== 'Sin marcaje' && marcajesCache.salida !== 'Sin marcaje') {
+        // Si hay marcajes válidos en caché pero getHorarioInfo no los muestra, recalcular
+        const marcajeInfoRecalculado = this.getHorarioInfo(empleado, dia, 'Descanso');
+        this.modalMarcajeCalculado = marcajeInfoRecalculado && marcajeInfoRecalculado !== 'Sin Registros' ? marcajeInfoRecalculado : 'Sin Registros';
       } else {
         this.modalMarcajeCalculado = 'Sin Registros';
       }
@@ -4290,13 +4297,79 @@ export class MarcajePersonalComponent implements OnInit {
             })
           );
         
-        // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios, excepciones ni marcajes individualmente
-        // Todo ya viene en la respuesta consolidada del backend
-        // Solo necesitamos cargar feriados y plantillas libres
-        Promise.all([
+        // IMPORTANTE: Cargar todas las plantillas necesarias ANTES de calcular marcajes
+        // Extraer todos los plantilla_horario_id únicos de los bloques de horarios
+        const plantillaIdsNecesarios = new Set<number>();
+        this.empleadosCompletos.forEach(emp => {
+          if (emp.horariosEmpleado && Array.isArray(emp.horariosEmpleado)) {
+            emp.horariosEmpleado.forEach((he: any) => {
+              if (he.Horario && he.Horario.bloques && Array.isArray(he.Horario.bloques)) {
+                he.Horario.bloques.forEach((bloque: any) => {
+                  // Si el bloque no tiene PlantillaHorario cargada pero tiene plantilla_horario_id
+                  if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+                    plantillaIdsNecesarios.add(bloque.plantilla_horario_id);
+                  }
+                });
+              }
+            });
+          }
+        });
+        
+        // Cargar todas las plantillas necesarias
+        const cargarPlantillasPromises: Promise<void>[] = [
           this.cargarFeriados(),
           this.cargarPlantillasLibres(salaId)
-        ]).then(() => {
+        ];
+        
+        // CRÍTICO: SIEMPRE cargar todas las plantillas de la sala y todas las plantillas generales
+        // Esto asegura que la plantilla ID 14 y otras estén disponibles
+        // Cargar todas las plantillas de la sala para tenerlas disponibles
+        if (salaId) {
+          // SIEMPRE cargar, incluso si ya está en caché (para refrescar)
+          cargarPlantillasPromises.push(
+            new Promise<void>((resolve) => {
+              this.plantillasService.getBySala(salaId).subscribe({
+                next: (plantillas: any[]) => {
+                  this.plantillasPorSalaCache.set(salaId, plantillas || []);
+                  // También actualizar modalPlantillas con las plantillas de la sala
+                  if (plantillas && plantillas.length > 0) {
+                    this.modalPlantillas = [...(this.modalPlantillas || []), ...plantillas];
+                    // Eliminar duplicados por ID
+                    this.modalPlantillas = this.modalPlantillas.filter((p: any, index: number, self: any[]) => 
+                      index === self.findIndex((p2: any) => p2.id === p.id)
+                    );
+                  }
+                  resolve();
+                },
+                error: () => resolve()
+              });
+            })
+          );
+        }
+        
+        // También cargar TODAS las plantillas si no están cargadas (para asegurar que ID 14 esté disponible)
+        // SIEMPRE cargar, incluso si ya está en caché (para refrescar)
+        cargarPlantillasPromises.push(
+          new Promise<void>((resolve) => {
+            this.plantillasService.getPlantillasHorarios().subscribe({
+              next: (plantillas: any[]) => {
+                this.todasLasPlantillasCache = plantillas || [];
+                // También actualizar modalPlantillas con todas las plantillas
+                if (plantillas && plantillas.length > 0) {
+                  this.modalPlantillas = [...(this.modalPlantillas || []), ...plantillas];
+                  // Eliminar duplicados por ID
+                  this.modalPlantillas = this.modalPlantillas.filter((p: any, index: number, self: any[]) => 
+                    index === self.findIndex((p2: any) => p2.id === p.id)
+                  );
+                }
+                resolve();
+              },
+              error: () => resolve()
+            });
+          })
+        );
+        
+        Promise.all(cargarPlantillasPromises).then(() => {
           // Actualizar listas de filtros (departamentos, áreas, cargos) con los empleados cargados
           this.actualizarListasCascada();
           // Aplicar filtros locales iniciales para mostrar los datos
@@ -5147,7 +5220,13 @@ export class MarcajePersonalComponent implements OnInit {
         
         // Pre-calcular bloque horario
         if (!this.cacheBloquesHorario.has(keyBloque)) {
-          const bloque = this.getBloqueHorarioInterno(empleado, dia);
+          let bloque = this.getBloqueHorarioInterno(empleado, dia);
+          // CRÍTICO: Asegurar que el bloque tenga la plantilla ANTES de guardarlo en caché
+          if (bloque && bloque.plantilla_horario_id && !bloque.PlantillaHorario) {
+            const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
+            const bloquesHorario = horarioActivo?.bloques || [];
+            bloque = this.asegurarPlantillaEnBloque(bloque, empleado, dia, bloquesHorario);
+          }
           this.cacheBloquesHorario.set(keyBloque, bloque);
         }
         
@@ -5160,8 +5239,17 @@ export class MarcajePersonalComponent implements OnInit {
         
         // PRIMERA VUELTA: Calcular marcajes para cada día usando la lógica de prioridades
         // (sin segunda vuelta aún - la segunda vuelta valida conflictos entre días)
-        const bloque = this.cacheBloquesHorario.get(keyBloque);
+        let bloque = this.cacheBloquesHorario.get(keyBloque);
         if (bloque) {
+          // CRÍTICO: Asegurar que el bloque tenga la plantilla ANTES de calcular
+          // Usar la función centralizada que busca en todos los lugares posibles
+          const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
+          const bloquesHorario = horarioActivo?.bloques || [];
+          bloque = this.asegurarPlantillaEnBloque(bloque, empleado, dia, bloquesHorario);
+          
+          // Actualizar el caché con el bloque corregido (por si se encontró la plantilla)
+          this.cacheBloquesHorario.set(keyBloque, bloque);
+          
           // Usar versión interna que no consulta caché (para evitar recursión)
           const marcajes = this.calcularMarcajesDelDiaInterno(empleado, dia, bloque);
           this.cacheMarcajesCalculados.set(keyBloque, marcajes);
@@ -5308,7 +5396,10 @@ export class MarcajePersonalComponent implements OnInit {
     }
     
     const indiceBloque = diasDesdeInicio % bloques.length;
-    return bloques[indiceBloque];
+    const bloqueSeleccionado = bloques[indiceBloque];
+    
+    // IMPORTANTE: Asegurar que el bloque tenga la plantilla usando la función centralizada
+    return this.asegurarPlantillaEnBloque(bloqueSeleccionado, empleado, dia, bloques);
   }
   
   // Versión interna de getHorarioInfo que no usa caché (para pre-cálculo)
@@ -6489,7 +6580,15 @@ export class MarcajePersonalComponent implements OnInit {
     const keyCache = `${empleado?.id}|${fechaStr}`;
     
     if (this.cacheBloquesHorario.has(keyCache)) {
-      return this.cacheBloquesHorario.get(keyCache);
+      let bloque = this.cacheBloquesHorario.get(keyCache);
+      // Asegurar que el bloque del caché tenga la plantilla
+      if (bloque && !bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+        bloque = this.asegurarPlantillaEnBloque(bloque, empleado, dia);
+        if (bloque && bloque.PlantillaHorario) {
+          this.cacheBloquesHorario.set(keyCache, bloque);
+        }
+      }
+      return bloque;
     }
     
     // Si no está en caché, calcular (fallback para casos edge)
@@ -6511,7 +6610,11 @@ export class MarcajePersonalComponent implements OnInit {
         tiene_descanso: !!(plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida)
       };
     } else if (ex && ex.plantilla_horario_id) {
-      // Si API no incluyó include, al menos marcar como diurno por defecto
+      // Si API no incluyó include, buscar la plantilla
+      const bloqueExcepcion = this.asegurarPlantillaEnBloque({ orden: 1, plantilla_horario_id: ex.plantilla_horario_id }, empleado, dia);
+      if (bloqueExcepcion && bloqueExcepcion.PlantillaHorario) {
+        return bloqueExcepcion;
+      }
       return {
         orden: 1,
         turno: 'DIURNO',
@@ -6541,7 +6644,168 @@ export class MarcajePersonalComponent implements OnInit {
     if (indiceBloque >= bloques.length || indiceBloque < 0) {
     }
     
-    return bloques[indiceBloque];
+    const bloqueSeleccionado = bloques[indiceBloque];
+    
+    // IMPORTANTE: Asegurar que el bloque tenga la plantilla
+    return this.asegurarPlantillaEnBloque(bloqueSeleccionado, empleado, dia, bloques);
+  }
+  
+  // Función auxiliar para asegurar que un bloque tenga la plantilla cargada
+  asegurarPlantillaEnBloque(bloque: any, empleado: any, dia: Date, bloques?: any[]): any {
+    if (!bloque || !bloque.plantilla_horario_id) {
+      return bloque;
+    }
+    
+    // Si ya tiene plantilla, retornar tal cual
+    if (bloque.PlantillaHorario && bloque.PlantillaHorario.hora_entrada && bloque.PlantillaHorario.hora_salida) {
+      return bloque;
+    }
+    
+    const plantillaId = bloque.plantilla_horario_id;
+    let plantilla = null;
+    
+    // PRIORIDAD 1: Buscar en los bloques del horario activo (puede que otro bloque tenga la plantilla cargada)
+    if (bloques && Array.isArray(bloques)) {
+      // Buscar en TODOS los bloques del horario, no solo el que tiene el mismo plantilla_horario_id
+      // porque puede que algún bloque tenga la plantilla cargada aunque no sea el seleccionado
+      for (const b of bloques) {
+        if (b.plantilla_horario_id === plantillaId) {
+          // Si este bloque tiene la plantilla cargada, usarla
+          if (b.PlantillaHorario && 
+              b.PlantillaHorario.hora_entrada && 
+              b.PlantillaHorario.hora_salida) {
+            plantilla = b.PlantillaHorario;
+            break;
+          }
+        }
+      }
+    }
+    
+    // PRIORIDAD 2: Buscar en TODOS los horarios del empleado (no solo el activo)
+    if (!plantilla && empleado?.horariosEmpleado) {
+      for (const horarioEmpleado of empleado.horariosEmpleado) {
+        if (horarioEmpleado.Horario && horarioEmpleado.Horario.bloques) {
+          for (const bloqueHorario of horarioEmpleado.Horario.bloques) {
+            if (bloqueHorario.plantilla_horario_id === plantillaId && 
+                bloqueHorario.PlantillaHorario && 
+                bloqueHorario.PlantillaHorario.hora_entrada && 
+                bloqueHorario.PlantillaHorario.hora_salida) {
+              plantilla = bloqueHorario.PlantillaHorario;
+              break;
+            }
+          }
+          if (plantilla) break;
+        }
+      }
+    }
+    
+    // PRIORIDAD 3: Buscar en el horario activo específico
+    if (!plantilla) {
+      const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
+      if (horarioActivo && horarioActivo.bloques) {
+        for (const bloqueHorario of horarioActivo.bloques) {
+          if (bloqueHorario.plantilla_horario_id === plantillaId && 
+              bloqueHorario.PlantillaHorario && 
+              bloqueHorario.PlantillaHorario.hora_entrada && 
+              bloqueHorario.PlantillaHorario.hora_salida) {
+            plantilla = bloqueHorario.PlantillaHorario;
+            break;
+          }
+        }
+      }
+    }
+    
+    // PRIORIDAD 4: Buscar en caches
+    if (!plantilla) {
+      plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === plantillaId);
+    }
+    if (!plantilla && this.todasLasPlantillasCache) {
+      plantilla = this.todasLasPlantillasCache.find((p: any) => p?.id === plantillaId);
+    }
+    if (!plantilla && empleado?.sala_id) {
+      const plantillasSala = this.plantillasPorSalaCache.get(empleado.sala_id);
+      if (plantillasSala) {
+        plantilla = plantillasSala.find((p: any) => p?.id === plantillaId);
+      }
+    }
+    
+    // PRIORIDAD 5: Buscar en excepciones (pueden tener la plantilla)
+    if (!plantilla) {
+      const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+      const key = `${empleado?.id}|${fechaStr}`;
+      const ex = this.excepcionesMap.get(key) || this.excepcionesCompletas.get(key);
+      if (ex && ex.PlantillaHorario && ex.PlantillaHorario.id === plantillaId && 
+          ex.PlantillaHorario.hora_entrada && ex.PlantillaHorario.hora_salida) {
+        plantilla = ex.PlantillaHorario;
+      }
+    }
+    
+    // PRIORIDAD 6: Si aún no se encuentra, buscar en TODOS los horarios de TODOS los empleados
+    // (último recurso - puede que la plantilla esté en otro empleado de la misma sala)
+    if (!plantilla && plantillaId) {
+      // Buscar en todos los empleados de la misma sala
+      const base = this.obtenerBaseEmpleados();
+      for (const emp of base) {
+        if (emp.horariosEmpleado) {
+          for (const horarioEmpleado of emp.horariosEmpleado) {
+            if (horarioEmpleado.Horario && horarioEmpleado.Horario.bloques) {
+              for (const bloqueHorario of horarioEmpleado.Horario.bloques) {
+                if (bloqueHorario.plantilla_horario_id === plantillaId && 
+                    bloqueHorario.PlantillaHorario && 
+                    bloqueHorario.PlantillaHorario.hora_entrada && 
+                    bloqueHorario.PlantillaHorario.hora_salida) {
+                  plantilla = bloqueHorario.PlantillaHorario;
+                  break;
+                }
+              }
+              if (plantilla) break;
+            }
+          }
+          if (plantilla) break;
+        }
+      }
+    }
+    
+    // PRIORIDAD 7: Si aún no se encuentra y tenemos el ID, buscar en empleadosCompletos (todos los empleados cargados)
+    // Esto es crítico porque puede que la plantilla esté en un empleado que no está en la base filtrada
+    if (!plantilla && plantillaId && this.empleadosCompletos) {
+      for (const emp of this.empleadosCompletos) {
+        if (emp.horariosEmpleado) {
+          for (const horarioEmpleado of emp.horariosEmpleado) {
+            if (horarioEmpleado.Horario && horarioEmpleado.Horario.bloques) {
+              for (const bloqueHorario of horarioEmpleado.Horario.bloques) {
+                if (bloqueHorario.plantilla_horario_id === plantillaId && 
+                    bloqueHorario.PlantillaHorario && 
+                    bloqueHorario.PlantillaHorario.hora_entrada && 
+                    bloqueHorario.PlantillaHorario.hora_salida) {
+                  plantilla = bloqueHorario.PlantillaHorario;
+                  break;
+                }
+              }
+              if (plantilla) break;
+            }
+          }
+          if (plantilla) break;
+        }
+      }
+    }
+    
+    // Si encontramos la plantilla, actualizar el bloque
+    if (plantilla && plantilla.hora_entrada && plantilla.hora_salida) {
+      const turno = this.convertirHoraAMinutos(plantilla.hora_entrada) > this.convertirHoraAMinutos(plantilla.hora_salida) ? 'NOCTURNO' : 'DIURNO';
+      return {
+        ...bloque,
+        PlantillaHorario: plantilla,
+        turno,
+        hora_entrada: plantilla.hora_entrada,
+        hora_salida: plantilla.hora_salida,
+        hora_entrada_descanso: plantilla.hora_descanso_entrada,
+        hora_salida_descanso: plantilla.hora_descanso_salida,
+        tiene_descanso: !!(plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida)
+      };
+    }
+    
+    return bloque;
   }
 
   // Obtener el horario activo para una fecha específica
@@ -6658,17 +6922,24 @@ export class MarcajePersonalComponent implements OnInit {
     const marcajes = this.marcajesPorEmpleado.get(empleado.cedula) || [];
     const fechaStr = dia.toISOString().split('T')[0];
     
-    
+    // IMPORTANTE: Usar formatDateLocalYYYYMMDD para asegurar consistencia con el formato usado en otras partes
+    const fechaStrLocal = this.formatDateLocalYYYYMMDD(dia);
     
     const marcajesDelDia = marcajes.filter(marcaje => {
-      const marcajeFecha = new Date(marcaje.event_time).toISOString().split('T')[0];
-      return marcajeFecha === fechaStr;
+      const marcajeFecha = new Date(marcaje.event_time);
+      // Comparar tanto con formato ISO como con formato local
+      const marcajeFechaISO = marcajeFecha.toISOString().split('T')[0];
+      const marcajeFechaLocal = this.formatDateLocalYYYYMMDD(marcajeFecha);
+      return marcajeFechaISO === fechaStr || marcajeFechaLocal === fechaStrLocal;
     }).sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
     
-    if (marcajesDelDia.length > 0) {
-      
-    } else {
-      
+    // DEBUG: Log para verificar que se están obteniendo todos los marcajes
+    if (marcajesDelDia.length > 0 && marcajesDelDia.length <= 5) {
+      const marcajesDebug = marcajesDelDia.map(m => ({
+        fecha: new Date(m.event_time).toISOString().split('T')[0],
+        hora: this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0]),
+        id: m.id
+      }));
     }
     
     return marcajesDelDia;
@@ -6698,15 +6969,52 @@ export class MarcajePersonalComponent implements OnInit {
       const plantillaId = bloque?.plantilla_horario_id;
       
       if (plantillaId) {
-        // Buscar en modalPlantillas primero
-        plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === plantillaId);
+        // PRIORIDAD 1: Buscar en TODOS los horarios del empleado (no solo el activo)
+        // Esto es crítico porque la plantilla puede estar en cualquier horario
+        if (!plantilla && empleado?.horariosEmpleado) {
+          for (const horarioEmpleado of empleado.horariosEmpleado) {
+            if (horarioEmpleado.Horario && horarioEmpleado.Horario.bloques) {
+              for (const bloqueHorario of horarioEmpleado.Horario.bloques) {
+                if (bloqueHorario.plantilla_horario_id === plantillaId && 
+                    bloqueHorario.PlantillaHorario && 
+                    bloqueHorario.PlantillaHorario.hora_entrada && 
+                    bloqueHorario.PlantillaHorario.hora_salida) {
+                  plantilla = bloqueHorario.PlantillaHorario;
+                  break;
+                }
+              }
+              if (plantilla) break;
+            }
+          }
+        }
         
-        // Si no está en modalPlantillas, buscar en todas las plantillas cache
+        // PRIORIDAD 2: Buscar en el horario activo específico
+        if (!plantilla) {
+          const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
+          if (horarioActivo && horarioActivo.bloques) {
+            for (const bloqueHorario of horarioActivo.bloques) {
+              if (bloqueHorario.plantilla_horario_id === plantillaId && 
+                  bloqueHorario.PlantillaHorario && 
+                  bloqueHorario.PlantillaHorario.hora_entrada && 
+                  bloqueHorario.PlantillaHorario.hora_salida) {
+                plantilla = bloqueHorario.PlantillaHorario;
+                break;
+              }
+            }
+          }
+        }
+        
+        // PRIORIDAD 3: Buscar en modalPlantillas
+        if (!plantilla) {
+          plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === plantillaId);
+        }
+        
+        // PRIORIDAD 4: Buscar en todas las plantillas cache
         if (!plantilla && this.todasLasPlantillasCache) {
           plantilla = this.todasLasPlantillasCache.find((p: any) => p?.id === plantillaId);
         }
         
-        // Si aún no se encuentra, buscar en plantillasPorSalaCache
+        // PRIORIDAD 5: Buscar en plantillasPorSalaCache
         if (!plantilla && empleado?.sala_id) {
           const plantillasSala = this.plantillasPorSalaCache.get(empleado.sala_id);
           if (plantillasSala) {
@@ -6714,21 +7022,88 @@ export class MarcajePersonalComponent implements OnInit {
           }
         }
         
-        // Si aún no se encuentra, buscar en excepcionesMap (puede tener la plantilla)
+        // PRIORIDAD 6: Buscar en excepcionesMap (puede tener la plantilla)
         if (!plantilla) {
           const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
           const key = `${empleado?.id}|${fechaStr}`;
           const ex = this.excepcionesMap.get(key) || this.excepcionesCompletas.get(key);
-          if (ex && ex.PlantillaHorario && ex.PlantillaHorario.hora_entrada && ex.PlantillaHorario.hora_salida) {
+          if (ex && ex.PlantillaHorario && ex.PlantillaHorario.id === plantillaId && 
+              ex.PlantillaHorario.hora_entrada && ex.PlantillaHorario.hora_salida) {
             plantilla = ex.PlantillaHorario;
+          }
+        }
+        
+        // PRIORIDAD 7: Si aún no se encuentra, buscar en TODOS los horarios de TODOS los empleados
+        // (último recurso - puede que la plantilla esté en otro empleado de la misma sala)
+        if (!plantilla && plantillaId) {
+          const base = this.obtenerBaseEmpleados();
+          for (const emp of base) {
+            if (emp.horariosEmpleado) {
+              for (const horarioEmpleado of emp.horariosEmpleado) {
+                if (horarioEmpleado.Horario && horarioEmpleado.Horario.bloques) {
+                  for (const bloqueHorario of horarioEmpleado.Horario.bloques) {
+                    if (bloqueHorario.plantilla_horario_id === plantillaId && 
+                        bloqueHorario.PlantillaHorario && 
+                        bloqueHorario.PlantillaHorario.hora_entrada && 
+                        bloqueHorario.PlantillaHorario.hora_salida) {
+                      plantilla = bloqueHorario.PlantillaHorario;
+                      break;
+                    }
+                  }
+                  if (plantilla) break;
+                }
+              }
+              if (plantilla) break;
+            }
+          }
+        }
+        
+        // PRIORIDAD 8: Si aún no se encuentra y tenemos el ID, buscar en empleadosCompletos (todos los empleados cargados)
+        // Esto es crítico porque puede que la plantilla esté en un empleado que no está en la base filtrada
+        if (!plantilla && plantillaId && this.empleadosCompletos) {
+          for (const emp of this.empleadosCompletos) {
+            if (emp.horariosEmpleado) {
+              for (const horarioEmpleado of emp.horariosEmpleado) {
+                if (horarioEmpleado.Horario && horarioEmpleado.Horario.bloques) {
+                  for (const bloqueHorario of horarioEmpleado.Horario.bloques) {
+                    if (bloqueHorario.plantilla_horario_id === plantillaId && 
+                        bloqueHorario.PlantillaHorario && 
+                        bloqueHorario.PlantillaHorario.hora_entrada && 
+                        bloqueHorario.PlantillaHorario.hora_salida) {
+                      plantilla = bloqueHorario.PlantillaHorario;
+                      break;
+                    }
+                  }
+                  if (plantilla) break;
+                }
+              }
+              if (plantilla) break;
+            }
           }
         }
       }
     }
     
-    // Si después de buscar en todas las fuentes no encontramos la plantilla completa, retornar Sin marcaje
+    // Si después de buscar en todas las fuentes no encontramos la plantilla completa
     if (!plantilla || !plantilla.hora_entrada || !plantilla.hora_salida) {
-      return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
+      // Si el bloque tiene horas directamente, usarlas (último recurso)
+      if (bloque && bloque.hora_entrada && bloque.hora_salida) {
+        plantilla = {
+          hora_entrada: bloque.hora_entrada,
+          hora_salida: bloque.hora_salida,
+          hora_descanso_entrada: bloque.hora_entrada_descanso,
+          hora_descanso_salida: bloque.hora_salida_descanso
+        };
+      } else if (bloque && bloque.plantilla_horario_id) {
+        // ÚLTIMO RECURSO: Si tenemos el plantilla_horario_id pero no encontramos la plantilla,
+        // puede que la plantilla simplemente no esté en los datos. 
+        // En este caso, retornar Sin marcaje porque no podemos calcular sin la plantilla
+        console.warn(`[calcularMarcajesDelDiaInterno] No se encontró plantilla para plantilla_horario_id: ${bloque.plantilla_horario_id}, empleado: ${empleado?.nombre}, fecha: ${this.formatDateLocalYYYYMMDD(new Date(dia))}. Caches disponibles: modalPlantillas=${this.modalPlantillas?.length || 0}, todasLasPlantillasCache=${this.todasLasPlantillasCache?.length || 0}, plantillasPorSalaCache=${this.plantillasPorSalaCache.size || 0}`);
+        return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
+      } else {
+        // Solo retornar Sin marcaje si realmente no hay información de horario
+        return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
+      }
     }
 
     const horaEntradaPlantilla = this.convertirHoraAMinutos(plantilla.hora_entrada);
@@ -6764,6 +7139,15 @@ export class MarcajePersonalComponent implements OnInit {
       return { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
     }
 
+    // DEBUG: Verificar que los marcajes se están obteniendo correctamente
+    if (marcajesParaAnalizar.length > 0 && marcajesParaAnalizar.length <= 4) {
+      const marcajesDebug = marcajesParaAnalizar.map(m => ({
+        fecha: new Date(m.event_time).toISOString().split('T')[0],
+        hora: this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0]),
+        id: m.id
+      }));
+    }
+
     // Crear objeto bloque con horas de plantilla para usar en asignación inteligente
     const tieneDescansoAutomatico = !!plantilla.descanso_automatico;
     const bloqueConPlantilla = {
@@ -6774,10 +7158,12 @@ export class MarcajePersonalComponent implements OnInit {
       tiene_descanso: tieneDescanso,
       tiene_descanso_automatico: tieneDescansoAutomatico,
       descanso_automatico: plantilla.descanso_automatico || '',
-      turno: esTurnoNocturno ? 'NOCTURNO' : 'DIURNO'
+      turno: esTurnoNocturno ? 'NOCTURNO' : 'DIURNO',
+      PlantillaHorario: plantilla // Asegurar que la plantilla esté disponible
     };
 
     // Analizar marcajes usando la lógica inteligente, pasando el día para identificar marcajes del día siguiente
+    // IMPORTANTE: Pasar el día correcto (dia) para que la lógica de esDelDiaSiguiente funcione
     const marcajesAnalizados = this.analizarMarcajesInteligente(marcajesParaAnalizar, bloqueConPlantilla, bloqueConPlantilla.turno, dia);
 
     // Aplicar validaciones de diferencias de tiempo
@@ -6861,34 +7247,63 @@ export class MarcajePersonalComponent implements OnInit {
     const entradaActualMinutos = this.convertirHoraAMinutos(marcajesActuales.entrada);
     const salidaAnteriorMinutos = this.convertirHoraAMinutos(marcajesAnteriores.salida);
 
-    // Si la entrada del día actual es igual a la salida del día anterior, invalidar la entrada
-    // Si además no hay salida válida, invalidar también la salida para que se muestre "Sin Registros"
+    // Si la entrada del día actual es igual a la salida del día anterior, verificar si realmente es un conflicto
+    // Solo invalidar si es un turno nocturno y la entrada está muy cerca de la salida del día anterior
+    // (dentro de 1 hora de diferencia para evitar invalidar marcajes válidos)
     if (entradaActualMinutos === salidaAnteriorMinutos && entradaActualMinutos > 0) {
-      // Invalidar la entrada del día actual
-      // Si no hay salida válida o la salida también es inválida, invalidar todo para mostrar "Sin Registros"
-      const tieneSalidaValida = marcajesActuales.salida && 
-                                 marcajesActuales.salida !== 'Sin marcaje' && 
-                                 marcajesActuales.salida !== 'SNM';
+      // Verificar si el turno anterior era nocturno y terminó en el día actual
+      // Si es así, la entrada del día actual no puede ser igual a esa salida
+      // PERO: solo invalidar si realmente es un conflicto (mismo ID de marcaje o muy cercano)
       
-      if (!tieneSalidaValida) {
-        // Si no hay salida válida, invalidar todo para que se muestre "Sin Registros"
-        return {
-          entrada: 'Sin marcaje',
-          entradaDescanso: 'Sin marcaje',
-          salidaDescanso: 'Sin marcaje',
-          salida: 'Sin marcaje'
-        };
-      } else {
-        // Si hay salida válida, solo invalidar la entrada
-        // Pero en este caso, para que se muestre "Sin Registros", también invalidamos la salida
-        // porque la entrada inválida hace que el registro completo sea inválido
-        return {
-          entrada: 'Sin marcaje',
-          entradaDescanso: marcajesActuales.entradaDescanso || 'Sin marcaje',
-          salidaDescanso: marcajesActuales.salidaDescanso || 'Sin marcaje',
-          salida: 'Sin marcaje'
-        };
+      // Obtener los marcajes reales para verificar si es el mismo marcaje
+      const marcajesHoy = this.getMarcajesDelDia(empleado, dia);
+      const marcajesAyer = this.getMarcajesDelDia(empleado, diaAnterior);
+      const todosMarcajes = [...marcajesAyer, ...marcajesHoy];
+      
+      // Buscar el marcaje de entrada actual y salida anterior
+      const marcajeEntradaActual = todosMarcajes.find(m => {
+        const horaMarcaje = this.convertirHoraAMinutos(
+          this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0])
+        );
+        return horaMarcaje === entradaActualMinutos;
+      });
+      
+      const marcajeSalidaAnterior = todosMarcajes.find(m => {
+        const horaMarcaje = this.convertirHoraAMinutos(
+          this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0])
+        );
+        return horaMarcaje === salidaAnteriorMinutos;
+      });
+      
+      // Solo invalidar si es el MISMO marcaje (mismo ID) o si están muy cerca (menos de 5 minutos)
+      const esMismoMarcaje = marcajeEntradaActual && marcajeSalidaAnterior && 
+                             marcajeEntradaActual.id === marcajeSalidaAnterior.id;
+      
+      if (esMismoMarcaje) {
+        // Es el mismo marcaje, invalidar la entrada del día actual
+        const tieneSalidaValida = marcajesActuales.salida && 
+                                   marcajesActuales.salida !== 'Sin marcaje' && 
+                                   marcajesActuales.salida !== 'SNM';
+        
+        if (!tieneSalidaValida) {
+          // Si no hay salida válida, invalidar todo para que se muestre "Sin Registros"
+          return {
+            entrada: 'Sin marcaje',
+            entradaDescanso: 'Sin marcaje',
+            salidaDescanso: 'Sin marcaje',
+            salida: 'Sin marcaje'
+          };
+        } else {
+          // Si hay salida válida, solo invalidar la entrada
+          return {
+            entrada: 'Sin marcaje',
+            entradaDescanso: marcajesActuales.entradaDescanso || 'Sin marcaje',
+            salidaDescanso: marcajesActuales.salidaDescanso || 'Sin marcaje',
+            salida: marcajesActuales.salida
+          };
+        }
       }
+      // Si no es el mismo marcaje, mantener los marcajes (puede ser coincidencia de hora)
     }
 
     return marcajesActuales;
@@ -6998,8 +7413,15 @@ export class MarcajePersonalComponent implements OnInit {
           
           // Decidir: si está más cerca de la entrada del día siguiente que de la salida del día actual,
           // el marcaje le corresponde al día siguiente
-          if (distanciaEntradaSiguiente < distanciaSalidaActual) {
-            // El marcaje está más cerca de la entrada del día siguiente
+          // PERO: usar umbral de 6 horas (360 minutos) para ser más flexible
+          const umbralFlexible = 360; // 6 horas en minutos
+          
+          // Solo invalidar si la diferencia es significativa (más de 6 horas de diferencia)
+          // Si ambas distancias son menores al umbral, mantener la asignación de la primera vuelta
+          if (distanciaEntradaSiguiente < distanciaSalidaActual && 
+              distanciaEntradaSiguiente <= umbralFlexible &&
+              distanciaSalidaActual > umbralFlexible) {
+            // El marcaje está claramente más cerca de la entrada del día siguiente Y la salida actual está muy lejos
             // Invalidar la salida del día actual y también los descansos (ya que dependen de tener salida)
             return {
               entrada: marcajesActuales.entrada, // Mantener entrada
@@ -7008,8 +7430,8 @@ export class MarcajePersonalComponent implements OnInit {
               salida: 'Sin marcaje' // Invalidar salida del día actual - el marcaje es entrada del día siguiente
             };
           } else {
-            // El marcaje está más cerca de la salida del día actual
-            // Mantener la salida del día actual (pero esto no debería pasar si la primera vuelta funcionó bien)
+            // El marcaje está más cerca de la salida del día actual, o ambas distancias son razonables
+            // Mantener la salida del día actual (respetar la primera vuelta)
             return marcajesActuales;
           }
         } else {
@@ -7195,22 +7617,31 @@ export class MarcajePersonalComponent implements OnInit {
       const fechaMarcajeInicio = new Date(fechaMarcaje);
       fechaMarcajeInicio.setHours(0, 0, 0, 0);
       
-      // Un marcaje es del día siguiente si su fecha es >= fechaDiaTurno + 1 día
-      // Aplica tanto para nocturnos como diurnos (horas extras)
-      const esDelDiaSiguiente = fechaDiaTurno && 
-        fechaMarcajeInicio.getTime() >= fechaDiaTurno.getTime() + (24 * 60 * 60 * 1000);
+      let esDelDiaSiguiente = false;
+      let esDelDiaAnterior = false;
       
-      // Un marcaje es del día anterior si su fecha es < fechaDiaTurno
-      // NUNCA debe usarse como salida (ni para nocturnos ni diurnos)
-      const esDelDiaAnterior = fechaDiaTurno && 
-        fechaMarcajeInicio.getTime() < fechaDiaTurno.getTime();
+      if (fechaDiaTurno) {
+        const fechaDiaTurnoInicio = new Date(fechaDiaTurno);
+        fechaDiaTurnoInicio.setHours(0, 0, 0, 0);
+        
+        // Un marcaje es del día siguiente si su fecha es estrictamente mayor que fechaDiaTurno
+        // Comparar solo las fechas (sin horas) para determinar el día
+        const diffDias = Math.floor((fechaMarcajeInicio.getTime() - fechaDiaTurnoInicio.getTime()) / (24 * 60 * 60 * 1000));
+        
+        if (diffDias > 0) {
+          esDelDiaSiguiente = true;
+        } else if (diffDias < 0) {
+          esDelDiaAnterior = true;
+        }
+        // Si diffDias === 0, es del mismo día
+      }
       
       return {
         marcaje,
         hora: this.convertirHoraAMinutos(this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0])),
         fecha: fechaMarcaje,
-        esDelDiaSiguiente: esDelDiaSiguiente || false,
-        esDelDiaAnterior: esDelDiaAnterior || false
+        esDelDiaSiguiente: esDelDiaSiguiente,
+        esDelDiaAnterior: esDelDiaAnterior
       };
     });
 
@@ -8520,8 +8951,8 @@ export class MarcajePersonalComponent implements OnInit {
               }
             }
             
-            // Si hay marcaje cercano (diferencia <= 2 horas), usarlo
-            const umbralMaximo = 120; // 2 horas en minutos
+            // Si hay marcaje cercano (diferencia <= 6 horas), usarlo
+            const umbralMaximo = 360; // 6 horas en minutos (más flexible para primera vuelta)
             if (mejorDiferencia <= umbralMaximo) {
               marcajeMasCercano = mejorMarcaje;
             } else {
@@ -8559,8 +8990,8 @@ export class MarcajePersonalComponent implements OnInit {
               }
             }
             
-            // PRIORIDAD 1b: Si no hay marcaje cercano (diferencia > 2 horas), usar el último del día
-            const umbralMaximo = 120; // 2 horas en minutos
+            // PRIORIDAD 1b: Si no hay marcaje cercano (diferencia > 6 horas), usar el último del día
+            const umbralMaximo = 360; // 6 horas en minutos (más flexible para primera vuelta)
             if (mejorDiferencia > umbralMaximo) {
               // Ordenar por hora y tomar el último del día
               marcajesCandidatos.sort((a, b) => a.hora - b.hora);
@@ -8635,7 +9066,7 @@ export class MarcajePersonalComponent implements OnInit {
       // Para entrada (nocturno o diurno): NUNCA buscar en día anterior o día siguiente
       // VALIDACIÓN GLOBAL: Las entradas solo se buscan en el mismo día
       // PRIORIDAD 1: Buscar el marcaje más cercano a la hora programada
-      // PRIORIDAD 2: Si no hay cercano (diferencia > 2 horas):
+      // PRIORIDAD 2: Si no hay cercano (diferencia > 6 horas):
       //   - DIURNO: usar el primero del día
       //   - NOCTURNO: usar el último del día
       const marcajesDelDia = marcajesConHoras.filter(m => 
@@ -8654,14 +9085,19 @@ export class MarcajePersonalComponent implements OnInit {
           }
         }
         
-        // PRIORIDAD 2: Si no hay marcaje cercano (diferencia > 2 horas = 120 minutos)
-        const umbralMaximo = 120; // 2 horas en minutos
-        if (!marcajeMasCercano || menorDiferencia > umbralMaximo) {
+        // PRIORIDAD 2: Verificar si el marcaje encontrado está dentro del umbral
+        const umbralMaximo = 360; // 6 horas en minutos (más flexible para primera vuelta)
+        
+        // Si encontramos un marcaje y está dentro del umbral, usarlo
+        if (marcajeMasCercano && menorDiferencia <= umbralMaximo) {
+          // Usar el marcaje encontrado - está dentro del umbral aceptable
+        } else {
+          // Si no hay marcaje cercano o la diferencia es muy grande, usar fallback
           // Ordenar por hora
           const marcajesOrdenados = [...marcajesDelDia].sort((a, b) => a.hora - b.hora);
           if (marcajesOrdenados.length > 0) {
             if (esNocturno) {
-              // NOCTURNO: usar el último del día
+              // NOCTURNO: usar el último del día (más cercano a la hora de entrada nocturna)
               marcajeMasCercano = marcajesOrdenados[marcajesOrdenados.length - 1];
             } else {
               // DIURNO: usar el primero del día
