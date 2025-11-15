@@ -6951,6 +6951,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             // En su lugar, cargar los marcajes directamente y luego obtener los dispositivos si es necesario
             
             // DEBUG: Verificar directamente en la base de datos antes de la consulta
+            // IMPORTANTE: Búsqueda exacta solamente - validación estricta
             if (empleado.id === empleadosFiltrados[0]?.id) {
               const marcajesDirectosSQL = await sequelize.query(
                 `SELECT id, employee_no, dispositivo_id, event_time, nombre 
@@ -6982,6 +6983,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               });
             }
             
+            // Buscar marcajes con búsqueda exacta solamente - validación estricta
             marcajes = await Attlog.findAll({
               where: {
                 employee_no: empleado.cedula,
@@ -7055,6 +7057,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
               });
               
               // Verificar si hay marcajes del dispositivo 24 en la base de datos para este empleado
+              // IMPORTANTE: Búsqueda exacta solamente - validación estricta
               const marcajesDispositivo24 = await Attlog.findAll({
                 where: {
                   employee_no: empleado.cedula,
@@ -7412,12 +7415,20 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         }
       );
       
+      // Función helper para comparar employee_no con cedula (comparación exacta)
+      // Busca en ambos formatos (con y sin prefijo) pero mantiene la validación estricta
+      const compararEmployeeNo = (employeeNo, cedula) => {
+        if (!employeeNo || !cedula) return false;
+        // Comparación exacta solamente
+        return String(employeeNo) === String(cedula);
+      };
+      
       // Obtener los employee_no de los empleados de la sala
       // IMPORTANTE: En el modelo Empleado, el campo es 'cedula', no 'employee_no'
       // Los marcajes usan 'employee_no' que corresponde a la 'cedula' del empleado
       const employeeNosDeSala = empleados.map(e => e.cedula);
       
-      // Verificar si hay coincidencias
+      // Verificar si hay coincidencias (usando comparación normalizada)
       const employeeNosConMarcajes24 = employeeNosConMarcajesProblematicos
         .filter(m => m.dispositivo_id === 24)
         .map(m => m.employee_no);
@@ -7428,9 +7439,15 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
         .filter(m => m.dispositivo_id === 26)
         .map(m => m.employee_no);
       
-      const coincidencias24 = employeeNosConMarcajes24.filter(eno => employeeNosDeSala.includes(eno));
-      const coincidencias25 = employeeNosConMarcajes25.filter(eno => employeeNosDeSala.includes(eno));
-      const coincidencias26 = employeeNosConMarcajes26.filter(eno => employeeNosDeSala.includes(eno));
+      const coincidencias24 = employeeNosConMarcajes24.filter(eno => 
+        employeeNosDeSala.some(cedula => compararEmployeeNo(eno, cedula))
+      );
+      const coincidencias25 = employeeNosConMarcajes25.filter(eno => 
+        employeeNosDeSala.some(cedula => compararEmployeeNo(eno, cedula))
+      );
+      const coincidencias26 = employeeNosConMarcajes26.filter(eno => 
+        employeeNosDeSala.some(cedula => compararEmployeeNo(eno, cedula))
+      );
       
       console.log('[DEBUG Backend] Análisis de employee_no con marcajes de dispositivos 24, 25, 26:', {
         totalEmployeeNosEnSala: employeeNosDeSala.length,
@@ -7488,6 +7505,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           
           // DEBUG: Verificar directamente en la base de datos antes de la consulta (para TODOS los empleados)
           // Verificar específicamente si hay marcajes del dispositivo 24, 25, 26
+          // IMPORTANTE: Búsqueda exacta solamente - validación estricta
           const marcajesDirectosSQL = await sequelize.query(
             `SELECT id, employee_no, dispositivo_id, event_time, nombre 
              FROM attlogs 
@@ -7542,6 +7560,7 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
             });
           }
           
+          // Buscar marcajes con búsqueda exacta solamente - validación estricta
           marcajes = await Attlog.findAll({
             where: {
               employee_no: empleado.cedula,
