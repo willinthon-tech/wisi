@@ -7091,24 +7091,81 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
           if (empleado.id === empleadosFiltrados[0]?.id) {
             const dispositivosEnMapeados = [...new Set(marcajesMapeados.map(m => m.dispositivo_id).filter(id => id != null))];
             const marcajesDispositivo24Mapeados = marcajesMapeados.filter(m => m.dispositivo_id === 24);
+            const marcajesDispositivo25Mapeados = marcajesMapeados.filter(m => m.dispositivo_id === 25);
+            const marcajesDispositivo26Mapeados = marcajesMapeados.filter(m => m.dispositivo_id === 26);
+            
+            // Contar marcajes por dispositivo en los mapeados
+            const marcajesPorDispositivoMapeados = {};
+            marcajesMapeados.forEach(m => {
+              const devId = m.dispositivo_id;
+              if (devId != null) {
+                marcajesPorDispositivoMapeados[devId] = (marcajesPorDispositivoMapeados[devId] || 0) + 1;
+              }
+            });
+            
             console.log(`[DEBUG Backend] Marcajes MAPEADOS del primer empleado:`, {
               cantidadMarcajesMapeados: marcajesMapeados.length,
+              cantidadMarcajesOriginales: marcajes.length,
               dispositivosEnMapeados: dispositivosEnMapeados.sort((a, b) => a - b),
+              marcajesPorDispositivoMapeados: marcajesPorDispositivoMapeados,
               tieneDispositivo24: dispositivosEnMapeados.includes(24),
+              tieneDispositivo25: dispositivosEnMapeados.includes(25),
+              tieneDispositivo26: dispositivosEnMapeados.includes(26),
               marcajesDispositivo24: marcajesDispositivo24Mapeados.length,
-              muestraMarcajesDispositivo24: marcajesDispositivo24Mapeados.slice(0, 5)
+              marcajesDispositivo25: marcajesDispositivo25Mapeados.length,
+              marcajesDispositivo26: marcajesDispositivo26Mapeados.length,
+              muestraMarcajesDispositivo24: marcajesDispositivo24Mapeados.slice(0, 5),
+              muestraMarcajesDispositivo25: marcajesDispositivo25Mapeados.slice(0, 5),
+              muestraMarcajesDispositivo26: marcajesDispositivo26Mapeados.slice(0, 5)
             });
           }
           
           return empleado;
         }));
         
-        // DEBUG: Contar total de excepciones
+        // DEBUG: Contar total de excepciones y marcajes
         const totalExcepciones = empleadosConDatos.reduce((sum, emp) => sum + (emp.excepciones?.length || 0), 0);
-        console.log('[DEBUG Backend] Total excepciones en respuesta:', {
+        const totalMarcajes = empleadosConDatos.reduce((sum, emp) => sum + (emp.marcajes?.length || 0), 0);
+        
+        // Contar dispositivos en todos los marcajes devueltos
+        const todosDispositivosEnMarcajes = new Set();
+        empleadosConDatos.forEach(emp => {
+          if (emp.marcajes && Array.isArray(emp.marcajes)) {
+            emp.marcajes.forEach(m => {
+              if (m.dispositivo_id != null) {
+                todosDispositivosEnMarcajes.add(m.dispositivo_id);
+              }
+            });
+          }
+        });
+        
+        // Contar marcajes por dispositivo en TODOS los empleados
+        const marcajesPorDispositivoTotal = {};
+        empleadosConDatos.forEach(emp => {
+          if (emp.marcajes && Array.isArray(emp.marcajes)) {
+            emp.marcajes.forEach(m => {
+              const devId = m.dispositivo_id;
+              if (devId != null) {
+                marcajesPorDispositivoTotal[devId] = (marcajesPorDispositivoTotal[devId] || 0) + 1;
+              }
+            });
+          }
+        });
+        
+        console.log('[DEBUG Backend] Resumen TOTAL de respuesta:', {
           totalExcepciones,
+          totalMarcajes,
           cantidadEmpleados: empleadosConDatos.length,
-          empleadosConExcepciones: empleadosConDatos.filter(emp => emp.excepciones?.length > 0).length
+          empleadosConExcepciones: empleadosConDatos.filter(emp => emp.excepciones?.length > 0).length,
+          empleadosConMarcajes: empleadosConDatos.filter(emp => emp.marcajes?.length > 0).length,
+          todosDispositivosEnMarcajes: Array.from(todosDispositivosEnMarcajes).sort((a, b) => a - b),
+          marcajesPorDispositivoTotal: marcajesPorDispositivoTotal,
+          tieneDispositivo24: todosDispositivosEnMarcajes.has(24),
+          tieneDispositivo25: todosDispositivosEnMarcajes.has(25),
+          tieneDispositivo26: todosDispositivosEnMarcajes.has(26),
+          marcajesDispositivo24Total: marcajesPorDispositivoTotal[24] || 0,
+          marcajesDispositivo25Total: marcajesPorDispositivoTotal[25] || 0,
+          marcajesDispositivo26Total: marcajesPorDispositivoTotal[26] || 0
         });
         
         return res.json(empleadosConDatos);
