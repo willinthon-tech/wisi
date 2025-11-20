@@ -636,6 +636,7 @@ import { DispositivosService } from '../../../services/dispositivos.service';
                   <input type="date" 
                          id="primerDia"
                          [(ngModel)]="nuevoHorario.primer_dia"
+                         (ngModelChange)="onFormularioChange()"
                          [min]="fechaMinimaPermitida"
                          class="form-control">
                 </div>
@@ -643,8 +644,8 @@ import { DispositivosService } from '../../../services/dispositivos.service';
                   <label for="horarioSelect">Ciclo:</label>
                   <select id="horarioSelect"
                           [(ngModel)]="nuevoHorario.horario_id"
-                          class="form-control"
-                          (change)="cargarHorariosPorSala()">
+                          (ngModelChange)="onFormularioChange()"
+                          class="form-control">
                     <option value="">Seleccionar ciclo...</option>
                     <option *ngFor="let horario of horariosDisponibles" 
                             [value]="horario.id">
@@ -655,7 +656,7 @@ import { DispositivosService } from '../../../services/dispositivos.service';
                 <div class="form-group">
                   <button type="button" class="btn btn-primary" 
                           (click)="guardarHorarioEmpleado()"
-                          [disabled]="!nuevoHorario.primer_dia || !nuevoHorario.horario_id">
+                          [disabled]="!isFormularioHorarioValido()">
                     <i class="fas fa-save"></i> Guardar
                   </button>
                 </div>
@@ -9743,8 +9744,39 @@ export class MarcajePersonalComponent implements OnInit {
     
   }
 
+  onFormularioChange() {
+    // Forzar detección de cambios cuando cambian los valores del formulario
+    // Esto es necesario porque el change detection está desactivado para optimización
+    if (this.mostrarModal) {
+      this.cdr.detectChanges();
+    }
+  }
+
+  isFormularioHorarioValido(): boolean {
+    // Validar primer_dia: debe ser un string no vacío
+    const primerDia = this.nuevoHorario.primer_dia;
+    const primerDiaValido = !!primerDia && 
+                           typeof primerDia === 'string' &&
+                           primerDia.trim().length > 0;
+    
+    // Validar horario_id: puede ser número o string, pero debe tener un valor válido
+    // El select de Angular convierte los valores a string, pero verificamos ambos casos
+    const horarioId = this.nuevoHorario.horario_id;
+    let horarioIdValido = false;
+    
+    if (horarioId !== null && horarioId !== undefined) {
+      if (typeof horarioId === 'number') {
+        horarioIdValido = horarioId > 0;
+      } else if (typeof horarioId === 'string') {
+        horarioIdValido = horarioId.trim().length > 0 && horarioId !== '0';
+      }
+    }
+    
+    return primerDiaValido && horarioIdValido;
+  }
+
   guardarHorarioEmpleado() {
-    if (!this.nuevoHorario.primer_dia || !this.nuevoHorario.horario_id) {
+    if (!this.isFormularioHorarioValido()) {
       
       return;
     }
@@ -9784,8 +9816,10 @@ export class MarcajePersonalComponent implements OnInit {
         this.calcularFechaMinimaPermitida();
         
         this.resetearFormulario();
-        // Reflejar cambios en la vista principal
-        this.actualizarVistaPrincipal();
+        // Actualizar solo la modal después de guardar
+        this.cdr.detectChanges();
+        // Reflejar cambios en la vista principal de forma optimizada
+        this.actualizarVistaPrincipalOptimizado();
       },
       error: (error) => {
         
@@ -9844,7 +9878,10 @@ export class MarcajePersonalComponent implements OnInit {
           }
         }
         
-        this.actualizarVistaPrincipal();
+        // Actualizar solo la modal después de eliminar
+        this.cdr.detectChanges();
+        // Reflejar cambios en la vista principal de forma optimizada
+        this.actualizarVistaPrincipalOptimizado();
       },
       error: (error) => {
         
@@ -9945,6 +9982,44 @@ export class MarcajePersonalComponent implements OnInit {
 
     // El más reciente es el primero en la lista ordenada
     return horariosOrdenados[0]?.id === horarioId;
+  }
+
+  // Función optimizada para actualizar la vista principal cuando el modal está abierto
+  actualizarVistaPrincipalOptimizado() {
+    // Solo actualizar los datos del empleado en la lista principal sin recargar todo
+    if (this.empleadoSeleccionado?.id) {
+      const idx = this.empleados.findIndex(e => e.id === this.empleadoSeleccionado.id);
+      if (idx >= 0) {
+        this.empleados[idx] = {
+          ...this.empleados[idx],
+          horariosEmpleado: Array.isArray(this.horariosEmpleado) ? [...this.horariosEmpleado] : []
+        };
+      }
+      // Si existe en la lista filtrada, actualizar también la referencia
+      const idxF = this.empleadosFiltrados.findIndex(e => e.id === this.empleadoSeleccionado.id);
+      if (idxF >= 0) {
+        this.empleadosFiltrados[idxF] = {
+          ...this.empleadosFiltrados[idxF],
+          horariosEmpleado: Array.isArray(this.horariosEmpleado) ? [...this.horariosEmpleado] : []
+        };
+      }
+      
+      // Actualizar también en empleadosCompletos si existe
+      const idxC = this.empleadosCompletos.findIndex(e => e.id === this.empleadoSeleccionado.id);
+      if (idxC >= 0) {
+        this.empleadosCompletos[idxC] = {
+          ...this.empleadosCompletos[idxC],
+          horariosEmpleado: Array.isArray(this.horariosEmpleado) ? [...this.horariosEmpleado] : []
+        };
+      }
+      
+      // Limpiar caché del empleado para forzar recálculo cuando se cierre el modal
+      if (this.empleadoSeleccionado.id) {
+        this.limpiarCacheEmpleado(this.empleadoSeleccionado.id);
+      }
+    }
+    // NO regenerar días ni reagrupar mientras el modal está abierto para evitar recálculos masivos
+    // Esto se hará cuando se cierre el modal o cuando el usuario busque nuevamente
   }
 
   // Función para actualizar la vista principal después de modificar horarios
