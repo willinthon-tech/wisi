@@ -203,7 +203,44 @@ import { environment } from '../../../../environments/environment';
               </div>
               <div class="error-message">
                 <h4>{{ errorMessage }}</h4>
-                <p *ngIf="errorDetails">{{ errorDetails }}</p>
+                <p *ngIf="errorDetails" class="error-text">{{ errorDetails }}</p>
+                
+                <!-- Detalles del dispositivo -->
+                <div *ngIf="deviceErrorDetails" class="device-error-details">
+                  <h5>Detalles del Error del Dispositivo:</h5>
+                  <div class="error-details-grid">
+                    <div class="error-detail-item" *ngIf="deviceErrorDetails.statusCode">
+                      <span class="error-label">Código de Estado:</span>
+                      <span class="error-value">{{ deviceErrorDetails.statusCode }}</span>
+                    </div>
+                    <div class="error-detail-item" *ngIf="deviceErrorDetails.statusString">
+                      <span class="error-label">Estado:</span>
+                      <span class="error-value">{{ deviceErrorDetails.statusString }}</span>
+                    </div>
+                    <div class="error-detail-item" *ngIf="deviceErrorDetails.subStatusCode">
+                      <span class="error-label">Sub-Código:</span>
+                      <span class="error-value">{{ deviceErrorDetails.subStatusCode }}</span>
+                    </div>
+                    <div class="error-detail-item" *ngIf="deviceErrorDetails.errorCode">
+                      <span class="error-label">Código de Error:</span>
+                      <span class="error-value">{{ deviceErrorDetails.errorCode }}</span>
+                    </div>
+                    <div class="error-detail-item" *ngIf="deviceErrorDetails.errorMsg">
+                      <span class="error-label">Mensaje de Error:</span>
+                      <span class="error-value">{{ deviceErrorDetails.errorMsg }}</span>
+                    </div>
+                    <div class="error-detail-item" *ngIf="deviceErrorDetails.message">
+                      <span class="error-label">Mensaje:</span>
+                      <span class="error-value">{{ deviceErrorDetails.message }}</span>
+                    </div>
+                  </div>
+                  
+                  <!-- JSON completo (colapsable) -->
+                  <details class="error-json-details">
+                    <summary class="error-json-summary">Ver respuesta completa del dispositivo (JSON)</summary>
+                    <pre class="error-json-content">{{ getFormattedDeviceResponse() }}</pre>
+                  </details>
+                </div>
               </div>
             </div>
           </div>
@@ -680,6 +717,93 @@ import { environment } from '../../../../environments/environment';
     font-size: 14px;
     line-height: 1.5;
   }
+
+  .error-text {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  .device-error-details {
+    margin-top: 20px;
+    padding: 15px;
+    background: #fff;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+  }
+
+  .device-error-details h5 {
+    margin: 0 0 15px 0;
+    color: #dc3545;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .error-details-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+
+  .error-detail-item {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #dc3545;
+  }
+
+  .error-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+  }
+
+  .error-value {
+    color: #212529;
+    font-size: 14px;
+    word-break: break-word;
+  }
+
+  .error-json-details {
+    margin-top: 15px;
+    border-top: 1px solid #dee2e6;
+    padding-top: 15px;
+  }
+
+  .error-json-summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #007bff;
+    font-size: 14px;
+    padding: 8px;
+    background: #e7f3ff;
+    border-radius: 4px;
+    user-select: none;
+  }
+
+  .error-json-summary:hover {
+    background: #d0e7ff;
+  }
+
+  .error-json-content {
+    margin-top: 10px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
   `]
 })
 export class TareasListComponent implements OnInit {
@@ -698,6 +822,7 @@ export class TareasListComponent implements OnInit {
   showErrorModal = false;
   errorMessage = '';
   errorDetails = '';
+  deviceErrorDetails: any = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -841,12 +966,19 @@ export class TareasListComponent implements OnInit {
     this.showErrorModal = false;
     this.errorMessage = '';
     this.errorDetails = '';
+    this.deviceErrorDetails = null;
   }
 
-  showError(message: string, details: string = ''): void {
+  showError(message: string, details: string = '', deviceResponse?: any): void {
     this.errorMessage = message;
     this.errorDetails = details;
+    this.deviceErrorDetails = deviceResponse || null;
     this.showErrorModal = true;
+  }
+
+  getFormattedDeviceResponse(): string {
+    if (!this.deviceErrorDetails) return '';
+    return JSON.stringify(this.deviceErrorDetails, null, 2);
   }
 
 
@@ -865,14 +997,11 @@ export class TareasListComponent implements OnInit {
         // ❌ Error - Mostrar modal con la respuesta del dispositivo
         let errorDetails = resultado.message || 'Error desconocido';
         
-        // Si hay respuesta del dispositivo, incluirla en los detalles
-        if (resultado.deviceResponse) {
-          errorDetails += `\n\nRespuesta del dispositivo:\n${JSON.stringify(resultado.deviceResponse, null, 2)}`;
-        }
-        
+        // Mostrar error con detalles del dispositivo
         this.showError(
           'Error en la ejecución de la tarea',
-          errorDetails
+          errorDetails,
+          resultado.deviceResponse || null
         );
         
         // Resetear estados
@@ -883,7 +1012,8 @@ export class TareasListComponent implements OnInit {
       // ❌ Error de comunicación
       this.showError(
         'Error de comunicación con el dispositivo',
-        `No se pudo conectar con el dispositivo: ${error}`
+        `No se pudo conectar con el dispositivo: ${error}`,
+        null
       );
       
       // Resetear estados
@@ -1079,7 +1209,7 @@ export class TareasListComponent implements OnInit {
     for (const t of children) {
       const res = await this.comunicarConDispositivo(t);
       if (!res.success) {
-        this.showError('Error en la ejecución de la tarea', res.message || 'Error desconocido');
+        this.showError('Error en la ejecución de la tarea', res.message || 'Error desconocido', res.deviceResponse || null);
         throw new Error(res.message || 'Error ejecutando subtarea');
       }
       // Eliminar cada subtarea completada
