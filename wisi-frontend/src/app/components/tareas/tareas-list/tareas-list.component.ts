@@ -1068,16 +1068,24 @@ export class TareasListComponent implements OnInit {
       
       return {
         success: response.success || true,
-        message: response.message || `Tarea "${tarea.accion_realizar}" ejecutada correctamente en el dispositivo`
+        message: response.message || `Tarea "${tarea.accion_realizar}" ejecutada correctamente en el dispositivo`,
+        deviceResponse: response.deviceResponse || null
       };
       
     } catch (error: any) {
       // Manejar diferentes tipos de errores
       let errorMessage = 'Error desconocido';
+      let deviceResponse = null;
       
-      // Primero intentar obtener el mensaje del backend
-      if (error.error?.message) {
-        errorMessage = error.error.message;
+      // Primero intentar obtener el mensaje y deviceResponse del backend
+      if (error.error) {
+        if (error.error.message) {
+          errorMessage = error.error.message;
+        }
+        // Capturar deviceResponse del error del backend
+        if (error.error.deviceResponse) {
+          deviceResponse = error.error.deviceResponse;
+        }
       } else if (error.status === 401) {
         errorMessage = 'Error de autenticación: Credenciales inválidas';
       } else if (error.status === 404) {
@@ -1093,7 +1101,7 @@ export class TareasListComponent implements OnInit {
       return {
         success: false,
         message: errorMessage,
-        deviceResponse: error.deviceResponse || null
+        deviceResponse: deviceResponse
       };
     }
   }
