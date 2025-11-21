@@ -9505,8 +9505,8 @@ app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, 
       // Continuar aunque falle la eliminación (puede que no exista foto previa)
     }
     
-    // Subir la imagen al servidor PHP
-    const imageUrl = await subirImagenAlServidor(tarea.foto_empleado);
+    // Subir la imagen al servidor interno
+    const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
     if (!imageUrl) {
       return res.status(500).json({
         success: false,
@@ -9580,8 +9580,8 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
       
     }
     
-    // Luego agregar la nueva foto
-    const imageUrl = await subirImagenAlServidor(tarea.foto_empleado);
+    // Luego agregar la nueva foto (subir al servidor interno)
+    const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
     if (!imageUrl) {
       return res.status(500).json({
         success: false,
@@ -9883,32 +9883,19 @@ app.post('/api/tareas/dispositivo/eliminar-tarjeta', authenticateToken, async (r
 });
 
 // Función para subir imagen al servidor PHP
-async function subirImagenAlServidor(base64Image) {
+// ACTUALIZADA: Ahora usa el servidor interno
+async function subirImagenAlServidor(base64Image, cedula = null) {
   try {
-    // Convertir base64 a blob
-    const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
-    const byteCharacters = Buffer.from(base64Data, 'base64');
-    
-    // Crear FormData
-    const FormData = require('form-data');
-    const form = new FormData();
-    form.append('image', byteCharacters, {
-      filename: 'foto_empleado.jpg',
-      contentType: 'image/jpeg'
-    });
-    
-    // Enviar al servidor PHP
-    const axios = require('axios');
-    const response = await axios.post('http://hotelroraimainn.com/upload.php', form, {
-      headers: form.getHeaders()
-    });
-    
-    if (response.data && response.data.success && response.data.url) {
-      return response.data.url;
-    } else {
-      return null;
+    // Si se proporciona cédula, usar servidor interno
+    if (cedula) {
+      return await uploadImageToInternalServer(base64Image, cedula);
     }
+    
+    // Si no hay cédula, generar un ID único temporal
+    const tempCedula = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return await uploadImageToInternalServer(base64Image, tempCedula);
   } catch (error) {
+    console.error('Error en subirImagenAlServidor:', error);
     return null;
   }
 }
@@ -11485,110 +11472,94 @@ app.post('/api/hikvision/test-faceurl-limit', authenticateToken, async (req, res
 // Map para almacenar imágenes temporales con URLs cortas
 const tempImages = new Map();
 
-// Función para subir imagen a servidor PHP (eliminación automática en 5 minutos)
-async function uploadToPhpServer(base64Image) {
+// ==================== SERVIDOR INTERNO DE IMÁGENES ====================
+// Crear carpeta imguploadserver si no existe (compatible con Linux y Windows)
+const imguploadserverDir = path.join(__dirname, 'imguploadserver');
+if (!fs.existsSync(imguploadserverDir)) {
   try {
-    
-    
+    fs.mkdirSync(imguploadserverDir, { recursive: true, mode: 0o755 }); // Permisos para Linux
+  } catch (mkdirError) {
+    console.error('Error al crear carpeta imguploadserver:', mkdirError);
+  }
+}
+
+// Función interna para subir imagen (base64 -> guardar -> retornar URL)
+async function uploadImageToInternalServer(base64Image, cedula) {
+  try {
     // Remover el prefijo data:image/...;base64, del base64
     const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
     
     // Convertir base64 a Buffer
     const imageBuffer = Buffer.from(base64Data, 'base64');
     
+    // Limpiar la cédula para usarla como nombre de archivo (solo números y letras)
+    const cleanCedula = cedula.toString().replace(/[^a-zA-Z0-9]/g, '_');
+    const filename = `${cleanCedula}.jpg`;
+    const filePath = path.join(imguploadserverDir, filename);
     
+    // Guardar la imagen en el servidor
+    fs.writeFileSync(filePath, imageBuffer);
     
-    // Crear FormData usando el módulo form-data
-    const FormData = require('form-data');
-    const formData = new FormData();
-    
-    // Agregar el archivo directamente como Buffer
-    formData.append('image', imageBuffer, {
-      filename: 'image.jpg',
-      contentType: 'image/jpeg'
-    });
-    
-    
-    
-    // Usar axios en lugar de fetch para mejor compatibilidad
-    const axios = require('axios');
-    
-    const response = await axios.post('http://hotelroraimainn.com/upload.php', formData, {
-      headers: {
-        ...formData.getHeaders()
-      },
-      timeout: 30000 // 30 segundos timeout
-    });
-    
-    
-    
-    
-    
-    if (response.data && response.data.success && response.data.url) {
-      
-      
-      
-      
-      
-      
-      
-      return response.data.url;
-    } else {
-      
-      return null;
-    }
+    // Retornar URL pública
+    const publicURL = `https://wisi.space/imguploadserver/${filename}`;
+    return publicURL;
   } catch (error) {
-    
-    if (error.response) {
-      
-      
-      
-    }
+    console.error('Error al subir imagen al servidor interno:', error);
     return null;
   }
 }
 
-// Limpiar imágenes expiradas cada 5 minutos
-setInterval(() => {
-  const now = Date.now();
-  for (const [id, imageData] of tempImages.entries()) {
-    if (imageData.expires < now) {
-      tempImages.delete(id);
-      
+// Endpoint POST para subir imágenes
+app.post('/api/imguploadserver/upload', authenticateToken, async (req, res) => {
+  try {
+    const { imageBase64, cedula } = req.body;
+    
+    if (!imageBase64 || !cedula) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'imageBase64 y cedula son requeridos' 
+      });
     }
+    
+    const publicURL = await uploadImageToInternalServer(imageBase64, cedula);
+    
+    if (!publicURL) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'No se pudo subir la imagen al servidor interno' 
+      });
+    }
+    
+    res.json({
+      success: true,
+      url: publicURL
+    });
+  } catch (error) {
+    console.error('Error en endpoint de upload:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
-}, 5 * 60 * 1000); // 5 minutos
-
-// Ruta para servir imágenes temporales
-app.get('/img/:id', (req, res) => {
-  const imageId = req.params.id;
-  const imageData = tempImages.get(imageId);
-  
-  if (!imageData) {
-    return res.status(404).json({ error: 'Imagen no encontrada' });
-  }
-  
-  // Decodificar base64 y servir como imagen
-  const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-  const imageBuffer = Buffer.from(base64Data, 'base64');
-  
-  res.set('Content-Type', 'image/jpeg');
-  res.set('Cache-Control', 'no-cache');
-  res.send(imageBuffer);
 });
 
-// Ruta directa para servir imágenes de attlogs (SIN autenticación)
-app.get('/api/attlogs/:id', (req, res) => {
+// Endpoint GET para servir imágenes (SIN autenticación, similar a attlogs)
+app.get('/imguploadserver/:filename', (req, res) => {
   try {
-    const { id } = req.params;
-    const fs = require('fs');
-    const path = require('path');
-    const attlogsDir = path.join(__dirname, 'attlogs');
-    const imagePath = path.join(attlogsDir, `${id}.jpg`);
+    const { filename } = req.params;
     
-    if (fs.existsSync(imagePath)) {
+    // Validar que el filename solo contenga caracteres seguros
+    if (!/^[a-zA-Z0-9_]+\.jpg$/.test(filename)) {
+      return res.status(400).json({ 
+        message: 'Nombre de archivo inválido' 
+      });
+    }
+    
+    const filePath = path.join(imguploadserverDir, filename);
+    
+    if (fs.existsSync(filePath)) {
       // Si existe, enviar la imagen
-      const imageBuffer = fs.readFileSync(imagePath);
+      const imageBuffer = fs.readFileSync(filePath);
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Content-Length', imageBuffer.length);
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -11600,7 +11571,7 @@ app.get('/api/attlogs/:id', (req, res) => {
       // Si no existe, devolver 404
       res.status(404).json({ 
         message: 'Imagen no encontrada',
-        path: imagePath
+        path: filePath
       });
     }
   } catch (error) {
@@ -11610,6 +11581,23 @@ app.get('/api/attlogs/:id', (req, res) => {
     });
   }
 });
+
+// Función para subir imagen a servidor interno (reemplaza al servidor PHP externo)
+async function uploadToPhpServer(base64Image, cedula = null) {
+  try {
+    // Si se proporciona cédula, usar servidor interno
+    if (cedula) {
+      return await uploadImageToInternalServer(base64Image, cedula);
+    }
+    
+    // Si no hay cédula, generar un ID único temporal
+    const tempCedula = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return await uploadImageToInternalServer(base64Image, tempCedula);
+  } catch (error) {
+    console.error('Error en uploadToPhpServer:', error);
+    return null;
+  }
+}
 
 // ==================== ENDPOINTS DE CRON ====================
 
@@ -11972,13 +11960,13 @@ app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (re
     
     
     
-    // Subir imagen a servidor PHP y obtener URL temporal
-    const publicURL = await uploadToPhpServer(imageBase64);
+    // Subir imagen a servidor interno y obtener URL
+    const publicURL = await uploadToPhpServer(imageBase64, employeeNo);
     
     if (!publicURL) {
       return res.status(500).json({ 
         success: false, 
-        error: 'No se pudo subir la imagen al servidor PHP' 
+        error: 'No se pudo subir la imagen al servidor interno' 
       });
     }
     

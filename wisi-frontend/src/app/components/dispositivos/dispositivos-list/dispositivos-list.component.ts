@@ -3,12 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { HttpClient } from '@angular/common/http';
 import { DispositivosService } from '../../../services/dispositivos.service';
 import { AuthService } from '../../../services/auth.service';
 import { HikvisionIsapiService } from '../../../services/hikvision-isapi.service';
 import { XmlParserService } from '../../../services/xml-parser.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
+import { environment } from '../../../../environments/environment';
 
 // Estilos CSS para la modal de configuración CRON
 const cronModalStyles = `
@@ -738,7 +740,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
     private errorModalService: ErrorModalService,
-    private confirmModalService: ConfirmModalService
+    private confirmModalService: ConfirmModalService,
+    private http: HttpClient
   ) {}
 
   ngOnInit(): void {
@@ -1453,8 +1456,8 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
 
     this.photoLoading = true;
 
-    // Enviar foto al servidor PHP para obtener URL
-    this.uploadPhotoToPhpServer(this.selectedPhoto).then(photoUrl => {
+    // Enviar foto al servidor interno para obtener URL
+    this.uploadPhotoToPhpServer(this.selectedPhoto, this.editingUser?.employeeNo).then(photoUrl => {
       if (photoUrl) {
         
         
@@ -1499,37 +1502,28 @@ export class DispositivosListComponent implements OnInit, OnDestroy {
     });
   }
 
-  // Método para subir foto al servidor PHP
-  async uploadPhotoToPhpServer(base64Image: string): Promise<string | null> {
+  // Método para subir foto al servidor interno
+  async uploadPhotoToPhpServer(base64Image: string, cedula?: string): Promise<string | null> {
     try {
+      // Obtener la cédula del usuario actual si no se proporciona
+      const employeeNo = cedula || this.editingUser?.employeeNo || `temp_${Date.now()}`;
       
+      // Enviar al servidor interno
+      const response = await this.http.post<{success: boolean, url: string}>(
+        `${environment.apiUrl}/imguploadserver/upload`,
+        {
+          imageBase64: base64Image,
+          cedula: employeeNo
+        }
+      ).toPromise();
       
-      // Crear FormData
-      const formData = new FormData();
-      const blob = this.dataURLtoBlob(base64Image);
-      formData.append('image', blob, 'photo.jpg');
-      
-      // Enviar al servidor PHP
-      const response = await fetch('http://hotelroraimainn.com/upload.php', {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.url) {
-          
-          return result.url;
-          } else {
-          
-          return null;
-          }
-        } else {
-        
+      if (response && response.success && response.url) {
+        return response.url;
+      } else {
         return null;
       }
     } catch (error) {
-      
+      console.error('Error al subir imagen:', error);
       return null;
     }
   }
