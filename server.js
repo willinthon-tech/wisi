@@ -9505,16 +9505,19 @@ app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, 
       // Continuar aunque falle la eliminación (puede que no exista foto previa)
     }
     
-    // Subir la imagen al servidor interno
+    // Subir la imagen al servidor interno (base64 -> URL)
+    console.log(`[Agregar Foto] Subiendo imagen para cédula: ${tarea.numero_cedula_empleado}`);
     const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
     if (!imageUrl) {
+      console.error(`[Agregar Foto] Error: No se pudo subir la imagen para cédula ${tarea.numero_cedula_empleado}`);
       return res.status(500).json({
         success: false,
         message: 'Error al subir la imagen al servidor'
       });
     }
+    console.log(`[Agregar Foto] Imagen subida exitosamente. URL: ${imageUrl}`);
     
-    // Agregar la nueva foto al dispositivo
+    // Agregar la nueva foto al dispositivo usando la URL
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
     const method = 'POST';
@@ -9580,14 +9583,17 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
       
     }
     
-    // Luego agregar la nueva foto (subir al servidor interno)
+    // Luego agregar la nueva foto (subir al servidor interno: base64 -> URL)
+    console.log(`[Editar Foto] Subiendo nueva imagen para cédula: ${tarea.numero_cedula_empleado}`);
     const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
     if (!imageUrl) {
+      console.error(`[Editar Foto] Error: No se pudo subir la nueva imagen para cédula ${tarea.numero_cedula_empleado}`);
       return res.status(500).json({
         success: false,
         message: 'Error al subir la nueva imagen al servidor'
       });
     }
+    console.log(`[Editar Foto] Nueva imagen subida exitosamente. URL: ${imageUrl}`);
     
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
@@ -11486,11 +11492,39 @@ if (!fs.existsSync(imguploadserverDir)) {
 // Función interna para subir imagen (base64 -> guardar -> retornar URL)
 async function uploadImageToInternalServer(base64Image, cedula) {
   try {
-    // Remover el prefijo data:image/...;base64, del base64
-    const base64Data = base64Image.replace(/^data:image\/[a-z]+;base64,/, '');
+    if (!base64Image || typeof base64Image !== 'string') {
+      console.error('Error: base64Image no es válido');
+      return null;
+    }
+    
+    // Remover el prefijo data:image/...;base64, del base64 (si existe)
+    // Maneja tanto base64 con prefijo como sin prefijo
+    let base64Data = base64Image.trim();
+    if (base64Data.startsWith('data:image/')) {
+      // Si tiene prefijo, extraer solo la parte base64
+      const commaIndex = base64Data.indexOf(',');
+      if (commaIndex !== -1) {
+        base64Data = base64Data.substring(commaIndex + 1);
+      } else {
+        // Si tiene prefijo pero no tiene coma, remover solo el prefijo
+        base64Data = base64Data.replace(/^data:image\/[a-z]+;base64,?/, '');
+      }
+    }
+    
+    // Validar que el base64 no esté vacío
+    if (!base64Data || base64Data.length < 100) {
+      console.error('Error: base64Data está vacío o es muy corto');
+      return null;
+    }
     
     // Convertir base64 a Buffer
     const imageBuffer = Buffer.from(base64Data, 'base64');
+    
+    // Validar que el buffer no esté vacío
+    if (!imageBuffer || imageBuffer.length === 0) {
+      console.error('Error: No se pudo convertir base64 a Buffer');
+      return null;
+    }
     
     // Limpiar la cédula para usarla como nombre de archivo (solo números y letras)
     const cleanCedula = cedula.toString().replace(/[^a-zA-Z0-9]/g, '_');
@@ -11502,6 +11536,7 @@ async function uploadImageToInternalServer(base64Image, cedula) {
     
     // Retornar URL pública
     const publicURL = `https://wisi.space/imguploadserver/${filename}`;
+    console.log(`Imagen guardada exitosamente: ${publicURL}`);
     return publicURL;
   } catch (error) {
     console.error('Error al subir imagen al servidor interno:', error);
