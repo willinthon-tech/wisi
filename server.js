@@ -11534,9 +11534,22 @@ async function uploadImageToInternalServer(base64Image, cedula) {
     // Guardar la imagen en el servidor
     fs.writeFileSync(filePath, imageBuffer);
     
-    // Retornar URL pública
-    const publicURL = `https://wisi.space/imguploadserver/${filename}`;
-    console.log(`Imagen guardada exitosamente: ${publicURL}`);
+    // Verificar que el archivo se guardó correctamente
+    if (!fs.existsSync(filePath)) {
+      console.error(`Error: No se pudo verificar que el archivo se guardó: ${filePath}`);
+      return null;
+    }
+    
+    const fileStats = fs.statSync(filePath);
+    if (fileStats.size === 0) {
+      console.error(`Error: El archivo guardado está vacío: ${filePath}`);
+      return null;
+    }
+    
+    // Retornar URL pública (usar HTTP en lugar de HTTPS para compatibilidad con dispositivos)
+    // Algunos dispositivos Hikvision no pueden acceder a URLs HTTPS o no resuelven dominios
+    const publicURL = `http://wisi.space/imguploadserver/${filename}`;
+    console.log(`Imagen guardada exitosamente: ${publicURL} (Tamaño: ${fileStats.size} bytes)`);
     return publicURL;
   } catch (error) {
     console.error('Error al subir imagen al servidor interno:', error);
@@ -11578,7 +11591,7 @@ app.post('/api/imguploadserver/upload', authenticateToken, async (req, res) => {
   }
 });
 
-// Endpoint GET para servir imágenes (SIN autenticación, similar a attlogs)
+// Endpoint GET para servir imágenes (SIN autenticación, acceso público completo)
 app.get('/imguploadserver/:filename', (req, res) => {
   try {
     const { filename } = req.params;
@@ -11593,28 +11606,50 @@ app.get('/imguploadserver/:filename', (req, res) => {
     const filePath = path.join(imguploadserverDir, filename);
     
     if (fs.existsSync(filePath)) {
-      // Si existe, enviar la imagen
+      // Si existe, enviar la imagen con headers CORS completos para acceso público
       const imageBuffer = fs.readFileSync(filePath);
+      
+      // Headers CORS para permitir acceso desde cualquier origen
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
+      
+      // Headers de contenido
       res.setHeader('Content-Type', 'image/jpeg');
       res.setHeader('Content-Length', imageBuffer.length);
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      
+      // Headers de caché (no cachear para asegurar que siempre se obtenga la última versión)
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cachear por 1 hora pero permitir revalidación
+      res.setHeader('Pragma', 'public');
+      res.setHeader('Expires', new Date(Date.now() + 3600000).toUTCString());
+      
       res.send(imageBuffer);
     } else {
-      // Si no existe, devolver 404
+      // Si no existe, devolver 404 con headers CORS
+      res.setHeader('Access-Control-Allow-Origin', '*');
       res.status(404).json({ 
         message: 'Imagen no encontrada',
         path: filePath
       });
     }
   } catch (error) {
+    // Error con headers CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({ 
       message: 'Error interno del servidor',
       error: error.message 
     });
   }
+});
+
+// Endpoint OPTIONS para CORS preflight (necesario para algunos navegadores/dispositivos)
+app.options('/imguploadserver/:filename', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas
+  res.sendStatus(200);
 });
 
 // Función para subir imagen a servidor interno (reemplaza al servidor PHP externo)
