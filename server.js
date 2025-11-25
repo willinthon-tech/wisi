@@ -8626,12 +8626,41 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
 
     // Manejar dispositivos si se proporcionan
     if (dispositivos && dispositivos.length > 0) {
+      // Logging para depuración
+      console.log('Dispositivos recibidos en el servidor (POST):', {
+        empleadoId: empleado.id,
+        dispositivosRecibidos: dispositivos,
+        tipoDispositivos: typeof dispositivos,
+        esArray: Array.isArray(dispositivos)
+      });
+
+      // Obtener información de los dispositivos antes de insertar para logging
+      const dispositivosInfo = await sequelize.query(
+        'SELECT id, nombre FROM dispositivos WHERE id IN (?)',
+        {
+          replacements: [dispositivos],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      console.log('Dispositivos que se van a insertar (POST):', dispositivosInfo);
+
       for (const dispositivoId of dispositivos) {
+        const dispositivoIdNum = Number(dispositivoId);
         await sequelize.query(
           'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
-          { replacements: [empleado.id, dispositivoId] }
+          { replacements: [empleado.id, dispositivoIdNum] }
         );
       }
+
+      // Verificar qué se insertó realmente
+      const dispositivosInsertados = await sequelize.query(
+        'SELECT ed.dispositivo_id, d.nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ?',
+        {
+          replacements: [empleado.id],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      console.log('Dispositivos insertados en la BD (POST):', dispositivosInsertados);
     }
 
     // Obtener el empleado con sus relaciones
@@ -8667,6 +8696,42 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
         }
       ]
     });
+
+    // Obtener las salas del usuario logueado para filtrar dispositivos
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Salas',
+          attributes: ['id']
+        }
+      ]
+    });
+
+    // Agregar dispositivos al empleado completo
+    if (user && user.Salas && user.Salas.length > 0) {
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      const dispositivos = await sequelize.query(
+        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?)',
+        {
+          replacements: [empleado.id, userSalaIds],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      empleadoCompleto.dataValues.dispositivos = dispositivos;
+    } else if (req.user.usuario === 'willinthon') {
+      // Para el usuario willinthon, obtener todos los dispositivos sin filtrar por sala
+      const dispositivos = await sequelize.query(
+        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+        {
+          replacements: [empleado.id],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      empleadoCompleto.dataValues.dispositivos = dispositivos;
+    } else {
+      empleadoCompleto.dataValues.dispositivos = [];
+    }
 
     res.status(201).json(empleadoCompleto);
   } catch (error) {
@@ -8753,6 +8818,14 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
 
     // Manejar dispositivos si se proporcionan
     if (dispositivos !== undefined) {
+      // Logging para depuración
+      console.log('Dispositivos recibidos en el servidor:', {
+        empleadoId: id,
+        dispositivosRecibidos: dispositivos,
+        tipoDispositivos: typeof dispositivos,
+        esArray: Array.isArray(dispositivos)
+      });
+
       // Eliminar todas las relaciones existentes
       await sequelize.query('DELETE FROM empleado_dispositivos WHERE empleado_id = ?', {
         replacements: [id]
@@ -8760,12 +8833,33 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
 
       // Crear nuevas relaciones si se proporcionan dispositivos
       if (dispositivos && dispositivos.length > 0) {
+        // Obtener información de los dispositivos antes de insertar para logging
+        const dispositivosInfo = await sequelize.query(
+          'SELECT id, nombre FROM dispositivos WHERE id IN (?)',
+          {
+            replacements: [dispositivos],
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+        console.log('Dispositivos que se van a insertar:', dispositivosInfo);
+
         for (const dispositivoId of dispositivos) {
+          const dispositivoIdNum = Number(dispositivoId);
           await sequelize.query(
             'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
-            { replacements: [id, dispositivoId] }
+            { replacements: [id, dispositivoIdNum] }
           );
         }
+
+        // Verificar qué se insertó realmente
+        const dispositivosInsertados = await sequelize.query(
+          'SELECT ed.dispositivo_id, d.nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ?',
+          {
+            replacements: [id],
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+        console.log('Dispositivos insertados en la BD:', dispositivosInsertados);
       }
     }
 
@@ -8797,6 +8891,42 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
         }
       ]
     });
+
+    // Obtener las salas del usuario logueado para filtrar dispositivos
+    const user = await User.findByPk(req.user.id, {
+      include: [
+        {
+          model: Sala,
+          as: 'Salas',
+          attributes: ['id']
+        }
+      ]
+    });
+
+    // Agregar dispositivos al empleado actualizado
+    if (user && user.Salas && user.Salas.length > 0) {
+      const userSalaIds = user.Salas.map(sala => sala.id);
+      const dispositivos = await sequelize.query(
+        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?)',
+        {
+          replacements: [id, userSalaIds],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      empleadoActualizado.dataValues.dispositivos = dispositivos;
+    } else if (req.user.usuario === 'willinthon') {
+      // Para el usuario willinthon, obtener todos los dispositivos sin filtrar por sala
+      const dispositivos = await sequelize.query(
+        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+        {
+          replacements: [id],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      empleadoActualizado.dataValues.dispositivos = dispositivos;
+    } else {
+      empleadoActualizado.dataValues.dispositivos = [];
+    }
 
     res.json(empleadoActualizado);
   } catch (error) {
