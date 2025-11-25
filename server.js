@@ -9183,40 +9183,66 @@ app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res)
       marcaje_empleado_fin_dispositivo
     } = req.body;
 
-    // Usar SQLite directamente para evitar problemas con Sequelize
-    const sqlite3 = require('sqlite3').verbose();
-    const db = new sqlite3.Database('./database.sqlite');
-    
-    const result = await new Promise((resolve, reject) => {
-      db.run(
-        `INSERT INTO tareas_dispositivo_usuarios (
-          user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
-          nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
-          usuario_login_dispositivo, clave_login_dispositivo, accion_realizar, 
-          marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
-          nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
-          usuario_login_dispositivo, clave_login_dispositivo, accion_realizar,
-          marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
-        ],
-        function(err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({ id: this.lastID });
-          }
-        }
-      );
+    // Logging para depuración
+    console.log('Creando tarea:', {
+      accion: accion_realizar,
+      empleado: nombre_empleado,
+      cedula: numero_cedula_empleado,
+      dispositivo_ip_publica: ip_publica_dispositivo,
+      dispositivo_ip_local: ip_local_dispositivo,
+      nombre_dispositivo: req.body.nombre_dispositivo || 'N/A'
     });
-    
-    db.close();
 
-    res.status(201).json({ 
-      message: 'Tarea creada correctamente',
-      id: result.id
-    });
+    // Usar Sequelize con retry para manejar SQLITE_BUSY
+    let retries = 3;
+    let lastError = null;
+    
+    while (retries > 0) {
+      try {
+        const result = await sequelize.query(
+          `INSERT INTO tareas_dispositivo_usuarios (
+            user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
+            nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
+            usuario_login_dispositivo, clave_login_dispositivo, accion_realizar, 
+            marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          {
+            replacements: [
+              user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
+              nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
+              usuario_login_dispositivo, clave_login_dispositivo, accion_realizar,
+              marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
+            ],
+            type: sequelize.QueryTypes.INSERT
+          }
+        );
+
+        // Obtener el ID insertado
+        const insertedId = result[0] || result;
+
+        res.status(201).json({ 
+          message: 'Tarea creada correctamente',
+          id: insertedId
+        });
+        return; // Salir del loop si fue exitoso
+      } catch (error) {
+        lastError = error;
+        
+        // Si es SQLITE_BUSY y hay reintentos disponibles, esperar y reintentar
+        if ((error.code === 'SQLITE_BUSY' || error.message?.includes('SQLITE_BUSY')) && retries > 1) {
+          retries--;
+          console.log(`SQLITE_BUSY detectado, reintentando... (${retries} intentos restantes)`);
+          await new Promise(resolve => setTimeout(resolve, 100 * (4 - retries))); // Backoff exponencial
+          continue;
+        }
+        
+        // Si no es SQLITE_BUSY o se agotaron los reintentos, lanzar el error
+        throw error;
+      }
+    }
+    
+    // Si llegamos aquí, se agotaron los reintentos
+    throw lastError;
   } catch (error) {
     
     
@@ -10725,20 +10751,45 @@ app.post('/api/dispositivos/by-ids', authenticateToken, async (req, res) => {
       return res.status(400).json({ message: 'IDs de dispositivos requeridos' });
     }
 
+    // Normalizar IDs a números
+    const idsNormalizados = ids.map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
+    
+    console.log('Dispositivos solicitados por IDs:', {
+      idsRecibidos: ids,
+      idsNormalizados: idsNormalizados
+    });
+
     const dispositivos = await Dispositivo.findAll({
       where: { 
-        id: { [Op.in]: ids }},
+        id: { [Op.in]: idsNormalizados }},
       include: [
         {
           model: Sala,
           as: 'Sala'
         }
-      ]
+      ],
+      order: [['id', 'ASC']]
     });
 
-    res.json(dispositivos);
+    // Crear un mapa de dispositivos por ID para mantener el orden solicitado
+    const dispositivosMap = {};
+    dispositivos.forEach(d => {
+      dispositivosMap[d.id] = d;
+    });
+
+    // Ordenar los dispositivos según el orden de los IDs solicitados
+    const dispositivosOrdenados = idsNormalizados
+      .map(id => dispositivosMap[id])
+      .filter(d => d !== undefined); // Filtrar dispositivos no encontrados
+
+    console.log('Dispositivos devueltos:', {
+      idsSolicitados: idsNormalizados,
+      dispositivosEncontrados: dispositivosOrdenados.map(d => ({ id: d.id, nombre: d.nombre, ip_remota: d.ip_remota, ip_local: d.ip_local }))
+    });
+
+    res.json(dispositivosOrdenados);
   } catch (error) {
-    
+    console.error('Error al obtener dispositivos por IDs:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

@@ -3553,12 +3553,29 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // Obtener información de los dispositivos
+      console.log('Solicitando dispositivos para crear tareas (nuevo empleado):', {
+        dispositivosIds: dispositivosIds,
+        empleadoId: empleado.id,
+        empleadoNombre: empleado.nombre
+      });
+      
       const dispositivos = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds));
       
+      console.log('Dispositivos obtenidos para crear tareas (nuevo empleado):', {
+        idsSolicitados: dispositivosIds,
+        dispositivosRecibidos: dispositivos.map(d => ({ id: d.id, nombre: d.nombre, ip_remota: d.ip_remota, ip_local: d.ip_local }))
+      });
 
       if (!dispositivos || dispositivos.length === 0) {
-        
+        console.error('No se obtuvieron dispositivos para crear tareas');
         return;
+      }
+
+      // Validar que los dispositivos obtenidos corresponden a los IDs solicitados
+      const dispositivosIdsObtenidos = dispositivos.map(d => Number(d.id));
+      const dispositivosFaltantes = dispositivosIds.filter(id => !dispositivosIdsObtenidos.includes(id));
+      if (dispositivosFaltantes.length > 0) {
+        console.error('ERROR: Algunos dispositivos no se encontraron:', dispositivosFaltantes);
       }
 
       // Obtener ID del usuario logueado
@@ -3602,7 +3619,20 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       const tareas = [];
       if (dispositivos && dispositivos.length > 0) {
         for (const dispositivo of dispositivos) {
+          // Validar que el dispositivo tiene los datos necesarios
+          if (!dispositivo.id || !dispositivo.nombre) {
+            console.error('ERROR: Dispositivo inválido encontrado:', dispositivo);
+            continue;
+          }
           
+          console.log('Creando tareas para dispositivo (nuevo empleado):', {
+            id: dispositivo.id,
+            nombre: dispositivo.nombre,
+            ip_remota: dispositivo.ip_remota,
+            ip_local: dispositivo.ip_local,
+            empleadoId: empleado.id,
+            empleadoNombre: empleado.nombre
+          });
           
           // Obtener área y departamento (la estructura puede variar según el backend)
           // Estructura correcta: Cargo -> Area -> Departamento -> Sala
@@ -3637,6 +3667,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             marcaje_empleado_inicio_dispositivo: dispositivo.marcaje_inicio || '',
             marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
           };
+          
+          console.log('Tarea Usuario creada:', {
+            dispositivo_id: dispositivo.id,
+            dispositivo_nombre: dispositivo.nombre,
+            ip_publica: tareaUsuario.ip_publica_dispositivo,
+            ip_local: tareaUsuario.ip_local_dispositivo,
+            accion: tareaUsuario.accion_realizar
+          });
           
           tareas.push(tareaUsuario);
 
@@ -3741,6 +3779,18 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         
         return;
       }
+
+      // Logging antes de enviar las tareas
+      console.log('Tareas que se van a crear (nuevo empleado):', {
+        cantidad: tareas.length,
+        tareas: tareas.map(t => ({
+          accion: t.accion_realizar,
+          dispositivo_nombre: t.nombre_dispositivo,
+          ip_publica: t.ip_publica_dispositivo,
+          ip_local: t.ip_local_dispositivo,
+          empleado: t.nombre_empleado
+        }))
+      });
 
       // Crear todas las tareas
       const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));
@@ -4083,10 +4133,26 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       // 2. Crear tareas de AGREGAR para dispositivos nuevos
       if (dispositivosQueSeAgregan.length > 0) {
         
+        console.log('Solicitando dispositivos para crear tareas (editar empleado - agregar):', {
+          dispositivosIds: dispositivosQueSeAgregan,
+          empleadoId: empleado.id,
+          empleadoNombre: empleado.nombre
+        });
+        
         const dispositivosData = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosQueSeAgregan));
         
+        console.log('Dispositivos obtenidos para crear tareas (editar empleado - agregar):', {
+          idsSolicitados: dispositivosQueSeAgregan,
+          dispositivosRecibidos: dispositivosData.map(d => ({ id: d.id, nombre: d.nombre, ip_remota: d.ip_remota, ip_local: d.ip_local }))
+        });
         
         if (dispositivosData && dispositivosData.length > 0) {
+          // Validar que los dispositivos obtenidos corresponden a los IDs solicitados
+          const dispositivosIdsObtenidos = dispositivosData.map(d => Number(d.id));
+          const dispositivosFaltantes = dispositivosQueSeAgregan.filter(id => !dispositivosIdsObtenidos.includes(id));
+          if (dispositivosFaltantes.length > 0) {
+            console.error('ERROR: Algunos dispositivos no se encontraron al agregar:', dispositivosFaltantes);
+          }
           // Obtener área y departamento (la estructura puede variar según el backend)
           const nombreArea = empleado.Cargo?.Area?.nombre || '';
           const nombreDepartamento = empleado.Cargo?.Area?.Departamento?.nombre || '';
@@ -4345,7 +4411,17 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         return;
       }
 
-      
+      // Logging antes de enviar las tareas
+      console.log('Tareas que se van a crear (editar empleado):', {
+        cantidad: tareas.length,
+        tareas: tareas.map(t => ({
+          accion: t.accion_realizar,
+          dispositivo_nombre: t.nombre_dispositivo,
+          ip_publica: t.ip_publica_dispositivo,
+          ip_local: t.ip_local_dispositivo,
+          empleado: t.nombre_empleado
+        }))
+      });
       
       // Crear todas las tareas
       const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));
