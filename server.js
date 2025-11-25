@@ -8340,7 +8340,7 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
       // Agregar dispositivos a cada empleado para usuarios TODO
       for (let empleado of empleados) {
         const dispositivos = await sequelize.query(
-          'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+          'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id',
           {
             replacements: [empleado.id],
             type: sequelize.QueryTypes.SELECT
@@ -8402,7 +8402,7 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
     // Agregar dispositivos a cada empleado
     for (let empleado of empleados) {
       const dispositivos = await sequelize.query(
-        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?)',
+        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id',
         {
           replacements: [empleado.id, userSalaIds],
           type: sequelize.QueryTypes.SELECT
@@ -8472,7 +8472,7 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
       // Agregar dispositivos a cada empleado para usuarios TODO
       for (let empleado of empleados) {
         const dispositivos = await sequelize.query(
-          'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+          'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id',
           {
             replacements: [empleado.id],
             type: sequelize.QueryTypes.SELECT
@@ -8531,7 +8531,7 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
     // Agregar dispositivos a cada empleado
     for (let empleado of empleados) {
       const dispositivos = await sequelize.query(
-        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?)',
+        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id',
         {
           replacements: [empleado.id, userSalaIds],
           type: sequelize.QueryTypes.SELECT
@@ -8634,27 +8634,50 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
         esArray: Array.isArray(dispositivos)
       });
 
+      // Normalizar y validar IDs de dispositivos
+      const dispositivosIdsNormalizados = dispositivos
+        .map(id => Number(id))
+        .filter(id => !isNaN(id) && id > 0)
+        .filter((id, index, self) => self.indexOf(id) === index); // Eliminar duplicados
+
       // Obtener información de los dispositivos antes de insertar para logging
       const dispositivosInfo = await sequelize.query(
-        'SELECT id, nombre FROM dispositivos WHERE id IN (?)',
+        'SELECT id, nombre, ip_local, ip_remota FROM dispositivos WHERE id IN (?)',
         {
-          replacements: [dispositivos],
+          replacements: [dispositivosIdsNormalizados],
           type: sequelize.QueryTypes.SELECT
         }
       );
-      console.log('Dispositivos que se van a insertar (POST):', dispositivosInfo);
+      console.log('Dispositivos que se van a insertar (POST):', {
+        idsRecibidos: dispositivos,
+        idsNormalizados: dispositivosIdsNormalizados,
+        dispositivosInfo: dispositivosInfo
+      });
 
-      for (const dispositivoId of dispositivos) {
-        const dispositivoIdNum = Number(dispositivoId);
-        await sequelize.query(
-          'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
-          { replacements: [empleado.id, dispositivoIdNum] }
-        );
+      // Verificar que todos los dispositivos existen
+      const dispositivosExistentesIds = dispositivosInfo.map(d => d.id);
+      const dispositivosNoEncontrados = dispositivosIdsNormalizados.filter(id => !dispositivosExistentesIds.includes(id));
+      
+      if (dispositivosNoEncontrados.length > 0) {
+        console.error('ERROR: Algunos dispositivos no se encontraron en la BD:', dispositivosNoEncontrados);
+      }
+
+      // Insertar solo los dispositivos que existen
+      for (const dispositivoId of dispositivosIdsNormalizados) {
+        // Verificar que el dispositivo existe antes de insertar
+        if (dispositivosExistentesIds.includes(dispositivoId)) {
+          await sequelize.query(
+            'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
+            { replacements: [empleado.id, dispositivoId] }
+          );
+        } else {
+          console.error(`ERROR: Intento de insertar dispositivo inexistente ID ${dispositivoId} para empleado ${empleado.id}`);
+        }
       }
 
       // Verificar qué se insertó realmente
       const dispositivosInsertados = await sequelize.query(
-        'SELECT ed.dispositivo_id, d.nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ?',
+        'SELECT ed.dispositivo_id, d.id, d.nombre, d.ip_local, d.ip_remota FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ? ORDER BY d.id',
         {
           replacements: [empleado.id],
           type: sequelize.QueryTypes.SELECT
@@ -8712,17 +8735,21 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
     if (user && user.Salas && user.Salas.length > 0) {
       const userSalaIds = user.Salas.map(sala => sala.id);
       const dispositivos = await sequelize.query(
-        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?)',
+        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id',
         {
           replacements: [empleado.id, userSalaIds],
           type: sequelize.QueryTypes.SELECT
         }
       );
+      console.log('Dispositivos recuperados para empleado (POST):', {
+        empleadoId: empleado.id,
+        dispositivos: dispositivos
+      });
       empleadoCompleto.dataValues.dispositivos = dispositivos;
     } else if (req.user.usuario === 'willinthon') {
       // Para el usuario willinthon, obtener todos los dispositivos sin filtrar por sala
       const dispositivos = await sequelize.query(
-        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id',
         {
           replacements: [empleado.id],
           type: sequelize.QueryTypes.SELECT
@@ -8833,33 +8860,56 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
 
       // Crear nuevas relaciones si se proporcionan dispositivos
       if (dispositivos && dispositivos.length > 0) {
+        // Normalizar y validar IDs de dispositivos
+        const dispositivosIdsNormalizados = dispositivos
+          .map(id => Number(id))
+          .filter(id => !isNaN(id) && id > 0)
+          .filter((id, index, self) => self.indexOf(id) === index); // Eliminar duplicados
+
         // Obtener información de los dispositivos antes de insertar para logging
         const dispositivosInfo = await sequelize.query(
-          'SELECT id, nombre FROM dispositivos WHERE id IN (?)',
+          'SELECT id, nombre, ip_local, ip_remota FROM dispositivos WHERE id IN (?)',
           {
-            replacements: [dispositivos],
+            replacements: [dispositivosIdsNormalizados],
             type: sequelize.QueryTypes.SELECT
           }
         );
-        console.log('Dispositivos que se van a insertar:', dispositivosInfo);
+        console.log('Dispositivos que se van a insertar (PUT):', {
+          idsRecibidos: dispositivos,
+          idsNormalizados: dispositivosIdsNormalizados,
+          dispositivosInfo: dispositivosInfo
+        });
 
-        for (const dispositivoId of dispositivos) {
-          const dispositivoIdNum = Number(dispositivoId);
-          await sequelize.query(
-            'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
-            { replacements: [id, dispositivoIdNum] }
-          );
+        // Verificar que todos los dispositivos existen
+        const dispositivosExistentesIds = dispositivosInfo.map(d => d.id);
+        const dispositivosNoEncontrados = dispositivosIdsNormalizados.filter(id => !dispositivosExistentesIds.includes(id));
+        
+        if (dispositivosNoEncontrados.length > 0) {
+          console.error('ERROR: Algunos dispositivos no se encontraron en la BD:', dispositivosNoEncontrados);
+        }
+
+        // Insertar solo los dispositivos que existen
+        for (const dispositivoId of dispositivosIdsNormalizados) {
+          // Verificar que el dispositivo existe antes de insertar
+          if (dispositivosExistentesIds.includes(dispositivoId)) {
+            await sequelize.query(
+              'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
+              { replacements: [id, dispositivoId] }
+            );
+          } else {
+            console.error(`ERROR: Intento de insertar dispositivo inexistente ID ${dispositivoId} para empleado ${id}`);
+          }
         }
 
         // Verificar qué se insertó realmente
         const dispositivosInsertados = await sequelize.query(
-          'SELECT ed.dispositivo_id, d.nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ?',
+          'SELECT ed.dispositivo_id, d.id, d.nombre, d.ip_local, d.ip_remota FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ? ORDER BY d.id',
           {
             replacements: [id],
             type: sequelize.QueryTypes.SELECT
           }
         );
-        console.log('Dispositivos insertados en la BD:', dispositivosInsertados);
+        console.log('Dispositivos insertados en la BD (PUT):', dispositivosInsertados);
       }
     }
 
@@ -8907,7 +8957,7 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
     if (user && user.Salas && user.Salas.length > 0) {
       const userSalaIds = user.Salas.map(sala => sala.id);
       const dispositivos = await sequelize.query(
-        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?)',
+        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id',
         {
           replacements: [id, userSalaIds],
           type: sequelize.QueryTypes.SELECT
@@ -8917,7 +8967,7 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
     } else if (req.user.usuario === 'willinthon') {
       // Para el usuario willinthon, obtener todos los dispositivos sin filtrar por sala
       const dispositivos = await sequelize.query(
-        'SELECT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ?',
+        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id',
         {
           replacements: [id],
           type: sequelize.QueryTypes.SELECT
