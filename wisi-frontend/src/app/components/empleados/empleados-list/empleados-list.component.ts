@@ -1725,11 +1725,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         };
       });
       
-      console.log('Dispositivos que se enviarán al servidor:', {
-        idsOriginales: form.dispositivos,
-        idsNormalizados: dispositivosNormalizados,
-        dispositivos: dispositivosConNombres
-      });
     }
     
     const data = {
@@ -2195,11 +2190,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
     
     // Validar que el dispositivo existe en la lista disponible
     if (!dispositivoInfo) {
-      console.error('Error: Intento de agregar dispositivo que no existe en la lista disponible', {
-        dispositivoIdRecibido: dispositivoId,
-        dispositivoIdNum: dispositivoIdNum,
-        dispositivosDisponibles: this.userDispositivos.map(d => ({ id: d.id, nombre: d.nombre }))
-      });
+     
       return;
     }
     
@@ -2208,22 +2199,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       const yaExiste = this.nuevoEmpleado.dispositivos.some(id => Number(id) === dispositivoIdNum);
       if (!yaExiste) {
         this.nuevoEmpleado.dispositivos.push(dispositivoIdNum);
-        console.log('Dispositivo agregado:', {
-          id: dispositivoIdNum,
-          nombre: dispositivoInfo.nombre,
-          dispositivosSeleccionados: this.nuevoEmpleado.dispositivos
-        });
+       
       }
     } else {
       // Remover dispositivo
       this.nuevoEmpleado.dispositivos = this.nuevoEmpleado.dispositivos.filter(
         id => Number(id) !== dispositivoIdNum
       );
-      console.log('Dispositivo removido:', {
-        id: dispositivoIdNum,
-        nombre: dispositivoInfo.nombre,
-        dispositivosSeleccionados: this.nuevoEmpleado.dispositivos
-      });
+      
     }
     
     // Detectar cambios
@@ -3508,7 +3491,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       const base = getBase(t.accion_realizar);
       const key = [
         t.numero_cedula_empleado,
-        t.nombre_dispositivo || t.ip_local_dispositivo || t.ip_publica_dispositivo || t.nombre_sala,
+        t.ip_publica_dispositivo,
         base
       ].join('|');
       if (!grupos[key]) grupos[key] = [];
@@ -3553,21 +3536,14 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // Obtener información de los dispositivos
-      console.log('Solicitando dispositivos para crear tareas (nuevo empleado):', {
-        dispositivosIds: dispositivosIds,
-        empleadoId: empleado.id,
-        empleadoNombre: empleado.nombre
-      });
+     
       
       const dispositivos = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosIds));
       
-      console.log('Dispositivos obtenidos para crear tareas (nuevo empleado):', {
-        idsSolicitados: dispositivosIds,
-        dispositivosRecibidos: dispositivos.map(d => ({ id: d.id, nombre: d.nombre, ip_remota: d.ip_remota, ip_local: d.ip_local }))
-      });
+    
 
       if (!dispositivos || dispositivos.length === 0) {
-        console.error('No se obtuvieron dispositivos para crear tareas');
+      
         return;
       }
 
@@ -3575,7 +3551,6 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       const dispositivosIdsObtenidos = dispositivos.map(d => Number(d.id));
       const dispositivosFaltantes = dispositivosIds.filter(id => !dispositivosIdsObtenidos.includes(id));
       if (dispositivosFaltantes.length > 0) {
-        console.error('ERROR: Algunos dispositivos no se encontraron:', dispositivosFaltantes);
       }
 
       // Obtener ID del usuario logueado
@@ -3621,18 +3596,10 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         for (const dispositivo of dispositivos) {
           // Validar que el dispositivo tiene los datos necesarios
           if (!dispositivo.id || !dispositivo.nombre) {
-            console.error('ERROR: Dispositivo inválido encontrado:', dispositivo);
             continue;
           }
           
-          console.log('Creando tareas para dispositivo (nuevo empleado):', {
-            id: dispositivo.id,
-            nombre: dispositivo.nombre,
-            ip_remota: dispositivo.ip_remota,
-            ip_local: dispositivo.ip_local,
-            empleadoId: empleado.id,
-            empleadoNombre: empleado.nombre
-          });
+         
           
           // Obtener área y departamento (la estructura puede variar según el backend)
           // Estructura correcta: Cargo -> Area -> Departamento -> Sala
@@ -3668,14 +3635,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
             marcaje_empleado_fin_dispositivo: dispositivo.marcaje_fin || ''
           };
           
-          console.log('Tarea Usuario creada:', {
-            dispositivo_id: dispositivo.id,
-            dispositivo_nombre: dispositivo.nombre,
-            ip_publica: tareaUsuario.ip_publica_dispositivo,
-            ip_local: tareaUsuario.ip_local_dispositivo,
-            accion: tareaUsuario.accion_realizar
-          });
-          
+         
           tareas.push(tareaUsuario);
 
           // Tarea 2: Agregar Foto (Solo Biométrico)
@@ -3780,17 +3740,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Logging antes de enviar las tareas
-      console.log('Tareas que se van a crear (nuevo empleado):', {
-        cantidad: tareas.length,
-        tareas: tareas.map(t => ({
-          accion: t.accion_realizar,
-          dispositivo_nombre: t.nombre_dispositivo,
-          ip_publica: t.ip_publica_dispositivo,
-          ip_local: t.ip_local_dispositivo,
-          empleado: t.nombre_empleado
-        }))
-      });
+     
 
       // Crear todas las tareas
       const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));
@@ -4133,25 +4083,16 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       // 2. Crear tareas de AGREGAR para dispositivos nuevos
       if (dispositivosQueSeAgregan.length > 0) {
         
-        console.log('Solicitando dispositivos para crear tareas (editar empleado - agregar):', {
-          dispositivosIds: dispositivosQueSeAgregan,
-          empleadoId: empleado.id,
-          empleadoNombre: empleado.nombre
-        });
+      
         
         const dispositivosData = await firstValueFrom(this.tareasAutomaticasService.getDispositivosByIds(dispositivosQueSeAgregan));
-        
-        console.log('Dispositivos obtenidos para crear tareas (editar empleado - agregar):', {
-          idsSolicitados: dispositivosQueSeAgregan,
-          dispositivosRecibidos: dispositivosData.map(d => ({ id: d.id, nombre: d.nombre, ip_remota: d.ip_remota, ip_local: d.ip_local }))
-        });
+      
         
         if (dispositivosData && dispositivosData.length > 0) {
           // Validar que los dispositivos obtenidos corresponden a los IDs solicitados
           const dispositivosIdsObtenidos = dispositivosData.map(d => Number(d.id));
           const dispositivosFaltantes = dispositivosQueSeAgregan.filter(id => !dispositivosIdsObtenidos.includes(id));
           if (dispositivosFaltantes.length > 0) {
-            console.error('ERROR: Algunos dispositivos no se encontraron al agregar:', dispositivosFaltantes);
           }
           // Obtener área y departamento (la estructura puede variar según el backend)
           const nombreArea = empleado.Cargo?.Area?.nombre || '';
@@ -4412,16 +4353,7 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
       }
 
       // Logging antes de enviar las tareas
-      console.log('Tareas que se van a crear (editar empleado):', {
-        cantidad: tareas.length,
-        tareas: tareas.map(t => ({
-          accion: t.accion_realizar,
-          dispositivo_nombre: t.nombre_dispositivo,
-          ip_publica: t.ip_publica_dispositivo,
-          ip_local: t.ip_local_dispositivo,
-          empleado: t.nombre_empleado
-        }))
-      });
+     
       
       // Crear todas las tareas
       const resultados = await firstValueFrom(this.tareasAutomaticasService.createMultipleTareas(tareas));

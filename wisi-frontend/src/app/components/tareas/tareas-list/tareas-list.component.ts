@@ -843,9 +843,9 @@ export class TareasListComponent implements OnInit {
       next: (dispositivos: any[]) => {
         if (Array.isArray(dispositivos)) {
           for (const d of dispositivos) {
-            if (d.ip_local) this.dispositivosMap[d.ip_local] = d.nombre;
+            //if (d.ip_local) this.dispositivosMap[d.ip_local] = d.nombre;
             if (d.ip_remota) this.dispositivosMap[d.ip_remota] = d.nombre;
-            if (d.nombre) this.dispositivosMap[`name:${d.nombre}`] = d.nombre;
+            //if (d.nombre) this.dispositivosMap[`name:${d.nombre}`] = d.nombre;
           }
         }
         if (done) done();
@@ -874,12 +874,12 @@ export class TareasListComponent implements OnInit {
       const base = this.getBaseAccion(t.accion_realizar); // Agregar/Editar/Eliminar
       const key = [
         t.numero_cedula_empleado,
-        t.nombre_dispositivo || t.ip_local_dispositivo || t.ip_publica_dispositivo || t.nombre_sala,
+        t.ip_publica_dispositivo,
         base
       ].join('|');
 
       if (!grupos[key]) {
-        const resolvedNombre = t.nombre_dispositivo || this.dispositivosMap[t.ip_local_dispositivo] || this.dispositivosMap[t.ip_publica_dispositivo] || '';
+        const resolvedNombre = t.nombre_dispositivo || this.dispositivosMap[t.ip_local_dispositivo] || this.dispositivosMap[t.ip_publica_dispositivo] || 'Panel';
         grupos[key] = {
           id: t.id, // id visible (de la primera)
           numero_cedula_empleado: t.numero_cedula_empleado,
