@@ -9486,6 +9486,7 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
       };
     } else {
       // Estructura para BIOMÉTRICO
+      console.log('hooola')
       body = {
         UserInfo: {
           employeeNo: tarea.numero_cedula_empleado,
