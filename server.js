@@ -9492,6 +9492,7 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
           name: tarea.nombre_empleado,
           gender: tarea.nombre_genero,
           userType: 'normal',
+          doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
           localUIRight: false,
           maxOpenDoorTime: 0,
           Valid: {
@@ -9597,6 +9598,7 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
           name: tarea.nombre_empleado,
           gender: tarea.nombre_genero,
           userType: 'normal',
+          doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
           Valid: {
             enable: true,
             beginTime: tarea.marcaje_empleado_inicio_dispositivo || tarea.fecha_ingreso || '2024-01-01T00:00:00',
