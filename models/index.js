@@ -2,17 +2,17 @@ const { Sequelize } = require('sequelize');
 const path = require('path');
 
 // Configuración de Sequelize con SQLite
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: path.join(__dirname, '..', 'database.sqlite'),
-  logging: false, // Cambiar a console.log para ver las consultas SQL
-});
+//const sequelize = new Sequelize({
+//  dialect: 'sqlite',
+//  storage: path.join(__dirname, '..', 'database.sqlite'),
+//  logging: false, // Cambiar a console.log para ver las consultas SQL
+//});
 
-/* const sequelize = new Sequelize('wisi', 'root', '0p0rt3R0y', {
+const sequelize = new Sequelize('wisi', 'root', '$0p0rt3R0y', {
   host: 'localhost', // o la IP de tu servidor MySQL
   dialect: 'mysql',
   logging: false, // Opcional, para limpiar la consola
-}); */
+});
 
 // Importar modelos
 const User = require('./User')(sequelize);
