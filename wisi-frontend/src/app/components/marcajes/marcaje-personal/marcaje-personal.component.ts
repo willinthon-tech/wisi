@@ -10239,21 +10239,27 @@ export class MarcajePersonalComponent implements OnInit {
     let count = 0;
     
     this.diasDelMes.forEach(dia => {
-      // 1. Verificar si es domingo
+      // 1. Solo procesar si el día es Domingo
       if (dia.getDay() === 0) {
         const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
         const key = `${empleado.id}|${fechaStr}`;
         
-        // 2. En lugar de calcular de nuevo, leemos el resultado ya procesado
-        // getResultadoTurno ya usa internamente el cacheMarcajesCalculados
+        // 2. Obtener resultado del turno (DIURNO, NOCTURNO, etc.)
         const resultadoHtml = this.getResultadoTurno(empleado, dia);
         
         if (resultadoHtml) {
           const resultadoStr = String(resultadoHtml).toUpperCase();
-          // 3. Tu validación original de textos
+          
+          // 3. Solo contar si el resultado indica una jornada TRABAJADA
+          // Si el resultado fuera 'LIBRE' o 'SIN REGISTROS', esto dará false
           if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
               resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
-            count++;
+            
+            // Verificación extra de seguridad con el caché
+            const marcajes = this.cacheMarcajesCalculados.get(key);
+            if (marcajes && (marcajes.entrada !== 'Sin marcaje' || marcajes.salida !== 'Sin marcaje')) {
+              count++;
+            }
           }
         }
       }
@@ -10353,18 +10359,21 @@ export class MarcajePersonalComponent implements OnInit {
       const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
       const key = `${empleado.id}|${fechaStr}`;
       
-      // 1. Obtener el bloque (si es Libre o no)
-      const bloque = this.cacheBloquesHorario.get(key) || this.getBloqueHorario(empleado, dia);
+      // 1. Obtener el bloque (usando el caché de bloques)
+      const bloque = this.cacheBloquesHorario.get(key);
       
+      // 2. ¿Es realmente un día LIBRE?
       if (bloque && this.esDiaLibre(bloque)) {
-        // 2. LEER DEL CACHÉ INTELIGENTE (en lugar de calcularMarcajesDelDia)
+        // 3. LEER EL CACHÉ INTELIGENTE (El que tiene el margen de 4h)
         const marcajes = this.cacheMarcajesCalculados.get(key);
         
-        // 3. Tu validación original: debe tener entrada y salida válida
+        // 4. CONDICIÓN CRÍTICA: Solo contar si AMBOS marcajes son reales
+        // Si el sistema dice 'Sin marcaje', NO se suma al contador
         if (marcajes && 
             marcajes.entrada !== 'Sin marcaje' && 
-            marcajes.salida !== 'Sin marcaje' && 
-            marcajes.salida !== 'SNM') {
+            marcajes.salida !== 'Sin marcaje' &&
+            marcajes.entrada !== '' &&
+            marcajes.salida !== '') {
           count++;
         }
       }
