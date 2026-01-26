@@ -14,7 +14,7 @@ module.exports = (sequelize) => {
     },
     sala_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'salas',
         key: 'id'
@@ -22,10 +22,24 @@ module.exports = (sequelize) => {
       onDelete: 'RESTRICT',
       comment: 'ID de la sala asociada'
     },
-    fecha: {
-      type: DataTypes.DATEONLY,
+    // REEMPLAZO DE FECHA POR MES Y DIA
+    mes: {
+      type: DataTypes.TINYINT,
       allowNull: false,
-      comment: 'Fecha del feriado'
+      validate: {
+        min: 1,
+        max: 12
+      },
+      comment: 'Mes del feriado (1-12)'
+    },
+    dia: {
+      type: DataTypes.TINYINT,
+      allowNull: false,
+      validate: {
+        min: 1,
+        max: 31
+      },
+      comment: 'Día del feriado (1-31)'
     }
   }, {
     tableName: 'feriados',
@@ -36,4 +50,3 @@ module.exports = (sequelize) => {
 
   return Feriado;
 };
-

@@ -10468,40 +10468,46 @@ export class MarcajePersonalComponent implements OnInit {
     return this.formatearMinutosAHora(totalMinutos);
   }
 
+
+  isFeriado(dia: Date, salaId: number | null): boolean {
+    if (!this.feriados || this.feriados.length === 0) return false;
+  
+    const diaC = dia.getDate();
+    const mesC = dia.getMonth() + 1; // Enero es 0 en JS
+  
+    return this.feriados.some(f => {
+      // 1. Validar coincidencia de fecha (Día y Mes, ignorando el año)
+      const coincideFecha = f.dia === diaC && f.mes === mesC;
+      
+      // 2. Validar alcance:
+      // f.sala_id === null -> Es Feriado Nacional (aplica a todos)
+      // f.sala_id === salaId -> Es Feriado Regional (solo aplica a esta sala)
+      const esValidoParaEmpleado = (f.sala_id === null) || (f.sala_id !== null && f.sala_id === salaId);
+  
+      return coincideFecha && esValidoParaEmpleado;
+    });
+  }
+
   // Calcular resumen: Totales de Feriados Trabajados (días) (por empleado) - si trabajó ese día
   // Valida la tabla de feriados de la sala asociada y verifica si hay registros/marcajes en fechas feriadas
   getResumenFeriadosTrabajadosPorEmpleado(empleado: any): number {
     let count = 0;
     const salaId = this.getSalaId(empleado);
-    if (!salaId) return 0;
     
     this.diasDelMes.forEach(dia => {
-      // Validar si es feriado en la tabla de feriados de la sala asociada
-      if (this.esFeriado(dia, salaId)) {
-        // Es feriado - verificar si hay registros/marcajes (trabajó ese día)
-        if (!this.isSinHorario(empleado, dia)) {
-          const bloque = this.getBloqueHorario(empleado, dia);
-          if (bloque) {
-            // Verificar si hay marcajes reales (entrada y salida)
-            const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
-            const tieneMarcajes = marcajes.entrada !== 'Sin marcaje' && 
-                                  marcajes.salida !== 'Sin marcaje' && 
-                                  marcajes.salida !== 'SNM';
-            
-            if (tieneMarcajes) {
-              // Hay registros/marcajes en fecha feriada - incrementar contador
-              const resultadoHtml = this.getResultadoTurno(empleado, dia);
-              // Verificar que tenga resultado válido (DIURNO, NOCTURNO o MIXTO)
-              if (resultadoHtml) {
-                const resultadoStr = String(resultadoHtml).toUpperCase();
-                // Verificar si contiene DIURNO, NOCTURNO o es mixto (contiene ( D ) o ( N ))
-                if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
-                    resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
-                  count++;
-                }
-              }
-            }
-          }
+      // Usamos nuestra nueva lógica de alcance (Nacional + Regional)
+      if (this.isFeriado(dia, salaId)) {
+        const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+        const key = `${empleado.id}|${fechaStr}`;
+        
+        // Consultamos el caché inteligente (donde están las 4h de margen)
+        const marcajes = this.cacheMarcajesCalculados.get(key);
+        
+        // FILTRO DE SEGURIDAD: Solo contar si el empleado vino a trabajar (huellas con ":")
+        if (marcajes && 
+            marcajes.entrada && marcajes.entrada.includes(':') && 
+            marcajes.salida && marcajes.salida.includes(':')) {
+          count++;
         }
       }
     });

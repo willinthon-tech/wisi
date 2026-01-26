@@ -5,80 +5,87 @@ import { FeriadosService } from '../../../services/feriados.service';
 import { UserService } from '../../../services/user.service';
 import { PermissionsService } from '../../../services/permissions.service';
 import { ModulesService } from '../../../services/modules.service';
-import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
 import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-feriados-list',
-  imports: [CommonModule, FormsModule],
   standalone: true,
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="cargos-container">
-      <div class="header">
-        <button class="btn btn-success" [disabled]="!canAdd()" (click)="canAdd() ? openModal() : null">Agregar</button>
+      <div class="header" style="margin-bottom: 20px;">
+        <button class="btn btn-success" [disabled]="!canAdd()" (click)="openModal()">
+          Agregar Feriado
+        </button>
       </div>
 
-      <div class="table-wrapper">
-        <table class="table table-striped table-hover">
-          <thead class="table-dark">
+      <div class="table-wrapper" style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+        <table class="table" style="width: 100%; border-collapse: collapse;">
+          <thead style="background: #343a40; color: white;">
             <tr>
-              <th>N°</th>
-              <th>Nombre</th>
-              <th>Sala</th>
-              <th>Fecha</th>
-              <th>Acciones</th>
+              <th style="padding: 12px;">N°</th>
+              <th style="padding: 12px;">Nombre</th>
+              <th style="padding: 12px;">Sala</th>
+              <th style="padding: 12px;">Fecha</th>
+              <th style="padding: 12px;">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let feriado of feriados; let i = index">
-              <td>{{ i + 1 }}</td>
-              <td>{{ feriado.nombre }}</td>
-              <td>{{ feriado.Sala?.nombre || 'Sin sala' }}</td>
-              <td>{{ feriado.fecha }}</td>
-              <td>
-                <button class="btn btn-info btn-sm me-1" [disabled]="!canEdit()" (click)="canEdit() ? editFeriado(feriado) : null">Editar</button>
-                <button class="btn btn-danger btn-sm" [disabled]="!canDelete()" (click)="canDelete() ? deleteFeriado(feriado.id) : null">Eliminar</button>
+            <tr *ngFor="let f of feriados; let i = index" style="border-bottom: 1px solid #eee;">
+              <td style="padding: 12px;">{{ i + 1 }}</td>
+              <td style="padding: 12px;">{{ f?.nombre }}</td>
+              <td style="padding: 12px;">
+                <span *ngIf="!f?.sala_id" class="badge-nacional">NACIONAL</span>
+                <span *ngIf="f?.sala_id">{{ f?.Sala?.nombre || 'Sala' }}</span>
+              </td>
+              <td style="padding: 12px;">
+                <strong>{{ f?.dia ? (f.dia < 10 ? '0'+f.dia : f.dia) : '00' }}</strong> / {{ getNombreMes(f?.mes) }}
+              </td>
+              <td style="padding: 12px;">
+                <button class="btn btn-info btn-sm" [disabled]="!canEdit() || !f?.sala_id" (click)="editFeriado(f)" style="margin-right: 5px;">Editar</button>
+                <button class="btn btn-danger btn-sm" [disabled]="!canDelete() || !f?.sala_id" (click)="deleteFeriado(f?.id)">Eliminar</button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div *ngIf="feriados.length === 0" class="no-data">
-        <p>No hay feriados registrados</p>
-      </div>
-
-      <!-- Modal Crear/Editar Feriado -->
-      <div *ngIf="showModal" class="modal-overlay" (click)="closeModal()">
-        <div class="modal-content" (click)="$event.stopPropagation()">
+      <div *ngIf="showModal" class="modal-overlay">
+        <div class="modal-content">
           <div class="modal-header">
-            <h3>{{ selectedFeriado ? 'Editar Feriado' : 'Crear Nuevo Feriado' }}</h3>
-            <button class="close-btn" (click)="closeModal()">&times;</button>
+            <h3>{{ selectedFeriado ? 'Editar' : 'Nuevo' }} Feriado</h3>
+            <button (click)="closeModal()" style="border:none; background:none; font-size: 20px; cursor:pointer;">&times;</button>
           </div>
           <div class="modal-body">
-            <form (ngSubmit)="saveFeriado()" #feriadoForm="ngForm">
-              <div class="form-group">
-                <label for="nombreFeriado">Nombre:</label>
-                <input type="text" id="nombreFeriado" name="nombreFeriado" [(ngModel)]="form.nombre" class="form-control" placeholder="Nombre del feriado" required />
+            <form (ngSubmit)="saveFeriado()" #fForm="ngForm">
+              <div style="margin-bottom: 15px;">
+                <label style="display:block;">Nombre:</label>
+                <input type="text" name="n" [(ngModel)]="form.nombre" class="form-control" required style="width: 100%; padding: 8px;">
               </div>
-
-              <div class="form-group">
-                <label for="salaSelect">Sala:</label>
-                <select id="salaSelect" name="salaSelect" [(ngModel)]="form.sala_id" class="form-control" required>
-                  <option [ngValue]="null">Seleccione una sala</option>
-                  <option *ngFor="let sala of userSalas" [ngValue]="sala.id">{{ sala.nombre }}</option>
+              <div style="margin-bottom: 15px;">
+                <label style="display:block;">Sala:</label>
+                <select name="s" [(ngModel)]="form.sala_id" class="form-control" required style="width: 100%; padding: 8px;">
+                  <option [ngValue]="null">Seleccione Sala</option>
+                  <option *ngFor="let s of userSalas" [ngValue]="s.id">{{ s.nombre }}</option>
                 </select>
               </div>
-
-              <div class="form-group">
-                <label for="fecha">Fecha:</label>
-                <input id="fecha" name="fecha" type="date" [(ngModel)]="form.fecha" class="form-control" required />
+              <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                  <label>Mes:</label>
+                  <select name="m" [(ngModel)]="form.mes" class="form-control" required style="width: 100%; padding: 8px;">
+                    <option [ngValue]="null">Mes...</option>
+                    <option *ngFor="let m of meses" [ngValue]="m.id">{{ m.nombre }}</option>
+                  </select>
+                </div>
+                <div style="flex: 1;">
+                  <label>Día:</label>
+                  <input type="number" name="d" [(ngModel)]="form.dia" class="form-control" min="1" max="31" required style="width: 100%; padding: 8px;">
+                </div>
               </div>
-
-              <div class="form-actions">
-                <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
-                <button type="submit" class="btn btn-success" [disabled]="!feriadoForm.form.valid">{{ selectedFeriado ? 'Actualizar' : 'Guardar' }}</button>
+              <div style="text-align: right; margin-top: 20px;">
+                <button type="button" (click)="closeModal()" class="btn" style="background:#6c757d; color:white; margin-right: 5px;">Cancelar</button>
+                <button type="submit" [disabled]="!fForm.form.valid" class="btn btn-success">Guardar</button>
               </div>
             </form>
           </div>
@@ -87,41 +94,14 @@ import { Subscription } from 'rxjs';
     </div>
   `,
   styles: [`
-    .cargos-container { padding: 20px; max-width: 1400px; margin: 0 auto; background: #f8f9fa; min-height: calc(100vh - 120px); }
-    .header { margin-bottom: 20px; }
-    .header .btn { padding: 12px 24px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; transition: all 0.3s ease; }
-    .header .btn-success { background: #28a745; color: white; }
-    .header .btn-success:hover { background: #218838; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3); }
-    .table-wrapper { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); overflow: hidden; max-height: calc(100vh - 200px); overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
-    .table-wrapper::-webkit-scrollbar { display: none; }
-    .table { margin: 0; border: none; width: 100%; background: white; }
-    .table th { background-color: #343a40; color: white; border: none; padding: 15px 12px; font-weight: 600; font-size: 14px; position: sticky; top: 0; z-index: 10; }
-    .table td { padding: 12px; vertical-align: middle; border-top: 1px solid #dee2e6; font-size: 14px; }
-    .table tbody tr:hover { background-color: #f8f9fa; }
-    .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 4px; border: none; cursor: pointer; margin: 2px; transition: all 0.2s ease; }
+    .badge-nacional { background: #007bff; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+    .btn { padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; }
+    .btn-success { background: #28a745; color: white; }
     .btn-info { background: #17a2b8; color: white; }
     .btn-danger { background: #dc3545; color: white; }
-    .btn-sm:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
-    .no-data { text-align: center; padding: 40px; color: #666; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); }
-    .me-1 { margin-right: 0.25rem; }
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-content { background: white; border-radius: 12px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3); }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid #e9ecef; }
-    .modal-header h3 { margin: 0; color: #333; }
-    .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
-    .close-btn:hover { color: #dc3545; }
-    .modal-body { padding: 20px; }
-    .form-group { margin-bottom: 20px; }
-    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
-    .form-control { width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 6px; font-size: 14px; transition: border-color 0.3s ease; }
-    .form-control:focus { outline: none; border-color: #28a745; box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1); }
-    .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 25px; padding-top: 20px; border-top: 1px solid #e9ecef; }
-    .btn { padding: 10px 20px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
-    .btn-secondary { background: #6c757d; color: white; }
-    .btn-secondary:hover { background: #5a6268; }
-    .btn-success { background: #28a745; color: white; }
-    .btn-success:hover:not(:disabled) { background: #218838; transform: translateY(-1px); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   `]
 })
 export class FeriadosListComponent implements OnInit, OnDestroy {
@@ -129,124 +109,80 @@ export class FeriadosListComponent implements OnInit, OnDestroy {
   userSalas: any[] = [];
   showModal = false;
   selectedFeriado: any = null;
-  form = {
-    nombre: '',
-    sala_id: null as any,
-    fecha: ''
-  };
 
-  private permissionsSubscription?: Subscription;
+  meses = [
+    { id: 1, nombre: 'Enero' }, { id: 2, nombre: 'Febrero' }, { id: 3, nombre: 'Marzo' },
+    { id: 4, nombre: 'Abril' }, { id: 5, nombre: 'Mayo' }, { id: 6, nombre: 'Junio' },
+    { id: 7, nombre: 'Julio' }, { id: 8, nombre: 'Agosto' }, { id: 9, nombre: 'Septiembre' },
+    { id: 10, nombre: 'Octubre' }, { id: 11, nombre: 'Noviembre' }, { id: 12, nombre: 'Diciembre' }
+  ];
+
+  form = { nombre: '', sala_id: null as any, dia: null as any, mes: null as any };
+  private sub?: Subscription;
 
   constructor(
     private feriadosService: FeriadosService,
     private userService: UserService,
     private permissionsService: PermissionsService,
     private modulesService: ModulesService,
-    private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) {}
 
-  ngOnInit(): void {
+  ngOnInit() {
     this.modulesService.loadModules();
     this.loadFeriados();
-    this.permissionsSubscription = this.permissionsService.userPermissions$.subscribe(() => {});
+    this.sub = this.permissionsService.userPermissions$.subscribe();
   }
 
-  ngOnDestroy(): void {
-    this.permissionsSubscription?.unsubscribe();
+  ngOnDestroy() { this.sub?.unsubscribe(); }
+
+  canAdd() { return this.permissionsService.canAddByName('Feriados'); }
+  canEdit() { return this.permissionsService.canEditByName('Feriados'); }
+  canDelete() { return this.permissionsService.canDeleteByName('Feriados'); }
+
+  getNombreMes(id: any) { return this.meses.find(m => m.id === id)?.nombre || 'N/A'; }
+
+  loadFeriados() {
+    this.feriadosService.getFeriados().subscribe(res => this.feriados = res);
   }
 
-  canAdd(): boolean { return this.permissionsService.canAddByName('Feriados'); }
-  canEdit(): boolean { return this.permissionsService.canEditByName('Feriados'); }
-  canDelete(): boolean { return this.permissionsService.canDeleteByName('Feriados'); }
-
-  loadFeriados(): void {
-    this.feriadosService.getFeriados().subscribe({
-      next: (rows) => { this.feriados = rows; },
-      error: () => {}
-    });
-  }
-
-  loadUserSalas(): void {
-    this.userService.getUserSalas().subscribe({
-      next: (salas) => { this.userSalas = salas; },
-      error: () => {}
-    });
-  }
-
-  openModal(): void {
-    this.resetForm();
-    this.loadUserSalas();
-    this.showModal = true;
-  }
-
-  closeModal(): void {
-    this.showModal = false;
+  openModal() {
+    this.form = { nombre: '', sala_id: null, dia: null, mes: null };
     this.selectedFeriado = null;
-    this.resetForm();
-  }
-
-  resetForm(): void {
-    this.form = { nombre: '', sala_id: null as any, fecha: '' };
-  }
-
-  editFeriado(feriado: any): void {
-    this.selectedFeriado = feriado;
-    this.form = { nombre: feriado.nombre, sala_id: Number(feriado.sala_id), fecha: feriado.fecha };
-    this.loadUserSalas();
+    this.userService.getUserSalas().subscribe(res => this.userSalas = res);
     this.showModal = true;
   }
 
-  saveFeriado(): void {
+  closeModal() { this.showModal = false; }
+
+  editFeriado(f: any) {
+    this.selectedFeriado = f;
+    this.form = { nombre: f.nombre, sala_id: f.sala_id, dia: f.dia, mes: f.mes };
+    this.userService.getUserSalas().subscribe(res => this.userSalas = res);
+    this.showModal = true;
+  }
+
+  saveFeriado() {
     const payload = {
       nombre: this.form.nombre,
-      sala_id: this.form.sala_id != null ? Number(this.form.sala_id) : null,
-      fecha: this.form.fecha
+      sala_id: this.form.sala_id ? Number(this.form.sala_id) : null,
+      dia: Number(this.form.dia),
+      mes: Number(this.form.mes)
     };
-    if (this.selectedFeriado) {
-      this.feriadosService.updateFeriado(this.selectedFeriado.id, payload).subscribe({
-        next: (row) => {
-          const idx = this.feriados.findIndex(f => f.id === row.id);
-          if (idx !== -1) { this.feriados[idx] = row; }
-          this.closeModal();
-        },
-        error: () => {}
-      });
-    } else {
-      this.feriadosService.createFeriado(payload).subscribe({
-        next: (row) => { this.feriados.unshift(row); this.closeModal(); },
-        error: () => {}
-      });
-    }
+
+    const action = this.selectedFeriado 
+      ? this.feriadosService.updateFeriado(this.selectedFeriado.id, payload)
+      : this.feriadosService.createFeriado(payload);
+
+    action.subscribe(() => { this.loadFeriados(); this.closeModal(); });
   }
 
-  deleteFeriado(id: number): void {
-    const feriado = this.feriados.find(f => f.id === id);
+  deleteFeriado(id: any) {
+    const f = this.feriados.find(x => x.id === id);
     this.confirmModalService.showConfirmModal({
-      title: 'Confirmar Eliminación',
-      message: '¿Está seguro de que desea eliminar este feriado?',
-      entity: { id, nombre: feriado?.nombre || 'Feriado', tipo: 'Feriado' },
-      warningText: 'Esta acción eliminará permanentemente el feriado.',
-      onConfirm: () => this.ejecutarEliminacionFeriado(id)
-    });
-  }
-
-  private ejecutarEliminacionFeriado(id: number): void {
-    this.feriadosService.deleteFeriado(id).subscribe({
-      next: () => { this.feriados = this.feriados.filter(f => f.id !== id); },
-      error: (error) => {
-        if (error.status === 400 && error.error?.relations) {
-          this.errorModalService.showErrorModal({
-            title: 'No se puede eliminar el feriado',
-            message: error.error.message,
-            entity: { id: error.error.feriado?.id || id, nombre: error.error.feriado?.nombre || 'Feriado', tipo: 'Feriado' },
-            relations: error.error.relations,
-            helpText: 'Para eliminar este feriado, primero debe eliminar elementos asociados.'
-          });
-        }
-      }
+      title: 'Eliminar',
+      message: `¿Eliminar ${f?.nombre}?`,
+      onConfirm: () => this.feriadosService.deleteFeriado(id).subscribe(() => this.loadFeriados())
     });
   }
 }
-
-

@@ -4557,7 +4557,9 @@ app.delete('/api/horarios/excepciones/:id', authenticateToken, async (req, res) 
 // =============================================
 // RUTAS PARA FERIADOS
 // =============================================
-
+// =============================================
+// RUTAS PARA FERIADOS (Actualizado por Willinthon)
+// =============================================
 // Obtener todos los feriados
 app.get('/api/feriados', authenticateToken, async (req, res) => {
   try {
@@ -4567,34 +4569,40 @@ app.get('/api/feriados', authenticateToken, async (req, res) => {
     let feriados;
     
     if (userLevel === 'TODO') {
+      // Admins ven todo: específicos y nacionales
       feriados = await Feriado.findAll({
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
         }],
-        order: [['fecha', 'ASC']]
+        order: [['mes', 'ASC'], ['dia', 'ASC']]
       });
     } else {
+      // Usuarios normales ven los de sus salas + los nacionales (sala_id: null)
       const user = await User.findByPk(userId, {
         include: [{
           model: Sala,
           through: UserSala,
-          attributes: ['id', 'nombre']
+          attributes: ['id']
         }]
       });
 
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
-      }
+      if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
       const userSalaIds = user.Salas.map(sala => sala.id);
+      
       feriados = await Feriado.findAll({
-        where: { sala_id: userSalaIds },
+        where: {
+          [Op.or]: [
+            { sala_id: userSalaIds },
+            { sala_id: null } // Traer feriados nacionales
+          ]
+        },
         include: [{
           model: Sala,
           attributes: ['id', 'nombre']
         }],
-        order: [['fecha', 'ASC']]
+        order: [['mes', 'ASC'], ['dia', 'ASC']]
       });
     }
     
@@ -4615,9 +4623,7 @@ app.get('/api/feriados/:id', authenticateToken, async (req, res) => {
       }]
     });
 
-    if (!feriado) {
-      return res.status(404).json({ message: 'Feriado no encontrado' });
-    }
+    if (!feriado) return res.status(404).json({ message: 'Feriado no encontrado' });
 
     res.json(feriado);
   } catch (error) {
@@ -4625,18 +4631,23 @@ app.get('/api/feriados/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Obtener feriados por sala
+// Obtener feriados por sala (Incluye nacionales por defecto para esa sala)
 app.get('/api/feriados/sala/:salaId', authenticateToken, async (req, res) => {
   try {
     const { salaId } = req.params;
     
     const feriados = await Feriado.findAll({
-      where: { sala_id: salaId },
+      where: {
+        [Op.or]: [
+          { sala_id: salaId },
+          { sala_id: null }
+        ]
+      },
       include: [{
         model: Sala,
         attributes: ['id', 'nombre']
       }],
-      order: [['fecha', 'ASC']]
+      order: [['mes', 'ASC'], ['dia', 'ASC']]
     });
 
     res.json(feriados);
@@ -4648,53 +4659,46 @@ app.get('/api/feriados/sala/:salaId', authenticateToken, async (req, res) => {
 // Crear un nuevo feriado
 app.post('/api/feriados', authenticateToken, async (req, res) => {
   try {
-    const { nombre, sala_id, fecha } = req.body;
+    const { nombre, sala_id, dia, mes } = req.body;
     
-    if (!nombre || !sala_id || !fecha) {
-      return res.status(400).json({ message: 'Nombre, sala_id y fecha son campos obligatorios' });
+    // Validación de campos básicos
+    if (!nombre || !dia || !mes) {
+      return res.status(400).json({ message: 'Nombre, día y mes son obligatorios' });
     }
 
-    // Verificar que la sala existe
-    const sala = await Sala.findByPk(sala_id);
-    if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+    // Validar rangos
+    if (mes < 1 || mes > 12 || dia < 1 || dia > 31) {
+      return res.status(400).json({ message: 'Día o mes fuera de rango' });
     }
 
-    // Verificar permisos: solo usuarios TODO o usuarios con acceso a la sala
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'TODO') {
-      const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: UserSala,
-          attributes: ['id']
-        }]
-      });
+    // Si se asigna a una sala, verificar que existe y permisos
+    if (sala_id) {
+      const sala = await Sala.findByPk(sala_id);
+      if (!sala) return res.status(404).json({ message: 'Sala no encontrada' });
 
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+      if (req.user.nivel !== 'TODO') {
+        const user = await User.findByPk(req.user.id, {
+          include: [{ model: Sala, through: UserSala, attributes: ['id'] }]
+        });
+        const userSalaIds = user.Salas.map(s => Number(s.id));
+        if (!userSalaIds.includes(Number(sala_id))) {
+          return res.status(403).json({ message: 'No tienes permiso para esta sala' });
+        }
       }
-
-      const userSalaIds = user.Salas.map(s => Number(s.id));
-      const salaIdNum = Number(sala_id);
-      if (!userSalaIds.includes(salaIdNum)) {
-        return res.status(403).json({ message: 'No tienes permiso para crear feriados en esta sala' });
-      }
+    } else if (req.user.nivel !== 'TODO') {
+      // Solo usuarios TODO pueden crear feriados nacionales (sala_id: null)
+      return res.status(403).json({ message: 'Solo administradores pueden crear feriados nacionales' });
     }
 
     const feriado = await Feriado.create({
       nombre,
-      sala_id,
-      fecha
+      sala_id: sala_id || null, // Guardar como null si no viene
+      dia,
+      mes
     });
 
     const feriadoConSala = await Feriado.findByPk(feriado.id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [{ model: Sala, attributes: ['id', 'nombre'] }]
     });
 
     res.status(201).json(feriadoConSala);
@@ -4707,60 +4711,36 @@ app.post('/api/feriados', authenticateToken, async (req, res) => {
 app.put('/api/feriados/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, sala_id, fecha } = req.body;
+    const { nombre, sala_id, dia, mes } = req.body;
     
     const feriado = await Feriado.findByPk(id);
-    if (!feriado) {
-      return res.status(404).json({ message: 'Feriado no encontrado' });
+    if (!feriado) return res.status(404).json({ message: 'Feriado no encontrado' });
+
+    // Bloqueo de seguridad: Si es nacional (sala_id: null) y no es TODO, no toca.
+    if (!feriado.sala_id && req.user.nivel !== 'TODO') {
+      return res.status(403).json({ message: 'Los feriados nacionales solo pueden ser editados por administradores TODO' });
     }
 
-    // Verificar permisos
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'TODO') {
-      const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: UserSala,
-          attributes: ['id']
-        }]
+    // Verificar permisos para feriados regionales
+    if (feriado.sala_id && req.user.nivel !== 'TODO') {
+      const user = await User.findByPk(req.user.id, {
+        include: [{ model: Sala, through: UserSala, attributes: ['id'] }]
       });
-
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
-      }
-
       const userSalaIds = user.Salas.map(s => Number(s.id));
       if (!userSalaIds.includes(Number(feriado.sala_id))) {
-        return res.status(403).json({ message: 'No tienes permiso para editar este feriado' });
-      }
-
-      // Si se está cambiando la sala, verificar que tenga acceso a la nueva sala
-      if (sala_id && Number(sala_id) !== Number(feriado.sala_id) && !userSalaIds.includes(Number(sala_id))) {
-        return res.status(403).json({ message: 'No tienes permiso para asignar feriados a esta sala' });
-      }
-    }
-
-    // Si se proporciona sala_id, verificar que existe
-    if (sala_id) {
-      const sala = await Sala.findByPk(sala_id);
-      if (!sala) {
-        return res.status(404).json({ message: 'Sala no encontrada' });
+        return res.status(403).json({ message: 'No tienes permiso sobre esta sala' });
       }
     }
 
     await feriado.update({
-      nombre: nombre !== undefined ? nombre : feriado.nombre,
+      nombre: nombre || feriado.nombre,
       sala_id: sala_id !== undefined ? sala_id : feriado.sala_id,
-      fecha: fecha !== undefined ? fecha : feriado.fecha
+      dia: dia || feriado.dia,
+      mes: mes || feriado.mes
     });
 
     const feriadoActualizado = await Feriado.findByPk(feriado.id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [{ model: Sala, attributes: ['id', 'nombre'] }]
     });
 
     res.json(feriadoActualizado);
@@ -4775,31 +4755,11 @@ app.delete('/api/feriados/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const feriado = await Feriado.findByPk(id);
     
-    if (!feriado) {
-      return res.status(404).json({ message: 'Feriado no encontrado' });
-    }
+    if (!feriado) return res.status(404).json({ message: 'Feriado no encontrado' });
 
-    // Verificar permisos
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'TODO') {
-      const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: UserSala,
-          attributes: ['id']
-        }]
-      });
-
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
-      }
-
-      const userSalaIds = user.Salas.map(s => Number(s.id));
-      if (!userSalaIds.includes(Number(feriado.sala_id))) {
-        return res.status(403).json({ message: 'No tienes permiso para eliminar este feriado' });
-      }
+    // Protección para nacionales
+    if (!feriado.sala_id && req.user.nivel !== 'TODO') {
+      return res.status(403).json({ message: 'Solo administradores pueden eliminar feriados nacionales' });
     }
 
     await feriado.destroy();
