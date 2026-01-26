@@ -14,7 +14,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="horarios-container"> <div class="header">
-        <h2 class="mb-0">Pool Global de Personal Disponible</h2>
+        <h2 class="mb-2">Empleados desincorporados</h2>
       </div>
       
       <div class="table-wrapper">
@@ -40,8 +40,8 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               <td>{{ empleado.cedula }}</td>
               <td>{{ formatDate(empleado.updated_at) }}</td>
               <td class="text-center">
-                <button class="btn btn-primary btn-sm" [disabled]="!canEdit()" (click)="abrirModalIncorporar(empleado)">
-                  <i class="fas fa-user-plus me-1"></i> Incorporar
+                <button class="btn btn-primary btn-sm"  (click)="abrirModalIncorporar(empleado)">
+                  Incorporar
                 </button>
               </td>
             </tr>
