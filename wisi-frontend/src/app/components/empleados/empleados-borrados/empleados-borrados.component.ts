@@ -16,7 +16,7 @@ import { Subscription } from 'rxjs';
     <div class="horarios-container">
       <div class="header d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h2 class="mb-0">Pool Global de Personal</h2>
+          <h2 class="mb-0">Personal Desincorporados</h2>
           <p class="text-muted">Personal desincorporado disponible para todas las sedes.</p>
         </div>
         <div class="search-box">
