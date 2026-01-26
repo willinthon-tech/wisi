@@ -10240,14 +10240,14 @@ export class MarcajePersonalComponent implements OnInit {
     let count = 0;
     
     this.diasDelMes.forEach(dia => {
-      // 1. Verificar si es domingo
+      // 1. ¿Es domingo?
       if (dia.getDay() === 0) {
         const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
         const key = `${empleado.id}|${fechaStr}`;
         
         const marcajes = this.cacheMarcajesCalculados.get(key);
         
-        // 2. Solo contamos si hay una huella real (entrada O salida con ":")
+        // 2. Solo sumamos si hay al menos una huella real detectada (entrada o salida con ":")
         const tieneMarcajeReal = (marcajes?.entrada && marcajes.entrada.includes(':')) || 
                                  (marcajes?.salida && marcajes.salida.includes(':'));
   
@@ -10267,7 +10267,7 @@ export class MarcajePersonalComponent implements OnInit {
     const empleadosBase = this.obtenerBaseEmpleados();
     
     empleadosBase.forEach(empleado => {
-      // Sumamos los domingos reales de cada empleado
+      // Llama a la función individual que ya tiene el filtro de los dos puntos ":"
       count += this.getResumenDomingosTrabajadosPorEmpleado(empleado);
     });
     
@@ -10352,21 +10352,22 @@ export class MarcajePersonalComponent implements OnInit {
       const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
       const key = `${empleado.id}|${fechaStr}`;
       
-      // 1. Buscamos el bloque en el caché (donde sabemos si es libre)
+      // 1. Obtenemos el bloque programado
       const bloque = this.cacheBloquesHorario.get(key);
       
-      // 2. ¿Es día LIBRE según tu función esDiaLibre?
+      // 2. ¿Es una plantilla sin horas? (Libre, Sin Horario, Permiso, etc.)
       if (bloque && this.esDiaLibre(bloque)) {
         
-        // 3. Consultamos el caché inteligente de marcajes
+        // 3. BUSCAMOS HUELLAS REALES EN EL CACHÉ
         const marcajes = this.cacheMarcajesCalculados.get(key);
         
-        // 4. FILTRO DE SEGURIDAD DEFINITIVO:
-        // Solo contamos si la entrada Y la salida tienen el formato de hora HH:mm (contienen ":")
-        const tieneEntradaReal = marcajes?.entrada && marcajes.entrada.includes(':');
-        const tieneSalidaReal = marcajes?.salida && marcajes.salida.includes(':');
+        // 4. EL FILTRO DEFINITIVO:
+        // Solo sumamos si la entrada Y la salida tienen formato de hora (contienen ":")
+        // Si dice "Sin marcaje" o está vacío, NO SE SUMA.
+        const entradaReal = marcajes?.entrada && marcajes.entrada.includes(':');
+        const salidaReal = marcajes?.salida && marcajes.salida.includes(':');
   
-        if (tieneEntradaReal && tieneSalidaReal) {
+        if (entradaReal && salidaReal) {
           count++;
         }
       }
