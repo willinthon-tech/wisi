@@ -10553,43 +10553,57 @@ export class MarcajePersonalComponent implements OnInit {
     const key = `${empleado.id}|${fechaStr}`;
     const plantilla = bloque?.PlantillaHorario;
   
+    // 1. Validación de seguridad
     if (!plantilla || !plantilla.hora_entrada || !plantilla.hora_salida) {
-      this.cacheMarcajesCalculados.set(key, { entrada: 'Sin marcaje', salida: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje' });
+      this.cacheMarcajesCalculados.set(key, { 
+        entrada: 'Sin marcaje', 
+        salida: 'Sin marcaje', 
+        entradaDescanso: 'Sin marcaje', 
+        salidaDescanso: 'Sin marcaje' 
+      });
       return; 
     }
   
+    // 2. Cargar y ordenar logs
     const todosLosLogs = this.marcajesCompletos.get(empleado.cedula) || [];
     const logs = [...todosLosLogs].sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
   
     const entradaTeorica = this.crearFechaHora(dia, plantilla.hora_entrada);
     let salidaTeorica = this.crearFechaHora(dia, plantilla.hora_salida);
   
+    // Ajuste para nocturnos
     if (salidaTeorica < entradaTeorica) {
       salidaTeorica.setDate(salidaTeorica.getDate() + 1);
     }
   
-    // BUSCAR ENTRADA: Ventana de +/- 3 horas (Ampliada para casos difíciles)
+    // 3. BUSCAR ENTRADA (Ventana de +/- 4 horas = 240 minutos)
     const entradaReal = logs.find(log => {
       if (this.marcajesUsadosGlobal.has(log.id)) return false;
       const logTime = new Date(log.event_time).getTime();
       const diff = Math.abs((logTime - entradaTeorica.getTime()) / 60000);
-      return diff <= 180; // 3 horas de margen
+      return diff <= 240; // Margen ampliado a 4 horas
     });
   
     if (entradaReal) this.marcajesUsadosGlobal.add(entradaReal.id);
   
-    // BUSCAR SALIDA: Ventana de -8h y +12h (Como pediste)
+    // 4. BUSCAR SALIDA (Ventana de -10h y +14h)
     const salidaReal = logs.find(log => {
       if (this.marcajesUsadosGlobal.has(log.id)) return false;
       const logTime = new Date(log.event_time);
+      
+      // Seguridad: la salida no puede ser antes o igual a la entrada que acabamos de usar
       if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
   
       const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
-      return diffSalida >= -480 && diffSalida <= 720;
+      
+      // -600 min = 10 horas antes (Cubre nocturnos que salen muy temprano)
+      // +840 min = 14 horas después (Cubre diurnos con horas extra extremas)
+      return diffSalida >= -600 && diffSalida <= 840;
     });
   
     if (salidaReal) this.marcajesUsadosGlobal.add(salidaReal.id);
   
+    // 5. Guardar en caché
     this.cacheMarcajesCalculados.set(key, {
       entrada: entradaReal ? this.formatHora(entradaReal.event_time) : 'Sin marcaje',
       salida: salidaReal ? this.formatHora(salidaReal.event_time) : 'Sin marcaje',
