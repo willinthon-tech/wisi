@@ -131,12 +131,12 @@ import { take, filter } from 'rxjs/operators';
                   Editar
                 </button>
                 <button 
-                  class="btn btn-danger btn-sm action-btn" 
+                  class="btn btn-danger btn-sm" 
                   [class.disabled]="!canDelete()"
                   [disabled]="!canDelete()"
                   (click)="canDelete() ? desactivarEmpleado(empleado) : null"
-                  title="Desactivar y liberar empleado">
-                  <i class="fas fa-user-slash me-1"></i> Eliminar empleado
+                  title="Desactivar empleado de esta sala">
+                  <i class="fas fa-user-slash"></i> Eliminar empleado
                 </button>
               </td>
             </tr>
@@ -1925,49 +1925,44 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   // Agrega esta función dentro de la clase EmpleadosListComponent
   desactivarEmpleado(empleado: any): void {
-    // 1. Verificación de seguridad (Dispositivos)
+    // 1. VALIDACIÓN: ¿Tiene dispositivos? Si tiene, se frena aquí.
     if (empleado.dispositivos && empleado.dispositivos.length > 0) {
       this.errorModalService.showErrorModal({
         title: 'Acción Bloqueada',
-        message: 'El empleado sigue vinculado a equipos biométricos.',
-        entity: { id: empleado.id, nombre: empleado.nombre, tipo: 'Empleado' },
+        message: 'El empleado tiene equipos vinculados. No se puede desactivar hasta retirarlo de los dispositivos.',
         relations: empleado.dispositivos.map((d: any) => ({
-          table_name: 'Dispositivo',
+          table_name: 'Equipo',
           count: d.nombre
-        })),
-        helpText: 'Primero desvincule al empleado de los dispositivos antes de eliminarlo de la sala.'
+        }))
       });
       return;
     }
   
-    // 2. Confirmación
+    // 2. CONFIRMACIÓN: Si no tiene equipos, preguntamos para proceder.
     this.confirmModalService.showConfirmModal({
-      title: 'Desvincular de la Sala',
-      message: `¿Seguro que deseas eliminar a ${empleado.nombre}?`,
-      warningText: 'El empleado será desactivado de esta sala y su cargo será removido, quedando libre para otras salas.',
+      title: 'Confirmar Eliminación',
+      message: `¿Estás seguro de que deseas eliminar a ${empleado.nombre} de esta sala?`,
       onConfirm: () => {
-        
-        // 3. PREPARACIÓN DEL PAYLOAD (Aquí aplicamos el assign/merge)
-        // Clonamos el empleado actual y sobreescribimos los campos de relación
-        const datosActualizados = {
-          ...empleado,           // Mantenemos nombre, cédula, foto, etc.
-          cargo_id: null,        // Quitamos el cargo
-          fecha_ingreso: null,   // Quitamos la fecha de ingreso
-          dispositivos: []       // Limpiamos el array por seguridad
+        // 3. DESACTIVAR: Mandamos el update con los campos nulos para liberarlo
+        // Usamos 'any' para que el compilador no nos de guerra con los tipos
+        const payload: any = {
+          ...empleado,
+          cargo_id: null,
+          fecha_ingreso: null,
+          dispositivos: []
         };
   
-        // Enviamos el objeto completo para que el service no chille
-        this.empleadosService.updateEmpleado(empleado.id, datosActualizados).subscribe({
+        this.empleadosService.updateEmpleado(empleado.id, payload).subscribe({
           next: () => {
+            // Lo sacamos de la lista actual y refrescamos
             this.empleados = this.empleados.filter(e => e.id !== empleado.id);
             this.aplicarFiltro();
-            this.loadEmpleados(); // Refrescar para limpiar caché
+            this.loadEmpleados();
           },
-          error: (err) => {
-            console.error("Error al desactivar:", err);
+          error: () => {
             this.errorModalService.showErrorModal({
-              title: 'Error de Servidor',
-              message: 'No se pudo procesar la desvinculación. Revisa la consola.'
+              title: 'Error',
+              message: 'Hubo un fallo al intentar desactivar al empleado.'
             });
           }
         });
