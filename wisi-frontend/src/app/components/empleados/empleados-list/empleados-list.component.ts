@@ -131,18 +131,12 @@ import { take, filter } from 'rxjs/operators';
                   Editar
                 </button>
                 <button 
-                  class="btn btn-warning btn-sm me-1" 
+                  class="btn btn-danger btn-sm action-btn" 
                   [class.disabled]="!canDelete()"
                   [disabled]="!canDelete()"
-                  (click)="canDelete() ? borrarEmpleado(empleado.id) : null">
-                  Borrar empleado
-                </button>
-                <button 
-                  class="btn btn-danger btn-sm" 
-                  [class.disabled]="!canDelete()"
-                  [disabled]="!canDelete()"
-                  (click)="canDelete() ? deleteEmpleado(empleado.id) : null">
-                  Eliminar
+                  (click)="canDelete() ? desactivarEmpleado(empleado) : null"
+                  title="Desactivar y liberar empleado">
+                  <i class="fas fa-user-slash me-1"></i> Eliminar empleado
                 </button>
               </td>
             </tr>
@@ -1926,6 +1920,58 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
         return this.sortDirection === 'asc' ? 1 : -1;
       }
       return 0;
+    });
+  }
+
+  // Agrega esta función dentro de la clase EmpleadosListComponent
+  desactivarEmpleado(empleado: any): void {
+    // 1. Verificación de seguridad (Dispositivos)
+    if (empleado.dispositivos && empleado.dispositivos.length > 0) {
+      this.errorModalService.showErrorModal({
+        title: 'Acción Bloqueada',
+        message: 'El empleado sigue vinculado a equipos biométricos.',
+        entity: { id: empleado.id, nombre: empleado.nombre, tipo: 'Empleado' },
+        relations: empleado.dispositivos.map((d: any) => ({
+          table_name: 'Dispositivo',
+          count: d.nombre
+        })),
+        helpText: 'Primero desvincule al empleado de los dispositivos antes de eliminarlo de la sala.'
+      });
+      return;
+    }
+  
+    // 2. Confirmación
+    this.confirmModalService.showConfirmModal({
+      title: 'Desvincular de la Sala',
+      message: `¿Seguro que deseas eliminar a ${empleado.nombre}?`,
+      warningText: 'El empleado será desactivado de esta sala y su cargo será removido, quedando libre para otras salas.',
+      onConfirm: () => {
+        
+        // 3. PREPARACIÓN DEL PAYLOAD (Aquí aplicamos el assign/merge)
+        // Clonamos el empleado actual y sobreescribimos los campos de relación
+        const datosActualizados = {
+          ...empleado,           // Mantenemos nombre, cédula, foto, etc.
+          cargo_id: null,        // Quitamos el cargo
+          fecha_ingreso: null,   // Quitamos la fecha de ingreso
+          dispositivos: []       // Limpiamos el array por seguridad
+        };
+  
+        // Enviamos el objeto completo para que el service no chille
+        this.empleadosService.updateEmpleado(empleado.id, datosActualizados).subscribe({
+          next: () => {
+            this.empleados = this.empleados.filter(e => e.id !== empleado.id);
+            this.aplicarFiltro();
+            this.loadEmpleados(); // Refrescar para limpiar caché
+          },
+          error: (err) => {
+            console.error("Error al desactivar:", err);
+            this.errorModalService.showErrorModal({
+              title: 'Error de Servidor',
+              message: 'No se pudo procesar la desvinculación. Revisa la consola.'
+            });
+          }
+        });
+      }
     });
   }
 
