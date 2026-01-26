@@ -2705,13 +2705,6 @@ export class MarcajePersonalComponent implements OnInit {
   };
   fechaMinimaPermitida: string = '';
 
-  // ... tus otras variables ...
-  // === AGREGA ESTO AQUÍ ===
-  // Memoria para evitar que un marcaje se use en dos días distintos
-  private marcajesUsadosGlobal: Set<number> = new Set(); 
-  
-  // ========================
-
   constructor(
     private empleadosService: EmpleadosService,
     private marcajesService: MarcajesService,
@@ -3472,17 +3465,6 @@ export class MarcajePersonalComponent implements OnInit {
               this.cdr.detectChanges();
             }, 0);
           }
-
-          // [CÓDIGO EXISTENTE] ... lógica de actualizar el mapa excepcionesMap ...
-          this.excepcionesMap.set(key, excepcionActualizada);
-
-          // === AGREGAR ESTO ===
-          // Recalcular cascada para arreglar turnos rotos
-          this.recalcularMarcajesInteligentes(this.modalEmpleado);
-          // ====================
-
-          this.savingExcepcion = false;
-          
         },
         error: (err) => { 
           this.savingExcepcion = false; 
@@ -3582,8 +3564,6 @@ export class MarcajePersonalComponent implements OnInit {
               return;
             }
           }
-
-          
           this.savingExcepcion = false;
         }
       });
@@ -4059,116 +4039,44 @@ export class MarcajePersonalComponent implements OnInit {
     // NO cargar datos automáticamente - esperar a que el usuario presione "Buscar"
   }
 
-  // Método corregido para buscar datos: Carga Plantillas + Empleados + Dispara Cálculo
-buscarDatos() {
-  // 1. Validaciones básicas
-  if (!this.selectedSalaForDataLoad || !this.fechaDesde || !this.fechaHasta) {
-    return;
-  }
-  
-  if (this.fechaDesde > this.fechaHasta) {
-    alert('La fecha "Desde" debe ser anterior o igual a la fecha "Hasta"');
-    return;
-  }
-  
-  this.loading = true;
-  this.hasSearched = false;
-  
-  // 2. Limpieza de variables y cachés (IMPORTANTE para no mezclar datos)
-  this.empleadosCompletos = [];
-  this.excepcionesCompletas.clear();
-  this.empleadosFiltrados = [];
-  this.grupos = [];
-  this.marcajesCompletos.clear();     // Limpiamos memoria de logs
-  this.marcajesPorEmpleado.clear();
-  this.cacheMarcajesCalculados.clear(); // Limpiamos caché de cálculos anteriores
-  this.marcajesUsadosGlobal.clear();    // Limpiamos el rastreador de días
-  
-  // Limpiar filtros visuales
-  this.selectedDepartamentoId = null;
-  this.selectedAreaId = null;
-  this.selectedCargoId = null;
-  this.selectedSexo = null;
-  this.searchText = '';
-  this.departamentosFiltrados = [];
-  this.areasFiltradas = [];
-  this.cargosFiltrados = [];
-  
-  // 3. CARGA PARALELA (Aquí está la solución a tus errores)
-  // Usamos forkJoin para traer Empleados (con su data) Y las Plantillas a la vez
-  forkJoin({
-    // A. Traemos empleados (el backend ya incluye horarios, excepciones y logs optimizados)
-    empleados: this.empleadosService.getEmpleadosBySala(
-      this.selectedSalaForDataLoad, 
-      this.fechaDesde, 
-      this.fechaHasta
-    ),
-    // B. Traemos el catálogo de plantillas (CRÍTICO: Sin esto falla el cálculo)
-    plantillas: this.plantillasService.getPlantillasHorarios()
-  }).subscribe({
-    next: (results: any) => {
-      // --- PASO A: Guardar Plantillas en Caché ---
-      // Esto arregla el error "[calcularMarcajesDelDiaInterno] No se encontró plantilla"
-      this.todasLasPlantillasCache = results.plantillas || [];
-      console.log('Plantillas cargadas y cacheadas:', this.todasLasPlantillasCache?.length);
-
-      // --- PASO B: Guardar Empleados ---
-      this.empleadosCompletos = results.empleados || [];
-
-      // --- PASO C: Procesar Datos y Dispara Inteligencia ---
-      if (this.empleadosCompletos.length > 0) {
-        
-        this.empleadosCompletos.forEach(emp => {
-          // 1. Extraer marcajes anidados y guardarlos en el mapa global
-          // El backend optimizado suele devolver 'attlogs' o 'Attlogs' dentro del empleado
-          const logs = emp.attlogs || emp.Attlogs || [];
-          if (logs.length > 0) {
-             this.marcajesCompletos.set(emp.cedula, logs);
-          }
-
-          // 2. Extraer excepciones y guardarlas en el mapa (si vienen anidadas)
-          if (emp.excepciones && emp.excepciones.length > 0) {
-             emp.excepciones.forEach((ex: any) => {
-                // Aseguramos formato de fecha
-                const fechaStr = typeof ex.fecha === 'string' ? ex.fecha.split('T')[0] : ex.fecha;
-                const key = `${emp.id}|${fechaStr}`;
-                
-                // Si la excepción viene sin el objeto PlantillaHorario completo, lo buscamos en el caché
-                if (!ex.PlantillaHorario && ex.plantilla_horario_id) {
-                    ex.PlantillaHorario = this.todasLasPlantillasCache?.find(
-                        p => p.id === ex.plantilla_horario_id
-                    );
-                }
-                this.excepcionesCompletas.set(key, ex);
-                this.excepcionesMap.set(key, ex);
-             });
-          }
-
-          // 3. ¡DISPARAR CÁLCULO INTELIGENTE!
-          // Ahora que tenemos plantillas, logs y excepciones, calculamos
-          this.recalcularMarcajesInteligentes(emp);
-        });
-      }
-
-      // --- PASO D: Finalizar ---
-      this.agruparEmpleados(); // Generar la vista visual (grupos/departamentos)
-      
-      this.hasSearched = true;
-      this.loading = false;
-      
-      // Llenar los combos de filtros (departamento, cargo, etc.)
-      this.cargarCatalogosFiltros(); 
-      this.aplicarFiltrosLocales();
-    },
-    error: (err) => {
-      console.error('Error cargando datos:', err);
-      this.loading = false;
-      this.errorModalService.showErrorModal({
-        title: 'Error de Carga',
-        message: 'No se pudieron cargar los datos del personal.',});
+  // Método para buscar datos cuando el usuario presiona el botón "Buscar"
+  buscarDatos() {
+    if (!this.selectedSalaForDataLoad || !this.fechaDesde || !this.fechaHasta) {
+      return;
     }
-  });
-}
+    
+    // Validar que las fechas sean válidas
+    if (this.fechaDesde > this.fechaHasta) {
+      alert('La fecha "Desde" debe ser anterior o igual a la fecha "Hasta"');
+      return;
+    }
+    
+    this.loading = true;
+    this.hasSearched = false;
+    
+    // Limpiar datos anteriores
+    this.empleadosCompletos = [];
+    this.excepcionesCompletas.clear();
+    this.empleadosFiltrados = [];
+    this.grupos = [];
+    this.marcajesCompletos.clear();
+    this.marcajesPorEmpleado.clear();
+    
+    // Limpiar filtros de abajo (departamento, área, cargo, sexo, búsqueda)
+    this.selectedDepartamentoId = null;
+    this.selectedAreaId = null;
+    this.selectedCargoId = null;
+    this.selectedSexo = null;
+    this.searchText = '';
+    
+    // Limpiar listas filtradas para que se recarguen
+    this.departamentosFiltrados = [];
+    this.areasFiltradas = [];
+    this.cargosFiltrados = [];
+    
+    // Cargar todos los datos de la sala con el rango de fechas seleccionado
+    this.cargarDatosCompletosPorSala(this.selectedSalaForDataLoad);
+  }
 
   // Precargar plantillas por sala en segundo plano para optimizar el modal
   precargarPlantillasPorSala(salaId: number) {
@@ -6772,63 +6680,84 @@ buscarDatos() {
     return false;
   }
 
+  // Función para obtener el bloque de horario para un día específico
   getBloqueHorario(empleado: any, dia: Date): any {
-    if (!empleado) return null;
-    const fechaStr = dia instanceof Date ? dia.toISOString().split('T')[0] : dia;
+    // OPTIMIZACIÓN: Usar caché pre-calculado si está disponible
+    const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+    const keyCache = `${empleado?.id}|${fechaStr}`;
     
-    // 1. BUSCAR EN EXCEPCIONES (Prioridad 1)
-    const excepcionKey = `${empleado.id}|${fechaStr}`;
-    // Busca en los mapas de excepciones que ya tienes
-    let excepcion = this.excepcionesMap.get(excepcionKey) || this.excepcionesCompletas.get(excepcionKey);
+    if (this.cacheBloquesHorario.has(keyCache)) {
+      let bloque = this.cacheBloquesHorario.get(keyCache);
+      // Asegurar que el bloque del caché tenga la plantilla
+      if (bloque && !bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+        // Obtener los bloques del horario activo para pasarlos a asegurarPlantillaEnBloque
+        const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
+        const bloquesHorario = horarioActivo?.bloques || [];
+        bloque = this.asegurarPlantillaEnBloque(bloque, empleado, dia, bloquesHorario);
+        if (bloque && bloque.PlantillaHorario) {
+          this.cacheBloquesHorario.set(keyCache, bloque);
+        }
+      }
+      return bloque;
+    }
     
-    // A veces la excepción viene anidada dentro del empleado desde el backend
-    if (!excepcion && empleado.excepciones) {
-       excepcion = empleado.excepciones.find((ex: any) => ex.fecha === fechaStr);
+    // Si no está en caché, calcular (fallback para casos edge)
+    // Prioridad: excepción de horario por día
+    const key = `${empleado?.id}|${fechaStr}`;
+    const ex = this.excepcionesMap.get(key);
+    if (ex && ex.PlantillaHorario) {
+      // Construir bloque virtual con la plantilla de la excepción
+      const plantilla = ex.PlantillaHorario;
+      const turno = this.convertirHoraAMinutos(plantilla.hora_entrada) > this.convertirHoraAMinutos(plantilla.hora_salida) ? 'NOCTURNO' : 'DIURNO';
+      return {
+        orden: 1,
+        turno,
+        PlantillaHorario: plantilla,
+        hora_entrada: plantilla.hora_entrada,
+        hora_salida: plantilla.hora_salida,
+        hora_entrada_descanso: plantilla.hora_descanso_entrada,
+        hora_salida_descanso: plantilla.hora_descanso_salida,
+        tiene_descanso: !!(plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida)
+      };
+    } else if (ex && ex.plantilla_horario_id) {
+      // Si API no incluyó include, buscar la plantilla
+      const bloqueExcepcion = this.asegurarPlantillaEnBloque({ orden: 1, plantilla_horario_id: ex.plantilla_horario_id }, empleado, dia);
+      if (bloqueExcepcion && bloqueExcepcion.PlantillaHorario) {
+        return bloqueExcepcion;
+      }
+      return {
+        orden: 1,
+        turno: 'DIURNO',
+        PlantillaHorario: null
+      };
     }
-  
-    if (excepcion) {
-        // === FIX PARA ID 96 ===
-        // Si tiene ID pero no tiene el objeto PlantillaHorario, BÚSCALO
-        if (!excepcion.PlantillaHorario && excepcion.plantilla_horario_id) {
-            excepcion.PlantillaHorario = this.todasLasPlantillasCache?.find(
-                p => p.id === excepcion.plantilla_horario_id
-            );
-        }
-        
-        // Si logramos recuperar la plantilla, retornamos
-        if (excepcion.PlantillaHorario) {
-            return { PlantillaHorario: excepcion.PlantillaHorario, origen: 'Excepcion' };
-        }
+
+    // Obtener el horario activo para este día
+    const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
+    
+    if (!horarioActivo || !horarioActivo.bloques || horarioActivo.bloques.length === 0) {
+      return null;
     }
-  
-    // 2. BUSCAR EN HORARIO REGULAR (Prioridad 2)
-    if (empleado.horariosEmpleado && empleado.horariosEmpleado.length > 0) {
-        // Ordenar horarios por fecha (el más reciente primero)
-        const horariosOrdenados = [...empleado.horariosEmpleado].sort((a: any, b: any) => 
-            new Date(b.primer_dia).getTime() - new Date(a.primer_dia).getTime()
-        );
-  
-        // Buscar el horario vigente para esta fecha
-        const fechaDia = new Date(fechaStr);
-        const asignacionVigente = horariosOrdenados.find((h: any) => 
-            new Date(h.primer_dia) <= fechaDia
-        );
-  
-        if (asignacionVigente && asignacionVigente.Horario) {
-            // Aquí deberías tener lógica de días libres o rotativos
-            // Si es un horario fijo o simple, a veces la plantilla está directa o en bloques
-            // SIMPLIFICACIÓN: Asumiendo que asignacionVigente tiene la plantilla o bloques
-            
-            // Si usas bloques rotativos (ej. 5x2), tu lógica es más compleja aquí.
-            // Pero el principio es el mismo:
-            // SI ENCUENTRAS UN ID DE PLANTILLA PERO NO EL OBJETO, BÚSCALO EN this.todasLasPlantillasCache
-            
-            // Ejemplo Genérico:
-            // return { PlantillaHorario: asignacionVigente.Horario.PlantillaHorario, origen: 'Horario' };
-        }
+
+    // Asegurar que los bloques estén ordenados por 'orden'
+    const bloques = horarioActivo.bloques.sort((a: any, b: any) => a.orden - b.orden);
+    const diasDesdeInicio = this.calcularDiasDesdeInicio(dia, empleado, horarioActivo);
+    
+    // Si el día es anterior a la fecha de inicio, retornar null (sin horario)
+    if (diasDesdeInicio < 0) {
+      return null;
     }
-  
-    return null;
+    
+    const indiceBloque = diasDesdeInicio % bloques.length;
+    
+    // Debug solo para casos problemáticos
+    if (indiceBloque >= bloques.length || indiceBloque < 0) {
+    }
+    
+    const bloqueSeleccionado = bloques[indiceBloque];
+    
+    // IMPORTANTE: Asegurar que el bloque tenga la plantilla
+    return this.asegurarPlantillaEnBloque(bloqueSeleccionado, empleado, dia, bloques);
   }
   
   // Función auxiliar para asegurar que un bloque tenga la plantilla cargada
@@ -9412,22 +9341,6 @@ buscarDatos() {
     const fechaStr = dia instanceof Date ? dia.toISOString().split('T')[0] : dia;
     const keyCache = `${empleado?.id}|${fechaStr}|${tipoHorario}`;
     
-    const key = `${empleado.id}|${fechaStr}`;
-
-    // === AGREGAR ESTO AL PRINCIPIO ===
-    // Si ya calculamos inteligentemente, USAR ESO.
-    if (this.cacheMarcajesCalculados.has(key)) {
-      const calculado = this.cacheMarcajesCalculados.get(key);
-      if (calculado) {
-          if (tipoHorario === 'Entrada') return calculado.entrada;
-          if (tipoHorario === 'Salida') return calculado.salida;
-          // Si usas tipo 'Descanso' y quieres mostrar algo:
-          if (tipoHorario === 'Descanso') return ''; 
-      }
-    }
-    // =================================
-
-
     if (this.cacheHorarioInfo.has(keyCache)) {
       return this.cacheHorarioInfo.get(keyCache) || 'Sin Registros';
     }
@@ -9554,7 +9467,6 @@ buscarDatos() {
     }
     
     return resultado;
-    //return '';
   }
 
   // Esta función ya no se usa - ahora todo es dinámico según las plantillas
@@ -10776,145 +10688,6 @@ buscarDatos() {
     
     return this.formatearMinutosAHora(totalMinutos);
   }
-
-  // ==========================================
-  // 1. EL CEREBRO: Recálculo en Cascada
-  // ==========================================
-  recalcularMarcajesInteligentes(empleado: any) {
-    if (!empleado || !empleado.cedula) return;
-
-    // 1. Limpiar la memoria de "marcajes usados" para este empleado
-    // Esto es vital para que el cálculo empiece limpio desde el primer día
-    this.marcajesUsadosGlobal.clear();
-    
-    // 2. Obtener marcajes COMPLETOS
-    // Buscamos en el mapa que llenamos en buscarDatos()
-    const logsRaw = this.marcajesCompletos.get(empleado.cedula) || [];
-    
-    // 3. Ordenar cronológicamente (VITAL)
-    // Sin esto, el sistema no sabría qué día va primero
-    const logsOrdenados = [...logsRaw].sort((a, b) => 
-      new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
-    );
-
-    // 4. Limpiar caché visual previa de este empleado
-    // Obligamos a la vista a "olvidar" lo viejo para pintar lo nuevo
-    this.diasDelMes.forEach(dia => {
-      const fechaStr = dia instanceof Date ? dia.toISOString().split('T')[0] : dia;
-      const key = `${empleado.id}|${fechaStr}`;
-      this.cacheMarcajesCalculados.delete(key);
-    });
-
-    // 5. Barrido Secuencial (Lunes -> Martes -> Miércoles...)
-    this.diasDelMes.forEach(dia => {
-      this.procesarDiaUnico(empleado, dia, logsOrdenados);
-    });
-
-    // 6. Actualizar la vista manualmente
-    // Esto es necesario porque el cambio ocurre en variables internas
-    this.cdr.detectChanges();
-  }
-
-  // ==========================================
-  // 2. EL MOTOR: Lógica por Día
-  // ==========================================
-  procesarDiaUnico(empleado: any, dia: Date, todosLosLogs: any[]) {
-    // A. Obtener Horario (Ya busca en el caché de plantillas si falta info)
-    const bloque = this.getBloqueHorario(empleado, dia);
-    
-    // Si no hay horario asignado, no calculamos nada
-    if (!bloque || !bloque.PlantillaHorario) return;
-
-    const fechaStr = dia instanceof Date ? dia.toISOString().split('T')[0] : dia;
-    const plantilla = bloque.PlantillaHorario;
-
-    // Validación extra de seguridad: Si la plantilla no tiene horas, salir
-    if (!plantilla.hora_entrada || !plantilla.hora_salida) return;
-
-    // B. Construir Fechas Teóricas (Cuándo DEBERÍA entrar/salir)
-    const fechaBase = new Date(dia);
-    fechaBase.setHours(0,0,0,0);
-    
-    // Entrada Teórica
-    const entradaTeorica = new Date(fechaBase);
-    const [hEnt, mEnt] = plantilla.hora_entrada.split(':');
-    entradaTeorica.setHours(+hEnt, +mEnt, 0, 0);
-
-    // Salida Teórica
-    let salidaTeorica = new Date(fechaBase);
-    const [hSal, mSal] = plantilla.hora_salida.split(':');
-    salidaTeorica.setHours(+hSal, +mSal, 0, 0);
-
-    // DETECCIÓN DE CRUCE NOCTURNO:
-    // Si la salida es menor a la entrada (ej: Entra 22:00, Sale 06:00), 
-    // significa que sale al día siguiente.
-    if (salidaTeorica.getTime() < entradaTeorica.getTime()) {
-      salidaTeorica.setDate(salidaTeorica.getDate() + 1);
-    }
-
-    // C. BUSCAR ENTRADA REAL
-    // Buscamos un marcaje +/- 2 horas (120 min) de la hora de entrada
-    let entradaLog = todosLosLogs.find(log => {
-      if (this.marcajesUsadosGlobal.has(log.id)) return false; // ¡Si ya se usó ayer, no tocar!
-      
-      const logTime = new Date(log.event_time);
-      const diffMin = (logTime.getTime() - entradaTeorica.getTime()) / 60000;
-      return Math.abs(diffMin) <= 120; 
-    });
-
-    if (entradaLog) {
-      this.marcajesUsadosGlobal.add(entradaLog.id); // ¡MARCADO COMO USADO!
-    }
-
-    // D. BUSCAR SALIDA REAL
-    let salidaLog = null;
-    
-    // Solo buscamos salida si encontramos entrada (regla de negocio común)
-    if (entradaLog) {
-      const logEntradaTime = new Date(entradaLog.event_time);
-      
-      salidaLog = todosLosLogs.find(log => {
-        if (this.marcajesUsadosGlobal.has(log.id)) return false; // Ya usado
-        
-        const logTime = new Date(log.event_time);
-        
-        // Regla 1: La salida debe ser DESPUÉS de la entrada real
-        if (logTime <= logEntradaTime) return false;
-
-        // Regla 2: Cercanía a la salida TEÓRICA
-        const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
-        
-        // VENTANA AMPLIADA (Tu requerimiento específico):
-        // -480 min (-8 horas): Cubre turno nocturno que sale muy temprano el mismo día (enfermedad)
-        // +720 min (+12 horas): Cubre turno diurno que sale muy tarde al día siguiente (horas extra extremas)
-        return diffSalida >= -480 && diffSalida <= 720; 
-      });
-
-      if (salidaLog) {
-        this.marcajesUsadosGlobal.add(salidaLog.id); // ¡MARCADO COMO USADO!
-      }
-    }
-
-    // E. GUARDAR RESULTADO EN CACHÉ VISUAL
-    // Esto es lo que leerá getHorarioInfo() para mostrar en la tabla
-    const key = `${empleado.id}|${fechaStr}`;
-    
-    this.cacheMarcajesCalculados.set(key, {
-      entrada: entradaLog ? this.formatHoraCorta(entradaLog.event_time) : 'Sin marcaje',
-      salida: salidaLog ? this.formatHoraCorta(salidaLog.event_time) : 'Sin marcaje',
-      // Si manejas descansos, agrégalos aquí con lógica similar
-      entradaDescanso: 'Sin marcaje', 
-      salidaDescanso: 'Sin marcaje'
-    });
-  }
-
-  // Helper simple para formatear hora HH:mm
-  formatHoraCorta(fechaIso: string): string {
-    if (!fechaIso) return '';
-    const d = new Date(fechaIso);
-    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-  }
-
 }
 
 
