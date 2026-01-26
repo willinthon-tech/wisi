@@ -9512,8 +9512,8 @@ export class MarcajePersonalComponent implements OnInit {
         resultado = '';
     }
     
-    //return resultado;
-    return '';
+    return resultado;
+    //return '';
   }
 
   // Esta función ya no se usa - ahora todo es dinámico según las plantillas
