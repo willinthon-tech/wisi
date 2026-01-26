@@ -1,51 +1,22 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { EmpleadosService } from '../../../services/empleados.service';
+import { AreasService } from '../../../services/areas.service';
+import { CargosService } from '../../../services/cargos.service';
+import { PermissionsService } from '../../../services/permissions.service';
 import { ErrorModalService } from '../../../services/error-modal.service';
 import { ConfirmModalService } from '../../../services/confirm-modal.service';
-import { AuthService } from '../../../services/auth.service';
-import { PermissionsService } from '../../../services/permissions.service';
-import { Subscription } from 'rxjs';
-
-interface EmpleadoBorrado {
-  id: number;
-  foto: string;
-  nombre: string;
-  cedula: string;
-  fecha_ingreso: string;
-  fecha_cumpleanos: string;
-  sexo: string;
-  activo: number;
-  created_at: string;
-  updated_at: string;
-  Cargo?: {
-    id: number;
-    nombre: string;
-    Departamento?: {
-      id: number;
-      nombre: string;
-      Area?: {
-        id: number;
-        nombre: string;
-        Sala?: {
-          id: number;
-          nombre: string;
-        }
-      }
-    }
-  };
-  dispositivos?: any[];
-}
 
 @Component({
   selector: 'app-empleados-borrados',
+  standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="empleados-borrados-container">
+    <div class="feriados-container">
       <div class="header">
-        <h2>Empleados Borrados</h2>
-        <p class="subtitle">Lista de empleados eliminados del sistema</p>
+        <h2>Empleados Desincorporados</h2>
+        <span class="badge badge-nacional">REINCORPORACIÓN</span>
       </div>
       
       <div class="table-wrapper">
@@ -56,35 +27,21 @@ interface EmpleadoBorrado {
               <th>Foto</th>
               <th>Nombre</th>
               <th>Cédula</th>
-              <th>Cargo</th>
-              <th>Fecha Eliminación</th>
-              <th>Acciones</th>
+              <th class="text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let empleado of empleados; let i = index">
               <td>{{ i + 1 }}</td>
               <td>
-                <img 
-                  *ngIf="empleado.foto" 
-                  [src]="'data:image/jpeg;base64,' + empleado.foto" 
-                  alt="Foto del empleado"
-                  class="employee-photo"
-                />
-                <span *ngIf="!empleado.foto" class="no-photo">Sin foto</span>
+                <img *ngIf="empleado.foto" [src]="'data:image/jpeg;base64,' + empleado.foto" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover;" />
+                <span *ngIf="!empleado.foto" class="text-muted">Sin foto</span>
               </td>
-              <td>{{ empleado.nombre }}</td>
+              <td><strong>{{ empleado.nombre }}</strong></td>
               <td>{{ empleado.cedula }}</td>
-              <td>{{ empleado.Cargo?.nombre || 'Sin asignar' }}</td>
-              <td>{{ formatDate(empleado.updated_at) }}</td>
-              <td>
-                <button 
-                  class="btn btn-success btn-sm"
-                  (click)="activarEmpleado(empleado)"
-                  [disabled]="!canActivate()"
-                  title="Activar empleado"
-                >
-                  Activar
+              <td class="text-center">
+                <button class="btn btn-primary btn-sm" [disabled]="!canEdit()" (click)="abrirModalIncorporar(empleado)">
+                  <i class="fas fa-user-plus"></i> Incorporar
                 </button>
               </td>
             </tr>
@@ -92,237 +49,168 @@ interface EmpleadoBorrado {
         </table>
       </div>
 
-      <div *ngIf="empleados.length === 0" class="no-data">
-        <p>No hay empleados borrados</p>
+      <div *ngIf="showModal" class="modal-overlay" (click)="closeModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h3>Incorporar a Sala</h3>
+            <button class="close-btn" (click)="closeModal()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form #reincForm="ngForm" (ngSubmit)="confirmarIncorporacion()">
+              
+              <div class="row mb-3">
+                <div class="col-md-4 text-center">
+                   <img *ngIf="selectedEmpleado?.foto" [src]="'data:image/jpeg;base64,' + selectedEmpleado.foto" style="width: 100px; height: 100px; border-radius: 8px; object-fit: cover; border: 1px solid #ddd;" />
+                </div>
+                <div class="col-md-8">
+                  <label class="small text-muted">Empleado:</label>
+                  <input type="text" [value]="selectedEmpleado?.nombre" class="form-control" disabled />
+                  <label class="small text-muted mt-2">Cédula:</label>
+                  <input type="text" [value]="selectedEmpleado?.cedula" class="form-control" disabled />
+                </div>
+              </div>
+
+              <hr>
+
+              <div class="form-group mb-3">
+                <label>Sala Destino:</label>
+                <select name="sala_id" [(ngModel)]="form.sala_id" (change)="onSalaChange()" class="form-control" required>
+                  <option [ngValue]="null">--- Seleccione Sala ---</option>
+                  <option *ngFor="let s of userSalas" [value]="s.id">{{ s.nombre }}</option>
+                </select>
+              </div>
+
+              <div class="form-group mb-3">
+                <label>Cargo Asignado:</label>
+                <select name="cargo_id" [(ngModel)]="form.cargo_id" class="form-control" [disabled]="!form.sala_id" required>
+                  <option [ngValue]="null">--- Seleccione Cargo ---</option>
+                  <option *ngFor="let c of cargosFiltrados" [value]="c.id">{{ c.nombre }}</option>
+                </select>
+              </div>
+
+              <div class="form-group mb-3">
+                <label>Fecha de Ingreso:</label>
+                <input type="date" name="fecha_ingreso" [(ngModel)]="form.fecha_ingreso" class="form-control" required />
+              </div>
+
+              <div class="form-actions mt-4">
+                <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-success" [disabled]="!reincForm.form.valid">
+                  Finalizar e Incorporar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   `,
   styles: [`
-    .empleados-borrados-container {
-      padding: 20px;
-      background-color: #f8f9fa;
-      min-height: 100vh;
-    }
-
-    .header {
-      margin-bottom: 30px;
-    }
-
-    .header h2 {
-      color: #333;
-      margin-bottom: 5px;
-    }
-
-    .subtitle {
-      color: #666;
-      margin: 0;
-    }
-
-    .table-wrapper {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-      max-height: calc(100vh - 200px);
-      overflow-y: auto;
-    }
-
-    .table-wrapper::-webkit-scrollbar {
-      display: none; /* Chrome, Safari, Edge */
-    }
-
-    .table {
-      margin: 0;
-      border: none;
-      width: 100%;
-      background: white;
-    }
-
-    .table th {
-      background-color: #343a40;
-      color: white;
-      border: none;
-      padding: 15px 12px;
-      font-weight: 600;
-      text-align: left;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .table td {
-      padding: 12px;
-      vertical-align: middle;
-      border-top: 1px solid #dee2e6;
-      font-size: 14px;
-    }
-
-    .table tbody tr:hover {
-      background-color: #f8f9fa;
-    }
-
-    .employee-photo {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid #e9ecef;
-    }
-
-    .no-photo {
-      color: #6c757d;
-      font-style: italic;
-      font-size: 12px;
-    }
-
-    .btn {
-      padding: 6px 12px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: all 0.2s;
-    }
-
-    .btn-success {
-      background-color: #28a745;
-      color: white;
-    }
-
-    .btn-success:hover:not(:disabled) {
-      background-color: #218838;
-    }
-
-    .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .no-data {
-      padding: 40px;
-      text-align: center;
-      color: #666;
-    }
-
-    .no-data p {
-      margin: 0;
-      font-size: 16px;
-    }
-
-    @media (max-width: 768px) {
-      .table-wrapper {
-        overflow-x: auto;
-      }
-      
-      .table {
-        min-width: 600px;
-      }
-    }
+    .feriados-container { padding: 20px; max-width: 1200px; margin: 0 auto; background: #f8f9fa; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 12px; width: 500px; overflow: hidden; }
+    .modal-header { padding: 15px 20px; background: #343a40; color: white; display: flex; justify-content: space-between; }
+    .close-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+    .modal-body { padding: 20px; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 10px; }
   `]
 })
-export class EmpleadosBorradosComponent implements OnInit, OnDestroy {
-  empleados: EmpleadoBorrado[] = [];
-  loading = false;
-  
-  private permissionsSubscription?: Subscription;
-  private EMPLEADOS_MODULE_ID = 1; // ID del módulo de empleados
+export class EmpleadosBorradosComponent implements OnInit {
+  empleados: any[] = [];
+  userSalas: any[] = [];
+  todosLosCargos: any[] = []; // Guardamos todos los cargos aquí
+  cargosFiltrados: any[] = []; // Los que mostraremos según la sala
+  showModal = false;
+  selectedEmpleado: any = null;
+
+  form = {
+    sala_id: null as any,
+    cargo_id: null as any,
+    fecha_ingreso: ''
+  };
 
   constructor(
     private empleadosService: EmpleadosService,
-    private authService: AuthService,
+    private areasService: AreasService,
+    private cargosService: CargosService,
     private permissionsService: PermissionsService,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
   ) {}
 
-  ngOnInit(): void {
-    this.loadEmpleadosBorrados();
+  ngOnInit() {
+    this.loadInitialData();
   }
 
-  ngOnDestroy(): void {
-    if (this.permissionsSubscription) {
-      this.permissionsSubscription.unsubscribe();
+  loadInitialData() {
+    // 1. Cargamos empleados borrados
+    this.empleadosService.getEmpleadosBorrados().subscribe(res => this.empleados = res);
+    
+    // 2. Cargamos las salas disponibles para el usuario
+    this.areasService.getUserSalas().subscribe(res => this.userSalas = res);
+    
+    // 3. Cargamos TODOS los cargos una sola vez (Usando el método que SÍ existe)
+    this.cargosService.getCargos().subscribe(res => this.todosLosCargos = res);
+  }
+
+  canEdit() { return this.permissionsService.canEditByName('Empleados'); }
+
+  abrirModalIncorporar(empleado: any) {
+    this.selectedEmpleado = empleado;
+    this.form = { sala_id: null, cargo_id: null, fecha_ingreso: '' };
+    this.cargosFiltrados = [];
+    this.showModal = true;
+  }
+
+  closeModal() { this.showModal = false; }
+
+  // FILTRO LOCAL: Aquí está el truco para no necesitar la función en el servicio
+  onSalaChange() {
+    this.cargosFiltrados = [];
+    this.form.cargo_id = null;
+    
+    if (this.form.sala_id) {
+      const sId = Number(this.form.sala_id);
+      // Filtramos en el array local buscando la sala en la jerarquía del cargo
+      this.cargosFiltrados = this.todosLosCargos.filter(c => 
+        c.Departamento?.Area?.Sala?.id === sId || 
+        c.Departamento?.Area?.sala_id === sId
+      );
     }
   }
 
-  loadEmpleadosBorrados(): void {
-    this.loading = true;
-    this.empleadosService.getEmpleadosBorrados().subscribe({
-      next: (empleados: any[]) => {
-        this.empleados = empleados as EmpleadoBorrado[];
-        this.loading = false;
-      },
-      error: (error) => {
-        
-        this.loading = false;
-        this.errorModalService.showErrorModal({
-          title: 'Error',
-          message: 'No se pudieron cargar los empleados borrados'
+  confirmarIncorporacion() {
+    this.confirmModalService.showConfirmModal({
+      title: 'Confirmar Incorporación',
+      message: `¿Deseas activar a ${this.selectedEmpleado.nombre}?`,
+      onConfirm: () => {
+        // MERGE DE DATOS: Mandamos el objeto completo para evitar errores 400
+        const payload = {
+          ...this.selectedEmpleado,
+          activo: 1, 
+          cargo_id: Number(this.form.cargo_id),
+          fecha_ingreso: this.form.fecha_ingreso,
+          dispositivos: [] 
+        };
+
+        this.empleadosService.updateEmpleado(this.selectedEmpleado.id, payload).subscribe({
+          next: () => {
+            this.empleados = this.empleados.filter(e => e.id !== this.selectedEmpleado.id);
+            this.closeModal();
+          },
+          error: (err) => {
+            this.errorModalService.showErrorModal({
+              title: 'Error de Servidor',
+              message: err.error?.message || 'No se pudo procesar la incorporación.',
+            });
+          }
         });
       }
     });
   }
 
-  activarEmpleado(empleado: EmpleadoBorrado): void {
-    this.confirmModalService.showConfirmModal({
-      title: 'Activar Empleado',
-      message: `¿Está seguro de que desea activar al empleado "${empleado.nombre}"?`,
-      entity: {
-        id: empleado.id,
-        nombre: empleado.nombre,
-        tipo: 'Empleado'
-      },
-      warningText: 'El empleado volverá a estar activo en el sistema.',
-      onConfirm: () => {
-        this.ejecutarActivacionEmpleado(empleado);
-      }
-    });
-  }
-
-  private ejecutarActivacionEmpleado(empleado: EmpleadoBorrado): void {
-    this.empleadosService.activarEmpleado(empleado.id).subscribe({
-      next: (response) => {
-        // Remover el empleado de la lista
-        this.empleados = this.empleados.filter(e => e.id !== empleado.id);
-        
-        // Mostrar mensaje de éxito
-        
-      },
-      error: (error) => {
-        
-        
-        if (error.status === 400 && error.error?.relations) {
-          // Mostrar modal de error con relaciones
-          this.errorModalService.showErrorModal({
-            title: 'No se puede activar el empleado',
-            message: 'No se puede activar este empleado porque tiene las siguientes relaciones:',
-            relations: error.error.relations
-          });
-        } else {
-          // Mostrar modal de error genérico
-          this.errorModalService.showErrorModal({
-            title: 'Error',
-            message: 'No se pudo activar el empleado'
-          });
-        }
-      }
-    });
-  }
-
-  formatDate(dateString: string): string {
-    if (!dateString) return 'N/A';
-    
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
-  canActivate(): boolean {
-    return this.permissionsService.hasPermission(this.EMPLEADOS_MODULE_ID, 'EDITAR');
+  formatDate(dateStr: string) {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleDateString('es-ES');
   }
 }

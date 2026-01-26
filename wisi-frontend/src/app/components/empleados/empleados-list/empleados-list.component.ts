@@ -131,12 +131,12 @@ import { take, filter } from 'rxjs/operators';
                   Editar
                 </button>
                 <button 
-                  class="btn btn-danger btn-sm" 
+                  class="btn btn-warning btn-sm" 
                   [class.disabled]="!canDelete()"
                   [disabled]="!canDelete()"
                   (click)="canDelete() ? desactivarEmpleado(empleado) : null"
                   title="Desincorporar empleado de esta sala">
-                  <i class="fas fa-user-slash"></i> Desincorporar empleado
+                  Desincorporar empleado
                 </button>
               </td>
             </tr>
