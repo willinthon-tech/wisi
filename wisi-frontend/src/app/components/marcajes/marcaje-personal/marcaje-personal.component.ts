@@ -10240,28 +10240,19 @@ export class MarcajePersonalComponent implements OnInit {
     let count = 0;
     
     this.diasDelMes.forEach(dia => {
-      if (dia.getDay() === 0) { // Si es Domingo
+      // 1. Verificar si es domingo
+      if (dia.getDay() === 0) {
         const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
         const key = `${empleado.id}|${fechaStr}`;
-  
-        // 1. Obtener resultado (DIURNO, NOCTURNO, etc.)
-        const resultadoHtml = this.getResultadoTurno(empleado, dia);
         
-        if (resultadoHtml) {
-          const resultadoStr = String(resultadoHtml).toUpperCase();
-          
-          // 2. ¿El resultado indica jornada trabajada?
-          if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
-              resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
-            
-            // 3. ¿Realmente hay huellas en el caché?
-            const marcajes = this.cacheMarcajesCalculados.get(key);
-            if (marcajes && 
-                marcajes.entrada !== 'Sin marcaje' && 
-                marcajes.salida !== 'Sin marcaje') {
-              count++;
-            }
-          }
+        const marcajes = this.cacheMarcajesCalculados.get(key);
+        
+        // 2. Solo contamos si hay una huella real (entrada O salida con ":")
+        const tieneMarcajeReal = (marcajes?.entrada && marcajes.entrada.includes(':')) || 
+                                 (marcajes?.salida && marcajes.salida.includes(':'));
+  
+        if (tieneMarcajeReal) {
+          count++;
         }
       }
     });
@@ -10276,6 +10267,7 @@ export class MarcajePersonalComponent implements OnInit {
     const empleadosBase = this.obtenerBaseEmpleados();
     
     empleadosBase.forEach(empleado => {
+      // Sumamos los domingos reales de cada empleado
       count += this.getResumenDomingosTrabajadosPorEmpleado(empleado);
     });
     
@@ -10360,18 +10352,21 @@ export class MarcajePersonalComponent implements OnInit {
       const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
       const key = `${empleado.id}|${fechaStr}`;
       
-      // 1. Obtener el bloque programado
+      // 1. Buscamos el bloque en el caché (donde sabemos si es libre)
       const bloque = this.cacheBloquesHorario.get(key);
       
+      // 2. ¿Es día LIBRE según tu función esDiaLibre?
       if (bloque && this.esDiaLibre(bloque)) {
-        // 2. LEER DEL CACHÉ INTELIGENTE (El que acabamos de calcular)
+        
+        // 3. Consultamos el caché inteligente de marcajes
         const marcajes = this.cacheMarcajesCalculados.get(key);
         
-        // 3. VALIDACIÓN ESTRICTA: Solo contar si tiene entrada Y salida real
-        if (marcajes && 
-            marcajes.entrada !== 'Sin marcaje' && marcajes.entrada !== '' &&
-            marcajes.salida !== 'Sin marcaje' && marcajes.salida !== '' && 
-            marcajes.salida !== 'SNM') {
+        // 4. FILTRO DE SEGURIDAD DEFINITIVO:
+        // Solo contamos si la entrada Y la salida tienen el formato de hora HH:mm (contienen ":")
+        const tieneEntradaReal = marcajes?.entrada && marcajes.entrada.includes(':');
+        const tieneSalidaReal = marcajes?.salida && marcajes.salida.includes(':');
+  
+        if (tieneEntradaReal && tieneSalidaReal) {
           count++;
         }
       }
