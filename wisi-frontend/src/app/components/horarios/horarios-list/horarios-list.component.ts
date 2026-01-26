@@ -17,13 +17,12 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="horarios-container">
+    <div class="feriados-container">
       <div class="header">
         <button 
           class="btn btn-success" 
-          [class.disabled]="!canAdd()"
           [disabled]="!canAdd()"
-          (click)="canAdd() ? showSalaSelector() : null">
+          (click)="canAdd() ? openModal() : null">
           Agregar
         </button>
       </div>
@@ -35,39 +34,36 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
               <th>N°</th>
               <th>Nombre</th>
               <th>Sala</th>
-              <th>Horarios Asignados</th>
+              <th>Fecha (Día/Mes)</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let horario of horarios; let i = index">
+            <tr *ngFor="let f of feriados; let i = index">
               <td>{{ i + 1 }}</td>
-              <td>{{ horario.nombre }}</td>
-              <td>{{ horario.Sala?.nombre || 'Sin asignar' }}</td>
+              <td>{{ f?.nombre }}</td>
               <td>
-                <div class="patron-preview" *ngIf="horario.bloques && horario.bloques.length > 0">
-                  <span *ngFor="let bloque of getBloquesOrdenados(horario.bloques)" 
-                        class="badge me-1 badge-custom"
-                        [style.backgroundColor]="bloque.PlantillaHorario?.color || '#ffffff'"
-                        [style.color]="getContrastColor(bloque.PlantillaHorario?.color)">
-                    {{ bloque.PlantillaHorario?.codigo || 'N/A' }}
-                  </span>
-                </div>
-                <span *ngIf="!horario.bloques || horario.bloques.length === 0" class="text-muted">0 bloques</span>
+                <span *ngIf="!f?.sala_id" class="badge badge-nacional">NACIONAL</span>
+                <span *ngIf="f?.sala_id">{{ f?.Sala?.nombre || 'Sin asignar' }}</span>
+              </td>
+              <td>
+                <span class="fecha-texto">
+                  <strong>{{ f?.dia ? (f.dia < 10 ? '0'+f.dia : f.dia) : '00' }}</strong> / {{ getNombreMes(f?.mes) }}
+                </span>
               </td>
               <td>
                 <button 
                   class="btn btn-info btn-sm me-1" 
-                  [class.disabled]="!canEdit()"
-                  [disabled]="!canEdit()"
-                  (click)="canEdit() ? editHorario(horario) : null">
+                  [class.disabled]="!canEdit() || !f?.sala_id"
+                  [disabled]="!canEdit() || !f?.sala_id"
+                  (click)="canEdit() && f?.sala_id ? editFeriado(f) : null">
                   Editar
                 </button>
                 <button 
                   class="btn btn-danger btn-sm" 
-                  [class.disabled]="!canDelete()"
-                  [disabled]="!canDelete()"
-                  (click)="canDelete() ? deleteHorario(horario.id) : null">
+                  [class.disabled]="!canDelete() || !f?.sala_id"
+                  [disabled]="!canDelete() || !f?.sala_id"
+                  (click)="canDelete() && f?.sala_id ? deleteFeriado(f?.id) : null">
                   Eliminar
                 </button>
               </td>
@@ -76,120 +72,89 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
         </table>
       </div>
 
-      <div *ngIf="horarios.length === 0" class="no-data">
-        <p>No hay horarios registrados</p>
+      <div *ngIf="feriados.length === 0" class="no-data">
+        <p>No hay feriados registrados</p>
       </div>
 
-      <!-- Modal para crear horario -->
-      <div *ngIf="showSalaModal" class="modal-overlay" (click)="closeSalaSelector()">
+      <div *ngIf="showModal" class="modal-overlay" (click)="closeModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
-            <h3>{{ selectedHorario ? 'Editar Horario' : 'Crear Nuevo Horario' }}</h3>
-            <button class="close-btn" (click)="closeSalaSelector()">&times;</button>
+            <h3>{{ selectedFeriado ? 'Editar Feriado' : 'Crear Nuevo Feriado' }}</h3>
+            <button class="close-btn" (click)="closeModal()">&times;</button>
           </div>
           <div class="modal-body">
-            <form (ngSubmit)="createHorario()" #horarioForm="ngForm">
+            <form (ngSubmit)="saveFeriado()" #fForm="ngForm">
               <div class="form-group">
-                <label for="nombreHorario">Nombre del Horario:</label>
+                <label for="nombreFeriado">Nombre del Feriado:</label>
                 <input 
                   type="text" 
-                  id="nombreHorario" 
-                  name="nombreHorario"
-                  [(ngModel)]="nuevoHorario.nombre"
+                  id="nombreFeriado" 
+                  name="n"
+                  [(ngModel)]="form.nombre"
                   class="form-control"
-                  placeholder="Ingrese el nombre del horario"
+                  placeholder="Ingrese el nombre del feriado"
                   required
                 />
               </div>
               
-              <div class="form-group" *ngIf="!selectedHorario">
+              <div class="form-group">
                 <label for="salaSelect">Sala:</label>
                 <select 
                   id="salaSelect" 
-                  name="salaSelect"
-                  [(ngModel)]="nuevoHorario.sala_id"
-                  (ngModelChange)="onSalaChange($event)"
+                  name="s"
+                  [(ngModel)]="form.sala_id"
                   class="form-control"
                   required
                 >
-                  <option value="">Seleccione una sala</option>
-                  <option *ngFor="let sala of userSalas" [value]="sala.id">
-                    {{ sala.nombre }}
+                  <option [ngValue]="null">Seleccione una sala</option>
+                  <option *ngFor="let s of userSalas" [ngValue]="s.id">
+                    {{ s.nombre }}
                   </option>
                 </select>
               </div>
 
-
-              <!-- Configuración de Bloques -->
-              <div class="bloques-section">
-                
-                <div class="form-group">
-                  <label for="cantidadBloques">Cantidad de Bloques:</label>
-                  <input 
-                    type="number" 
-                    id="cantidadBloques" 
-                    name="cantidadBloques"
-                    [(ngModel)]="cantidadBloques"
-                    class="form-control"
-                    min="0"
-                    (change)="onCantidadBloquesChange()"
-                    [disabled]="!nuevoHorario.sala_id"
-                    required
-                  />
-                </div>
-
-                <!-- Lista de Bloques -->
-                <div class="bloques-container" *ngIf="bloques.length > 0">
-                  <div class="bloque-item" *ngFor="let bloque of bloques; let i = index">
-                    <div class="bloque-header">
-                      <h6 class="mb-0">Bloque {{ i + 1 }}</h6>
-                    </div>
-                    <div class="bloque-body">
-                      <div class="row">
-                        <div class="col-md-12">
-                          <div class="form-group">
-                            <label>Plantilla de Horario:</label>
-                            <select 
-                              [(ngModel)]="bloque.plantilla_horario_id"
-                              name="plantilla_horario_{{i}}"
-                              class="form-control"
-                              [disabled]="!nuevoHorario.sala_id"
-                              required
-                            >
-                              <option value="">Seleccione una plantilla</option>
-                              <option *ngFor="let p of plantillasSala" [value]="p.id">
-                                {{ p.codigo }} - {{ p.nombre || 'Sin descripción' }}
-                              </option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Mes:</label>
+                    <select name="m" [(ngModel)]="form.mes" class="form-control" required>
+                      <option [ngValue]="null">Seleccione mes</option>
+                      <option *ngFor="let m of meses" [ngValue]="m.id">{{ m.nombre }}</option>
+                    </select>
                   </div>
                 </div>
-
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Día:</label>
+                    <input 
+                      type="number" 
+                      name="d"
+                      [(ngModel)]="form.dia"
+                      class="form-control"
+                      min="1"
+                      max="31"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
               
               <div class="form-actions">
-                <button type="button" class="btn btn-secondary" (click)="closeSalaSelector()">
+                <button type="button" class="btn btn-secondary" (click)="closeModal()">
                   Cancelar
                 </button>
-                <button type="submit" class="btn btn-success" [disabled]="!isFormValid()">
-                  {{ selectedHorario ? 'Actualizar Horario' : 'Guardar Horario' }}
+                <button type="submit" class="btn btn-success" [disabled]="!fForm.form.valid">
+                  {{ selectedFeriado ? 'Actualizar Feriado' : 'Guardar Feriado' }}
                 </button>
               </div>
             </form>
-            
-            <div *ngIf="userSalas.length === 0 && !selectedHorario" class="no-salas">
-              <p>No tienes salas asignadas</p>
-            </div>
           </div>
         </div>
       </div>
     </div>
   `,
   styles: [`
-    .horarios-container {
+    .feriados-container {
       padding: 20px;
       max-width: 1400px;
       margin: 0 auto;
@@ -197,9 +162,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       min-height: calc(100vh - 120px);
     }
 
-    .header {
-      margin-bottom: 20px;
-    }
+    .header { margin-bottom: 20px; }
 
     .header .btn {
       padding: 12px 24px;
@@ -210,10 +173,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       transition: all 0.3s ease;
     }
 
-    .header .btn-success {
-      background: #28a745;
-      color: white;
-    }
+    .header .btn-success { background: #28a745; color: white; }
 
     .header .btn-success:hover {
       background: #218838;
@@ -228,20 +188,12 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       overflow: hidden;
       max-height: calc(100vh - 200px);
       overflow-y: auto;
-      scrollbar-width: none; /* Firefox */
-      -ms-overflow-style: none; /* Internet Explorer 10+ */
+      scrollbar-width: none;
     }
 
-    .table-wrapper::-webkit-scrollbar {
-      display: none; /* Chrome, Safari, Edge */
-    }
+    .table-wrapper::-webkit-scrollbar { display: none; }
 
-    .table {
-      margin: 0;
-      border: none;
-      width: 100%;
-      background: white;
-    }
+    .table { margin: 0; border: none; width: 100%; background: white; }
 
     .table th {
       background-color: #343a40;
@@ -262,9 +214,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       font-size: 14px;
     }
 
-    .table tbody tr:hover {
-      background-color: #f8f9fa;
-    }
+    .table tbody tr:hover { background-color: #f8f9fa; }
 
     .btn-sm {
       padding: 6px 12px;
@@ -276,25 +226,9 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       transition: all 0.2s ease;
     }
 
-    .btn-info {
-      background: #17a2b8;
-      color: white;
-    }
-
-    .btn-secondary {
-      background: #6c757d;
-      color: white;
-    }
-
-    .btn-warning {
-      background: #ffc107;
-      color: #212529;
-    }
-
-    .btn-danger {
-      background: #dc3545;
-      color: white;
-    }
+    .btn-info { background: #17a2b8; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
 
     .btn-sm:hover {
       transform: translateY(-1px);
@@ -310,15 +244,15 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
 
-    .me-1 {
-      margin-right: 0.25rem;
+    .badge-nacional {
+      background-color: #0d6efd;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
     }
 
-    .mb-1 {
-      margin-bottom: 0.25rem;
-    }
-
-    /* Estilos para el modal */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -336,7 +270,7 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       background: white;
       border-radius: 12px;
       width: 90%;
-      max-width: 800px;
+      max-width: 500px;
       max-height: 80vh;
       overflow-y: auto;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
@@ -350,43 +284,17 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       border-bottom: 1px solid #e9ecef;
     }
 
-    .modal-header h3 {
-      margin: 0;
-      color: #333;
-    }
-
     .close-btn {
       background: none;
       border: none;
       font-size: 24px;
       cursor: pointer;
       color: #666;
-      padding: 0;
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
-    .close-btn:hover {
-      color: #dc3545;
-    }
+    .modal-body { padding: 20px; }
 
-    .modal-body {
-      padding: 20px;
-    }
-
-    .no-salas {
-      text-align: center;
-      padding: 20px;
-      color: #666;
-    }
-
-    /* Estilos para el formulario */
-    .form-group {
-      margin-bottom: 20px;
-    }
+    .form-group { margin-bottom: 20px; }
 
     .form-group label {
       display: block;
@@ -410,17 +318,6 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
     }
 
-    .form-control:disabled {
-      background-color: #f8f9fa;
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .form-group:has(.form-control:disabled) label {
-      color: #6c757d;
-      opacity: 0.7;
-    }
-
     .form-actions {
       display: flex;
       gap: 12px;
@@ -430,238 +327,15 @@ import { PlantillasHorariosService } from '../../../services/plantillas-horarios
       border-top: 1px solid #e9ecef;
     }
 
-    .btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .btn-secondary {
-      background: #6c757d;
-      color: white;
-    }
-
-    .btn-secondary:hover {
-      background: #5a6268;
-    }
-
-    .btn-success {
-      background: #28a745;
-      color: white;
-    }
-
-    .btn-success:hover:not(:disabled) {
-      background: #218838;
-      transform: translateY(-1px);
-    }
-
-    .btn:disabled {
+    .btn:disabled, .btn.disabled {
       opacity: 0.4;
-      cursor: not-allowed;
+      cursor: not-allowed !important;
       pointer-events: none;
     }
 
-    .btn.disabled:hover {
-      transform: none;
-      box-shadow: none;
-    }
-
-    /* Estilos para bloques */
-    .bloques-section {
-      margin-top: 20px;
-      padding: 20px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      border: 1px solid #e9ecef;
-    }
-
-    .bloques-section h4 {
-      color: #333;
-      margin-bottom: 10px;
-    }
-
-    .bloques-container {
-      margin-top: 15px;
-    }
-
-    .bloque-item {
-      background: white;
-      border: 1px solid #e9ecef;
-      border-radius: 6px;
-      margin-bottom: 15px;
-      padding: 0;
-    }
-
-    .form-control {
-      display: block;
-      width: 100%;
-      padding: 8px 12px;
-      font-size: 14px;
-      line-height: 1.5;
-      color: #495057;
-      background-color: #fff;
-      background-clip: padding-box;
-      border: 1px solid #ced4da;
-      border-radius: 4px;
-      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    }
-
-    .form-control:focus {
-      color: #495057;
-      background-color: #fff;
-      border-color: #80bdff;
-      outline: 0;
-      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-    }
-
-    select.form-control {
-      appearance: auto;
-      -webkit-appearance: menulist;
-      -moz-appearance: menulist;
-      background-image: none;
-      padding-right: 12px;
-    }
-
-    select.form-control:disabled {
-      background-color: #e9ecef;
-      opacity: 1;
-    }
-
-
-    .bloque-header {
-      background: #e9ecef;
-      padding: 10px 15px;
-      border-bottom: 1px solid #dee2e6;
-      border-radius: 6px 6px 0 0;
-    }
-
-    .bloque-header h6 {
-      margin: 0;
-      color: #333;
-      font-weight: 600;
-    }
-
-    .bloque-body {
-      padding: 15px;
-    }
-
-
-    .patron-preview {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.25rem;
-    }
-
-    .badge {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .badge-custom {
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      display: inline-block;
-      min-width: 32px;
-      text-align: center;
-    }
-
-    .badge-diurno {
-      background-color: #ffc107 !important;
-      color: #000 !important;
-    }
-
-    .badge-nocturno {
-      background-color: #6f42c1 !important;
-      color: #fff !important;
-    }
-
-    .badge-libre {
-      background-color: #28a745 !important;
-      color: #fff !important;
-    }
-
-    .badge-permiso {
-      background-color: #fd7e14 !important;
-      color: #fff !important;
-    }
-
-    .badge-suspendido {
-      background-color: #dc3545 !important;
-      color: #fff !important;
-    }
-
-    .text-success {
-      color: #198754 !important;
-    }
-
-    .text-muted {
-      color: #6c757d !important;
-    }
-
-    .small {
-      font-size: 0.875em;
-    }
-
-    .mb-0 {
-      margin-bottom: 0 !important;
-    }
-
-    .mb-2 {
-      margin-bottom: 0.5rem !important;
-    }
-
-    .mb-3 {
-      margin-bottom: 1rem !important;
-    }
-
-    .me-2 {
-      margin-right: 0.5rem !important;
-    }
-
-    .ms-2 {
-      margin-left: 0.5rem !important;
-    }
-
-    .w-100 {
-      width: 100% !important;
-    }
-
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      margin-right: -15px;
-      margin-left: -15px;
-    }
-
-    .col-md-2, .col-md-3, .col-md-4 {
-      position: relative;
-      width: 100%;
-      padding-right: 15px;
-      padding-left: 15px;
-    }
-
-    @media (min-width: 768px) {
-      .col-md-2 {
-        flex: 0 0 16.666667%;
-        max-width: 16.666667%;
-      }
-      .col-md-3 {
-        flex: 0 0 25%;
-        max-width: 25%;
-      }
-      .col-md-4 {
-        flex: 0 0 33.333333%;
-        max-width: 33.333333%;
-      }
-    }
+    .me-1 { margin-right: 0.25rem; }
+    .row { display: flex; flex-wrap: wrap; margin-right: -15px; margin-left: -15px; }
+    .col-md-6 { flex: 0 0 50%; max-width: 50%; padding-right: 15px; padding-left: 15px; }
   `]
 })
 export class HorariosListComponent implements OnInit, OnDestroy {
