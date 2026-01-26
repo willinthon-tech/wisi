@@ -10240,19 +10240,25 @@ export class MarcajePersonalComponent implements OnInit {
     let count = 0;
     
     this.diasDelMes.forEach(dia => {
-      // 1. ¿Es domingo?
-      if (dia.getDay() === 0) {
+      if (dia.getDay() === 0) { // Domingo
         const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
         const key = `${empleado.id}|${fechaStr}`;
         
-        const marcajes = this.cacheMarcajesCalculados.get(key);
-        
-        // 2. Solo sumamos si hay al menos una huella real detectada (entrada o salida con ":")
-        const tieneMarcajeReal = (marcajes?.entrada && marcajes.entrada.includes(':')) || 
-                                 (marcajes?.salida && marcajes.salida.includes(':'));
-  
-        if (tieneMarcajeReal) {
-          count++;
+        const resultadoHtml = this.getResultadoTurno(empleado, dia);
+        if (resultadoHtml) {
+          const resultadoStr = String(resultadoHtml).toUpperCase();
+          if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
+              resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
+            
+            const marcajes = this.cacheMarcajesCalculados.get(key);
+            // Contamos si hay al menos una huella válida con ":"
+            if (marcajes && (
+                (marcajes.entrada && marcajes.entrada.includes(':')) || 
+                (marcajes.salida && marcajes.salida.includes(':'))
+            )) {
+              count++;
+            }
+          }
         }
       }
     });
@@ -10278,21 +10284,38 @@ export class MarcajePersonalComponent implements OnInit {
   // Cuenta incluso si no tiene marcajes (como las plantillas "L" con "Sin Registros")
   getResumenDiasPorPlantillaSinHoras(empleado: any, plantillaId: number): number {
     let count = 0;
-    
+  
     this.diasDelMes.forEach(dia => {
       const bloque = this.getBloqueHorario(empleado, dia);
       if (bloque && this.esDiaLibre(bloque)) {
-        // Es plantilla sin hora_entrada ni hora_salida
         const bloquePlantillaId = bloque?.PlantillaHorario?.id;
-        // Verificar si coincide con la plantilla buscada
+        
         if (bloquePlantillaId === plantillaId) {
-          // Contar el día si tiene la plantilla asignada (incluso sin marcajes)
-          // Esto incluye casos como "L" con "Sin Registros"
-          count++;
+          const plantilla = bloque.PlantillaHorario;
+          const nombre = (plantilla?.nombre || '').toUpperCase();
+          const codigo = (plantilla?.codigo || '').toUpperCase();
+  
+          // === EL IF INTELIGENTE QUE SOLICITASTE ===
+          // Si es una plantilla de LIBRE o DESCANSO, validamos que haya trabajado
+          if (nombre.includes('LIBRE') || nombre.includes('DESCANSO') || codigo === 'L') {
+            const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+            const key = `${empleado.id}|${fechaStr}`;
+            const marcajes = this.cacheMarcajesCalculados.get(key);
+  
+            // Solo contamos si tiene entrada Y salida real (que contengan ":")
+            if (marcajes && 
+                marcajes.entrada && marcajes.entrada.includes(':') && 
+                marcajes.salida && marcajes.salida.includes(':')) {
+              count++;
+            }
+          } else {
+            // Si es Vacaciones, Reposo, Feriado, etc., contamos el día asignado normalmente
+            count++;
+          }
         }
       }
     });
-    
+  
     return count;
   }
 
@@ -10351,23 +10374,16 @@ export class MarcajePersonalComponent implements OnInit {
     this.diasDelMes.forEach(dia => {
       const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
       const key = `${empleado.id}|${fechaStr}`;
+      const bloque = this.cacheBloquesHorario.get(key) || this.getBloqueHorario(empleado, dia);
       
-      // 1. Obtenemos el bloque programado
-      const bloque = this.cacheBloquesHorario.get(key);
-      
-      // 2. ¿Es una plantilla sin horas? (Libre, Sin Horario, Permiso, etc.)
       if (bloque && this.esDiaLibre(bloque)) {
-        
-        // 3. BUSCAMOS HUELLAS REALES EN EL CACHÉ
         const marcajes = this.cacheMarcajesCalculados.get(key);
         
-        // 4. EL FILTRO DEFINITIVO:
-        // Solo sumamos si la entrada Y la salida tienen formato de hora (contienen ":")
-        // Si dice "Sin marcaje" o está vacío, NO SE SUMA.
-        const entradaReal = marcajes?.entrada && marcajes.entrada.includes(':');
-        const salidaReal = marcajes?.salida && marcajes.salida.includes(':');
-  
-        if (entradaReal && salidaReal) {
+        // Solo sumamos si hay marcajes reales (entrada Y salida con ":")
+        if (marcajes && 
+            marcajes.entrada && marcajes.entrada.includes(':') && 
+            marcajes.salida && marcajes.salida.includes(':') && 
+            marcajes.salida !== 'SNM') {
           count++;
         }
       }
