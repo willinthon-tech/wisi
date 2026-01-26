@@ -2694,7 +2694,8 @@ export class MarcajePersonalComponent implements OnInit {
   cacheBloquesHorario: Map<string, any> = new Map(); // key: "empleadoId|fechaStr"
   cacheHorarioInfo: Map<string, string> = new Map(); // key: "empleadoId|fechaStr|tipo"
   cacheMarcajesCalculados: Map<string, { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string }> = new Map(); // key: "empleadoId|fechaStr" - Para segunda vuelta
-  private marcajesUsadosEnCalculo: Set<number> = new Set();
+  private marcajesUsadosGlobal: Set<number> = new Set();
+
   // Propiedades para horarios
   horariosDisponibles: any[] = [];
   horariosEmpleado: any[] = [];
@@ -3424,44 +3425,89 @@ export class MarcajePersonalComponent implements OnInit {
 
   guardarExcepcion() {
     if (!this.modalEmpleado || !this.modalFecha || !this.selectedPlantillaId) return;
+    
     this.savingExcepcion = true;
-  
-    // Lógica unificada para crear o actualizar
-    const peticion = (this.isEditExcepcion && this.excepcionId)
-      ? this.excepcionesService.actualizar(this.excepcionId, { plantilla_horario_id: this.selectedPlantillaId })
-      : this.excepcionesService.crear({ 
-          empleado_id: this.modalEmpleado.id, 
-          fecha: this.modalFecha, 
-          plantilla_horario_id: this.selectedPlantillaId 
-        });
-  
-    peticion.subscribe({
-      next: (res) => {
-        this.savingExcepcion = false;
-        const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
-        const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
-        
-        const excepcionActualizada = {
-          id: res?.id || this.excepcionId,
-          empleado_id: this.modalEmpleado.id,
-          fecha: this.modalFecha,
-          plantilla_horario_id: this.selectedPlantillaId,
-          PlantillaHorario: plantilla
-        };
-  
-        this.excepcionesMap.set(key, excepcionActualizada);
-        this.excepcionesCompletas.set(key, excepcionActualizada);
-        
-        // === RECALCULO TRAS GUARDAR ===
-        if (this.hasSearched) {
-          this.ejecutarRecalculoInteligente(this.modalEmpleado);
+
+    // Función interna para refrescar la matriz tras el guardado
+    const finalizarYRecalcular = (idRes: number) => {
+      this.savingExcepcion = false;
+      const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+      const plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === this.selectedPlantillaId) || null;
+      
+      const excepcionData = {
+        id: idRes,
+        empleado_id: this.modalEmpleado.id,
+        fecha: this.modalFecha,
+        plantilla_horario_id: this.selectedPlantillaId,
+        PlantillaHorario: plantilla
+      };
+
+      // Actualización optimista de los mapas locales
+      this.excepcionesMap.set(key, excepcionData);
+      this.excepcionesCompletas.set(key, excepcionData);
+      this.plantillaExcepcionActualId = this.selectedPlantillaId as number;
+      this.isEditExcepcion = true;
+      this.excepcionId = idRes;
+
+      // === INICIO DEL RECÁLCULO INTELIGENTE ===
+      if (this.hasSearched) {
+        // 1. Limpiamos la memoria de huellas usadas para que el cálculo empiece de cero
+        if (this.marcajesUsadosGlobal) {
+          this.marcajesUsadosGlobal.clear();
         }
-      },
-      error: (err) => {
-        this.savingExcepcion = false;
-        console.error("Error al guardar excepción:", err);
+
+        // 2. Limpiamos solo el caché de este empleado (no el de todos)
+        this.limpiarCacheEmpleado(this.modalEmpleado.id);
+
+        // 3. Ejecutamos el ciclo en el siguiente frame de renderizado
+        setTimeout(() => {
+          this.precalcularBloquesYHorarios();
+          // Nota: Si tu precalcular ya hace el barrido completo, 
+          // la matriz se corregirá sola para todos los días del empleado.
+          this.agruparEmpleados();
+          this.cdr.detectChanges();
+        }, 0);
       }
-    });
+    };
+
+    // Lógica de Petición (Actualizar o Crear)
+    if (this.isEditExcepcion && this.excepcionId) {
+      this.excepcionesService.actualizar(this.excepcionId, {
+        plantilla_horario_id: this.selectedPlantillaId
+      }).subscribe({
+        next: () => finalizarYRecalcular(this.excepcionId!),
+        error: (err) => {
+          this.savingExcepcion = false;
+          console.error("Error al actualizar excepción:", err);
+        }
+      });
+    } else {
+      this.excepcionesService.crear({
+        empleado_id: this.modalEmpleado.id,
+        fecha: this.modalFecha,
+        plantilla_horario_id: this.selectedPlantillaId
+      }).subscribe({
+        next: (res) => finalizarYRecalcular(res?.id),
+        error: (err) => {
+          // Manejo de conflicto 409: si ya existe, actualizamos en lugar de crear
+          if (err && err.status === 409) {
+            const key = `${this.modalEmpleado.id}|${this.modalFecha}`;
+            const exExistente = this.excepcionesMap.get(key);
+            if (exExistente && exExistente.id) {
+              this.excepcionesService.actualizar(exExistente.id, { 
+                plantilla_horario_id: this.selectedPlantillaId 
+              }).subscribe({
+                next: () => finalizarYRecalcular(exExistente.id),
+                error: () => this.savingExcepcion = false
+              });
+            }
+          } else {
+            this.savingExcepcion = false;
+            console.error("Error al crear excepción:", err);
+          }
+        }
+      });
+    }
   }
 
   // Método para guardar excepción y cerrar la modal automáticamente
@@ -3988,50 +4034,449 @@ export class MarcajePersonalComponent implements OnInit {
     }
   }
 
+  // Cargar todos los datos (horarios y excepciones) para el rango de fechas seleccionado
   cargarDatosCompletosPorSala(salaId: number) {
     if (!salaId || !this.fechaDesde || !this.fechaHasta) {
       this.loading = false;
       return;
     }
     
+    // Optimización: Obtener SOLO los empleados de esa sala (no todos)
+    // Pasar fechas para que el backend devuelva todo consolidado (horarios, excepciones, marcajes)
     this.empleadosService.getEmpleadosBySala(salaId, this.fechaDesde, this.fechaHasta).subscribe({
       next: (response) => {
+        // Los empleados ya vienen filtrados por sala desde el servidor
+        // OPTIMIZACIÓN: Los horarios, excepciones y marcajes ya vienen incluidos en cada empleado
         this.empleadosCompletos = response || [];
         
+        // Asegurar que cada empleado tenga horariosEmpleado (ya viene del backend)
+        // DEBUG: Verificar estructura de horarios y log para diagnóstico
+        this.empleadosCompletos.forEach(emp => {
+          if (!emp.horariosEmpleado) {
+            emp.horariosEmpleado = [];
+          } else {
+            // Verificar que los bloques estén presentes en cada horario
+            emp.horariosEmpleado.forEach((he: any) => {
+              if (he.Horario && he.Horario.bloques && he.Horario.bloques.length > 0) {
+                // Verificar que cada bloque tenga PlantillaHorario
+                he.Horario.bloques.forEach((bloque: any) => {
+                  if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+                  }
+                });
+              } else if (he.Horario) {
+              }
+            });
+            
+            // Log de muestra para el primer empleado con horarios
+            if (emp.horariosEmpleado.length > 0) {
+              const primerHorario = emp.horariosEmpleado[0];
+            }
+          }
+        });
+        
+        // Si no hay empleados, mostrar mensaje y terminar
         if (this.empleadosCompletos.length === 0) {
           this.loading = false;
           this.hasSearched = true;
           this.grupos = [];
           return;
         }
-  
-        // Procesamos excepciones y marcajes que vienen del servidor
+        
+        // OPTIMIZACIÓN: Procesar excepciones y marcajes que ya vienen en la respuesta
+        let totalExcepciones = 0;
         this.empleadosCompletos.forEach(emp => {
-          // Llenar el mapa de marcajes para que el buscador los encuentre
-          const logs = emp.attlogs || emp.Attlogs || [];
-          this.marcajesCompletos.set(emp.cedula, logs);
-  
-          if (emp.excepciones) {
+          // Procesar excepciones
+          if (emp.excepciones && Array.isArray(emp.excepciones)) {
             emp.excepciones.forEach((ex: any) => {
-              const key = `${emp.id}|${ex.fecha}`;
+              // Normalizar la fecha al formato YYYY-MM-DD para que coincida con el formato usado en getBloqueHorario
+              let fechaNormalizada = ex.fecha;
+              if (fechaNormalizada) {
+                // Si viene como string ISO o Date, convertir a YYYY-MM-DD
+                if (fechaNormalizada instanceof Date) {
+                  fechaNormalizada = this.formatDateLocalYYYYMMDD(fechaNormalizada);
+                } else if (typeof fechaNormalizada === 'string') {
+                  // Si ya está en formato YYYY-MM-DD, usar tal cual
+                  // Si viene en otro formato, convertir
+                  if (!fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+                  }
+                }
+              }
+              const key = `${ex.empleado_id}|${fechaNormalizada}`;
+              this.excepcionesCompletas.set(key, ex);
               this.excepcionesMap.set(key, ex);
+              totalExcepciones++;
+              
+              // DEBUG: Log para verificar que se está guardando correctamente
+              if (totalExcepciones <= 3) {
+              }
             });
           }
-  
-          // === DISPARO DE INTELIGENCIA INICIAL ===
-          // Calculamos la matriz completa para este empleado nada más llegar
-          this.recalcularMatrizEmpleado(emp);
         });
-  
-        this.agruparEmpleados();
-        this.hasSearched = true;
-        this.loading = false;
-        this.aplicarFiltrosLocales();
-        this.cdr.detectChanges();
+        
+        // Procesar marcajes
+        let totalMarcajes = 0;
+        const dispositivosEnMarcajes = new Set<number>();
+        const muestraMarcajes: Array<{
+          empleado: string;
+          cedula: string;
+          marcajeId: number;
+          dispositivo_id: number | null;
+          Dispositivo: number | null;
+          DispositivoNombre?: string | null;
+          dispositivo: number | null;
+          dispositivoIdNormalizado: number | null;
+          event_time: string;
+          marcajeCompleto?: any;
+        }> = [];
+        
+        this.empleadosCompletos.forEach(emp => {
+          if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
+            // Normalizar y asegurar que cada marcaje tenga dispositivo_id correctamente extraído
+            const marcajesNormalizados = emp.marcajes.map((marcaje: any) => {
+              // Asegurar que dispositivo_id esté siempre presente y normalizado
+              let dispositivoId: number | null = null;
+              
+              // Intentar todas las formas posibles de obtener el dispositivo_id
+              if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
+                dispositivoId = Number(marcaje.dispositivo_id);
+              } else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.Dispositivo.id);
+              } else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.dispositivo.id);
+              }
+              
+              // Crear un objeto normalizado con dispositivo_id siempre presente
+              const marcajeNormalizado = {
+                ...marcaje,
+                dispositivo_id: dispositivoId !== null && !isNaN(dispositivoId) ? dispositivoId : marcaje.dispositivo_id,
+                // Mantener la relación Dispositivo si existe
+                Dispositivo: marcaje.Dispositivo || null,
+                dispositivo: marcaje.dispositivo || null
+              };
+              
+              return marcajeNormalizado;
+            });
+            
+            const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
+            marcajesEmpleado.push(...marcajesNormalizados);
+            this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+            totalMarcajes += marcajesNormalizados.length;
+            
+            // Analizar dispositivos en los marcajes normalizados
+            marcajesNormalizados.forEach((marcaje: any) => {
+              const dispositivoId = marcaje.dispositivo_id;
+              if (dispositivoId !== null && dispositivoId !== undefined && !isNaN(Number(dispositivoId))) {
+                dispositivosEnMarcajes.add(Number(dispositivoId));
+              }
+              
+              // Guardar muestra de marcajes para el log (especialmente los del dispositivo 24)
+              if (muestraMarcajes.length < 20 || dispositivoId === 24 || dispositivoId === 25 || dispositivoId === 26) {
+                muestraMarcajes.push({
+                  empleado: emp.nombre,
+                  cedula: emp.cedula,
+                  marcajeId: marcaje.id,
+                  dispositivo_id: marcaje.dispositivo_id,
+                  Dispositivo: marcaje.Dispositivo?.id,
+                  DispositivoNombre: marcaje.Dispositivo?.nombre,
+                  dispositivo: marcaje.dispositivo?.id,
+                  dispositivoIdNormalizado: dispositivoId,
+                  event_time: marcaje.event_time,
+                  marcajeCompleto: marcaje // Incluir el marcaje completo para debug
+                });
+              }
+            });
+            
+            // DEBUG: Buscar marcajes del dispositivo 24 específicamente en los marcajes normalizados
+            const marcajesDispositivo24Empleado = marcajesNormalizados.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 24;
+            });
+            
+            const marcajesDispositivo25Empleado = marcajesNormalizados.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 25;
+            });
+            
+            const marcajesDispositivo26Empleado = marcajesNormalizados.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 26;
+            });
+            
+            if (marcajesDispositivo24Empleado.length > 0 || marcajesDispositivo25Empleado.length > 0 || marcajesDispositivo26Empleado.length > 0) {
+            }
+            
+            // DEBUG: Log para verificar estructura de marcajes normalizados
+            if (marcajesNormalizados.length > 0 && totalMarcajes <= 10) {
+              const primerMarcaje = marcajesNormalizados[0];
+            }
+          }
+        });
+        
+        // DEBUG: Verificar específicamente los dispositivos 24, 25, 26 en los marcajes completos normalizados
+        const marcajesDispositivo24 = Array.from(this.marcajesCompletos.entries())
+          .flatMap(([cedula, marcajes]) => 
+            marcajes.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 24;
+            })
+          );
+        
+        const marcajesDispositivo25 = Array.from(this.marcajesCompletos.entries())
+          .flatMap(([cedula, marcajes]) => 
+            marcajes.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 25;
+            })
+          );
+        
+        const marcajesDispositivo26 = Array.from(this.marcajesCompletos.entries())
+          .flatMap(([cedula, marcajes]) => 
+            marcajes.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 26;
+            })
+          );
+        
+        // IMPORTANTE: Cargar todas las plantillas necesarias ANTES de calcular marcajes
+        // Extraer todos los plantilla_horario_id únicos de los bloques de horarios
+        const plantillaIdsNecesarios = new Set<number>();
+        this.empleadosCompletos.forEach(emp => {
+          if (emp.horariosEmpleado && Array.isArray(emp.horariosEmpleado)) {
+            emp.horariosEmpleado.forEach((he: any) => {
+              if (he.Horario && he.Horario.bloques && Array.isArray(he.Horario.bloques)) {
+                he.Horario.bloques.forEach((bloque: any) => {
+                  // Si el bloque no tiene PlantillaHorario cargada pero tiene plantilla_horario_id
+                  if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+                    plantillaIdsNecesarios.add(bloque.plantilla_horario_id);
+                  }
+                });
+              }
+            });
+          }
+        });
+        
+        // Cargar todas las plantillas necesarias
+        const cargarPlantillasPromises: Promise<void>[] = [
+          this.cargarFeriados(),
+          this.cargarPlantillasLibres(salaId)
+        ];
+        
+        // CRÍTICO: SIEMPRE cargar todas las plantillas de la sala y todas las plantillas generales
+        // Esto asegura que la plantilla ID 14 y otras estén disponibles
+        // Cargar todas las plantillas de la sala para tenerlas disponibles
+        if (salaId) {
+          // SIEMPRE cargar, incluso si ya está en caché (para refrescar)
+          cargarPlantillasPromises.push(
+            new Promise<void>((resolve) => {
+              this.plantillasService.getBySala(salaId).subscribe({
+                next: (plantillas: any[]) => {
+                  this.plantillasPorSalaCache.set(salaId, plantillas || []);
+                  // También actualizar modalPlantillas con las plantillas de la sala
+                  if (plantillas && plantillas.length > 0) {
+                    this.modalPlantillas = [...(this.modalPlantillas || []), ...plantillas];
+                    // Eliminar duplicados por ID
+                    this.modalPlantillas = this.modalPlantillas.filter((p: any, index: number, self: any[]) => 
+                      index === self.findIndex((p2: any) => p2.id === p.id)
+                    );
+                  }
+                  resolve();
+                },
+                error: () => resolve()
+              });
+            })
+          );
+        }
+        
+        // También cargar TODAS las plantillas si no están cargadas (para asegurar que ID 14 esté disponible)
+        // SIEMPRE cargar, incluso si ya está en caché (para refrescar)
+        cargarPlantillasPromises.push(
+          new Promise<void>((resolve) => {
+            this.plantillasService.getPlantillasHorarios().subscribe({
+              next: (plantillas: any[]) => {
+                this.todasLasPlantillasCache = plantillas || [];
+                // También actualizar modalPlantillas con todas las plantillas
+                if (plantillas && plantillas.length > 0) {
+                  this.modalPlantillas = [...(this.modalPlantillas || []), ...plantillas];
+                  // Eliminar duplicados por ID
+                  this.modalPlantillas = this.modalPlantillas.filter((p: any, index: number, self: any[]) => 
+                    index === self.findIndex((p2: any) => p2.id === p.id)
+                  );
+                }
+                resolve();
+              },
+              error: () => resolve()
+            });
+          })
+        );
+        
+        Promise.all(cargarPlantillasPromises).then(() => {
+          // CRÍTICO: Identificar todas las plantillas necesarias de los bloques de horario
+          // y cargarlas si no están en los caches
+          const plantillaIdsNecesarios = new Set<number>();
+          
+          // Recorrer todos los empleados y extraer todos los plantilla_horario_id de sus horarios
+          this.empleadosCompletos.forEach((emp: any) => {
+            if (emp.horariosEmpleado && Array.isArray(emp.horariosEmpleado)) {
+              emp.horariosEmpleado.forEach((he: any) => {
+                if (he.Horario && he.Horario.bloques && Array.isArray(he.Horario.bloques)) {
+                  he.Horario.bloques.forEach((bloque: any) => {
+                    if (bloque.plantilla_horario_id) {
+                      plantillaIdsNecesarios.add(bloque.plantilla_horario_id);
+                    }
+                  });
+                }
+              });
+            }
+          });
+          
+          // Cargar las plantillas que no están en los caches
+          const plantillasFaltantes: Promise<void>[] = [];
+          plantillaIdsNecesarios.forEach((plantillaId: number) => {
+            // Verificar si la plantilla ya está en algún cache
+            const enModalPlantillas = this.modalPlantillas?.some((p: any) => p.id === plantillaId);
+            const enTodasLasPlantillas = this.todasLasPlantillasCache?.some((p: any) => p.id === plantillaId);
+            let enPlantillasPorSala = false;
+            if (salaId) {
+              const plantillasSala = this.plantillasPorSalaCache.get(salaId);
+              enPlantillasPorSala = plantillasSala?.some((p: any) => p.id === plantillaId) || false;
+            }
+            
+            // Si no está en ningún cache, cargarla directamente
+            if (!enModalPlantillas && !enTodasLasPlantillas && !enPlantillasPorSala) {
+              plantillasFaltantes.push(
+                new Promise<void>((resolve) => {
+                  this.plantillasService.getPlantillaHorario(plantillaId).subscribe({
+                    next: (plantilla: any) => {
+                      if (plantilla) {
+                        // Agregar a modalPlantillas
+                        if (!this.modalPlantillas) {
+                          this.modalPlantillas = [];
+                        }
+                        if (!this.modalPlantillas.some((p: any) => p.id === plantilla.id)) {
+                          this.modalPlantillas.push(plantilla);
+                        }
+                        // Agregar a todasLasPlantillasCache
+                        if (!this.todasLasPlantillasCache) {
+                          this.todasLasPlantillasCache = [];
+                        }
+                        if (!this.todasLasPlantillasCache.some((p: any) => p.id === plantilla.id)) {
+                          this.todasLasPlantillasCache.push(plantilla);
+                        }
+                        // Agregar a plantillasPorSalaCache si hay sala
+                        if (salaId && plantilla.sala_id === salaId) {
+                          if (!this.plantillasPorSalaCache.has(salaId)) {
+                            this.plantillasPorSalaCache.set(salaId, []);
+                          }
+                          const plantillasSala = this.plantillasPorSalaCache.get(salaId)!;
+                          if (!plantillasSala.some((p: any) => p.id === plantilla.id)) {
+                            plantillasSala.push(plantilla);
+                          }
+                        }
+                      }
+                      resolve();
+                    },
+                    error: () => resolve() // Continuar aunque falle
+                  });
+                })
+              );
+            }
+          });
+          
+          // Esperar a que se carguen todas las plantillas faltantes
+          Promise.all(plantillasFaltantes).then(() => {
+            // Actualizar listas de filtros (departamentos, áreas, cargos) con los empleados cargados
+            this.actualizarListasCascada();
+            // Aplicar filtros locales iniciales para mostrar los datos
+            this.aplicarFiltrosLocales();
+          });
+        });
       },
-      error: (err) => {
+      error: (error) => {
         this.loading = false;
-        console.error("Error cargando sala:", err);
+        this.hasSearched = true;
+        this.empleadosCompletos = [];
+        this.grupos = [];
+        // Si falla getEmpleadosBySala, intentar con getEmpleados como fallback
+        this.empleadosService.getEmpleados().subscribe({
+          next: (response) => {
+            const todosEmpleados = response || [];
+            // Filtrar empleados por sala en el cliente como fallback
+            this.empleadosCompletos = todosEmpleados.filter((emp: any) => {
+              const cargo = emp?.Cargo;
+              if (!cargo) return false;
+              const area = cargo.Area;
+              if (!area) return false;
+              const departamento = area.Departamento;
+              if (!departamento) return false;
+              const sala = departamento.Sala;
+              const salaIdEmp = sala?.id || departamento.sala_id;
+              return salaIdEmp === salaId;
+            });
+            
+            if (this.empleadosCompletos.length > 0) {
+              // Asegurar que cada empleado tenga horariosEmpleado
+              this.empleadosCompletos.forEach(emp => {
+                if (!emp.horariosEmpleado) {
+                  emp.horariosEmpleado = [];
+                }
+              });
+              
+              // OPTIMIZACIÓN: Procesar excepciones y marcajes que ya vienen en la respuesta consolidada
+              this.empleadosCompletos.forEach(emp => {
+                // Procesar excepciones
+                if (emp.excepciones && Array.isArray(emp.excepciones)) {
+                  emp.excepciones.forEach((ex: any) => {
+                    // Normalizar la fecha al formato YYYY-MM-DD para que coincida con el formato usado en getBloqueHorario
+                    let fechaNormalizada = ex.fecha;
+                    if (fechaNormalizada) {
+                      // Si viene como string ISO o Date, convertir a YYYY-MM-DD
+                      if (fechaNormalizada instanceof Date) {
+                        fechaNormalizada = this.formatDateLocalYYYYMMDD(fechaNormalizada);
+                      } else if (typeof fechaNormalizada === 'string') {
+                        // Si ya está en formato YYYY-MM-DD, usar tal cual
+                        // Si viene en otro formato, convertir
+                        if (!fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                          fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+                        }
+                      }
+                    }
+                    const key = `${ex.empleado_id}|${fechaNormalizada}`;
+                    this.excepcionesCompletas.set(key, ex);
+                    this.excepcionesMap.set(key, ex);
+                  });
+                }
+                
+                // Procesar marcajes
+                if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
+                  const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
+                  marcajesEmpleado.push(...emp.marcajes);
+                  this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+                }
+              });
+              
+              // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios, excepciones ni marcajes individualmente
+              // Todo ya viene en la respuesta consolidada del backend
+              // Solo necesitamos cargar feriados y plantillas libres
+              Promise.all([
+                this.cargarFeriados(),
+                this.cargarPlantillasLibres(salaId)
+              ]).then(() => {
+                this.aplicarFiltrosLocales();
+              });
+            } else {
+              this.loading = false;
+              this.hasSearched = true;
+              this.grupos = [];
+            }
+          },
+          error: (err) => {
+            this.loading = false;
+            this.hasSearched = true;
+            this.empleadosCompletos = [];
+            this.grupos = [];
+          }
+        });
       }
     });
   }
@@ -4774,93 +5219,36 @@ export class MarcajePersonalComponent implements OnInit {
   // Solo DESPUÉS de completar esta primera vuelta, se ejecuta aplicarSegundaVueltaGlobal()
   // Esto aplica tanto al cargar como cuando se hace algún cambio en la modal (horario manual, horario de ciclo, quitar, eliminar o cambiar)
   precalcularBloquesYHorarios() {
-    // Limpiar caché anterior
+    // 1. Limpieza total de cachés y memoria
     this.cacheBloquesHorario.clear();
     this.cacheHorarioInfo.clear();
-    this.cacheMarcajesCalculados.clear(); // Limpiar caché de marcajes para recalcular
+    this.cacheMarcajesCalculados.clear();
+    this.marcajesUsadosGlobal.clear(); // Resetear memoria de huellas
     
     const base = this.obtenerBaseEmpleados();
     
-    // PRIMERA VUELTA: Pre-calcular para cada empleado y cada día del rango filtrado
-    // Itera sobre TODOS los días en diasDelMes (que contiene todos los días desde fechaDesde hasta fechaHasta)
+    // Procesamos empleado por empleado
     base.forEach(empleado => {
+      // IMPORTANTE: Aseguramos que los días se procesen en orden (Lunes -> Martes...)
+      // para que la memoria de marcajes usados funcione en cascada.
       this.diasDelMes.forEach(dia => {
-        // Usar el mismo formato de fecha que getBloqueHorario
         const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
         const keyBloque = `${empleado.id}|${fechaStr}`;
         
-        // Pre-calcular bloque horario
-        if (!this.cacheBloquesHorario.has(keyBloque)) {
-          let bloque = this.getBloqueHorarioInterno(empleado, dia);
-          // CRÍTICO: Asegurar que el bloque tenga la plantilla ANTES de guardarlo en caché
-          if (bloque && bloque.plantilla_horario_id && !bloque.PlantillaHorario) {
-            const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
-            const bloquesHorario = horarioActivo?.bloques || [];
-            bloque = this.asegurarPlantillaEnBloque(bloque, empleado, dia, bloquesHorario);
-          }
-          this.cacheBloquesHorario.set(keyBloque, bloque);
-        }
-        
-        // Pre-calcular horario info (solo si no está en caché)
-        const keyHorarioInfo = `${empleado.id}|${fechaStr}|Descanso`;
-        if (!this.cacheHorarioInfo.has(keyHorarioInfo)) {
-          const horarioInfo = this.getHorarioInfoInterno(empleado, dia, 'Descanso');
-          this.cacheHorarioInfo.set(keyHorarioInfo, horarioInfo);
-        }
-        
-        // PRIMERA VUELTA: Calcular marcajes para cada día usando la lógica de prioridades
-        // (sin segunda vuelta aún - la segunda vuelta valida conflictos entre días)
-        let bloque = this.cacheBloquesHorario.get(keyBloque);
-        if (bloque) {
-          // CRÍTICO: Asegurar que el bloque tenga la plantilla ANTES de calcular
-          // Usar la función centralizada que busca en todos los lugares posibles
+        // A. Obtener el bloque (Horario o Excepción)
+        let bloque = this.getBloqueHorarioInterno(empleado, dia);
+        if (bloque && bloque.plantilla_horario_id && !bloque.PlantillaHorario) {
           const horarioActivo = this.getHorarioActivoParaFecha(empleado, dia);
-          const bloquesHorario = horarioActivo?.bloques || [];
-          bloque = this.asegurarPlantillaEnBloque(bloque, empleado, dia, bloquesHorario);
-          
-          // CRÍTICO: Si después de asegurarPlantillaEnBloque el bloque aún no tiene plantilla,
-          // pero tiene plantilla_horario_id, intentar una búsqueda más agresiva
-          if (bloque && bloque.plantilla_horario_id && !bloque.PlantillaHorario) {
-            // Buscar directamente en los caches una vez más
-            const plantillaId = bloque.plantilla_horario_id;
-            let plantilla = (this.modalPlantillas || []).find((p: any) => p?.id === plantillaId);
-            if (!plantilla && this.todasLasPlantillasCache) {
-              plantilla = this.todasLasPlantillasCache.find((p: any) => p?.id === plantillaId);
-            }
-            if (!plantilla && empleado?.sala_id) {
-              const plantillasSala = this.plantillasPorSalaCache.get(empleado.sala_id);
-              if (plantillasSala) {
-                plantilla = plantillasSala.find((p: any) => p?.id === plantillaId);
-              }
-            }
-            
-            // Si encontramos la plantilla, actualizar el bloque
-            if (plantilla && plantilla.hora_entrada && plantilla.hora_salida) {
-              const turno = this.convertirHoraAMinutos(plantilla.hora_entrada) > this.convertirHoraAMinutos(plantilla.hora_salida) ? 'NOCTURNO' : 'DIURNO';
-              bloque = {
-                ...bloque,
-                PlantillaHorario: plantilla,
-                turno,
-                hora_entrada: plantilla.hora_entrada,
-                hora_salida: plantilla.hora_salida,
-                hora_entrada_descanso: plantilla.hora_descanso_entrada,
-                hora_salida_descanso: plantilla.hora_descanso_salida,
-                tiene_descanso: !!(plantilla.hora_descanso_entrada && plantilla.hora_descanso_salida)
-              };
-            }
-          }
-          
-          // Actualizar el caché con el bloque corregido (por si se encontró la plantilla)
-          this.cacheBloquesHorario.set(keyBloque, bloque);
-          
-          // Usar versión interna que no consulta caché (para evitar recursión)
-          const marcajes = this.calcularMarcajesDelDiaInterno(empleado, dia, bloque);
-          this.cacheMarcajesCalculados.set(keyBloque, marcajes);
+          bloque = this.asegurarPlantillaEnBloque(bloque, empleado, dia, horarioActivo?.bloques || []);
+        }
+        this.cacheBloquesHorario.set(keyBloque, bloque);
+  
+        // B. Ejecutar el cálculo con la nueva lógica de "ventanas inteligentes"
+        if (bloque && bloque.PlantillaHorario) {
+          this.calcularMarcajeInteligenteCascada(empleado, dia, bloque);
         }
       });
     });
-    // NOTA: Al terminar esta función, TODOS los días del rango han sido procesados en la primera vuelta
-    // Ahora se puede ejecutar aplicarSegundaVueltaGlobal() para validar conflictos entre días
   }
 
   // SEGUNDA VUELTA GLOBAL: Aplicar validación global después de completar todas las primeras vueltas
@@ -5132,60 +5520,58 @@ export class MarcajePersonalComponent implements OnInit {
   // Limpiar caché de un empleado específico (cuando cambia una excepción)
   // Recalcular todos los días del empleado que están en el rango visible y filtrados
   limpiarCacheEmpleado(empleadoId: number) {
-    // Verificar si el empleado está en los filtrados actuales
+    // 1. Validación de existencia
     const empleado = this.empleadosCompletos.find(e => e.id === empleadoId);
     if (!empleado) return;
-    
-    // Verificar si el empleado está en los filtrados (visible en la vista)
+  
+    // 2. Validación de visibilidad (Optimización de rendimiento)
     const estaEnFiltrados = this.empleadosFiltrados?.some(e => e.id === empleadoId) || 
                             this.obtenerBaseEmpleados().some(e => e.id === empleadoId);
+    if (!estaEnFiltrados) return;
+  
+    // 3. Limpieza de Caches (Refactorizado para ser más limpio y rápido)
+    const prefijo = `${empleadoId}|`;
     
-    if (!estaEnFiltrados) {
-      // Si no está en los filtrados, no recalcular (no es visible)
-      return;
-    }
-    
-    // Limpiar caché de este empleado
-    const keysToDelete: string[] = [];
-    this.cacheBloquesHorario.forEach((value, key) => {
-      if (key.startsWith(`${empleadoId}|`)) {
-        keysToDelete.push(key);
-      }
+    [this.cacheBloquesHorario, this.cacheHorarioInfo, this.cacheMarcajesCalculados].forEach(cache => {
+      // Extraemos las llaves que coinciden y las borramos
+      Array.from(cache.keys())
+        .filter(key => key.startsWith(prefijo))
+        .forEach(key => cache.delete(key));
     });
-    keysToDelete.forEach(key => this.cacheBloquesHorario.delete(key));
-    
-    const keysToDeleteInfo: string[] = [];
-    this.cacheHorarioInfo.forEach((value, key) => {
-      if (key.startsWith(`${empleadoId}|`)) {
-        keysToDeleteInfo.push(key);
-      }
-    });
-    keysToDeleteInfo.forEach(key => this.cacheHorarioInfo.delete(key));
-    
-    // IMPORTANTE: También limpiar el caché de marcajes calculados para este empleado
-    const keysToDeleteMarcajes: string[] = [];
-    this.cacheMarcajesCalculados.forEach((value, key) => {
-      if (key.startsWith(`${empleadoId}|`)) {
-        keysToDeleteMarcajes.push(key);
-      }
-    });
-    keysToDeleteMarcajes.forEach(key => this.cacheMarcajesCalculados.delete(key));
-    
-    // Re-calcular todos los días del empleado que están en el rango visible
+  
+    // 4. Re-cálculo en Cascada (El nuevo cerebro)
     if (this.diasDelMes && this.diasDelMes.length > 0) {
-      // Usar setTimeout para no bloquear la UI
+      // Usamos setTimeout para no congelar la pantalla mientras calcula
       setTimeout(() => {
+        // CRÍTICO: Limpiar la memoria global de huellas para este proceso
+        // Si no lo haces, el sistema creerá que las huellas ya están "usadas" 
+        // por el cálculo anterior y pondrá "Sin marcaje".
+        this.marcajesUsadosGlobal.clear();
+  
+        // Recorremos los días en orden cronológico (VITAL para nocturnos)
         this.diasDelMes.forEach(dia => {
-          // Usar el mismo formato de fecha que getBloqueHorario
           const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
           const keyBloque = `${empleadoId}|${fechaStr}`;
+          
+          // A. Obtener y cachear el bloque (Excepción o Horario)
           const bloque = this.getBloqueHorarioInterno(empleado, dia);
           this.cacheBloquesHorario.set(keyBloque, bloque);
-          
+  
+          // B. Calcular Marcaje con la lógica inteligente (-8h / +12h)
+          // Esta es la función "cerebro" que definimos en el paso anterior
+          if (bloque && bloque.PlantillaHorario) {
+            this.calcularMarcajeInteligenteCascada(empleado, dia, bloque);
+          }
+  
+          // C. Pre-calcular info de descansos si aplica
           const keyHorarioInfo = `${empleadoId}|${fechaStr}|Descanso`;
           const horarioInfo = this.getHorarioInfoInterno(empleado, dia, 'Descanso');
           this.cacheHorarioInfo.set(keyHorarioInfo, horarioInfo);
         });
+  
+        // 5. Refrescar la interfaz
+        this.agruparEmpleados();
+        this.cdr.detectChanges();
       }, 0);
     }
   }
@@ -10184,105 +10570,66 @@ export class MarcajePersonalComponent implements OnInit {
     return this.formatearMinutosAHora(totalMinutos);
   }
 
-  private ejecutarRecalculoInteligente(empleado: any) {
-    if (!empleado) return;
+  private calcularMarcajeInteligenteCascada(empleado: any, dia: Date, bloque: any) {
+    const fechaStr = this.formatDateLocalYYYYMMDD(dia);
+    const key = `${empleado.id}|${fechaStr}`;
+    const plantilla = bloque.PlantillaHorario;
   
-    // Limpiamos solo los cachés del empleado afectado
-    const idEmp = empleado.id;
-    this.diasDelMes.forEach(dia => {
-      const fStr = this.formatDateLocalYYYYMMDD(dia);
-      const key = `${idEmp}|${fStr}`;
-      this.cacheBloquesHorario.delete(key);
-      this.cacheHorarioInfo.delete(key);
-      this.cacheMarcajesCalculados.delete(key);
+    // Obtener todos los marcajes del empleado (sin filtrar por día aún)
+    const todosLosLogs = this.marcajesCompletos.get(empleado.cedula) || [];
+    const logs = [...todosLosLogs].sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
+  
+    // Definir horas teóricas
+    const entradaTeorica = this.crearFechaHora(dia, plantilla.hora_entrada);
+    let salidaTeorica = this.crearFechaHora(dia, plantilla.hora_salida);
+  
+    // Cruce de medianoche automático
+    if (salidaTeorica < entradaTeorica) {
+      salidaTeorica.setDate(salidaTeorica.getDate() + 1);
+    }
+  
+    // BUSCAR ENTRADA (Ventana +/- 2 horas)
+    const entradaReal = logs.find(log => {
+      if (this.marcajesUsadosGlobal.has(log.id)) return false;
+      const diff = Math.abs((new Date(log.event_time).getTime() - entradaTeorica.getTime()) / 60000);
+      return diff <= 120;
     });
   
-    // Ejecutamos la matriz y refrescamos vista
-    this.recalcularMatrizEmpleado(empleado);
-    this.agruparEmpleados();
-    this.cdr.detectChanges();
-  }
-
-  recalcularMatrizEmpleado(empleado: any) {
-    if (!empleado || !this.diasDelMes) return;
-
-    // 1. Reset de marcajes usados para este proceso
-    this.marcajesUsadosEnCalculo.clear();
-    
-    // 2. Obtener y ordenar logs del empleado
-    const logsRaw = this.marcajesCompletos.get(empleado.cedula) || [];
-    const logsOrdenados = [...logsRaw].sort((a, b) => 
-      new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
-    );
-
-    // 3. Procesar cronológicamente
-    this.diasDelMes.forEach(dia => {
-      const fechaStr = this.formatDateLocalYYYYMMDD(dia);
-      const bloque = this.getBloqueHorario(empleado, dia);
-      
-      if (!bloque || !bloque.PlantillaHorario) return;
-
-      const plantilla = bloque.PlantillaHorario;
-      const entradaTeorica = this.combinarFechaHora(dia, plantilla.hora_entrada);
-      let salidaTeorica = this.combinarFechaHora(dia, plantilla.hora_salida);
-
-      // Lógica Nocturna: Si la salida es menor que la entrada, cruza al día siguiente
-      if (salidaTeorica < entradaTeorica) {
-        salidaTeorica.setDate(salidaTeorica.getDate() + 1);
-      }
-
-      // BUSCAR ENTRADA REAL (Ventana de +/- 2 horas)
-      const entradaReal = logsOrdenados.find(log => {
-        if (this.marcajesUsadosEnCalculo.has(log.id)) return false;
-        const logTime = new Date(log.event_time).getTime();
-        const diff = Math.abs((logTime - entradaTeorica.getTime()) / 60000);
-        return diff <= 120;
-      });
-
-      if (entradaReal) this.marcajesUsadosEnCalculo.add(entradaReal.id);
-
-      // BUSCAR SALIDA REAL (Ventana inteligente -8h y +12h)
-      const salidaReal = logsOrdenados.find(log => {
-        if (this.marcajesUsadosEnCalculo.has(log.id)) return false;
-        const logTime = new Date(log.event_time);
-        
-        // La salida debe ser posterior a la entrada encontrada
-        if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
-
-        const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
-        // -480 min: cubre salidas anticipadas de nocturnos
-        // +720 min: cubre salidas extendidas de diurnos al día siguiente
-        return diffSalida >= -480 && diffSalida <= 720;
-      });
-
-      if (salidaReal) this.marcajesUsadosEnCalculo.add(salidaReal.id);
-
-      // GUARDAR EN CACHÉ VISUAL
-      const key = `${empleado.id}|${fechaStr}`;
-      this.cacheMarcajesCalculados.set(key, {
-        entrada: entradaReal ? this.formatearSoloHora(entradaReal.event_time) : 'Sin marcaje',
-        salida: salidaReal ? this.formatearSoloHora(salidaReal.event_time) : 'Sin marcaje',
-        entradaDescanso: 'Sin marcaje',
-        salidaDescanso: 'Sin marcaje'
-      });
+    if (entradaReal) this.marcajesUsadosGlobal.add(entradaReal.id);
+  
+    // BUSCAR SALIDA (Ventana Inteligente -8h y +12h)
+    const salidaReal = logs.find(log => {
+      if (this.marcajesUsadosGlobal.has(log.id)) return false;
+      const logTime = new Date(log.event_time);
+      if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
+  
+      const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
+      // Cubre nocturno que sale temprano (-480m) y diurno que sale tarde (+720m)
+      return diffSalida >= -480 && diffSalida <= 720;
+    });
+  
+    if (salidaReal) this.marcajesUsadosGlobal.add(salidaReal.id);
+  
+    // Guardar en caché para que la vista lo pinte
+    this.cacheMarcajesCalculados.set(key, {
+      entrada: entradaReal ? this.formatHora(entradaReal.event_time) : 'Sin marcaje',
+      salida: salidaReal ? this.formatHora(salidaReal.event_time) : 'Sin marcaje',
+      entradaDescanso: 'Sin marcaje',
+      salidaDescanso: 'Sin marcaje'
     });
   }
-
-  // Helpers necesarios
-  private combinarFechaHora(fecha: Date, horaStr: string): Date {
-    const d = new Date(fecha);
-    d.setHours(0,0,0,0);
-    if (!horaStr) return d;
-    const [h, m] = horaStr.split(':');
-    d.setHours(+h, +m, 0, 0);
-    return d;
+  
+  // Helpers necesarios para la función anterior
+  private crearFechaHora(d: Date, hora: string): Date {
+    const f = new Date(d); f.setHours(0,0,0,0);
+    const [h, m] = hora.split(':');
+    f.setHours(+h, +m, 0, 0);
+    return f;
   }
-
-  private formatearSoloHora(iso: string): string {
+  
+  private formatHora(iso: string): string {
     const d = new Date(iso);
     return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
   }
+
 }
-
-
-
