@@ -135,8 +135,8 @@ import { take, filter } from 'rxjs/operators';
                   [class.disabled]="!canDelete()"
                   [disabled]="!canDelete()"
                   (click)="canDelete() ? desactivarEmpleado(empleado) : null"
-                  title="Desactivar empleado de esta sala">
-                  <i class="fas fa-user-slash"></i> Eliminar empleado
+                  title="Desincorporar empleado de esta sala">
+                  <i class="fas fa-user-slash"></i> Desincorporar empleado
                 </button>
               </td>
             </tr>
@@ -1925,44 +1925,38 @@ export class EmpleadosListComponent implements OnInit, OnDestroy {
 
   // Agrega esta función dentro de la clase EmpleadosListComponent
   desactivarEmpleado(empleado: any): void {
-    // 1. VALIDACIÓN: ¿Tiene dispositivos? Si tiene, se frena aquí.
+    // 1. VALIDACIÓN DE DISPOSITIVOS
+    // Si tiene equipos vinculados (Hikvision/Mikrotik), bloqueamos la acción
     if (empleado.dispositivos && empleado.dispositivos.length > 0) {
       this.errorModalService.showErrorModal({
         title: 'Acción Bloqueada',
-        message: 'El empleado tiene equipos vinculados. No se puede desactivar hasta retirarlo de los dispositivos.',
+        message: 'El empleado sigue vinculado a equipos biométricos.',
         relations: empleado.dispositivos.map((d: any) => ({
-          table_name: 'Equipo',
+          table_name: 'Dispositivo',
           count: d.nombre
-        }))
+        })),
+        helpText: 'Retire al empleado de los dispositivos antes de eliminarlo de la sala.'
       });
       return;
     }
   
-    // 2. CONFIRMACIÓN: Si no tiene equipos, preguntamos para proceder.
+    // 2. CONFIRMACIÓN Y DESACTIVACIÓN
     this.confirmModalService.showConfirmModal({
-      title: 'Confirmar Eliminación',
-      message: `¿Estás seguro de que deseas eliminar a ${empleado.nombre} de esta sala?`,
+      title: 'Confirmar Desincorporacion',
+      message: `¿Seguro que deseas desincorporar a ${empleado.nombre} de esta sala?`,
       onConfirm: () => {
-        // 3. DESACTIVAR: Mandamos el update con los campos nulos para liberarlo
-        // Usamos 'any' para que el compilador no nos de guerra con los tipos
-        const payload: any = {
-          ...empleado,
-          cargo_id: null,
-          fecha_ingreso: null,
-          dispositivos: []
-        };
-  
-        this.empleadosService.updateEmpleado(empleado.id, payload).subscribe({
+        // Llamamos directamente al método del servicio que maneja la desactivación
+        this.empleadosService.borrarEmpleado(empleado.id).subscribe({
           next: () => {
-            // Lo sacamos de la lista actual y refrescamos
+            // Lo sacamos de la lista local
             this.empleados = this.empleados.filter(e => e.id !== empleado.id);
             this.aplicarFiltro();
-            this.loadEmpleados();
+            this.loadEmpleados(); // Recarga para asegurar sincronía
           },
-          error: () => {
+          error: (err) => {
             this.errorModalService.showErrorModal({
               title: 'Error',
-              message: 'Hubo un fallo al intentar desactivar al empleado.'
+              message: 'No se pudo procesar la desincorporacion en el servidor.'
             });
           }
         });
