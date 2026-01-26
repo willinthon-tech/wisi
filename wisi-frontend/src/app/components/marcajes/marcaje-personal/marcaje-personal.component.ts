@@ -10094,6 +10094,7 @@ export class MarcajePersonalComponent implements OnInit {
     // Día libre: no tiene hora_entrada ni hora_salida
     return !plantilla.hora_entrada && !plantilla.hora_salida;
   }
+  
 
   // Obtener sala_id de un empleado
   getSalaId(empleado: any): number | null {
@@ -10239,25 +10240,25 @@ export class MarcajePersonalComponent implements OnInit {
     let count = 0;
     
     this.diasDelMes.forEach(dia => {
-      // 1. Solo procesar si el día es Domingo
-      if (dia.getDay() === 0) {
+      if (dia.getDay() === 0) { // Si es Domingo
         const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
         const key = `${empleado.id}|${fechaStr}`;
-        
-        // 2. Obtener resultado del turno (DIURNO, NOCTURNO, etc.)
+  
+        // 1. Obtener resultado (DIURNO, NOCTURNO, etc.)
         const resultadoHtml = this.getResultadoTurno(empleado, dia);
         
         if (resultadoHtml) {
           const resultadoStr = String(resultadoHtml).toUpperCase();
           
-          // 3. Solo contar si el resultado indica una jornada TRABAJADA
-          // Si el resultado fuera 'LIBRE' o 'SIN REGISTROS', esto dará false
+          // 2. ¿El resultado indica jornada trabajada?
           if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
               resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
             
-            // Verificación extra de seguridad con el caché
+            // 3. ¿Realmente hay huellas en el caché?
             const marcajes = this.cacheMarcajesCalculados.get(key);
-            if (marcajes && (marcajes.entrada !== 'Sin marcaje' || marcajes.salida !== 'Sin marcaje')) {
+            if (marcajes && 
+                marcajes.entrada !== 'Sin marcaje' && 
+                marcajes.salida !== 'Sin marcaje') {
               count++;
             }
           }
@@ -10359,21 +10360,18 @@ export class MarcajePersonalComponent implements OnInit {
       const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
       const key = `${empleado.id}|${fechaStr}`;
       
-      // 1. Obtener el bloque (usando el caché de bloques)
+      // 1. Obtener el bloque programado
       const bloque = this.cacheBloquesHorario.get(key);
       
-      // 2. ¿Es realmente un día LIBRE?
       if (bloque && this.esDiaLibre(bloque)) {
-        // 3. LEER EL CACHÉ INTELIGENTE (El que tiene el margen de 4h)
+        // 2. LEER DEL CACHÉ INTELIGENTE (El que acabamos de calcular)
         const marcajes = this.cacheMarcajesCalculados.get(key);
         
-        // 4. CONDICIÓN CRÍTICA: Solo contar si AMBOS marcajes son reales
-        // Si el sistema dice 'Sin marcaje', NO se suma al contador
+        // 3. VALIDACIÓN ESTRICTA: Solo contar si tiene entrada Y salida real
         if (marcajes && 
-            marcajes.entrada !== 'Sin marcaje' && 
-            marcajes.salida !== 'Sin marcaje' &&
-            marcajes.entrada !== '' &&
-            marcajes.salida !== '') {
+            marcajes.entrada !== 'Sin marcaje' && marcajes.entrada !== '' &&
+            marcajes.salida !== 'Sin marcaje' && marcajes.salida !== '' && 
+            marcajes.salida !== 'SNM') {
           count++;
         }
       }
@@ -10571,13 +10569,37 @@ export class MarcajePersonalComponent implements OnInit {
     const key = `${empleado.id}|${fechaStr}`;
     const plantilla = bloque?.PlantillaHorario;
   
-    // 1. Validación de seguridad
+    // === MEJORA PARA DÍAS LIBRES TRABAJADOS ===
+    if (this.esDiaLibre(bloque)) {
+      const logsDelDia = (this.marcajesCompletos.get(empleado.cedula) || [])
+        .filter(log => this.formatDateLocalYYYYMMDD(new Date(log.event_time)) === fechaStr)
+        .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
+  
+      if (logsDelDia.length >= 2) {
+        // Si hay al menos 2 marcajes en su día libre, los registramos
+        this.cacheMarcajesCalculados.set(key, {
+          entrada: this.formatHora(logsDelDia[0].event_time),
+          salida: this.formatHora(logsDelDia[logsDelDia.length - 1].event_time),
+          entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje'
+        });
+        // Marcamos estos IDs como usados para que no los use otro día
+        this.marcajesUsadosGlobal.add(logsDelDia[0].id);
+        this.marcajesUsadosGlobal.add(logsDelDia[logsDelDia.length - 1].id);
+      } else {
+        // Si no trabajó en su libre, se queda vacío
+        this.cacheMarcajesCalculados.set(key, {
+          entrada: 'Sin marcaje', salida: 'Sin marcaje',
+          entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje'
+        });
+      }
+      return; // Salimos para no procesar horarios normales
+    }
+  
+    // === TU LÓGICA 100% FUNCIONAL (NO TOCAR RANGOS) ===
     if (!plantilla || !plantilla.hora_entrada || !plantilla.hora_salida) {
       this.cacheMarcajesCalculados.set(key, { 
-        entrada: 'Sin marcaje', 
-        salida: 'Sin marcaje', 
-        entradaDescanso: 'Sin marcaje', 
-        salidaDescanso: 'Sin marcaje' 
+        entrada: 'Sin marcaje', salida: 'Sin marcaje', 
+        entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje' 
       });
       return; 
     }
@@ -10588,44 +10610,32 @@ export class MarcajePersonalComponent implements OnInit {
     const entradaTeorica = this.crearFechaHora(dia, plantilla.hora_entrada);
     let salidaTeorica = this.crearFechaHora(dia, plantilla.hora_salida);
   
-    // Ajuste para turnos nocturnos
     const esNocturno = this.convertirHoraAMinutos(plantilla.hora_entrada) > this.convertirHoraAMinutos(plantilla.hora_salida);
-    if (esNocturno) {
-      salidaTeorica.setDate(salidaTeorica.getDate() + 1);
-    }
+    if (esNocturno) salidaTeorica.setDate(salidaTeorica.getDate() + 1);
   
-    // 3. BUSCAR ENTRADA (Rango ampliado a 4 horas = 240 minutos)
     const entradaReal = logs.find(log => {
       if (this.marcajesUsadosGlobal.has(log.id)) return false;
       const logTime = new Date(log.event_time).getTime();
       const diff = Math.abs((logTime - entradaTeorica.getTime()) / 60000);
-      return diff <= 240; // <--- Margen de 4 horas aplicado aquí
+      return diff <= 240; // Mantengo tus 4 horas
     });
   
     if (entradaReal) this.marcajesUsadosGlobal.add(entradaReal.id);
   
-    // 4. BUSCAR SALIDA (Rango seguro: -4h a +6h)
     const salidaReal = logs.find(log => {
       if (this.marcajesUsadosGlobal.has(log.id)) return false;
       const logTime = new Date(log.event_time);
-      
-      // La salida debe ser posterior a la entrada detectada
       if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
-  
       const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
-      
-      // Rango de -240 min (4h antes) a +360 min (6h después) de la teórica
-      return diffSalida >= -240 && diffSalida <= 360;
+      return diffSalida >= -240 && diffSalida <= 360; // Mantengo tus rangos
     });
   
     if (salidaReal) this.marcajesUsadosGlobal.add(salidaReal.id);
   
-    // 5. Guardar en caché para la tabla
     this.cacheMarcajesCalculados.set(key, {
       entrada: entradaReal ? this.formatHora(entradaReal.event_time) : 'Sin marcaje',
       salida: salidaReal ? this.formatHora(salidaReal.event_time) : 'Sin marcaje',
-      entradaDescanso: 'Sin marcaje',
-      salidaDescanso: 'Sin marcaje'
+      entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje'
     });
   }
   
