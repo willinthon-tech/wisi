@@ -8382,128 +8382,38 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
 // GET /api/empleados/borrados - Obtener empleados borrados (activo = 0)
 app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
   try {
-    // Obtener las salas del usuario logueado
-    const user = await User.findByPk(req.user.id, {
-      include: [
-        {
-          model: Sala,
-          as: 'Salas',
-          attributes: ['id']
-        }
-      ]
-    });
-
-    // Si es el usuario willinthon, devolver todos los empleados borrados sin requerir relaciones
-    if (user.usuario === 'willinthon') {
-      const empleados = await Empleado.findAll({
-        where: { activo: 0 },
-        include: [
-          {
-            model: Cargo,
-            as: 'Cargo',
-            required: false,
-            include: [
-              {
-                model: Area,
-                as: 'Area',
-                required: false,
-                include: [
-                  {
-                    model: Departamento,
-                    as: 'Departamento',
-                    required: false,
-                    include: [
-                      {
-                        model: Sala,
-                        as: 'Sala',
-                        required: false,
-                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ],
-        order: [['updated_at', 'DESC']]
-      });
-
-      // Agregar dispositivos a cada empleado para usuarios TODO
-      for (let empleado of empleados) {
-        const dispositivos = await sequelize.query(
-          'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id',
-          {
-            replacements: [empleado.id],
-            type: sequelize.QueryTypes.SELECT
-          }
-        );
-        
-        empleado.dataValues.dispositivos = dispositivos;
-      }
-
-      return res.json(empleados);
-    }
-
-    // Si el usuario no tiene salas asignadas, devolver array vacío
-    if (!user || !user.Salas || user.Salas.length === 0) {
-      return res.json([]);
-    }
-
-    const userSalaIds = user.Salas.map(sala => sala.id);
-
+    // Eliminamos la distinción de "willinthon" y el filtro de salas del usuario.
+    // Ahora CUALQUIER usuario autenticado recibe la lista completa.
     const empleados = await Empleado.findAll({
+      where: { activo: 0 }, // Solo el filtro de que estén desactivados
       include: [
         {
           model: Cargo,
           as: 'Cargo',
-          include: [
-            {
-              model: Area,
-              as: 'Area',
-              include: [
-                {
-                  model: Departamento,
-                  as: 'Departamento',
-                  include: [
-                    {
-                        model: Sala,
-                        as: 'Sala',
-                        required: false,
-                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
+          required: false,
+          include: [{
+            model: Area,
+            as: 'Area',
+            required: false,
+            include: [{
+              model: Departamento,
+              as: 'Departamento',
+              required: false,
+              include: [{
+                model: Sala,
+                as: 'Sala',
+                required: false,
+                attributes: ['id', 'nombre']
+              }]
+            }]
+          }]
         }
       ],
-      where: {
-        activo: 0,
-        '$Cargo.Area.Departamento.Sala.id$': {
-          [Op.in]: userSalaIds
-        }
-      },
       order: [['updated_at', 'DESC']]
     });
 
-    // Agregar dispositivos a cada empleado
-    for (let empleado of empleados) {
-      const dispositivos = await sequelize.query(
-        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id',
-        {
-          replacements: [empleado.id, userSalaIds],
-          type: sequelize.QueryTypes.SELECT
-        }
-      );
-      
-      empleado.dataValues.dispositivos = dispositivos;
-    }
-
     res.json(empleados);
   } catch (error) {
-    
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

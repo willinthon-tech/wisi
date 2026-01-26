@@ -13,10 +13,8 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="feriados-container">
-      <div class="header">
-        <h2>Empleados Desincorporados</h2>
-        <span class="badge badge-nacional">REINCORPORACIÓN</span>
+    <div class="horarios-container"> <div class="header">
+        <h2 class="mb-0">Pool Global de Personal Disponible</h2>
       </div>
       
       <div class="table-wrapper">
@@ -25,8 +23,9 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
             <tr>
               <th>N°</th>
               <th>Foto</th>
-              <th>Nombre</th>
+              <th>Nombre Completo</th>
               <th>Cédula</th>
+              <th>Fecha de Salida</th>
               <th class="text-center">Acciones</th>
             </tr>
           </thead>
@@ -34,14 +33,15 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
             <tr *ngFor="let empleado of empleados; let i = index">
               <td>{{ i + 1 }}</td>
               <td>
-                <img *ngIf="empleado.foto" [src]="'data:image/jpeg;base64,' + empleado.foto" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover;" />
+                <img *ngIf="empleado.foto" [src]="'data:image/jpeg;base64,' + empleado.foto" class="employee-photo-circle" />
                 <span *ngIf="!empleado.foto" class="text-muted">Sin foto</span>
               </td>
               <td><strong>{{ empleado.nombre }}</strong></td>
               <td>{{ empleado.cedula }}</td>
+              <td>{{ formatDate(empleado.updated_at) }}</td>
               <td class="text-center">
                 <button class="btn btn-primary btn-sm" [disabled]="!canEdit()" (click)="abrirModalIncorporar(empleado)">
-                  <i class="fas fa-user-plus"></i> Incorporar
+                  <i class="fas fa-user-plus me-1"></i> Incorporar
                 </button>
               </td>
             </tr>
@@ -52,28 +52,32 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
       <div *ngIf="showModal" class="modal-overlay" (click)="closeModal()">
         <div class="modal-content" (click)="$event.stopPropagation()">
           <div class="modal-header">
-            <h3>Incorporar a Sala</h3>
+            <h3>Ficha de Incorporación</h3>
             <button class="close-btn" (click)="closeModal()">&times;</button>
           </div>
           <div class="modal-body">
-            <form #reincForm="ngForm" (ngSubmit)="confirmarIncorporacion()">
+            <form #incForm="ngForm" (ngSubmit)="confirmarIncorporacion()">
               
-              <div class="row mb-3">
+              <div class="row mb-4">
                 <div class="col-md-4 text-center">
-                   <img *ngIf="selectedEmpleado?.foto" [src]="'data:image/jpeg;base64,' + selectedEmpleado.foto" style="width: 100px; height: 100px; border-radius: 8px; object-fit: cover; border: 1px solid #ddd;" />
+                   <img *ngIf="selectedEmpleado?.foto" [src]="'data:image/jpeg;base64,' + selectedEmpleado.foto" class="photo-preview-modal" />
                 </div>
                 <div class="col-md-8">
-                  <label class="small text-muted">Empleado:</label>
-                  <input type="text" [value]="selectedEmpleado?.nombre" class="form-control" disabled />
-                  <label class="small text-muted mt-2">Cédula:</label>
-                  <input type="text" [value]="selectedEmpleado?.cedula" class="form-control" disabled />
+                  <div class="form-group mb-2">
+                    <label class="small text-muted">Nombre:</label>
+                    <input type="text" [value]="selectedEmpleado?.nombre" class="form-control" disabled />
+                  </div>
+                  <div class="form-group">
+                    <label class="small text-muted">Cédula:</label>
+                    <input type="text" [value]="selectedEmpleado?.cedula" class="form-control" disabled />
+                  </div>
                 </div>
               </div>
 
               <hr>
 
               <div class="form-group mb-3">
-                <label>Sala Destino:</label>
+                <label>Sala de Reingreso:</label>
                 <select name="sala_id" [(ngModel)]="form.sala_id" (change)="onSalaChange()" class="form-control" required>
                   <option [ngValue]="null">--- Seleccione Sala ---</option>
                   <option *ngFor="let s of userSalas" [value]="s.id">{{ s.nombre }}</option>
@@ -81,7 +85,7 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               </div>
 
               <div class="form-group mb-3">
-                <label>Cargo Asignado:</label>
+                <label>Cargo a Ocupar:</label>
                 <select name="cargo_id" [(ngModel)]="form.cargo_id" class="form-control" [disabled]="!form.sala_id" required>
                   <option [ngValue]="null">--- Seleccione Cargo ---</option>
                   <option *ngFor="let c of cargosFiltrados" [value]="c.id">{{ c.nombre }}</option>
@@ -89,14 +93,14 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
               </div>
 
               <div class="form-group mb-3">
-                <label>Fecha de Ingreso:</label>
+                <label>Fecha de Nuevo Ingreso:</label>
                 <input type="date" name="fecha_ingreso" [(ngModel)]="form.fecha_ingreso" class="form-control" required />
               </div>
 
               <div class="form-actions mt-4">
                 <button type="button" class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
-                <button type="submit" class="btn btn-success" [disabled]="!reincForm.form.valid">
-                  Finalizar e Incorporar
+                <button type="submit" class="btn btn-success" [disabled]="!incForm.form.valid">
+                  Activar e Incorporar
                 </button>
               </div>
             </form>
@@ -106,28 +110,32 @@ import { ConfirmModalService } from '../../../services/confirm-modal.service';
     </div>
   `,
   styles: [`
-    .feriados-container { padding: 20px; max-width: 1200px; margin: 0 auto; background: #f8f9fa; }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .modal-content { background: white; border-radius: 12px; width: 500px; overflow: hidden; }
-    .modal-header { padding: 15px 20px; background: #343a40; color: white; display: flex; justify-content: space-between; }
-    .close-btn { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+    .horarios-container { padding: 20px; max-width: 1400px; margin: 0 auto; background: #f8f9fa; min-height: calc(100vh - 120px); }
+    .table-wrapper { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+    .table th { background-color: #343a40; color: white; padding: 15px; font-weight: 600; }
+    .employee-photo-circle { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd; }
+    
+    /* Modal idéntico a Horarios */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 12px; width: 500px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px; background: #343a40; color: white; }
+    .close-btn { background: none; border: none; font-size: 24px; color: white; cursor: pointer; }
     .modal-body { padding: 20px; }
-    .form-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .photo-preview-modal { width: 100%; height: 110px; border-radius: 8px; object-fit: cover; border: 1px solid #ddd; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 20px; border-top: 1px solid #eee; }
+    .no-data { text-align: center; padding: 40px; background: white; border-radius: 8px; margin-top: 20px; }
   `]
 })
 export class EmpleadosBorradosComponent implements OnInit {
   empleados: any[] = [];
   userSalas: any[] = [];
-  todosLosCargos: any[] = []; // Guardamos todos los cargos aquí
-  cargosFiltrados: any[] = []; // Los que mostraremos según la sala
+  todosLosCargos: any[] = [];
+  cargosFiltrados: any[] = [];
   showModal = false;
   selectedEmpleado: any = null;
 
-  form = {
-    sala_id: null as any,
-    cargo_id: null as any,
-    fecha_ingreso: ''
-  };
+  // Formulario con campos obligatorios
+  form = { sala_id: null as any, cargo_id: null as any, fecha_ingreso: '' };
 
   constructor(
     private empleadosService: EmpleadosService,
@@ -143,13 +151,9 @@ export class EmpleadosBorradosComponent implements OnInit {
   }
 
   loadInitialData() {
-    // 1. Cargamos empleados borrados
     this.empleadosService.getEmpleadosBorrados().subscribe(res => this.empleados = res);
-    
-    // 2. Cargamos las salas disponibles para el usuario
     this.areasService.getUserSalas().subscribe(res => this.userSalas = res);
-    
-    // 3. Cargamos TODOS los cargos una sola vez (Usando el método que SÍ existe)
+    // Cargamos todos los cargos para filtrar localmente después
     this.cargosService.getCargos().subscribe(res => this.todosLosCargos = res);
   }
 
@@ -164,46 +168,38 @@ export class EmpleadosBorradosComponent implements OnInit {
 
   closeModal() { this.showModal = false; }
 
-  // FILTRO LOCAL: Aquí está el truco para no necesitar la función en el servicio
+  // FILTRO LOCAL: Como tu servicio no tiene getCargosBySala, filtramos el array completo
   onSalaChange() {
     this.cargosFiltrados = [];
     this.form.cargo_id = null;
-    
     if (this.form.sala_id) {
       const sId = Number(this.form.sala_id);
-      // Filtramos en el array local buscando la sala en la jerarquía del cargo
       this.cargosFiltrados = this.todosLosCargos.filter(c => 
-        c.Departamento?.Area?.Sala?.id === sId || 
-        c.Departamento?.Area?.sala_id === sId
+        c.Departamento?.Area?.Sala?.id === sId || c.Departamento?.Area?.sala_id === sId
       );
     }
   }
 
   confirmarIncorporacion() {
-    this.confirmModalService.showConfirmModal({
-      title: 'Confirmar Incorporación',
-      message: `¿Deseas activar a ${this.selectedEmpleado.nombre}?`,
-      onConfirm: () => {
-        // MERGE DE DATOS: Mandamos el objeto completo para evitar errores 400
-        const payload = {
-          ...this.selectedEmpleado,
-          activo: 1, 
-          cargo_id: Number(this.form.cargo_id),
-          fecha_ingreso: this.form.fecha_ingreso,
-          dispositivos: [] 
-        };
+    // MERGE: Mandamos el empleado completo + los nuevos datos obligatorios
+    const payload = {
+      ...this.selectedEmpleado,
+      activo: 1, // Activamos
+      cargo_id: Number(this.form.cargo_id),
+      fecha_ingreso: this.form.fecha_ingreso,
+      dispositivos: [] // Entra limpio de equipos
+    };
 
-        this.empleadosService.updateEmpleado(this.selectedEmpleado.id, payload).subscribe({
-          next: () => {
-            this.empleados = this.empleados.filter(e => e.id !== this.selectedEmpleado.id);
-            this.closeModal();
-          },
-          error: (err) => {
-            this.errorModalService.showErrorModal({
-              title: 'Error de Servidor',
-              message: err.error?.message || 'No se pudo procesar la incorporación.',
-            });
-          }
+    this.empleadosService.updateEmpleado(this.selectedEmpleado.id, payload).subscribe({
+      next: () => {
+        // Remover del pool y cerrar
+        this.empleados = this.empleados.filter(e => e.id !== this.selectedEmpleado.id);
+        this.closeModal();
+      },
+      error: (err) => {
+        this.errorModalService.showErrorModal({
+          title: 'Error de Incorporación',
+          message: err.error?.message || 'Error al procesar el reingreso.'
         });
       }
     });
