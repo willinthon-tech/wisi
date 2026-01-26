@@ -10571,46 +10571,71 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   private calcularMarcajeInteligenteCascada(empleado: any, dia: Date, bloque: any) {
-    const fechaStr = this.formatDateLocalYYYYMMDD(dia);
+    const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
     const key = `${empleado.id}|${fechaStr}`;
-    const plantilla = bloque.PlantillaHorario;
+    const plantilla = bloque?.PlantillaHorario;
   
-    // Obtener todos los marcajes del empleado (sin filtrar por día aún)
+    // 1. VALIDACIÓN PREVIA: Si no hay plantilla o faltan horas, marcamos vacío y saltamos
+    if (!plantilla || !plantilla.hora_entrada || !plantilla.hora_salida) {
+      this.cacheMarcajesCalculados.set(key, {
+        entrada: 'Sin marcaje',
+        salida: 'Sin marcaje',
+        entradaDescanso: 'Sin marcaje',
+        salidaDescanso: 'Sin marcaje'
+      });
+      return; 
+    }
+  
+    // 2. Obtener marcajes crudos del empleado y ordenarlos cronológicamente
     const todosLosLogs = this.marcajesCompletos.get(empleado.cedula) || [];
-    const logs = [...todosLosLogs].sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
+    const logs = [...todosLosLogs].sort((a, b) => 
+      new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
+    );
   
-    // Definir horas teóricas
+    // 3. Definir Horas Teóricas (Cuándo DEBERÍA entrar y salir)
     const entradaTeorica = this.crearFechaHora(dia, plantilla.hora_entrada);
     let salidaTeorica = this.crearFechaHora(dia, plantilla.hora_salida);
   
-    // Cruce de medianoche automático
+    // LÓGICA NOCTURNA: Si la salida es menor a la entrada (ej: Sale 06:00, Entra 22:00)
+    // sumamos un día a la salida teórica para buscarla en la madrugada siguiente.
     if (salidaTeorica < entradaTeorica) {
       salidaTeorica.setDate(salidaTeorica.getDate() + 1);
     }
   
-    // BUSCAR ENTRADA (Ventana +/- 2 horas)
+    // 4. BUSCAR ENTRADA REAL (Ventana de +/- 2 horas)
     const entradaReal = logs.find(log => {
-      if (this.marcajesUsadosGlobal.has(log.id)) return false;
-      const diff = Math.abs((new Date(log.event_time).getTime() - entradaTeorica.getTime()) / 60000);
-      return diff <= 120;
+      if (this.marcajesUsadosGlobal.has(log.id)) return false; // Ignorar si ya se usó
+      
+      const logTime = new Date(log.event_time).getTime();
+      const diffMinutos = (logTime - entradaTeorica.getTime()) / 60000;
+      return Math.abs(diffMinutos) <= 120; // Margen de 120 minutos
     });
   
-    if (entradaReal) this.marcajesUsadosGlobal.add(entradaReal.id);
+    if (entradaReal) {
+      this.marcajesUsadosGlobal.add(entradaReal.id); // Marcar como ocupado
+    }
   
-    // BUSCAR SALIDA (Ventana Inteligente -8h y +12h)
+    // 5. BUSCAR SALIDA REAL (Ventana Inteligente: -8h y +12h)
     const salidaReal = logs.find(log => {
-      if (this.marcajesUsadosGlobal.has(log.id)) return false;
+      if (this.marcajesUsadosGlobal.has(log.id)) return false; // Ignorar si ya se usó
+      
       const logTime = new Date(log.event_time);
+      
+      // Regla de seguridad: La salida debe ser posterior a la entrada encontrada
       if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
   
-      const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
-      // Cubre nocturno que sale temprano (-480m) y diurno que sale tarde (+720m)
-      return diffSalida >= -480 && diffSalida <= 720;
+      const diffSalidaMinutos = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
+      
+      // -480 min (-8h): Permite capturar salidas de nocturnos antes de medianoche.
+      // +720 min (+12h): Permite capturar salidas de diurnos hasta la madrugada siguiente.
+      return diffSalidaMinutos >= -480 && diffSalidaMinutos <= 720;
     });
   
-    if (salidaReal) this.marcajesUsadosGlobal.add(salidaReal.id);
+    if (salidaReal) {
+      this.marcajesUsadosGlobal.add(salidaReal.id); // Marcar como ocupado
+    }
   
-    // Guardar en caché para que la vista lo pinte
+    // 6. GUARDAR RESULTADO EN CACHÉ PARA LA VISTA
     this.cacheMarcajesCalculados.set(key, {
       entrada: entradaReal ? this.formatHora(entradaReal.event_time) : 'Sin marcaje',
       salida: salidaReal ? this.formatHora(salidaReal.event_time) : 'Sin marcaje',
@@ -10619,11 +10644,28 @@ export class MarcajePersonalComponent implements OnInit {
     });
   }
   
-  // Helpers necesarios para la función anterior
-  private crearFechaHora(d: Date, hora: string): Date {
-    const f = new Date(d); f.setHours(0,0,0,0);
-    const [h, m] = hora.split(':');
-    f.setHours(+h, +m, 0, 0);
+  private crearFechaHora(d: Date, hora: string | null | undefined): Date {
+    const f = new Date(d);
+    f.setHours(0, 0, 0, 0); // Iniciamos en la medianoche del día dado
+    
+    // PROTECCIÓN: Si la hora no es un string válido o no tiene el formato HH:MM, devolvemos medianoche
+    if (!hora || typeof hora !== 'string' || !hora.includes(':')) {
+      return f;
+    }
+  
+    try {
+      const partes = hora.split(':');
+      if (partes.length >= 2) {
+        const h = parseInt(partes[0], 10);
+        const m = parseInt(partes[1], 10);
+        
+        // Validamos que sean números antes de asignarlos
+        f.setHours(isNaN(h) ? 0 : h, isNaN(m) ? 0 : m, 0, 0);
+      }
+    } catch (err) {
+      console.error("Error al procesar split de hora:", hora, err);
+    }
+    
     return f;
   }
   
