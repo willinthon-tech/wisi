@@ -5520,59 +5520,37 @@ export class MarcajePersonalComponent implements OnInit {
   // Limpiar caché de un empleado específico (cuando cambia una excepción)
   // Recalcular todos los días del empleado que están en el rango visible y filtrados
   limpiarCacheEmpleado(empleadoId: number) {
-    // 1. Validación de existencia
     const empleado = this.empleadosCompletos.find(e => e.id === empleadoId);
     if (!empleado) return;
   
-    // 2. Validación de visibilidad (Optimización de rendimiento)
-    const estaEnFiltrados = this.empleadosFiltrados?.some(e => e.id === empleadoId) || 
-                            this.obtenerBaseEmpleados().some(e => e.id === empleadoId);
-    if (!estaEnFiltrados) return;
-  
-    // 3. Limpieza de Caches (Refactorizado para ser más limpio y rápido)
     const prefijo = `${empleadoId}|`;
     
-    [this.cacheBloquesHorario, this.cacheHorarioInfo, this.cacheMarcajesCalculados].forEach(cache => {
-      // Extraemos las llaves que coinciden y las borramos
-      Array.from(cache.keys())
-        .filter(key => key.startsWith(prefijo))
-        .forEach(key => cache.delete(key));
-    });
+    // LIMPIEZA AGRESIVA DE CACHÉ
+    this.cacheBloquesHorario.forEach((_, k) => { if (k.startsWith(prefijo)) this.cacheBloquesHorario.delete(k); });
+    this.cacheHorarioInfo.forEach((_, k) => { if (k.startsWith(prefijo)) this.cacheHorarioInfo.delete(k); });
+    this.cacheMarcajesCalculados.forEach((_, k) => { if (k.startsWith(prefijo)) this.cacheMarcajesCalculados.delete(k); });
   
-    // 4. Re-cálculo en Cascada (El nuevo cerebro)
     if (this.diasDelMes && this.diasDelMes.length > 0) {
-      // Usamos setTimeout para no congelar la pantalla mientras calcula
       setTimeout(() => {
-        // CRÍTICO: Limpiar la memoria global de huellas para este proceso
-        // Si no lo haces, el sistema creerá que las huellas ya están "usadas" 
-        // por el cálculo anterior y pondrá "Sin marcaje".
+        // RESET DE MEMORIA PARA EL EMPLEADO
         this.marcajesUsadosGlobal.clear();
   
-        // Recorremos los días en orden cronológico (VITAL para nocturnos)
         this.diasDelMes.forEach(dia => {
-          const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
-          const keyBloque = `${empleadoId}|${fechaStr}`;
+          const fStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+          const keyB = `${empleadoId}|${fStr}`;
           
-          // A. Obtener y cachear el bloque (Excepción o Horario)
+          // RE-OBTENER BLOQUE (Aquí leerá la EXCEPCIÓN recién guardada)
           const bloque = this.getBloqueHorarioInterno(empleado, dia);
-          this.cacheBloquesHorario.set(keyBloque, bloque);
+          this.cacheBloquesHorario.set(keyB, bloque);
   
-          // B. Calcular Marcaje con la lógica inteligente (-8h / +12h)
-          // Esta es la función "cerebro" que definimos en el paso anterior
           if (bloque && bloque.PlantillaHorario) {
             this.calcularMarcajeInteligenteCascada(empleado, dia, bloque);
           }
-  
-          // C. Pre-calcular info de descansos si aplica
-          const keyHorarioInfo = `${empleadoId}|${fechaStr}|Descanso`;
-          const horarioInfo = this.getHorarioInfoInterno(empleado, dia, 'Descanso');
-          this.cacheHorarioInfo.set(keyHorarioInfo, horarioInfo);
         });
   
-        // 5. Refrescar la interfaz
         this.agruparEmpleados();
         this.cdr.detectChanges();
-      }, 0);
+      }, 50); // Aumentamos ligeramente el tiempo para asegurar estabilidad
     }
   }
 
@@ -10575,67 +10553,43 @@ export class MarcajePersonalComponent implements OnInit {
     const key = `${empleado.id}|${fechaStr}`;
     const plantilla = bloque?.PlantillaHorario;
   
-    // 1. VALIDACIÓN PREVIA: Si no hay plantilla o faltan horas, marcamos vacío y saltamos
     if (!plantilla || !plantilla.hora_entrada || !plantilla.hora_salida) {
-      this.cacheMarcajesCalculados.set(key, {
-        entrada: 'Sin marcaje',
-        salida: 'Sin marcaje',
-        entradaDescanso: 'Sin marcaje',
-        salidaDescanso: 'Sin marcaje'
-      });
+      this.cacheMarcajesCalculados.set(key, { entrada: 'Sin marcaje', salida: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje' });
       return; 
     }
   
-    // 2. Obtener marcajes crudos del empleado y ordenarlos cronológicamente
     const todosLosLogs = this.marcajesCompletos.get(empleado.cedula) || [];
-    const logs = [...todosLosLogs].sort((a, b) => 
-      new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
-    );
+    const logs = [...todosLosLogs].sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
   
-    // 3. Definir Horas Teóricas (Cuándo DEBERÍA entrar y salir)
     const entradaTeorica = this.crearFechaHora(dia, plantilla.hora_entrada);
     let salidaTeorica = this.crearFechaHora(dia, plantilla.hora_salida);
   
-    // LÓGICA NOCTURNA: Si la salida es menor a la entrada (ej: Sale 06:00, Entra 22:00)
-    // sumamos un día a la salida teórica para buscarla en la madrugada siguiente.
     if (salidaTeorica < entradaTeorica) {
       salidaTeorica.setDate(salidaTeorica.getDate() + 1);
     }
   
-    // 4. BUSCAR ENTRADA REAL (Ventana de +/- 2 horas)
+    // BUSCAR ENTRADA: Ventana de +/- 3 horas (Ampliada para casos difíciles)
     const entradaReal = logs.find(log => {
-      if (this.marcajesUsadosGlobal.has(log.id)) return false; // Ignorar si ya se usó
-      
+      if (this.marcajesUsadosGlobal.has(log.id)) return false;
       const logTime = new Date(log.event_time).getTime();
-      const diffMinutos = (logTime - entradaTeorica.getTime()) / 60000;
-      return Math.abs(diffMinutos) <= 120; // Margen de 120 minutos
+      const diff = Math.abs((logTime - entradaTeorica.getTime()) / 60000);
+      return diff <= 180; // 3 horas de margen
     });
   
-    if (entradaReal) {
-      this.marcajesUsadosGlobal.add(entradaReal.id); // Marcar como ocupado
-    }
+    if (entradaReal) this.marcajesUsadosGlobal.add(entradaReal.id);
   
-    // 5. BUSCAR SALIDA REAL (Ventana Inteligente: -8h y +12h)
+    // BUSCAR SALIDA: Ventana de -8h y +12h (Como pediste)
     const salidaReal = logs.find(log => {
-      if (this.marcajesUsadosGlobal.has(log.id)) return false; // Ignorar si ya se usó
-      
+      if (this.marcajesUsadosGlobal.has(log.id)) return false;
       const logTime = new Date(log.event_time);
-      
-      // Regla de seguridad: La salida debe ser posterior a la entrada encontrada
       if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
   
-      const diffSalidaMinutos = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
-      
-      // -480 min (-8h): Permite capturar salidas de nocturnos antes de medianoche.
-      // +720 min (+12h): Permite capturar salidas de diurnos hasta la madrugada siguiente.
-      return diffSalidaMinutos >= -480 && diffSalidaMinutos <= 720;
+      const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
+      return diffSalida >= -480 && diffSalida <= 720;
     });
   
-    if (salidaReal) {
-      this.marcajesUsadosGlobal.add(salidaReal.id); // Marcar como ocupado
-    }
+    if (salidaReal) this.marcajesUsadosGlobal.add(salidaReal.id);
   
-    // 6. GUARDAR RESULTADO EN CACHÉ PARA LA VISTA
     this.cacheMarcajesCalculados.set(key, {
       entrada: entradaReal ? this.formatHora(entradaReal.event_time) : 'Sin marcaje',
       salida: salidaReal ? this.formatHora(salidaReal.event_time) : 'Sin marcaje',
@@ -10646,9 +10600,8 @@ export class MarcajePersonalComponent implements OnInit {
   
   private crearFechaHora(d: Date, hora: string | null | undefined): Date {
     const f = new Date(d);
-    f.setHours(0, 0, 0, 0); // Iniciamos en la medianoche del día dado
+    f.setHours(0, 0, 0, 0); 
     
-    // PROTECCIÓN: Si la hora no es un string válido o no tiene el formato HH:MM, devolvemos medianoche
     if (!hora || typeof hora !== 'string' || !hora.includes(':')) {
       return f;
     }
@@ -10658,12 +10611,10 @@ export class MarcajePersonalComponent implements OnInit {
       if (partes.length >= 2) {
         const h = parseInt(partes[0], 10);
         const m = parseInt(partes[1], 10);
-        
-        // Validamos que sean números antes de asignarlos
         f.setHours(isNaN(h) ? 0 : h, isNaN(m) ? 0 : m, 0, 0);
       }
     } catch (err) {
-      console.error("Error al procesar split de hora:", hora, err);
+      // Si hay error, devolvemos medianoche para que el sistema no se detenga
     }
     
     return f;
