@@ -10239,22 +10239,21 @@ export class MarcajePersonalComponent implements OnInit {
     let count = 0;
     
     this.diasDelMes.forEach(dia => {
-      // Verificar si es domingo (getDay() === 0)
+      // 1. Verificar si es domingo
       if (dia.getDay() === 0) {
-        // Verificar si el empleado trabajó ese día (tiene marcajes de diurno, nocturno o mixto)
-        if (!this.isSinHorario(empleado, dia)) {
-          const bloque = this.getBloqueHorario(empleado, dia);
-          if (bloque) {
-            const resultadoHtml = this.getResultadoTurno(empleado, dia);
-            // Si tiene resultado (DIURNO, NOCTURNO o MIXTO), trabajó
-            if (resultadoHtml) {
-              const resultadoStr = String(resultadoHtml).toUpperCase();
-              // Verificar si contiene DIURNO, NOCTURNO o es mixto (contiene ( D ) o ( N ))
-              if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
-                  resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
-                count++;
-              }
-            }
+        const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+        const key = `${empleado.id}|${fechaStr}`;
+        
+        // 2. En lugar de calcular de nuevo, leemos el resultado ya procesado
+        // getResultadoTurno ya usa internamente el cacheMarcajesCalculados
+        const resultadoHtml = this.getResultadoTurno(empleado, dia);
+        
+        if (resultadoHtml) {
+          const resultadoStr = String(resultadoHtml).toUpperCase();
+          // 3. Tu validación original de textos
+          if (resultadoStr.includes('DIURNO') || resultadoStr.includes('NOCTURNO') || 
+              resultadoStr.includes('( D )') || resultadoStr.includes('( N )')) {
+            count++;
           }
         }
       }
@@ -10262,6 +10261,7 @@ export class MarcajePersonalComponent implements OnInit {
     
     return count;
   }
+  
 
   // Calcular resumen: Días Domingos Trabajados (total global - para compatibilidad)
   getResumenDomingosTrabajados(): number {
@@ -10350,12 +10350,21 @@ export class MarcajePersonalComponent implements OnInit {
     let count = 0;
     
     this.diasDelMes.forEach(dia => {
-      const bloque = this.getBloqueHorario(empleado, dia);
+      const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+      const key = `${empleado.id}|${fechaStr}`;
+      
+      // 1. Obtener el bloque (si es Libre o no)
+      const bloque = this.cacheBloquesHorario.get(key) || this.getBloqueHorario(empleado, dia);
+      
       if (bloque && this.esDiaLibre(bloque)) {
-        // Es día libre (plantilla sin hora_entrada ni hora_salida)
-        const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
-        // Si tiene marcajes, trabajó en día libre
-        if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+        // 2. LEER DEL CACHÉ INTELIGENTE (en lugar de calcularMarcajesDelDia)
+        const marcajes = this.cacheMarcajesCalculados.get(key);
+        
+        // 3. Tu validación original: debe tener entrada y salida válida
+        if (marcajes && 
+            marcajes.entrada !== 'Sin marcaje' && 
+            marcajes.salida !== 'Sin marcaje' && 
+            marcajes.salida !== 'SNM') {
           count++;
         }
       }
