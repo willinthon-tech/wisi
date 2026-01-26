@@ -2705,6 +2705,12 @@ export class MarcajePersonalComponent implements OnInit {
   };
   fechaMinimaPermitida: string = '';
 
+  // ... tus otras variables ...
+  // === AGREGA ESTO AQUÍ ===
+  // Memoria para evitar que un marcaje se use en dos días distintos
+  private marcajesUsadosGlobal: Set<number> = new Set(); 
+  // ========================
+
   constructor(
     private empleadosService: EmpleadosService,
     private marcajesService: MarcajesService,
@@ -3465,6 +3471,17 @@ export class MarcajePersonalComponent implements OnInit {
               this.cdr.detectChanges();
             }, 0);
           }
+
+          // [CÓDIGO EXISTENTE] ... lógica de actualizar el mapa excepcionesMap ...
+          this.excepcionesMap.set(key, excepcionActualizada);
+
+          // === AGREGAR ESTO ===
+          // Recalcular cascada para arreglar turnos rotos
+          this.recalcularMarcajesInteligentes(this.modalEmpleado);
+          // ====================
+
+          this.savingExcepcion = false;
+          
         },
         error: (err) => { 
           this.savingExcepcion = false; 
@@ -3564,6 +3581,8 @@ export class MarcajePersonalComponent implements OnInit {
               return;
             }
           }
+
+          
           this.savingExcepcion = false;
         }
       });
@@ -4051,6 +4070,17 @@ export class MarcajePersonalComponent implements OnInit {
       return;
     }
     
+    // === AGREGAR ESTO ===
+    // Calcular matriz inicial para todos los empleados cargados
+    if (this.grupos && this.grupos.length > 0) {
+      this.grupos.forEach(grupo => {
+          grupo.empleados.forEach((empleado: any) => {
+              this.recalcularMarcajesInteligentes(empleado);
+          });
+      });
+    }
+    // ====================
+
     this.loading = true;
     this.hasSearched = false;
     
@@ -9341,6 +9371,22 @@ export class MarcajePersonalComponent implements OnInit {
     const fechaStr = dia instanceof Date ? dia.toISOString().split('T')[0] : dia;
     const keyCache = `${empleado?.id}|${fechaStr}|${tipoHorario}`;
     
+    const key = `${empleado.id}|${fechaStr}`;
+
+    // === AGREGAR ESTO AL PRINCIPIO ===
+    // Si ya calculamos inteligentemente, USAR ESO.
+    if (this.cacheMarcajesCalculados.has(key)) {
+      const calculado = this.cacheMarcajesCalculados.get(key);
+      if (calculado) {
+          if (tipoHorario === 'Entrada') return calculado.entrada;
+          if (tipoHorario === 'Salida') return calculado.salida;
+          // Si usas tipo 'Descanso' y quieres mostrar algo:
+          if (tipoHorario === 'Descanso') return ''; 
+      }
+    }
+    // =================================
+
+
     if (this.cacheHorarioInfo.has(keyCache)) {
       return this.cacheHorarioInfo.get(keyCache) || 'Sin Registros';
     }
@@ -9466,7 +9512,8 @@ export class MarcajePersonalComponent implements OnInit {
         resultado = '';
     }
     
-    return resultado;
+    //return resultado;
+    return '';
   }
 
   // Esta función ya no se usa - ahora todo es dinámico según las plantillas
@@ -10687,6 +10734,107 @@ export class MarcajePersonalComponent implements OnInit {
     });
     
     return this.formatearMinutosAHora(totalMinutos);
+  }
+
+  // === COPIA ESTA FUNCIÓN AL FINAL DE TU CLASE ===
+
+  recalcularMarcajesInteligentes(empleado: any) {
+    if (!empleado || !empleado.cedula) return;
+
+    // 1. Limpiar memoria para este empleado
+    this.marcajesUsadosGlobal.clear();
+    
+    // 2. Obtener todos los logs crudos
+    const logsRaw = this.marcajesCompletos.get(empleado.cedula) || [];
+    
+    // 3. Ordenar cronológicamente (VITAL)
+    const logsOrdenados = [...logsRaw].sort((a, b) => 
+      new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
+    );
+
+    // 4. Limpiar caché visual previa
+    this.diasDelMes.forEach(dia => {
+      const fechaStr = dia.toISOString().split('T')[0];
+      const key = `${empleado.id}|${fechaStr}`;
+      this.cacheMarcajesCalculados.delete(key);
+    });
+
+    // 5. Barrido Secuencial (Lunes -> Martes -> Miércoles...)
+    this.diasDelMes.forEach(dia => {
+      this.procesarDiaUnico(empleado, dia, logsOrdenados);
+    });
+
+    // 6. Actualizar vista
+    this.cdr.detectChanges();
+  }
+
+  procesarDiaUnico(empleado: any, dia: Date, todosLosLogs: any[]) {
+    const bloque = this.getBloqueHorario(empleado, dia);
+    if (!bloque || !bloque.PlantillaHorario) return;
+
+    const fechaStr = dia.toISOString().split('T')[0];
+    const plantilla = bloque.PlantillaHorario;
+
+    // Fechas Teóricas
+    const fechaBase = new Date(dia);
+    fechaBase.setHours(0,0,0,0);
+    
+    const entradaTeorica = new Date(fechaBase);
+    const [hEnt, mEnt] = plantilla.hora_entrada.split(':');
+    entradaTeorica.setHours(+hEnt, +mEnt, 0, 0);
+
+    let salidaTeorica = new Date(fechaBase);
+    const [hSal, mSal] = plantilla.hora_salida.split(':');
+    salidaTeorica.setHours(+hSal, +mSal, 0, 0);
+
+    // CRUCE NOCTURNO: Si salida < entrada, es día siguiente
+    if (salidaTeorica.getTime() < entradaTeorica.getTime()) {
+      salidaTeorica.setDate(salidaTeorica.getDate() + 1);
+    }
+
+    // BUSCAR ENTRADA (Margen +/- 2 horas)
+    let entradaLog = todosLosLogs.find(log => {
+      if (this.marcajesUsadosGlobal.has(log.id)) return false;
+      const diff = (new Date(log.event_time).getTime() - entradaTeorica.getTime()) / 60000;
+      return Math.abs(diff) <= 120; 
+    });
+
+    if (entradaLog) this.marcajesUsadosGlobal.add(entradaLog.id);
+
+    // BUSCAR SALIDA
+    let salidaLog = null;
+    if (entradaLog) {
+      const logEntradaTime = new Date(entradaLog.event_time);
+      salidaLog = todosLosLogs.find(log => {
+        if (this.marcajesUsadosGlobal.has(log.id)) return false;
+        
+        const logTime = new Date(log.event_time);
+        if (logTime <= logEntradaTime) return false; // Debe ser después de entrar
+
+        const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
+        
+        // AQUÍ ESTÁ EL TRUCO PARA TUS TURNOS:
+        // -480 min (-8h): Cubre si se va temprano el mismo día (Nocturno enfermo)
+        // +720 min (+12h): Cubre si sale muy tarde al día siguiente (Diurno extra)
+        return diffSalida >= -480 && diffSalida <= 720; 
+      });
+
+      if (salidaLog) this.marcajesUsadosGlobal.add(salidaLog.id);
+    }
+
+    // Guardar en Caché para la vista
+    const key = `${empleado.id}|${fechaStr}`;
+    this.cacheMarcajesCalculados.set(key, {
+      entrada: entradaLog ? this.formatHoraCorta(entradaLog.event_time) : 'Sin marcaje',
+      salida: salidaLog ? this.formatHoraCorta(salidaLog.event_time) : 'Sin marcaje',
+      entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje'
+    });
+  }
+
+  formatHoraCorta(fechaIso: string): string {
+    if (!fechaIso) return '';
+    const d = new Date(fechaIso);
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
   }
 }
 
