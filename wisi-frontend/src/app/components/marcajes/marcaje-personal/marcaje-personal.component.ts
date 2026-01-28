@@ -4664,50 +4664,131 @@ export class MarcajePersonalComponent implements OnInit {
   async cargarMarcajesPorRango(): Promise<void> {
     return new Promise((resolve) => {
       this.marcajesCompletos.clear();
+      
       const empleadosConCedula = this.empleadosCompletos.filter(e => e.cedula);
       
       if (empleadosConCedula.length === 0 || !this.fechaDesde || !this.fechaHasta) {
         resolve();
         return;
       }
-  
+      
+      // OPTIMIZACIÓN: UNA SOLA llamada para traer TODOS los marcajes del rango de fechas
+      // NO filtrar por employee_no - traer todos y filtrar localmente
+      // IMPORTANTE: No pasar limit para obtener TODOS los marcajes sin límite
       this.marcajesService.getMarcajes({
         fecha_inicio: this.fechaDesde,
         fecha_fin: this.fechaHasta
+        // NO incluir employee_no - traer todos los marcajes del rango
+        // NO incluir limit - traer TODOS sin límite
       }).subscribe({
         next: (response) => {
           const todosLosMarcajes = response.attlogs || [];
           
-          // PASO B: Set de cédulas limpias (Solo números)
-          const cedulasSet = new Set(empleadosConCedula.map(e => this.normalizarCedula(e.cedula)));
+          // DEBUG: Analizar dispositivos en la respuesta del backend ANTES de filtrar
+          const dispositivosEnRespuesta = new Set<number>();
+          const muestraMarcajes = todosLosMarcajes.slice(0, 10).map((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnRespuesta.add(dispositivoId);
+            }
+            return {
+              id: m.id,
+              employee_no: m.employee_no,
+              dispositivo_id: m.dispositivo_id,
+              dispositivo: m.dispositivo?.id,
+              Dispositivo: m.Dispositivo?.id,
+              dispositivoIdNormalizado: dispositivoId,
+              event_time: m.event_time
+            };
+          });
           
+          // Analizar TODOS los marcajes para obtener dispositivos únicos
+          todosLosMarcajes.forEach((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnRespuesta.add(dispositivoId);
+            }
+          });
+          
+          // Crear un mapa de cédulas para búsqueda rápida
+          const cedulasSet = new Set(empleadosConCedula.map(e => e.cedula));
+          
+          // DEBUG: Contadores para ver qué se está filtrando
+          const dispositivosEnMarcajesFiltrados = new Set<number>();
+          let marcajesFiltradosPorEmpleado = 0;
+          let marcajesDescartadosPorEmpleado = 0;
+          
+          // Agrupar marcajes por employee_no (cedula) localmente
           todosLosMarcajes.forEach((marcaje: any) => {
-            // PASO C: Normalizar el dato que viene del biométrico
-            const cedulaLimpia = this.normalizarCedula(marcaje.employee_no);
-            
-            // Ahora comparamos "número contra número"
-            if (cedulaLimpia && cedulasSet.has(cedulaLimpia)) {
-              // Guardamos en el Map usando la versión limpia como llave
-              if (!this.marcajesCompletos.has(cedulaLimpia)) {
-                this.marcajesCompletos.set(cedulaLimpia, []);
+            const cedula = marcaje.employee_no;
+            // Solo procesar marcajes de empleados que están en la lista
+            if (cedula && cedulasSet.has(cedula)) {
+              if (!this.marcajesCompletos.has(cedula)) {
+                this.marcajesCompletos.set(cedula, []);
               }
-              this.marcajesCompletos.get(cedulaLimpia)!.push(marcaje);
+              this.marcajesCompletos.get(cedula)!.push(marcaje);
+              marcajesFiltradosPorEmpleado++;
+              
+              // Extraer dispositivo_id para el log
+              let dispositivoId: number | null = null;
+              if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
+                dispositivoId = Number(marcaje.dispositivo_id);
+              } else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.Dispositivo.id);
+              } else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.dispositivo.id);
+              }
+              if (dispositivoId !== null && !isNaN(dispositivoId)) {
+                dispositivosEnMarcajesFiltrados.add(dispositivoId);
+              }
+            } else {
+              marcajesDescartadosPorEmpleado++;
             }
           });
-  
-          // PASO D: Asegurar que todos tengan su array (usando llave limpia)
+          
+          // Asegurar que todos los empleados tengan un array (aunque esté vacío)
           empleadosConCedula.forEach(empleado => {
-            const llaveLimpia = this.normalizarCedula(empleado.cedula);
-            if (!this.marcajesCompletos.has(llaveLimpia)) {
-              this.marcajesCompletos.set(llaveLimpia, []);
+            if (!this.marcajesCompletos.has(empleado.cedula)) {
+              this.marcajesCompletos.set(empleado.cedula, []);
             }
           });
-  
+          
+          // DEBUG: Verificar marcajes específicos del dispositivo 24 (Puerta Cecom)
+          const marcajesDispositivo24 = Array.from(this.marcajesCompletos.entries())
+            .flatMap(([cedula, marcajes]) => 
+              marcajes.filter((m: any) => {
+                let dispositivoId: number | null = null;
+                if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+                  dispositivoId = Number(m.dispositivo_id);
+                } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+                  dispositivoId = Number(m.Dispositivo.id);
+                } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+                  dispositivoId = Number(m.dispositivo.id);
+                }
+                return dispositivoId === 24;
+              })
+            );
+          
           resolve();
         },
         error: (err) => {
+          // Si hay error, inicializar arrays vacíos para todos los empleados
           empleadosConCedula.forEach(empleado => {
-            this.marcajesCompletos.set(this.normalizarCedula(empleado.cedula), []);
+            this.marcajesCompletos.set(empleado.cedula, []);
           });
           resolve();
         }
@@ -4719,48 +4800,50 @@ export class MarcajePersonalComponent implements OnInit {
   async cargarMarcajesCompletos(): Promise<void> {
     return new Promise((resolve) => {
       this.marcajesCompletos.clear();
+      
       const empleadosConCedula = this.empleadosCompletos.filter(e => e.cedula);
       
       if (empleadosConCedula.length === 0 || !this.fechaMinimaFiltro || !this.fechaMaximaFiltro) {
         resolve();
         return;
       }
-  
+      
+      // OPTIMIZACIÓN: UNA SOLA llamada para traer TODOS los marcajes del rango completo
       this.marcajesService.getMarcajes({
         fecha_inicio: this.fechaMinimaFiltro,
         fecha_fin: this.fechaMaximaFiltro
+        // NO incluir employee_no - traer todos los marcajes del rango
       }).subscribe({
         next: (response) => {
           const todosLosMarcajes = response.attlogs || [];
           
-          // PASO B: Normalizar el Set de búsqueda
-          const cedulasSet = new Set(empleadosConCedula.map(e => this.normalizarCedula(e.cedula)));
+          // Crear un mapa de cédulas para búsqueda rápida
+          const cedulasSet = new Set(empleadosConCedula.map(e => e.cedula));
           
+          // Agrupar marcajes por employee_no (cedula) localmente
           todosLosMarcajes.forEach((marcaje: any) => {
-            // PASO C: Normalizar la cédula del log
-            const cedulaLimpia = this.normalizarCedula(marcaje.employee_no);
-  
-            if (cedulaLimpia && cedulasSet.has(cedulaLimpia)) {
-              if (!this.marcajesCompletos.has(cedulaLimpia)) {
-                this.marcajesCompletos.set(cedulaLimpia, []);
+            const cedula = marcaje.employee_no;
+            if (cedula && cedulasSet.has(cedula)) {
+              if (!this.marcajesCompletos.has(cedula)) {
+                this.marcajesCompletos.set(cedula, []);
               }
-              this.marcajesCompletos.get(cedulaLimpia)!.push(marcaje);
+              this.marcajesCompletos.get(cedula)!.push(marcaje);
             }
           });
-  
-          // PASO D: Inicializar con llave limpia
+          
+          // Asegurar que todos los empleados tengan un array (aunque esté vacío)
           empleadosConCedula.forEach(empleado => {
-            const llaveLimpia = this.normalizarCedula(empleado.cedula);
-            if (!this.marcajesCompletos.has(llaveLimpia)) {
-              this.marcajesCompletos.set(llaveLimpia, []);
+            if (!this.marcajesCompletos.has(empleado.cedula)) {
+              this.marcajesCompletos.set(empleado.cedula, []);
             }
           });
-  
+          
           resolve();
         },
         error: (err) => {
+          // Si hay error, inicializar arrays vacíos para todos los empleados
           empleadosConCedula.forEach(empleado => {
-            this.marcajesCompletos.set(this.normalizarCedula(empleado.cedula), []);
+            this.marcajesCompletos.set(empleado.cedula, []);
           });
           resolve();
         }
@@ -4916,62 +4999,216 @@ export class MarcajePersonalComponent implements OnInit {
   // Filtrar marcajes localmente de los marcajes completos ya cargados
   filtrarMarcajesLocalmente(): void {
     this.marcajesPorEmpleado.clear();
+    
+    // Usar empleadosCompletos directamente, no obtenerBaseEmpleados() que depende de empleadosFiltrados
+    // que aún no se ha calculado
     const base = this.empleadosCompletos || [];
     
     if (base.length === 0) {
       this.agruparEmpleados();
-      if (this.loading) this.loading = false;
+      // Solo establecer loading = false si estaba en true (no mostrar loading para filtrado local)
+      if (this.loading) {
+        this.loading = false;
+      }
       return;
     }
-  
-    // Si tenemos marcajes completos cargados
+    
+    // Si tenemos marcajes completos cargados, filtrarlos localmente
     if (this.marcajesCompletos.size > 0) {
+      // FILTRADO SÍNCRONO: Filtrar marcajes primero para que estén disponibles al filtrar empleados
       base.forEach(empleado => {
         if (empleado.cedula) {
-          // --- PASO D: USAR LLAVE NORMALIZADA PARA BUSCAR ---
-          const llaveLimpia = this.normalizarCedula(empleado.cedula);
-          const marcajesCompletos = this.marcajesCompletos.get(llaveLimpia) || [];
+          const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
           
-          
-          // Filtrado por fecha y dispositivos
+          // Filtrar marcajes por rango de fechas y dispositivos seleccionados
           const marcajesFiltrados = marcajesCompletos.filter((marcaje: any) => {
             if (!marcaje.event_time) return false;
-            
             const fechaMarcaje = new Date(marcaje.event_time).toISOString().split('T')[0];
             
-            // 1. Filtro de Fecha
-            if (fechaMarcaje < this.fechaDesde || fechaMarcaje > this.fechaHasta) return false;
-            
-            // 2. Filtro de Dispositivos (Solo si hay seleccionados)
-            if (this.selectedDispositivosIds.length > 0) {
-              const devId = Number(marcaje.dispositivo_id) || 
-                            Number(marcaje.Dispositivo?.id) || 
-                            Number(marcaje.dispositivo?.id);
-  
-              if (devId && !isNaN(devId)) {
-                return this.selectedDispositivosIds.some(id => Number(id) === devId);
-              }
+            // Filtrar por fecha
+            if (fechaMarcaje < this.fechaDesde || fechaMarcaje > this.fechaHasta) {
               return false;
             }
             
-            // Si no hay dispositivos seleccionados, no mostramos marcajes (según tu lógica)
-            return false;
+            // Filtrar por dispositivos seleccionados (si hay alguno seleccionado)
+            // Si no hay dispositivos seleccionados, no mostrar ningún marcaje
+            if (this.selectedDispositivosIds.length > 0) {
+              // Obtener el ID del dispositivo del marcaje - PROBAR TODAS LAS FORMAS POSIBLES
+              let dispositivoIdMarcaje: number | null = null;
+              
+              // Intentar todas las formas posibles de obtener el dispositivo_id
+              if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
+                dispositivoIdMarcaje = Number(marcaje.dispositivo_id);
+              } else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
+                dispositivoIdMarcaje = Number(marcaje.Dispositivo.id);
+              } else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
+                dispositivoIdMarcaje = Number(marcaje.dispositivo.id);
+              }
+              
+              // Si el marcaje tiene un dispositivo, verificar que esté en la lista de seleccionados
+              if (dispositivoIdMarcaje !== null && !isNaN(dispositivoIdMarcaje) && dispositivoIdMarcaje > 0) {
+                // Normalizar los IDs seleccionados para comparación - Asegurar que sean números
+                const selectedIdsNormalized = this.selectedDispositivosIds
+                  .map(id => Number(id))
+                  .filter(id => !isNaN(id) && id > 0);
+                
+                // Comparación estricta con números normalizados usando some() para mayor precisión
+                const estaSeleccionado = selectedIdsNormalized.some(id => Number(id) === Number(dispositivoIdMarcaje));
+                
+                return estaSeleccionado;
+              } else {
+                // Si el marcaje no tiene dispositivo válido y hay dispositivos seleccionados, excluirlo
+                return false;
+              }
+            } else {
+              // Si no hay dispositivos seleccionados, no mostrar ningún marcaje
+              return false;
+            }
           });
-  
-          // --- PASO D: GUARDAR RESULTADO CON LLAVE NORMALIZADA ---
-          this.marcajesPorEmpleado.set(llaveLimpia, marcajesFiltrados);
+          
+          // DEBUG: Log detallado para TODOS los empleados con marcajes del dispositivo 24, 25, 26
+          if (empleado.cedula && marcajesCompletos.length > 0) {
+            // Buscar marcajes de dispositivos problemáticos (24, 25, 26)
+            const marcajesDispositivo24 = marcajesCompletos.filter((m: any) => {
+              const dispositivoId = Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
+              return dispositivoId === 24;
+            });
+            const marcajesDispositivo25 = marcajesCompletos.filter((m: any) => {
+              const dispositivoId = Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
+              return dispositivoId === 25;
+            });
+            const marcajesDispositivo26 = marcajesCompletos.filter((m: any) => {
+              const dispositivoId = Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
+              return dispositivoId === 26;
+            });
+            
+            // Si tiene marcajes de estos dispositivos Y están seleccionados, mostrar log detallado
+            if ((marcajesDispositivo24.length > 0 && this.selectedDispositivosIds.some(id => Number(id) === 24)) ||
+                (marcajesDispositivo25.length > 0 && this.selectedDispositivosIds.some(id => Number(id) === 25)) ||
+                (marcajesDispositivo26.length > 0 && this.selectedDispositivosIds.some(id => Number(id) === 26))) {
+              
+              const marcajesFiltrados24 = marcajesFiltrados.filter((m: any) => {
+                const dispositivoId = Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
+                return dispositivoId === 24;
+              });
+              const marcajesFiltrados25 = marcajesFiltrados.filter((m: any) => {
+                const dispositivoId = Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
+                return dispositivoId === 25;
+              });
+              const marcajesFiltrados26 = marcajesFiltrados.filter((m: any) => {
+                const dispositivoId = Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
+                return dispositivoId === 26;
+              });
+              
+              // Analizar un marcaje específico para ver su estructura
+              const marcajeEjemplo = marcajesDispositivo24[0] || marcajesDispositivo25[0] || marcajesDispositivo26[0];
+              let dispositivoIdEjemplo: number | null = null;
+              if (marcajeEjemplo) {
+                if (marcajeEjemplo.dispositivo_id !== undefined && marcajeEjemplo.dispositivo_id !== null) {
+                  dispositivoIdEjemplo = Number(marcajeEjemplo.dispositivo_id);
+                } else if (marcajeEjemplo.Dispositivo?.id !== undefined && marcajeEjemplo.Dispositivo?.id !== null) {
+                  dispositivoIdEjemplo = Number(marcajeEjemplo.Dispositivo.id);
+                } else if (marcajeEjemplo.dispositivo?.id !== undefined && marcajeEjemplo.dispositivo?.id !== null) {
+                  dispositivoIdEjemplo = Number(marcajeEjemplo.dispositivo.id);
+                }
+              }
+              
+            }
+          }
+          
+          this.marcajesPorEmpleado.set(empleado.cedula, marcajesFiltrados);
+          
+          // DEBUG: Log para empleados con marcajes de dispositivos problemáticos
+          if (marcajesFiltrados.length > 0) {
+            const dispositivosEnFiltrados = [...new Set(marcajesFiltrados.map((m: any) => {
+              return Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
+            }).filter((id: any) => !isNaN(id) && id > 0))];
+            if (dispositivosEnFiltrados.some(id => [24, 25, 26].includes(id))) {
+            }
+          }
         }
       });
-  
-      // Finalizar proceso de forma asíncrona para no congelar la pantalla
+      
+      // Resumen general del filtrado (solo un log al final)
+      let totalMarcajesCompletos = 0;
+      let totalMarcajesFiltrados = 0;
+      let empleadosConMarcajes = 0;
+      let empleadosSinMarcajes = 0;
+      const dispositivosEnMarcajes = new Set<number>();
+      
+      base.forEach(empleado => {
+        if (empleado.cedula) {
+          const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
+          const marcajesFiltrados = this.marcajesPorEmpleado.get(empleado.cedula) || [];
+          
+          totalMarcajesCompletos += marcajesCompletos.length;
+          totalMarcajesFiltrados += marcajesFiltrados.length;
+          
+          if (marcajesFiltrados.length > 0) {
+            empleadosConMarcajes++;
+          } else if (marcajesCompletos.length > 0) {
+            empleadosSinMarcajes++;
+          }
+          
+          // Recopilar dispositivos únicos en marcajes completos
+          marcajesCompletos.forEach((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnMarcajes.add(dispositivoId);
+            }
+          });
+        }
+      });
+      
+      // Contar empleados que pasarán el filtro de dispositivos
+      let empleadosQuePasaranFiltro = 0;
+      base.forEach(empleado => {
+        if (empleado.cedula) {
+          const marcajesFiltrados = this.marcajesPorEmpleado.get(empleado.cedula) || [];
+          if (this.selectedDispositivosIds.length === 0 || marcajesFiltrados.length > 0) {
+            empleadosQuePasaranFiltro++;
+          }
+        }
+      });
+      
+      // Verificar específicamente marcajes del dispositivo 24 en los marcajes completos
+      let marcajesDispositivo24Completos = 0;
+      let marcajesDispositivo25Completos = 0;
+      let marcajesDispositivo26Completos = 0;
+      base.forEach(empleado => {
+        if (empleado.cedula) {
+          const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
+          marcajesCompletos.forEach((m: any) => {
+            const devId = Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
+            if (devId === 24) marcajesDispositivo24Completos++;
+            if (devId === 25) marcajesDispositivo25Completos++;
+            if (devId === 26) marcajesDispositivo26Completos++;
+          });
+        }
+      });
+      
+      // PROCESO ASÍNCRONO: Pre-calcular todos los bloques y horarios después de filtrar
+      // Usar setTimeout para no bloquear la UI durante el pre-cálculo
       setTimeout(() => {
         this.precalcularBloquesYHorarios();
+        // SEGUNDA VUELTA: Ejecutar después de completar todas las primeras vueltas
+        // (después de pre-calcular todos los bloques y horarios)
         this.aplicarSegundaVueltaGlobal();
         this.agruparEmpleados();
-        if (this.loading) this.loading = false;
+        // Solo establecer loading = false si estaba en true (no mostrar loading para filtrado local)
+        if (this.loading) {
+          this.loading = false;
+        }
       }, 0);
-  
     } else {
+      // Si no hay marcajes completos cargados (caso de fallback), usar el método anterior
       this.cargarMarcajesPorRangoFallback();
     }
   }
@@ -5748,7 +5985,7 @@ export class MarcajePersonalComponent implements OnInit {
     if (this.selectedDispositivosIds.length > 0) {
       // Obtener los marcajes del empleado que coincidan con los dispositivos seleccionados
       // IMPORTANTE: Usar marcajesPorEmpleado que ya está filtrado por dispositivos y fechas
-      const marcajesEmpleado = this.marcajesPorEmpleado.get(this.normalizarCedula(empleado.cedula)) || [];
+      const marcajesEmpleado = this.marcajesPorEmpleado.get(empleado.cedula) || [];
       
       // Verificar si hay al menos un marcaje de los dispositivos seleccionados en el rango de fechas
       // Si no hay marcajes, no mostrar el empleado (mostrar "No hay registros" en su lugar)
@@ -5812,8 +6049,8 @@ export class MarcajePersonalComponent implements OnInit {
           
           // Asegurar que todos los empleados tengan un array (aunque esté vacío)
           empleadosConCedula.forEach(empleado => {
-            if (!this.marcajesPorEmpleado.has(this.normalizarCedula(empleado.cedula))) {
-              this.marcajesPorEmpleado.set(this.normalizarCedula(empleado.cedula), []);
+            if (!this.marcajesPorEmpleado.has(empleado.cedula)) {
+              this.marcajesPorEmpleado.set(empleado.cedula, []);
             }
           });
           
@@ -5823,7 +6060,7 @@ export class MarcajePersonalComponent implements OnInit {
         error: (err) => {
           // Si hay error, inicializar arrays vacíos
           empleadosConCedula.forEach(empleado => {
-            this.marcajesPorEmpleado.set(this.normalizarCedula(empleado.cedula), []);
+            this.marcajesPorEmpleado.set(empleado.cedula, []);
           });
           this.cargarExcepcionesRango();
         }
@@ -5927,8 +6164,8 @@ export class MarcajePersonalComponent implements OnInit {
         
         // Asegurar que todos los empleados tengan un array (aunque esté vacío)
         empleadosConCedula.forEach(empleado => {
-          if (!this.marcajesPorEmpleado.has(this.normalizarCedula(empleado.cedula))) {
-            this.marcajesPorEmpleado.set(this.normalizarCedula(empleado.cedula), []);
+          if (!this.marcajesPorEmpleado.has(empleado.cedula)) {
+            this.marcajesPorEmpleado.set(empleado.cedula, []);
           }
         });
         
@@ -5938,7 +6175,7 @@ export class MarcajePersonalComponent implements OnInit {
       error: (err) => {
         // Si hay error, inicializar arrays vacíos para todos los empleados
         empleadosConCedula.forEach(empleado => {
-          this.marcajesPorEmpleado.set(this.normalizarCedula(empleado.cedula), []);
+          this.marcajesPorEmpleado.set(empleado.cedula, []);
         });
         this.agruparEmpleados();
         this.loading = false;
@@ -10352,12 +10589,10 @@ export class MarcajePersonalComponent implements OnInit {
   
     // === MEJORA PARA DÍAS LIBRES TRABAJADOS ===
     if (this.esDiaLibre(bloque)) {
-      // AHORA (PASO D):
-      const cedulaLimpiaLibre = this.normalizarCedula(empleado.cedula);
-      const logsDelDia = (this.marcajesCompletos.get(cedulaLimpiaLibre) || [])
+      const logsDelDia = (this.marcajesCompletos.get(empleado.cedula) || [])
         .filter(log => this.formatDateLocalYYYYMMDD(new Date(log.event_time)) === fechaStr)
         .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
-        
+  
       if (logsDelDia.length >= 2) {
         // Si hay al menos 2 marcajes en su día libre, los registramos
         this.cacheMarcajesCalculados.set(key, {
@@ -10387,13 +10622,8 @@ export class MarcajePersonalComponent implements OnInit {
       return; 
     }
   
-    // AHORA (PASO D):
-    const cedulaLimpiaCalculo = this.normalizarCedula(empleado.cedula);
-    const todosLosLogs = this.marcajesCompletos.get(cedulaLimpiaCalculo) || [];
+    const todosLosLogs = this.marcajesCompletos.get(empleado.cedula) || [];
     const logs = [...todosLosLogs].sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
-
-    //const todosLosLogs = this.marcajesCompletos.get(empleado.cedula) || [];
-    //const logs = [...todosLosLogs].sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
   
     const entradaTeorica = this.crearFechaHora(dia, plantilla.hora_entrada);
     let salidaTeorica = this.crearFechaHora(dia, plantilla.hora_salida);
@@ -10452,12 +10682,6 @@ export class MarcajePersonalComponent implements OnInit {
   private formatHora(iso: string): string {
     const d = new Date(iso);
     return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-  }
-
-  private normalizarCedula(valor: any): string {
-    if (!valor) return '';
-    // Deja solo los números: "V25047058" -> "25047058"
-    return valor.toString().replace(/\D/g, '');
   }
 
 }
