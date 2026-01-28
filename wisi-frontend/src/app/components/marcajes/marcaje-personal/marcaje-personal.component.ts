@@ -4130,37 +4130,86 @@ export class MarcajePersonalComponent implements OnInit {
           marcajeCompleto?: any;
         }> = [];
         
-        // Crea un mapa temporal de "Cédula Limpia" -> "Cédula Real de BD"
-        const traductorCedulas = new Map(this.empleadosCompletos.map(e => [this.limpiarID(e.cedula), e.cedula]));
-
         this.empleadosCompletos.forEach(emp => {
-          if (emp.marcajes && Array.isArray(emp.marcajes)) {
-            // Usamos la cédula original de la BD como llave para que todo lo demás funcione
-            const cedulaReal = emp.cedula; 
-            
+          if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
+            // Normalizar y asegurar que cada marcaje tenga dispositivo_id correctamente extraído
             const marcajesNormalizados = emp.marcajes.map((marcaje: any) => {
-              // --- AQUÍ EL DETALLE DEL dispositivoId ---
-              let idDelEquipo: number | null = null;
+              // Asegurar que dispositivo_id esté siempre presente y normalizado
+              let dispositivoId: number | null = null;
               
-              // Buscamos el ID en todos los campos posibles donde pueda venir
+              // Intentar todas las formas posibles de obtener el dispositivo_id
               if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
-                idDelEquipo = Number(marcaje.dispositivo_id);
+                dispositivoId = Number(marcaje.dispositivo_id);
               } else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
-                idDelEquipo = Number(marcaje.Dispositivo.id);
+                dispositivoId = Number(marcaje.Dispositivo.id);
               } else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
-                idDelEquipo = Number(marcaje.dispositivo.id);
+                dispositivoId = Number(marcaje.dispositivo.id);
               }
               
-              return { 
-                ...marcaje, 
-                // Si encontramos el ID lo forzamos, si no, dejamos el que traía
-                dispositivo_id: idDelEquipo !== null && !isNaN(idDelEquipo) ? idDelEquipo : marcaje.dispositivo_id 
+              // Crear un objeto normalizado con dispositivo_id siempre presente
+              const marcajeNormalizado = {
+                ...marcaje,
+                dispositivo_id: dispositivoId !== null && !isNaN(dispositivoId) ? dispositivoId : marcaje.dispositivo_id,
+                // Mantener la relación Dispositivo si existe
+                Dispositivo: marcaje.Dispositivo || null,
+                dispositivo: marcaje.dispositivo || null
               };
+              
+              return marcajeNormalizado;
             });
-        
-            // Guardamos en el Mapa usando la cédula con su V o E
-            // Esto evita que se te vacíe la tabla
-            this.marcajesCompletos.set(cedulaReal, marcajesNormalizados);
+            
+            const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
+            marcajesEmpleado.push(...marcajesNormalizados);
+            this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+            totalMarcajes += marcajesNormalizados.length;
+            
+            // Analizar dispositivos en los marcajes normalizados
+            marcajesNormalizados.forEach((marcaje: any) => {
+              const dispositivoId = marcaje.dispositivo_id;
+              if (dispositivoId !== null && dispositivoId !== undefined && !isNaN(Number(dispositivoId))) {
+                dispositivosEnMarcajes.add(Number(dispositivoId));
+              }
+              
+              // Guardar muestra de marcajes para el log (especialmente los del dispositivo 24)
+              if (muestraMarcajes.length < 20 || dispositivoId === 24 || dispositivoId === 25 || dispositivoId === 26) {
+                muestraMarcajes.push({
+                  empleado: emp.nombre,
+                  cedula: emp.cedula,
+                  marcajeId: marcaje.id,
+                  dispositivo_id: marcaje.dispositivo_id,
+                  Dispositivo: marcaje.Dispositivo?.id,
+                  DispositivoNombre: marcaje.Dispositivo?.nombre,
+                  dispositivo: marcaje.dispositivo?.id,
+                  dispositivoIdNormalizado: dispositivoId,
+                  event_time: marcaje.event_time,
+                  marcajeCompleto: marcaje // Incluir el marcaje completo para debug
+                });
+              }
+            });
+            
+            // DEBUG: Buscar marcajes del dispositivo 24 específicamente en los marcajes normalizados
+            const marcajesDispositivo24Empleado = marcajesNormalizados.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 24;
+            });
+            
+            const marcajesDispositivo25Empleado = marcajesNormalizados.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 25;
+            });
+            
+            const marcajesDispositivo26Empleado = marcajesNormalizados.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 26;
+            });
+            
+            if (marcajesDispositivo24Empleado.length > 0 || marcajesDispositivo25Empleado.length > 0 || marcajesDispositivo26Empleado.length > 0) {
+            }
+            
+            // DEBUG: Log para verificar estructura de marcajes normalizados
+            if (marcajesNormalizados.length > 0 && totalMarcajes <= 10) {
+              const primerMarcaje = marcajesNormalizados[0];
+            }
           }
         });
         
@@ -4660,25 +4709,18 @@ export class MarcajePersonalComponent implements OnInit {
             };
           });
           
-          // 1. Creamos un traductor: "25047058" -> "V25047058"
-          const traductorID = new Map(
-            empleadosConCedula.map(e => [this.normalizarParaComparar(e.cedula), e.cedula])
-          );
-
-          // 2. Procesamos los marcajes
-          todosLosMarcajes.forEach((marcaje: any) => {
-            // Limpiamos lo que venga del reloj (ej: "25047058")
-            const idLimpioReloj = this.normalizarParaComparar(marcaje.employee_no);
-            
-            // Buscamos si ese número le pertenece a alguien en nuestra BD
-            const cedulaRealBD = traductorID.get(idLimpioReloj);
-
-            if (cedulaRealBD) {
-              // IMPORTANTE: Guardamos usando la cedulaRealBD (con su V o E)
-              if (!this.marcajesCompletos.has(cedulaRealBD)) {
-                this.marcajesCompletos.set(cedulaRealBD, []);
-              }
-              this.marcajesCompletos.get(cedulaRealBD)!.push(marcaje);
+          // Analizar TODOS los marcajes para obtener dispositivos únicos
+          todosLosMarcajes.forEach((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnRespuesta.add(dispositivoId);
             }
           });
           
@@ -10640,17 +10682,6 @@ export class MarcajePersonalComponent implements OnInit {
   private formatHora(iso: string): string {
     const d = new Date(iso);
     return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-  }
-
-  private limpiarID(valor: any): string {
-    if (!valor) return '';
-    return valor.toString().replace(/\D/g, ''); // Deja solo los números
-  }
-
-  private normalizarParaComparar(valor: any): string {
-    if (!valor) return '';
-    // Quita V, E, puntos y deja solo números
-    return valor.toString().replace(/\D/g, '');
   }
 
 }
