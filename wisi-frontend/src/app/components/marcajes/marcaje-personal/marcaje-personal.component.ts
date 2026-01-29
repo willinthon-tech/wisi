@@ -4087,7 +4087,7 @@ export class MarcajePersonalComponent implements OnInit {
             const cedulaOriginal = emp.cedula;
   
             const marcajesNormalizados = emp.marcajes.map((marcaje: any) => {
-              // DETALLE: Extracción robusta del dispositivo_id
+              // DETALLE: Extracción robusta del dispositivo_id para asegurar el filtrado
               const dId = Number(marcaje.dispositivo_id) || 
                           Number(marcaje.Dispositivo?.id) || 
                           Number(marcaje.dispositivo?.id) || null;
@@ -4095,12 +4095,12 @@ export class MarcajePersonalComponent implements OnInit {
               return {
                 ...marcaje,
                 dispositivo_id: dId,
-                // Aseguramos que el employee_no coincida con nuestra llave limpia por si acaso
+                // Referencia limpia para comparaciones internas si fuera necesario
                 employee_no_limpio: this.limpiarID(marcaje.employee_no)
               };
             });
   
-            // Guardamos en el Mapa principal
+            // Guardamos en el Mapa principal usando la llave real (V/E...)
             this.marcajesCompletos.set(cedulaOriginal, marcajesNormalizados);
           }
         });
@@ -4109,7 +4109,6 @@ export class MarcajePersonalComponent implements OnInit {
         const cargarPlantillasPromises: Promise<void>[] = [
           this.cargarFeriados(),
           this.cargarPlantillasLibres(salaId),
-          // Cargamos todas las plantillas de la sala y generales para asegurar ID 14
           new Promise<void>((res) => this.plantillasService.getPlantillasHorarios().subscribe({
             next: (p) => { this.modalPlantillas = p; res(); },
             error: () => res()
@@ -4132,7 +4131,7 @@ export class MarcajePersonalComponent implements OnInit {
   // Función auxiliar indispensable para la raíz
   private limpiarID(valor: any): string {
     if (!valor) return '';
-    return valor.toString().replace(/\D/g, '');
+    return valor.toString().replace(/\D/g, ''); // Deja solo los números
   }
 
   // Cargar horarios para todos los empleados completos
@@ -4326,8 +4325,7 @@ export class MarcajePersonalComponent implements OnInit {
       }
   
       // --- PASO 1: EL TRADUCTOR (NORMALIZACIÓN DE RAÍZ) ---
-      // Creamos un mapa rápido que asocia "ID Solo Números" -> "Cédula Real BD (V/E...)"
-      // Ejemplo: "25047058" -> "V25047058"
+      // Creamos un mapa: "Número Puro" -> "Cédula Real BD (con V/E...)"
       const traductor = new Map(
         empleadosConCedula.map(e => [e.cedula.replace(/\D/g, ''), e.cedula])
       );
@@ -4341,23 +4339,20 @@ export class MarcajePersonalComponent implements OnInit {
   
           todosLosMarcajes.forEach((marcaje: any) => {
             // --- PASO 2: LIMPIEZA DEL DATO DEL RELOJ ---
-            // Limpiamos el employee_no que viene del biométrico
             const idLimpioReloj = marcaje.employee_no ? marcaje.employee_no.toString().replace(/\D/g, '') : '';
   
             // --- PASO 3: EL MATCH INTELIGENTE ---
-            // Buscamos la cédula real usando el número limpio
             const cedulaReal = traductor.get(idLimpioReloj);
   
             if (cedulaReal) {
-              // --- PASO 4: NORMALIZAR DISPOSITIVO ID (DETALLE SOLUCIONADO) ---
-              // Aseguramos que dispositivo_id sea un número válido probando todas las rutas
+              // --- PASO 4: NORMALIZAR DISPOSITIVO ID ---
               const dId = Number(marcaje.dispositivo_id) || 
                           Number(marcaje.Dispositivo?.id) || 
                           Number(marcaje.dispositivo?.id);
               
               marcaje.dispositivo_id = dId;
   
-              // --- PASO 5: GUARDAR BAJO LA LLAVE REAL ---
+              // --- PASO 5: GUARDAR BAJO LA LLAVE REAL (V/E...) ---
               if (!this.marcajesCompletos.has(cedulaReal)) {
                 this.marcajesCompletos.set(cedulaReal, []);
               }
@@ -4366,8 +4361,6 @@ export class MarcajePersonalComponent implements OnInit {
           });
   
           // --- PASO 6: ASEGURAR ESTRUCTURA ---
-          // Garantizamos que todos los empleados tengan al menos un array vacío
-          // usando su cédula original (con V o E)
           empleadosConCedula.forEach(empleado => {
             if (!this.marcajesCompletos.has(empleado.cedula)) {
               this.marcajesCompletos.set(empleado.cedula, []);
@@ -4377,7 +4370,6 @@ export class MarcajePersonalComponent implements OnInit {
           resolve();
         },
         error: (err) => {
-          // En caso de error, inicializamos todo vacío para evitar fallos de "undefined"
           empleadosConCedula.forEach(e => this.marcajesCompletos.set(e.cedula, []));
           resolve();
         }
