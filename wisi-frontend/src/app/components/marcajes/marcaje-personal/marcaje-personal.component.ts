@@ -3194,209 +3194,54 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   abrirModalMarcajes(empleado: any, dia: Date) {
-    // OPTIMIZACIÓN CRÍTICA: Desactivar change detection del componente principal ANTES de abrir la modal
-    // Esto evita que Angular re-evalúe el template principal con todos los empleados
-    this.cdr.detach();
-    
-    // OPTIMIZACIÓN: Preparar datos ANTES de abrir la modal
+    this.cdr.detach(); // Optimización de rendimiento
     this.modalEmpleado = empleado;
     this.modalFechaMarcajes = new Date(dia);
     this.marcajesModal = [];
-    this.modalPlantillaInfo = null;
-    this.modalMarcajeCalculado = '';
-    
-    // Marcar que hay una modal abierta
-    this.tieneModalAbierta = true;
-    
-    // Abrir la modal
     this.showMarcajesModal = true;
-    
-    // Actualizar SOLO la modal usando detectChanges (NO reactiva el componente principal)
     this.cdr.detectChanges();
-
-    // OPTIMIZACIÓN: Usar requestAnimationFrame para calcular después del render
-    // Esto asegura que el modal se muestre inmediatamente sin bloqueos
-    requestAnimationFrame(() => {
-      // Obtener la plantilla de horario para este día (usando caché si está disponible)
-      const bloque = this.getBloqueHorario(empleado, dia);
-      if (bloque) {
-        this.modalPlantillaInfo = bloque;
-      }
-
-      // Obtener el marcaje calculado para este día (usando caché si está disponible)
-      // Asegurar que se use el caché de marcajes calculados (después de segunda vuelta)
-      const marcajeInfo = this.getHorarioInfo(empleado, dia, 'Descanso');
-      // Verificar también directamente en el caché si hay marcajes válidos
-      const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
-      const keyCache = `${empleado?.id}|${fechaStr}`;
-      const marcajesCache = this.cacheMarcajesCalculados.get(keyCache);
-      
-      if (marcajeInfo && marcajeInfo !== 'Sin Registros') {
-        this.modalMarcajeCalculado = marcajeInfo;
-      } else if (marcajesCache && marcajesCache.entrada !== 'Sin marcaje' && marcajesCache.salida !== 'Sin marcaje') {
-        // Si hay marcajes válidos en caché pero getHorarioInfo no los muestra, recalcular
-        const marcajeInfoRecalculado = this.getHorarioInfo(empleado, dia, 'Descanso');
-        this.modalMarcajeCalculado = marcajeInfoRecalculado && marcajeInfoRecalculado !== 'Sin Registros' ? marcajeInfoRecalculado : 'Sin Registros';
-      } else {
-        this.modalMarcajeCalculado = 'Sin Registros';
-      }
-      
-      // Actualizar SOLO la modal después de calcular
-      this.cdr.detectChanges();
-    });
-
-    // Cargar marcajes en segundo plano (no bloquea la apertura del modal)
-    setTimeout(() => {
-      // Calcular fechas: día anterior, día actual, día siguiente
-      const diaAnterior = new Date(dia);
-      diaAnterior.setDate(diaAnterior.getDate() - 1);
-      diaAnterior.setHours(0, 0, 0, 0);
-      
-      const diaSiguiente = new Date(dia);
-      diaSiguiente.setDate(diaSiguiente.getDate() + 1);
-      diaSiguiente.setHours(23, 59, 59, 999);
-
-      // Formatear fechas para la consulta (formato ISO compatible)
-      const fechaInicio = diaAnterior.toISOString();
-      const fechaFin = diaSiguiente.toISOString();
-
-      // Obtener marcajes del empleado para el rango de fechas
-      this.marcajesService.getMarcajes({
-        employee_no: empleado.cedula,
-        fecha_inicio: fechaInicio,
-        fecha_fin: fechaFin
-      }).subscribe({
+  
+    const diaAnterior = new Date(dia);
+    diaAnterior.setDate(diaAnterior.getDate() - 1);
+    diaAnterior.setHours(0, 0, 0, 0);
+  
+    const diaSiguiente = new Date(dia);
+    diaSiguiente.setDate(diaSiguiente.getDate() + 1);
+    diaSiguiente.setHours(23, 59, 59, 999);
+  
+    // IMPORTANTE: Limpiamos la cédula para que el servicio SI encuentre la data
+    const cedulaBusqueda = this.limpiarID(empleado.cedula);
+  
+    this.marcajesService.getMarcajes({
+      employee_no: cedulaBusqueda,
+      fecha_inicio: diaAnterior.toISOString(),
+      fecha_fin: diaSiguiente.toISOString()
+    }).subscribe({
       next: (response) => {
         const marcajes = response.attlogs || [];
-        
-        // Fecha de referencia para comparar
-        const fechaRef = new Date(dia);
-        fechaRef.setHours(0, 0, 0, 0);
-        const fechaRefStr = fechaRef.toISOString().split('T')[0];
-        
-        // Filtrar marcajes por dispositivos seleccionados PRIMERO (si hay alguno seleccionado)
-        let marcajesFiltrados = marcajes;
-        if (this.selectedDispositivosIds.length > 0) {
-          // Normalizar los IDs seleccionados para comparación
-          const selectedIdsNormalized = this.selectedDispositivosIds.map(id => Number(id));
+        const fechaRefStr = new Date(dia).toISOString().split('T')[0];
+  
+        this.marcajesModal = marcajes.map((m: any) => {
+          const fMarcaje = new Date(m.event_time);
+          const fStr = fMarcaje.toISOString().split('T')[0];
           
-          marcajesFiltrados = marcajes.filter((m: any) => {
-            // Obtener el ID del dispositivo del marcaje y normalizarlo
-            let dispositivoIdMarcaje: number | null = null;
-            
-            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
-              dispositivoIdMarcaje = Number(m.dispositivo_id);
-            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
-              dispositivoIdMarcaje = Number(m.Dispositivo.id);
-            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
-              dispositivoIdMarcaje = Number(m.dispositivo.id);
-            }
-            
-            // Verificar que el dispositivo esté en la lista de seleccionados
-            return dispositivoIdMarcaje !== null && !isNaN(dispositivoIdMarcaje) && selectedIdsNormalized.includes(dispositivoIdMarcaje);
-          });
-        }
-        
-        // Obtener el bloque de horario para calcular qué marcajes se usaron como entrada y salida
-        const bloque = this.getBloqueHorario(empleado, dia);
-        let horaEntradaCalculada = '';
-        let horaSalidaCalculada = '';
-        let marcajeEntradaId: number | null = null;
-        let marcajeSalidaId: number | null = null;
-        
-        if (bloque) {
-          // Calcular los marcajes del día para obtener qué marcajes se asignaron como entrada y salida
-          const marcajesCalculados = this.calcularMarcajesDelDia(empleado, dia, bloque);
-          horaEntradaCalculada = marcajesCalculados.entrada;
-          horaSalidaCalculada = marcajesCalculados.salida;
-          
-          // Buscar los marcajes reales que coinciden con las horas calculadas (solo en los marcajes filtrados)
-          // IMPORTANTE: La entrada DEBE ser del día de referencia, la salida puede ser del día siguiente (turno nocturno)
-          marcajesFiltrados.forEach((m: any) => {
-            const fechaHora = new Date(m.event_time);
-            const horaMarcaje = fechaHora.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
-            const fechaMarcaje = new Date(fechaHora);
-            fechaMarcaje.setHours(0, 0, 0, 0);
-            const fechaMarcajeStr = fechaMarcaje.toISOString().split('T')[0];
-            
-            // La entrada DEBE ser del día de referencia (mismo día)
-            if (horaEntradaCalculada && horaEntradaCalculada !== 'Sin marcaje' && 
-                horaMarcaje === horaEntradaCalculada && 
-                fechaMarcajeStr === fechaRefStr && 
-                !marcajeEntradaId) {
-              marcajeEntradaId = m.id;
-            }
-            
-            // La salida puede ser del día de referencia o del día siguiente (turno nocturno)
-            if (horaSalidaCalculada && horaSalidaCalculada !== 'Sin marcaje' && 
-                horaSalidaCalculada !== 'SNM' && horaSalidaCalculada !== 'SDNM' &&
-                horaMarcaje === horaSalidaCalculada && !marcajeSalidaId) {
-              // Verificar que la salida sea del día de referencia o del día siguiente
-              const diaSiguiente = new Date(fechaRef);
-              diaSiguiente.setDate(diaSiguiente.getDate() + 1);
-              const fechaDiaSiguienteStr = diaSiguiente.toISOString().split('T')[0];
-              
-              if (fechaMarcajeStr === fechaRefStr || fechaMarcajeStr === fechaDiaSiguienteStr) {
-                marcajeSalidaId = m.id;
-              }
-            }
-          });
-        }
-        
-        // Formatear marcajes para el modal (solo los de los dispositivos seleccionados)
-        this.marcajesModal = marcajesFiltrados.map((m: any) => {
-          const fechaHora = new Date(m.event_time);
-          const fechaMarcaje = new Date(fechaHora);
-          fechaMarcaje.setHours(0, 0, 0, 0);
-          const fechaMarcajeStr = fechaMarcaje.toISOString().split('T')[0];
-          
-          // Determinar el tipo de día
-          let tipoDia = '';
-          let esEntrada = false;
-          let esSalida = false;
-          
-          if (fechaMarcajeStr < fechaRefStr) {
-            tipoDia = 'Día anterior';
-          } else if (fechaMarcajeStr > fechaRefStr) {
-            tipoDia = 'Día después';
-          } else {
-            tipoDia = 'Mismo día';
-          }
-          
-          // Verificar si este marcaje fue usado como entrada o salida
-          // Mantener el tipo de día correcto (Mismo día o Día después) y agregar (Entrada) o (Salida)
-          if (m.id === marcajeEntradaId) {
-            tipoDia += ' (Entrada)';
-            esEntrada = true;
-          } else if (m.id === marcajeSalidaId) {
-            tipoDia += ' (Salida)';
-            esSalida = true;
-          }
-          
+          let tipo = 'Mismo día';
+          if (fStr < fechaRefStr) tipo = 'Día anterior';
+          if (fStr > fechaRefStr) tipo = 'Día siguiente';
+  
           return {
-            fecha: fechaHora,
-            hora: fechaHora.toTimeString().split(' ')[0].substring(0, 5), // HH:MM
-            dispositivo: m.Dispositivo?.nombre || '-',
-            tipoDia: tipoDia,
-            esEntrada: esEntrada,
-            esSalida: esSalida,
-            id: m.id
+            fecha: fMarcaje,
+            hora: fMarcaje.toTimeString().split(' ')[0].substring(0, 5),
+            dispositivo: m.Dispositivo?.nombre || m.nombre || '-',
+            tipoDia: tipo
           };
         });
-
-        // Ordenar por fecha (más antiguo primero)
+  
         this.marcajesModal.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
-        
-        // Actualizar SOLO la modal después de cargar marcajes (el componente principal sigue desactivado)
         this.cdr.detectChanges();
       },
-      error: (error) => {
-        this.marcajesModal = [];
-        // Actualizar SOLO la modal incluso en caso de error
-        this.cdr.detectChanges();
-      }
+      error: () => { this.marcajesModal = []; this.cdr.detectChanges(); }
     });
-    }, 0);
   }
 
   cerrarModalMarcajes() {
@@ -4041,7 +3886,7 @@ export class MarcajePersonalComponent implements OnInit {
       return;
     }
     
-    // Limpieza inicial para evitar basura de búsquedas previas
+    // Limpieza inicial de mapas de memoria
     this.marcajesCompletos.clear();
     this.excepcionesCompletas.clear();
     this.excepcionesMap.clear();
@@ -4059,10 +3904,9 @@ export class MarcajePersonalComponent implements OnInit {
   
         // --- PROCESAMIENTO DE RAÍZ ---
         this.empleadosCompletos.forEach(emp => {
-          // Asegurar horarios
           if (!emp.horariosEmpleado) emp.horariosEmpleado = [];
   
-          // Procesar Excepciones
+          // 1. Procesar Excepciones
           if (emp.excepciones && Array.isArray(emp.excepciones)) {
             emp.excepciones.forEach((ex: any) => {
               let fNorm = ex.fecha;
@@ -4075,12 +3919,12 @@ export class MarcajePersonalComponent implements OnInit {
             });
           }
   
-          // Procesar Marcajes (VINCULACIÓN POR CÉDULA REAL)
+          // 2. Procesar Marcajes (VINCULACIÓN POR CÉDULA REAL)
           if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
-            const cedulaRealBD = emp.cedula; // e.g. "V25047058"
+            const cedulaRealBD = emp.cedula; 
   
             const marcajesNormalizados = emp.marcajes.map((marcaje: any) => {
-              // Extracción robusta del dispositivo_id
+              // Extracción robusta y DINÁMICA del dispositivo_id
               const dId = Number(marcaje.dispositivo_id) || 
                           Number(marcaje.Dispositivo?.id) || 
                           Number(marcaje.dispositivo?.id) || null;
@@ -4088,17 +3932,16 @@ export class MarcajePersonalComponent implements OnInit {
               return {
                 ...marcaje,
                 dispositivo_id: dId,
-                // Guardamos una versión limpia del número por si se requiere en filtros
+                // Versión limpia para filtros internos
                 employee_no_limpio: this.limpiarID(marcaje.employee_no)
               };
             });
   
-            // Guardamos en el Mapa usando la cédula de la BD como llave única
             this.marcajesCompletos.set(cedulaRealBD, marcajesNormalizados);
           }
         });
   
-        // Carga final de configuración
+        // 3. Carga final de configuración y plantillas
         Promise.all([
           this.cargarFeriados(),
           this.cargarPlantillasLibres(salaId),
@@ -4310,7 +4153,7 @@ export class MarcajePersonalComponent implements OnInit {
       }
   
       // --- TRADUCTOR INTELIGENTE ---
-      // Crea un puente: "123456" (Limpio) -> "V123456" (Real BD)
+      // Puente: "123456" -> "V123456"
       const traductor = new Map(
         empleadosConCedula.map(e => [this.limpiarID(e.cedula), e.cedula])
       );
@@ -4323,21 +4166,17 @@ export class MarcajePersonalComponent implements OnInit {
           const todosLosMarcajes = response.attlogs || [];
   
           todosLosMarcajes.forEach((marcaje: any) => {
-            // Limpiamos el ID que viene del biométrico (ej: "123456")
             const idRelojLimpio = this.limpiarID(marcaje.employee_no);
-            
-            // Buscamos la Cédula Real (con V/E) en el traductor
             const cedulaReal = traductor.get(idRelojLimpio);
   
             if (cedulaReal) {
-              // Normalización del ID del equipo
+              // Normalización DINÁMICA del ID del equipo
               const dId = Number(marcaje.dispositivo_id) || 
                           Number(marcaje.Dispositivo?.id) || 
                           Number(marcaje.dispositivo?.id);
               
               marcaje.dispositivo_id = dId;
   
-              // Guardamos el log bajo la llave real para que la tabla lo encuentre
               if (!this.marcajesCompletos.has(cedulaReal)) {
                 this.marcajesCompletos.set(cedulaReal, []);
               }
@@ -4345,7 +4184,7 @@ export class MarcajePersonalComponent implements OnInit {
             }
           });
   
-          // Aseguramos que ningún empleado quede con marcajes 'undefined'
+          // Garantizar que todos los empleados tengan su array (evita errores en el HTML)
           empleadosConCedula.forEach(e => {
             if (!this.marcajesCompletos.has(e.cedula)) {
               this.marcajesCompletos.set(e.cedula, []);
@@ -10252,7 +10091,7 @@ export class MarcajePersonalComponent implements OnInit {
 
   private limpiarID(valor: any): string {
     if (!valor) return '';
-    return valor.toString().replace(/\D/g, '');
+    return valor.toString().replace(/\D/g, ''); // Deja solo los números
   }
 
 }
