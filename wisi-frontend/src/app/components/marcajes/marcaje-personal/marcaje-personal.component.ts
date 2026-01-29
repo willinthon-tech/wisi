@@ -4041,7 +4041,7 @@ export class MarcajePersonalComponent implements OnInit {
       return;
     }
     
-    // Limpiamos los mapas antes de cargar para evitar duplicados
+    // Limpieza inicial para evitar basura de búsquedas previas
     this.marcajesCompletos.clear();
     this.excepcionesCompletas.clear();
     this.excepcionesMap.clear();
@@ -4062,38 +4062,51 @@ export class MarcajePersonalComponent implements OnInit {
           // Asegurar horarios
           if (!emp.horariosEmpleado) emp.horariosEmpleado = [];
   
-          // Procesar marcajes consolidados
+          // Procesar Excepciones
+          if (emp.excepciones && Array.isArray(emp.excepciones)) {
+            emp.excepciones.forEach((ex: any) => {
+              let fNorm = ex.fecha;
+              if (fNorm && !(typeof fNorm === 'string' && fNorm.match(/^\d{4}-\d{2}-\d{2}$/))) {
+                fNorm = this.formatDateLocalYYYYMMDD(new Date(fNorm));
+              }
+              const key = `${ex.empleado_id}|${fNorm}`;
+              this.excepcionesCompletas.set(key, ex);
+              this.excepcionesMap.set(key, ex);
+            });
+          }
+  
+          // Procesar Marcajes (VINCULACIÓN POR CÉDULA REAL)
           if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
-            const cedulaReal = emp.cedula; // Esta tiene la V (ej: V12345)
+            const cedulaRealBD = emp.cedula; // e.g. "V25047058"
   
             const marcajesNormalizados = emp.marcajes.map((marcaje: any) => {
-              // DETALLE DISPOSITIVO: Extracción robusta del ID
+              // Extracción robusta del dispositivo_id
               const dId = Number(marcaje.dispositivo_id) || 
                           Number(marcaje.Dispositivo?.id) || 
                           Number(marcaje.dispositivo?.id) || null;
               
               return {
                 ...marcaje,
-                dispositivo_id: dId // Forzamos que sea número para el filtro
+                dispositivo_id: dId,
+                // Guardamos una versión limpia del número por si se requiere en filtros
+                employee_no_limpio: this.limpiarID(marcaje.employee_no)
               };
             });
   
-            // Guardamos en el Mapa usando la llave real (V12345)
-            this.marcajesCompletos.set(cedulaReal, marcajesNormalizados);
+            // Guardamos en el Mapa usando la cédula de la BD como llave única
+            this.marcajesCompletos.set(cedulaRealBD, marcajesNormalizados);
           }
         });
   
-        // Carga de plantillas y filtros locales
-        const cargarPlantillasPromises: Promise<void>[] = [
+        // Carga final de configuración
+        Promise.all([
           this.cargarFeriados(),
           this.cargarPlantillasLibres(salaId),
           new Promise<void>((res) => this.plantillasService.getPlantillasHorarios().subscribe({
             next: (p) => { this.modalPlantillas = p; res(); },
             error: () => res()
           }))
-        ];
-  
-        Promise.all(cargarPlantillasPromises).then(() => {
+        ]).then(() => {
           this.actualizarListasCascada();
           this.aplicarFiltrosLocales();
         });
@@ -4101,7 +4114,7 @@ export class MarcajePersonalComponent implements OnInit {
       error: (err) => {
         this.loading = false;
         this.hasSearched = true;
-        console.error('Error en cargarDatosCompletosPorSala:', err);
+        console.error('Error cargando datos de sala:', err);
       }
     });
   }
@@ -4296,10 +4309,10 @@ export class MarcajePersonalComponent implements OnInit {
         return;
       }
   
-      // --- EL TRADUCTOR (NORMALIZACIÓN DE RAÍZ) ---
-      // Mapeamos "12345" -> "V12345" para que el componente sepa quién es quién
+      // --- TRADUCTOR INTELIGENTE ---
+      // Crea un puente: "123456" (Limpio) -> "V123456" (Real BD)
       const traductor = new Map(
-        empleadosConCedula.map(e => [e.cedula.replace(/\D/g, ''), e.cedula])
+        empleadosConCedula.map(e => [this.limpiarID(e.cedula), e.cedula])
       );
   
       this.marcajesService.getMarcajes({
@@ -4310,21 +4323,21 @@ export class MarcajePersonalComponent implements OnInit {
           const todosLosMarcajes = response.attlogs || [];
   
           todosLosMarcajes.forEach((marcaje: any) => {
-            // Limpiamos la cédula que viene del biométrico (ej: "12345")
-            const idRelojLimpio = marcaje.employee_no ? marcaje.employee_no.toString().replace(/\D/g, '') : '';
+            // Limpiamos el ID que viene del biométrico (ej: "123456")
+            const idRelojLimpio = this.limpiarID(marcaje.employee_no);
             
             // Buscamos la Cédula Real (con V/E) en el traductor
             const cedulaReal = traductor.get(idRelojLimpio);
   
             if (cedulaReal) {
-              // Normalizamos el dispositivo_id (el detalle del equipo)
+              // Normalización del ID del equipo
               const dId = Number(marcaje.dispositivo_id) || 
                           Number(marcaje.Dispositivo?.id) || 
                           Number(marcaje.dispositivo?.id);
               
               marcaje.dispositivo_id = dId;
   
-              // Guardamos en el Mapa usando la llave REAL para que la tabla lo vea
+              // Guardamos el log bajo la llave real para que la tabla lo encuentre
               if (!this.marcajesCompletos.has(cedulaReal)) {
                 this.marcajesCompletos.set(cedulaReal, []);
               }
@@ -4332,7 +4345,7 @@ export class MarcajePersonalComponent implements OnInit {
             }
           });
   
-          // Aseguramos que todos los empleados tengan un array inicializado
+          // Aseguramos que ningún empleado quede con marcajes 'undefined'
           empleadosConCedula.forEach(e => {
             if (!this.marcajesCompletos.has(e.cedula)) {
               this.marcajesCompletos.set(e.cedula, []);
@@ -10235,6 +10248,11 @@ export class MarcajePersonalComponent implements OnInit {
   private formatHora(iso: string): string {
     const d = new Date(iso);
     return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+  }
+
+  private limpiarID(valor: any): string {
+    if (!valor) return '';
+    return valor.toString().replace(/\D/g, '');
   }
 
 }
