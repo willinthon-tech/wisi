@@ -7236,30 +7236,69 @@ export class MarcajePersonalComponent implements OnInit {
   asignarMarcajesInteligente(marcajes: any[], bloque: any, turno: string, diaTurno?: Date): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
     const horasProgramadas = {
       entrada: this.convertirHoraAMinutos(bloque.hora_entrada),
+      entradaDescanso: this.convertirHoraAMinutos(bloque.hora_entrada_descanso),
+      salidaDescanso: this.convertirHoraAMinutos(bloque.hora_salida_descanso),
       salida: this.convertirHoraAMinutos(bloque.hora_salida)
     };
-  
+
     const esNocturno = bloque.turno === 'NOCTURNO' || horasProgramadas.entrada > horasProgramadas.salida;
+    const fechaRef = diaTurno ? new Date(diaTurno) : new Date();
+    fechaRef.setHours(0, 0, 0, 0);
+
+    // NORMALIZACIÓN: Convertimos todo a minutos desde el inicio del turno
+    const marcajesConHoras = marcajes.map(m => {
+      const fechaM = new Date(m.event_time);
+      const fechaMBase = new Date(fechaM); fechaMBase.setHours(0,0,0,0);
+      
+      const diffDias = Math.floor((fechaMBase.getTime() - fechaRef.getTime()) / 86400000);
+      const horaMin = this.convertirHoraAMinutos(this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0]));
+      
+      return {
+        marcaje: m,
+        horaTotal: (diffDias * 1440) + horaMin, // Línea de tiempo continua
+        esDelDiaSiguiente: diffDias > 0,
+        esDelDiaAnterior: diffDias < 0
+      };
+    });
+
+    const asignaciones = { entrada: '', entradaDescanso: '', salidaDescanso: '', salida: '' };
     const marcajesUsados = new Set();
-    const asignaciones = { entrada: 'Sin marcaje', entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje', salida: 'Sin marcaje' };
-  
-    // 1. Normalizar datos
-    const marcajesConHoras = marcajes.map(m => ({
-      marcaje: m,
-      hora: this.convertirHoraAMinutos(this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0])),
-      esDelDiaSiguiente: new Date(m.event_time).getDate() !== new Date(diaTurno!).getDate()
-    }));
-  
-    // 2. ENTRADA
-    const entrada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entrada, marcajesUsados, esNocturno, false);
-    asignaciones.entrada = entrada;
-  
-    // 3. SALIDA (Pasamos la entrada asignada para que el motor busque el ÚLTIMO del día)
-    if (entrada !== 'Sin marcaje') {
-      asignaciones.salida = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.salida, marcajesUsados, esNocturno, true, horasProgramadas.entrada, entrada);
+
+    // 1. ENTRADA (Target: Día 0)
+    const entradaAsignada = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entrada, marcajesUsados, esNocturno, false);
+    asignaciones.entrada = entradaAsignada;
+    
+    // Obtenemos los minutos reales de la entrada para validar la salida
+    const logEntrada = Array.from(marcajesUsados).pop();
+    const entradaMinutosReal = logEntrada ? marcajesConHoras.find(m => m.marcaje === logEntrada)?.horaTotal : undefined;
+
+    // 2. SALIDA (Target: Día 0 Diurno / Día 1 Nocturno)
+    const targetSalida = (esNocturno ? 1440 : 0) + horasProgramadas.salida;
+    asignaciones.salida = this.encontrarMarcajeMasCercano(marcajesConHoras, targetSalida, marcajesUsados, esNocturno, true, entradaMinutosReal);
+
+    // 3. DESCANSOS (Sigue la misma lógica de pool)
+    if (bloque.tiene_descanso && horasProgramadas.entradaDescanso > 0) {
+      asignaciones.entradaDescanso = this.encontrarMarcajeMasCercano(marcajesConHoras, horasProgramadas.entradaDescanso, marcajesUsados, esNocturno, false, entradaMinutosReal);
+      const targetSalidaDesc = (esNocturno && horasProgramadas.salidaDescanso < horasProgramadas.entradaDescanso ? 1440 : 0) + horasProgramadas.salidaDescanso;
+      asignaciones.salidaDescanso = this.encontrarMarcajeMasCercano(marcajesConHoras, targetSalidaDesc, marcajesUsados, esNocturno, true, entradaMinutosReal);
+    } 
+    else if (bloque.tiene_descanso_automatico && asignaciones.entrada !== 'Sin marcaje' && asignaciones.salida !== 'Sin marcaje') {
+        // Lógica de automáticos: toma los registros que sobraron entre entrada y salida
+        const eMin = entradaMinutosReal || 0;
+        const sMin = (esNocturno ? 1440 : 0) + horasProgramadas.salida;
+        const sobrantes = marcajesConHoras
+            .filter(m => !marcajesUsados.has(m.marcaje) && m.horaTotal > eMin && m.horaTotal < (sMin + 120))
+            .sort((a,b) => a.horaTotal - b.horaTotal);
+        
+        if (sobrantes.length >= 2) {
+            asignaciones.entradaDescanso = this.formatearHora(new Date(sobrantes[0].marcaje.event_time).toTimeString().split(' ')[0]);
+            marcajesUsados.add(sobrantes[0].marcaje);
+            asignaciones.salidaDescanso = this.formatearHora(new Date(sobrantes[1].marcaje.event_time).toTimeString().split(' ')[0]);
+            marcajesUsados.add(sobrantes[1].marcaje);
+        }
     }
-  
-    return asignaciones;
+
+    return this.validarDiferenciasTiempo(asignaciones, bloque);
   }
 
   // Convertir hora HH:MM a minutos para comparación
@@ -8401,58 +8440,38 @@ export class MarcajePersonalComponent implements OnInit {
   // VALIDACIÓN GLOBAL PRIMERA VUELTA:
   //   - Las entradas NUNCA se buscan en día anterior o día siguiente
   //   - Para validar salida, primero debe existir entrada
-  encontrarMarcajeMasCercano(marcajesConHoras: any[], horaProgramada: number, marcajesUsados: Set<any>, esNocturno: boolean = false, esHoraSalida: boolean = false, horaEntradaProgramada: number = 0, entradaAsignada: string = ''): string {
-    let marcajeMasCercano = null;
-  
-    if (esHoraSalida) {
-      if (esNocturno) {
-        // --- LÓGICA NOCTURNA: Se mantiene igual (prioriza día siguiente) ---
-        const medianoche = 12 * 60;
-        const candidatos = marcajesConHoras.filter(m => m.esDelDiaSiguiente && !marcajesUsados.has(m.marcaje) && m.hora < medianoche);
-        if (candidatos.length > 0) {
-          candidatos.sort((a, b) => a.hora - b.hora); // El primero de la mañana
-          marcajeMasCercano = candidatos[0];
-        }
-      } else {
-        // --- LÓGICA DIURNA: PRIORIZAR EL ÚLTIMO REGISTRO DEL DÍA ---
-        if (entradaAsignada && entradaAsignada !== 'Sin marcaje') {
-          const horaEntradaReal = this.convertirHoraAMinutos(entradaAsignada);
-          
-          // Filtramos: mismo día, después de entrar, no usado
-          const candidatosSalida = marcajesConHoras.filter(m => 
-            !m.esDelDiaAnterior && !m.esDelDiaSiguiente && 
-            !marcajesUsados.has(m.marcaje) && m.hora > horaEntradaReal
-          );
-  
-          if (candidatosSalida.length > 0) {
-            // ORDENAMOS POR HORA DE FORMA DESCENDENTE (El último primero)
-            candidatosSalida.sort((a, b) => b.hora - a.hora);
-            marcajeMasCercano = candidatosSalida[0]; // AGARRAMOS EL ÚLTIMO DEL DÍA
-          }
+  encontrarMarcajeMasCercano(marcajesConHoras: any[], horaTarget: number, marcajesUsados: Set<any>, esNocturno: boolean = false, esHoraSalida: boolean = false, entradaAsignadaMinutos?: number): string {
+    let mejorMatch = null;
+    let menorError = Infinity;
+
+    // Filtramos marcajes disponibles
+    const candidatos = marcajesConHoras.filter(m => !marcajesUsados.has(m.marcaje));
+
+    for (const c of candidatos) {
+      // Calculamos el error absoluto contra la hora programada
+      let error = Math.abs(c.horaTotal - horaTarget);
+
+      // REGLA DE ORO: Si es salida, debe ser después de la entrada
+      if (esHoraSalida && entradaAsignadaMinutos !== undefined) {
+        // Si el marcaje es ANTES de la entrada, le ponemos un castigo masivo
+        // para que solo se elija si es la única opción desesperada
+        if (c.horaTotal <= entradaAsignadaMinutos) {
+          error += 1440; // Penalización de 24 horas
         }
       }
-    } else {
-      // --- LÓGICA DE ENTRADA: El más cercano a la hora de inicio ---
-      const candidatosEntrada = marcajesConHoras.filter(m => !m.esDelDiaAnterior && !m.esDelDiaSiguiente && !marcajesUsados.has(m.marcaje));
-      if (candidatosEntrada.length > 0) {
-        let mejor = candidatosEntrada[0];
-        let menorDif = Math.abs(candidatosEntrada[0].hora - horaProgramada);
-        for (const c of candidatosEntrada) {
-          const dif = Math.abs(c.hora - horaProgramada);
-          if (dif < menorDif) {
-            menorDif = dif;
-            mejor = c;
-          }
-        }
-        marcajeMasCercano = mejor;
+
+      // El que tenga menor error (distancia en minutos) gana
+      if (error < menorError) {
+        menorError = error;
+        mejorMatch = c;
       }
     }
-  
-    if (marcajeMasCercano) {
-      marcajesUsados.add(marcajeMasCercano.marcaje);
-      return this.formatearHora(new Date(marcajeMasCercano.marcaje.event_time).toTimeString().split(' ')[0]);
+
+    if (mejorMatch) {
+      marcajesUsados.add(mejorMatch.marcaje);
+      return this.formatearHora(new Date(mejorMatch.marcaje.event_time).toTimeString().split(' ')[0]);
     }
-  
+
     return 'Sin marcaje';
   }
 
@@ -9948,7 +9967,7 @@ export class MarcajePersonalComponent implements OnInit {
 
   private limpiarID(valor: any): string {
     if (!valor) return '';
-    return valor.toString().replace(/\D/g, ''); // Deja solo los números
+    return valor.toString().replace(/\D/g, '');
   }
 
 }
