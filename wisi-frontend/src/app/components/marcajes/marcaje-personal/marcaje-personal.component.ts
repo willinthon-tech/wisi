@@ -3943,7 +3943,7 @@ export class MarcajePersonalComponent implements OnInit {
     }
     
     this.loading = true;
-    this.cdr.detach(); // Apagamos el motor visual para procesar a toda velocidad
+    this.cdr.detach(); // Desconectamos Angular para procesar a máxima velocidad
   
     try {
       // TECNOLOGÍA NUEVA: Carga paralela de empleados y plantillas
@@ -3955,35 +3955,38 @@ export class MarcajePersonalComponent implements OnInit {
       this.empleadosCompletos = response || [];
       this.modalPlantillas = plantillas || [];
   
-      this.marcajesCompletos.clear();
+      // Limpieza de Mapas usando una sola fuente de verdad
+      this.marcajesPorEmpleado.clear();
       this.excepcionesMap.clear();
   
       this.empleadosCompletos.forEach(emp => {
-        // PRIORIDAD CRONOLÓGICA: Procesar excepciones del 23 antes que el 24
+        // 1. Prioridad Cronológica de Excepciones
         if (emp.excepciones) {
           const ordenadas = [...emp.excepciones].sort((a, b) => 
             new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
           ordenadas.forEach(ex => {
-            const f = this.formatDateLocalYYYYMMDD(new Date(ex.fecha));
-            this.excepcionesMap.set(`${emp.id}|${f}`, ex);
+            const key = `${emp.id}|${this.formatDateLocalYYYYMMDD(new Date(ex.fecha))}`;
+            this.excepcionesMap.set(key, ex);
           });
         }
   
+        // 2. Consolidación de Marcajes (Múltiples Biométricos)
         if (emp.marcajes && emp.cedula) {
-          this.marcajesCompletos.set(emp.cedula, emp.marcajes);
+          // Guardamos todo bajo la cédula limpia para que el sistema lo encuentre siempre
+          this.marcajesPorEmpleado.set(emp.cedula, emp.marcajes);
         }
       });
   
-      // Procesar listas y filtros
+      // 3. Procesamiento Asíncrono para evitar el "Bucle"
       this.actualizarListasCascada();
       this.aplicarFiltrosLocales();
   
     } catch (error) {
-      console.error('Error cargando sala:', error);
+      console.error('Error cargando datos:', error);
     } finally {
       this.loading = false;
       this.hasSearched = true;
-      this.cdr.reattach(); // Encendemos el motor visual
+      this.cdr.reattach(); // Re-conectamos y refrescamos
       this.cdr.detectChanges();
     }
   }
@@ -6766,23 +6769,24 @@ export class MarcajePersonalComponent implements OnInit {
       return marcajesActuales;
     }
   
-    const logSalidaHoy = this.encontrarMarcajePorHora(marcajesParaAnalizar, marcajesActuales.salida);
+    // Identificamos si es el mismo marcaje físico (mismo ID)
+    const logHoy = this.encontrarMarcajePorHora(marcajesParaAnalizar, marcajesActuales.salida);
     const diaSiguiente = new Date(dia); diaSiguiente.setDate(diaSiguiente.getDate() + 1);
     const logsManana = this.getMarcajesDelDia(empleado, diaSiguiente);
-    const logEntradaManana = this.encontrarMarcajePorHora([...marcajesParaAnalizar, ...logsManana], marcajesSiguiente.entrada);
+    const logSiguiente = this.encontrarMarcajePorHora([...marcajesParaAnalizar, ...logsManana], marcajesSiguiente.entrada);
   
-    if (logSalidaHoy && logEntradaManana && logSalidaHoy.id === logEntradaManana.id) {
-      const horaM = this.convertirHoraAMinutos(marcajesActuales.salida);
+    if (logHoy && logSiguiente && logHoy.id === logSiguiente.id) {
+      const horaMarcaje = this.convertirHoraAMinutos(marcajesActuales.salida);
       const hTeoricaHoy = this.convertirHoraAMinutos(bloque?.PlantillaHorario?.hora_salida || '17:00');
       
       const bloqueSig = this.getBloqueHorario(empleado, diaSiguiente);
       const hTeoricaMan = this.convertirHoraAMinutos(bloqueSig?.PlantillaHorario?.hora_entrada || '08:00');
   
-      // SCORING: ¿A quién le queda más cerca?
-      if (Math.abs(horaM - hTeoricaHoy) <= Math.abs(horaM - hTeoricaMan)) {
-        return marcajesActuales; // Se queda en hoy
+      // SCORING: El que tenga menos error de tiempo se queda con el marcaje
+      if (Math.abs(horaMarcaje - hTeoricaHoy) <= Math.abs(horaMarcaje - hTeoricaMan)) {
+        return marcajesActuales; // Se queda como salida de hoy
       } else {
-        return { ...marcajesActuales, salida: 'Sin marcaje' }; // Se cede a mañana
+        return { ...marcajesActuales, salida: 'Sin marcaje' }; // Se cede como entrada a mañana
       }
     }
     return marcajesActuales;
@@ -8276,30 +8280,32 @@ export class MarcajePersonalComponent implements OnInit {
   // VALIDACIÓN GLOBAL PRIMERA VUELTA:
   //   - Las entradas NUNCA se buscan en día anterior o día siguiente
   //   - Para validar salida, primero debe existir entrada
-  encontrarMarcajeMasCercano(marcajesConHoras: any[], horaProgramada: number, marcajesUsados: Set<any>, esNocturno: boolean = false, esHoraSalida: boolean = false, horaEntradaProgramada: number = 0, entradaAsignada: string = ''): string {
+  encontrarMarcajeMasCercano(marcajesConHoras: any[], horaTarget: number, marcajesUsados: Set<any>, esNocturno: boolean = false, esHoraSalida: boolean = false, horaEntradaProgramada: number = 0, entradaAsignada: string = ''): string {
     let mejorCandidato = null;
     let menorCosto = Infinity;
   
-    // Filtramos marcajes que no se hayan usado en este día
-    const disponibles = marcajesConHoras.filter(m => !marcajesUsados.has(m.marcaje));
+    // Solo revisamos marcajes que NO hayan sido usados en este día
+    const candidatos = marcajesConHoras.filter(m => !marcajesUsados.has(m.marcaje));
   
-    for (const m of disponibles) {
+    for (const c of candidatos) {
       // 1. Calculamos la distancia absoluta (error de tiempo)
-      let costo = Math.abs(m.hora - horaProgramada);
+      let costo = Math.abs(c.hora - horaTarget);
   
-      // 2. PENALIZACIÓN DE SENTIDO COMÚN
-      // Si buscamos salida, un marcaje ANTES de la entrada asignada es ilógico
+      // 2. PENALIZACIÓN LÓGICA: Si es salida, el marcaje debe ser DESPUÉS de la entrada
       if (esHoraSalida && entradaAsignada && entradaAsignada !== 'Sin marcaje') {
-        const minEntrada = this.convertirHoraAMinutos(entradaAsignada);
-        if (!esNocturno && m.hora <= minEntrada && !m.esDelDiaSiguiente) {
-          costo += 1440; // Penalización masiva (24h) para que sea la última opción
+        const hEntradaReal = this.convertirHoraAMinutos(entradaAsignada);
+        
+        // Si el marcaje es antes o igual a la entrada (y no es un cambio de día real),
+        // le ponemos un costo altísimo para que prefiera el de las 17:02
+        if (!esNocturno && c.hora <= hEntradaReal && !c.esDelDiaSiguiente) {
+          costo += 1440; // Penalización de 24 horas
         }
       }
   
-      // 3. SELECCIÓN: El que tenga el menor costo (error) gana
+      // 3. SELECCIÓN: El que tenga el error más pequeño gana
       if (costo < menorCosto) {
         menorCosto = costo;
-        mejorCandidato = m;
+        mejorCandidato = c;
       }
     }
   
