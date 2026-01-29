@@ -4710,22 +4710,17 @@ export class MarcajePersonalComponent implements OnInit {
           });
           
           // Analizar TODOS los marcajes para obtener dispositivos únicos
-          
-
-          todosLosMarcajes.forEach((marcaje: any) => {
-            // Buscamos al empleado cuya cédula termina en el número del reloj
-            const empleadoMatch = empleadosConCedula.find(e => 
-              e.cedula.endsWith(marcaje.employee_no.toString())
-            );
-          
-            if (empleadoMatch) {
-              // Usamos la cédula real (con V o E) para guardar en el mapa
-              const cedula = empleadoMatch.cedula; 
-          
-              if (!this.marcajesCompletos.has(cedula)) {
-                this.marcajesCompletos.set(cedula, []);
-              }
-              this.marcajesCompletos.get(cedula)!.push(marcaje);
+          todosLosMarcajes.forEach((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnRespuesta.add(dispositivoId);
             }
           });
           
@@ -4827,15 +4822,8 @@ export class MarcajePersonalComponent implements OnInit {
           
           // Agrupar marcajes por employee_no (cedula) localmente
           todosLosMarcajes.forEach((marcaje: any) => {
-            // Buscamos al empleado cuya cédula termina en el número del reloj
-            const empleadoMatch = empleadosConCedula.find(e => 
-              e.cedula.endsWith(marcaje.employee_no.toString())
-            );
-          
-            if (empleadoMatch) {
-              // Usamos la cédula real (con V o E) para guardar en el mapa
-              const cedula = empleadoMatch.cedula; 
-          
+            const cedula = marcaje.employee_no;
+            if (cedula && cedulasSet.has(cedula)) {
               if (!this.marcajesCompletos.has(cedula)) {
                 this.marcajesCompletos.set(cedula, []);
               }
