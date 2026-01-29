@@ -6702,827 +6702,93 @@ app.get('/api/empleados/verificar-cedula/:cedula', authenticateToken, async (req
 app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
   try {
     const { salaId } = req.params;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    const usuario = req.user.usuario;
-    
-    // Obtener el usuario completo para verificar si es willinthon
-    const user = await User.findByPk(userId);
-    
-    // Verificar que el usuario tiene acceso a la sala (excepto para willinthon)
-    if (usuario !== 'willinthon' && userLevel !== 'TODO') {
-      const userWithSalas = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: { id: salaId }
-        }]
-      });
-      
-      if (!userWithSalas || !userWithSalas.Salas || userWithSalas.Salas.length === 0) {
-        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
-      }
-    }
-    
-    // Si es willinthon, mostrar todos los empleados sin requerir relaciones
-    if (usuario === 'willinthon') {
-      const empleados = await Empleado.findAll({
-        where: { activo: 1 },
-        include: [{
-          model: Cargo,
-          as: 'Cargo',
-          attributes: ['id', 'nombre'],
-          required: false,
-          include: [{
-            model: Area,
-            as: 'Area',
-            attributes: ['id', 'nombre'],
-            required: false,
-            include: [{
-              model: Departamento,
-              as: 'Departamento',
-              attributes: ['id', 'nombre'],
-              required: false,
-              include: [{
-                model: Sala,
-                as: 'Sala',
-                attributes: ['id', 'nombre'],
-                required: false,
-                where: { id: salaId }
-              }]
-            }]
-          }]
-        }],
-        order: [['nombre', 'ASC']]
-      });
-      
-      // Filtrar solo los empleados que tienen la sala especificada
-      const empleadosFiltrados = empleados.filter(emp => {
-        const sala = emp?.Cargo?.Area?.Departamento?.Sala;
-        return sala && sala.id === parseInt(salaId);
-      });
-      
-      // OPTIMIZACIÓN: Incluir horarios de cada empleado en la respuesta
-      // Esto evita hacer 349 llamadas individuales desde el frontend
-      // OPTIMIZACIÓN: Cargar horarios en paralelo usando Promise.all
-      const horariosPromises = empleadosFiltrados.map(async (empleado) => {
-        const horariosEmpleado = await HorarioEmpleado.findAll({
-          where: { empleado_id: empleado.id },
-          include: [{
-            model: Horario,
-            as: 'Horario',
-            include: [{
-              model: Bloque,
-              as: 'bloques',
-              order: [['orden', 'ASC']],
-              include: [{
-                model: PlantillaHorario,
-                as: 'PlantillaHorario',
-                attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
-              }]
-            }]
-          }],
-          order: [['primer_dia', 'ASC']]
-        });
-        
-        // Agregar horarios al empleado con la misma estructura que el endpoint individual
-        // Incluir PlantillaHorario en cada bloque (igual que el endpoint individual)
-        for (let horarioEmp of horariosEmpleado) {
-          if (horarioEmp.Horario && horarioEmp.Horario.bloques) {
-            for (let bloque of horarioEmp.Horario.bloques) {
-              if (bloque.PlantillaHorario) {
-                // Ya viene del include, asegurar que tenga todos los campos
-                bloque.dataValues.PlantillaHorario = {
-                  id: bloque.PlantillaHorario.id,
-                  codigo: bloque.PlantillaHorario.codigo,
-                  nombre: bloque.PlantillaHorario.nombre,
-                  color: bloque.PlantillaHorario.color || '#ffffff',
-                  hora_entrada: bloque.PlantillaHorario.hora_entrada,
-                  hora_salida: bloque.PlantillaHorario.hora_salida,
-                  hora_descanso_entrada: bloque.PlantillaHorario.hora_descanso_entrada,
-                  hora_descanso_salida: bloque.PlantillaHorario.hora_descanso_salida,
-                  descanso_automatico: bloque.PlantillaHorario.descanso_automatico
-                };
-              }
-            }
-          }
-        }
-        
-        empleado.dataValues.horariosEmpleado = horariosEmpleado.map(he => ({
-          id: he.id,
-          empleado_id: he.empleado_id,
-          horario_id: he.horario_id,
-          primer_dia: he.primer_dia,
-          ultimo_dia: he.ultimo_dia,
-          dias_semana: he.dias_semana,
-          Horario: he.Horario ? {
-            id: he.Horario.id,
-            nombre: he.Horario.nombre,
-            plantilla_horario_id: he.Horario.plantilla_horario_id,
-            bloques: he.Horario.bloques ? he.Horario.bloques.map((bloque) => ({
-              id: bloque.id,
-              horario_id: bloque.horario_id,
-              plantilla_horario_id: bloque.plantilla_horario_id,
-              orden: bloque.orden,
-              PlantillaHorario: bloque.PlantillaHorario || bloque.dataValues?.PlantillaHorario
-            })) : []
-          } : null
-        }));
-        
-        return empleado;
-      });
-      
-      // Esperar a que todos los horarios se carguen en paralelo
-      await Promise.all(horariosPromises);
-      
-      // OPTIMIZACIÓN: Incluir excepciones y marcajes de cada empleado en la respuesta
-      const { fechaDesde, fechaHasta } = req.query;
-      
-      // Si hay fechas, cargar excepciones y marcajes para ese rango
-      if (fechaDesde && fechaHasta) {
-        const empleadosConDatos = await Promise.all(empleadosFiltrados.map(async (empleado) => {
-          // Cargar excepciones del empleado en el rango de fechas
-          const excepciones = await ExcepcionHorario.findAll({
-            where: {
-              empleado_id: empleado.id,
-              fecha: {
-                [Op.between]: [fechaDesde, fechaHasta]
-              }
-            },
-            include: [{
-              model: PlantillaHorario,
-              as: 'PlantillaHorario',
-              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
-            }],
-            order: [['fecha', 'DESC']]
-          });
-          
-          // DEBUG: Log para verificar excepciones encontradas
-          if (excepciones.length > 0) {
-          }
-          
-          // Cargar marcajes del empleado en el rango de fechas
-          // IMPORTANTE: NO filtrar por dispositivos de la sala - cargar TODOS los marcajes
-          // El frontend filtrará por los dispositivos seleccionados
-          let marcajes = [];
-          if (empleado.cedula) {
-            const fechaInicio = new Date(fechaDesde);
-            fechaInicio.setHours(0, 0, 0, 0);
-            const fechaFin = new Date(fechaHasta);
-            fechaFin.setHours(23, 59, 59, 999);
-            
-            // DEBUG: Verificar directamente en la base de datos si hay marcajes del dispositivo 24
-            if (empleado.id === empleadosFiltrados[0]?.id) {
-              const marcajesDispositivo24Directo = await sequelize.query(
-                `SELECT id, employee_no, dispositivo_id, event_time, nombre 
-                 FROM attlogs 
-                 WHERE employee_no = :cedula 
-                 AND dispositivo_id = 24 
-                 AND event_time BETWEEN :fechaInicio AND :fechaFin 
-                 ORDER BY event_time ASC 
-                 LIMIT 10`,
-                {
-                  replacements: {
-                    cedula: empleado.cedula,
-                    fechaInicio: fechaInicio.toISOString(),
-                    fechaFin: fechaFin.toISOString()
-                  },
-                  type: sequelize.QueryTypes.SELECT
-                }
-              );
-              
-            }
-            
-            // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
-            // IMPORTANTE: No usar include con Dispositivo porque puede causar problemas con el JOIN
-            // En su lugar, cargar los marcajes directamente y luego obtener los dispositivos si es necesario
-            
-            // DEBUG: Verificar directamente en la base de datos antes de la consulta
-            // IMPORTANTE: Búsqueda exacta solamente - validación estricta
-            if (empleado.id === empleadosFiltrados[0]?.id) {
-              const marcajesDirectosSQL = await sequelize.query(
-                `SELECT id, employee_no, dispositivo_id, event_time, nombre 
-                 FROM attlogs 
-                 WHERE employee_no = :cedula 
-                 AND event_time BETWEEN :fechaInicio AND :fechaFin 
-                 ORDER BY event_time ASC`,
-                {
-                  replacements: {
-                    cedula: empleado.cedula,
-                    fechaInicio: fechaInicio.toISOString(),
-                    fechaFin: fechaFin.toISOString()
-                  },
-                  type: sequelize.QueryTypes.SELECT
-                }
-              );
-              
-            }
-            
-            // Buscar marcajes con búsqueda exacta solamente - validación estricta
-            marcajes = await Attlog.findAll({
-              where: {
-                employee_no: empleado.cedula,
-                event_time: {
-                  [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
-                }
-              },
-              order: [['event_time', 'ASC']],
-              attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre'],
-              raw: true // Usar raw para obtener objetos planos directamente
-            });
-            
-            // DEBUG: Comparar resultados de Sequelize vs SQL directa
-            if (empleado.id === empleadosFiltrados[0]?.id) {
-            }
-            
-            // Si hay marcajes, cargar los dispositivos asociados por separado para evitar problemas con JOIN
-            if (marcajes.length > 0) {
-              const dispositivoIds = [...new Set(marcajes.map(m => m.dispositivo_id).filter(id => id != null))];
-              if (dispositivoIds.length > 0) {
-                const dispositivos = await Dispositivo.findAll({
-                  where: { id: { [Op.in]: dispositivoIds } },
-                  attributes: ['id', 'nombre', 'ip_remota'],
-                  raw: true
-                });
-                
-                // Crear un mapa de dispositivos por ID para acceso rápido
-                const dispositivosMap = {};
-                dispositivos.forEach(d => {
-                  dispositivosMap[d.id] = d;
-                });
-                
-                // Agregar la información del dispositivo a cada marcaje
-                marcajes = marcajes.map(m => {
-                  const marcajeConDispositivo = { ...m };
-                  if (m.dispositivo_id && dispositivosMap[m.dispositivo_id]) {
-                    marcajeConDispositivo.Dispositivo = dispositivosMap[m.dispositivo_id];
-                  }
-                  return marcajeConDispositivo;
-                });
-              }
-            }
-            
-            // DEBUG: Log para verificar marcajes del primer empleado
-            if (empleado.id === empleadosFiltrados[0]?.id) {
-              // Convertir marcajes a objetos planos para análisis
-              const marcajesPlano = marcajes.map(m => m.toJSON ? m.toJSON() : (m.dataValues || m));
-              
-              // Extraer dispositivo_id de forma segura
-              const dispositivosEnMarcajes = marcajesPlano.length > 0 ? [...new Set(marcajesPlano.map(m => m.dispositivo_id).filter(id => id != null))] : [];
-              
-              // Contar marcajes por dispositivo
-              const marcajesPorDispositivo = {};
-              marcajesPlano.forEach(m => {
-                const devId = m.dispositivo_id;
-                if (devId != null) {
-                  marcajesPorDispositivo[devId] = (marcajesPorDispositivo[devId] || 0) + 1;
-                }
-              });
-              
-              // Verificar si hay marcajes del dispositivo 24 en la base de datos para este empleado
-              // IMPORTANTE: Búsqueda exacta solamente - validación estricta
-              const marcajesDispositivo24 = await Attlog.findAll({
-                where: {
-                  employee_no: empleado.cedula,
-                  dispositivo_id: 24,
-                  event_time: {
-                    [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
-                  }
-                },
-                limit: 5
-              });
-              
-            }
-          }
-          
-          // Agregar excepciones y marcajes directamente al objeto del empleado (no solo en dataValues)
-          // IMPORTANTE: Asegurar que las excepciones se serialicen correctamente
-          const excepcionesMapeadas = excepciones.map(ex => {
-            const excepcionMapeada = {
-              id: ex.id,
-              empleado_id: ex.empleado_id,
-              fecha: ex.fecha,
-              plantilla_horario_id: ex.plantilla_horario_id
-            };
-            
-            // Incluir PlantillaHorario si está disponible
-            if (ex.PlantillaHorario) {
-              excepcionMapeada.PlantillaHorario = {
-                id: ex.PlantillaHorario.id,
-                codigo: ex.PlantillaHorario.codigo,
-                nombre: ex.PlantillaHorario.nombre,
-                hora_entrada: ex.PlantillaHorario.hora_entrada,
-                hora_salida: ex.PlantillaHorario.hora_salida,
-                color: ex.PlantillaHorario.color,
-                hora_descanso_entrada: ex.PlantillaHorario.hora_descanso_entrada,
-                hora_descanso_salida: ex.PlantillaHorario.hora_descanso_salida,
-                descanso_automatico: ex.PlantillaHorario.descanso_automatico
-              };
-            }
-            
-            return excepcionMapeada;
-          });
-          
-          // Asignar directamente al objeto empleado (no solo dataValues) para que se serialice en JSON
-          empleado.dataValues.excepciones = excepcionesMapeadas;
-          empleado.excepciones = excepcionesMapeadas;
-          
-          // Mapear marcajes (ya son objetos planos, no necesitan conversión)
-          const marcajesMapeados = marcajes.map(m => {
-            const marcajeMapeado = {
-              id: m.id,
-              employee_no: m.employee_no,
-              event_time: m.event_time,
-              dispositivo_id: m.dispositivo_id,
-              nombre: m.nombre
-            };
-            
-            // Incluir relación Dispositivo si está disponible (ya viene agregada en el paso anterior)
-            if (m.Dispositivo) {
-              marcajeMapeado.Dispositivo = {
-                id: m.Dispositivo.id,
-                nombre: m.Dispositivo.nombre,
-                ip_remota: m.Dispositivo.ip_remota
-              };
-            }
-            
-            return marcajeMapeado;
-          });
-          
-          empleado.dataValues.marcajes = marcajesMapeados;
-          empleado.marcajes = marcajesMapeados;
-          
-          // DEBUG: Verificar marcajes mapeados para el primer empleado
-          if (empleado.id === empleadosFiltrados[0]?.id) {
-            const dispositivosEnMapeados = [...new Set(marcajesMapeados.map(m => m.dispositivo_id).filter(id => id != null))];
-            const marcajesDispositivo24Mapeados = marcajesMapeados.filter(m => m.dispositivo_id === 24);
-            const marcajesDispositivo25Mapeados = marcajesMapeados.filter(m => m.dispositivo_id === 25);
-            const marcajesDispositivo26Mapeados = marcajesMapeados.filter(m => m.dispositivo_id === 26);
-            
-            // Contar marcajes por dispositivo en los mapeados
-            const marcajesPorDispositivoMapeados = {};
-            marcajesMapeados.forEach(m => {
-              const devId = m.dispositivo_id;
-              if (devId != null) {
-                marcajesPorDispositivoMapeados[devId] = (marcajesPorDispositivoMapeados[devId] || 0) + 1;
-              }
-            });
-            
-          }
-          
-          return empleado;
-        }));
-        
-        // DEBUG: Contar total de excepciones y marcajes
-        const totalExcepciones = empleadosConDatos.reduce((sum, emp) => sum + (emp.excepciones?.length || 0), 0);
-        const totalMarcajes = empleadosConDatos.reduce((sum, emp) => sum + (emp.marcajes?.length || 0), 0);
-        
-        // Contar dispositivos en todos los marcajes devueltos
-        const todosDispositivosEnMarcajes = new Set();
-        empleadosConDatos.forEach(emp => {
-          if (emp.marcajes && Array.isArray(emp.marcajes)) {
-            emp.marcajes.forEach(m => {
-              if (m.dispositivo_id != null) {
-                todosDispositivosEnMarcajes.add(m.dispositivo_id);
-              }
-            });
-          }
-        });
-        
-        // Contar marcajes por dispositivo en TODOS los empleados
-        const marcajesPorDispositivoTotal = {};
-        empleadosConDatos.forEach(emp => {
-          if (emp.marcajes && Array.isArray(emp.marcajes)) {
-            emp.marcajes.forEach(m => {
-              const devId = m.dispositivo_id;
-              if (devId != null) {
-                marcajesPorDispositivoTotal[devId] = (marcajesPorDispositivoTotal[devId] || 0) + 1;
-              }
-            });
-          }
-        });
-        
-        
-        return res.json(empleadosConDatos);
-      }
-      
-      return res.json(empleadosFiltrados);
-    }
-    
+    const { fechaDesde, fechaHasta } = req.query;
+    const { id: userId, nivel: userLevel, usuario } = req.user;
+
+    // 1. OBTENER DISPOSITIVOS DE LA SALA DINÁMICAMENTE
+    // Esto asegura que si mueves un equipo de sala, el sistema lo reconozca solo
+    const dispositivosSala = await Dispositivo.findAll({
+      where: { sala_id: salaId },
+      attributes: ['id']
+    });
+    const idsDispositivos = dispositivosSala.map(d => d.id);
+
+    // 2. Obtener empleados (Filtro para usuarios normales o Willinthon)
     const empleados = await Empleado.findAll({
       where: { activo: 1 },
       include: [{
-        model: Cargo,
-        as: 'Cargo',
-        attributes: ['id', 'nombre'],
-        required: true,
+        model: Cargo, as: 'Cargo', required: usuario !== 'willinthon',
         include: [{
-          model: Area,
-          as: 'Area',
-          attributes: ['id', 'nombre'],
-          required: true,
+          model: Area, as: 'Area', required: usuario !== 'willinthon',
           include: [{
-            model: Departamento,
-            as: 'Departamento',
-            attributes: ['id', 'nombre'],
-            required: true,
+            model: Departamento, as: 'Departamento', required: usuario !== 'willinthon',
             include: [{
-              model: Sala,
-              as: 'Sala',
-              attributes: ['id', 'nombre'],
-              required: true,
-              where: { id: salaId }
+              model: Sala, as: 'Sala', where: { id: salaId }, required: true
             }]
           }]
         }]
       }],
       order: [['nombre', 'ASC']]
     });
-    
-    // OPTIMIZACIÓN: Incluir horarios de cada empleado en la respuesta
-    // Esto evita hacer 349 llamadas individuales desde el frontend
-    // OPTIMIZACIÓN: Cargar horarios en paralelo usando Promise.all
-    const horariosPromises = empleados.map(async (empleado) => {
-      const horariosEmpleado = await HorarioEmpleado.findAll({
+
+    // 3. Procesar datos pesados en paralelo
+    const empleadosConTodo = await Promise.all(empleados.map(async (empleado) => {
+      const empData = empleado.toJSON();
+
+      // Cargar Horarios
+      empData.horariosEmpleado = await HorarioEmpleado.findAll({
         where: { empleado_id: empleado.id },
         include: [{
-          model: Horario,
-          as: 'Horario',
-          include: [{
-            model: Bloque,
-            as: 'bloques',
-            order: [['orden', 'ASC']],
-            include: [{
-              model: PlantillaHorario,
-              as: 'PlantillaHorario',
-              required: false,
-              attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
-            }]
+          model: Horario, as: 'Horario',
+          include: [{ 
+            model: Bloque, as: 'bloques',
+            include: [{ model: PlantillaHorario, as: 'PlantillaHorario' }]
           }]
-        }],
-        order: [['primer_dia', 'ASC']]
+        }]
       });
-      
-      // Agregar horarios al empleado con la misma estructura que el endpoint individual
-      // IMPORTANTE: Cargar PlantillaHorario manualmente para cada bloque (igual que el endpoint individual)
-      // Esto asegura que los datos estén disponibles incluso si el include falla
-      for (let horarioEmp of horariosEmpleado) {
-        if (horarioEmp.Horario && horarioEmp.Horario.bloques) {
-          for (let bloque of horarioEmp.Horario.bloques) {
-            // SIEMPRE cargar PlantillaHorario manualmente (igual que el endpoint individual)
-            // No confiar solo en el include porque puede no serializarse correctamente
-            if (bloque.plantilla_horario_id) {
-              const plantilla = await PlantillaHorario.findByPk(bloque.plantilla_horario_id);
-              if (plantilla) {
-                // Asignar directamente al bloque para que esté disponible
-                bloque.PlantillaHorario = plantilla;
-              }
-            }
-          }
-        }
-      }
-      
-      empleado.dataValues.horariosEmpleado = horariosEmpleado.map(he => {
-        // Mapear bloques con PlantillaHorario correctamente
-        const bloquesMapeados = he.Horario && he.Horario.bloques ? he.Horario.bloques.map((bloque) => {
-          const bloqueMapeado = {
-            id: bloque.id,
-            horario_id: bloque.horario_id,
-            plantilla_horario_id: bloque.plantilla_horario_id,
-            orden: bloque.orden
-          };
-          
-          // Incluir PlantillaHorario directamente en el objeto
-          // Usar bloque.PlantillaHorario (cargado manualmente arriba)
-          const plantilla = bloque.PlantillaHorario;
-          if (plantilla) {
-            bloqueMapeado.PlantillaHorario = {
-              id: plantilla.id,
-              codigo: plantilla.codigo,
-              nombre: plantilla.nombre,
-              color: plantilla.color || '#ffffff',
-              hora_entrada: plantilla.hora_entrada,
-              hora_salida: plantilla.hora_salida,
-              hora_descanso_entrada: plantilla.hora_descanso_entrada,
-              hora_descanso_salida: plantilla.hora_descanso_salida,
-              descanso_automatico: plantilla.descanso_automatico || null
-            };
-          }
-          
-          return bloqueMapeado;
-        }) : [];
-        
-        return {
-          id: he.id,
-          empleado_id: he.empleado_id,
-          horario_id: he.horario_id,
-          primer_dia: he.primer_dia,
-          ultimo_dia: he.ultimo_dia,
-          dias_semana: he.dias_semana,
-          Horario: he.Horario ? {
-            id: he.Horario.id,
-            nombre: he.Horario.nombre,
-            plantilla_horario_id: he.Horario.plantilla_horario_id,
-            bloques: bloquesMapeados
-          } : null
-        };
-      });
-      
-      return empleado;
-    });
-    
-    // Esperar a que todos los horarios se carguen en paralelo
-    await Promise.all(horariosPromises);
-    
-    // OPTIMIZACIÓN: Incluir excepciones y marcajes de cada empleado en la respuesta
-    // Esto evita múltiples llamadas separadas desde el frontend
-    const { fechaDesde, fechaHasta } = req.query;
-    
-    // DEBUG: Verificar si hay marcajes del dispositivo 24, 25, 26 en la base de datos para cualquier empleado
-    if (fechaDesde && fechaHasta) {
-      const fechaInicio = new Date(fechaDesde);
-      fechaInicio.setHours(0, 0, 0, 0);
-      const fechaFin = new Date(fechaHasta);
-      fechaFin.setHours(23, 59, 59, 999);
-      
-      const marcajesDispositivosProblematicos = await sequelize.query(
-        `SELECT dispositivo_id, COUNT(*) as cantidad
-         FROM attlogs 
-         WHERE dispositivo_id IN (24, 25, 26)
-         AND event_time BETWEEN :fechaInicio AND :fechaFin 
-         GROUP BY dispositivo_id`,
-        {
-          replacements: {
-            fechaInicio: fechaInicio.toISOString(),
-            fechaFin: fechaFin.toISOString()
-          },
-          type: sequelize.QueryTypes.SELECT
-        }
-      );
-      
-      
-      // Obtener los employee_no únicos que tienen marcajes de dispositivos 24, 25, 26
-      const employeeNosConMarcajesProblematicos = await sequelize.query(
-        `SELECT DISTINCT employee_no, dispositivo_id, COUNT(*) as cantidad
-         FROM attlogs 
-         WHERE dispositivo_id IN (24, 25, 26)
-         AND event_time BETWEEN :fechaInicio AND :fechaFin 
-         GROUP BY employee_no, dispositivo_id
-         ORDER BY employee_no, dispositivo_id
-         LIMIT 50`,
-        {
-          replacements: {
-            fechaInicio: fechaInicio.toISOString(),
-            fechaFin: fechaFin.toISOString()
-          },
-          type: sequelize.QueryTypes.SELECT
-        }
-      );
-      
-      // Función helper para comparar employee_no con cedula (comparación exacta)
-      // Busca en ambos formatos (con y sin prefijo) pero mantiene la validación estricta
-      const compararEmployeeNo = (employeeNo, cedula) => {
-        if (!employeeNo || !cedula) return false;
-        // Comparación exacta solamente
-        return String(employeeNo) === String(cedula);
-      };
-      
-      // Obtener los employee_no de los empleados de la sala
-      // IMPORTANTE: En el modelo Empleado, el campo es 'cedula', no 'employee_no'
-      // Los marcajes usan 'employee_no' que corresponde a la 'cedula' del empleado
-      const employeeNosDeSala = empleados.map(e => e.cedula);
-      
-      // Verificar si hay coincidencias (usando comparación normalizada)
-      const employeeNosConMarcajes24 = employeeNosConMarcajesProblematicos
-        .filter(m => m.dispositivo_id === 24)
-        .map(m => m.employee_no);
-      const employeeNosConMarcajes25 = employeeNosConMarcajesProblematicos
-        .filter(m => m.dispositivo_id === 25)
-        .map(m => m.employee_no);
-      const employeeNosConMarcajes26 = employeeNosConMarcajesProblematicos
-        .filter(m => m.dispositivo_id === 26)
-        .map(m => m.employee_no);
-      
-      const coincidencias24 = employeeNosConMarcajes24.filter(eno => 
-        employeeNosDeSala.some(cedula => compararEmployeeNo(eno, cedula))
-      );
-      const coincidencias25 = employeeNosConMarcajes25.filter(eno => 
-        employeeNosDeSala.some(cedula => compararEmployeeNo(eno, cedula))
-      );
-      const coincidencias26 = employeeNosConMarcajes26.filter(eno => 
-        employeeNosDeSala.some(cedula => compararEmployeeNo(eno, cedula))
-      );
-      
-    }
-    
-    // Si hay fechas, cargar excepciones y marcajes para ese rango
-    if (fechaDesde && fechaHasta) {
-      const empleadosConDatos = await Promise.all(empleados.map(async (empleado) => {
-        // Cargar excepciones del empleado en el rango de fechas
-        const excepciones = await ExcepcionHorario.findAll({
-          where: {
-            empleado_id: empleado.id,
-            fecha: {
-              [Op.between]: [fechaDesde, fechaHasta]
-            }
-          },
-          include: [{
-            model: PlantillaHorario,
-            as: 'PlantillaHorario',
-            attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
-          }],
-          order: [['fecha', 'DESC']]
-        });
-        
-        // Cargar marcajes del empleado en el rango de fechas
-        // IMPORTANTE: NO filtrar por dispositivos de la sala - cargar TODOS los marcajes
-        // El frontend filtrará por los dispositivos seleccionados
-        let marcajes = [];
-        if (empleado.cedula) {
-          // Convertir fechas a formato ISO para la consulta
-          const fechaInicio = new Date(fechaDesde);
-          fechaInicio.setHours(0, 0, 0, 0);
-          const fechaFin = new Date(fechaHasta);
-          fechaFin.setHours(23, 59, 59, 999);
-          
-          // Cargar TODOS los marcajes del empleado en el rango de fechas, sin filtrar por dispositivo
-          // IMPORTANTE: No usar include con Dispositivo porque puede causar problemas con el JOIN
-          // En su lugar, cargar los marcajes directamente y luego obtener los dispositivos si es necesario
-          
-          // DEBUG: Verificar directamente en la base de datos antes de la consulta (para TODOS los empleados)
-          // Verificar específicamente si hay marcajes del dispositivo 24, 25, 26
-          // IMPORTANTE: Búsqueda exacta solamente - validación estricta
-          const marcajesDirectosSQL = await sequelize.query(
-            `SELECT id, employee_no, dispositivo_id, event_time, nombre 
-             FROM attlogs 
-             WHERE employee_no = :cedula 
-             AND event_time BETWEEN :fechaInicio AND :fechaFin 
-             ORDER BY event_time ASC`,
-            {
-              replacements: {
-                cedula: empleado.cedula,
-                fechaInicio: fechaInicio.toISOString(),
-                fechaFin: fechaFin.toISOString()
-              },
-              type: sequelize.QueryTypes.SELECT
-            }
-          );
-          
-          // Solo log detallado para el primer empleado
-          if (empleado.id === empleados[0]?.id) {
-          }
-          
-          // Verificar si hay marcajes del dispositivo 24, 25, 26 en cualquier empleado
-          const tieneMarcajes24 = marcajesDirectosSQL.some(m => m.dispositivo_id === 24);
-          const tieneMarcajes25 = marcajesDirectosSQL.some(m => m.dispositivo_id === 25);
-          const tieneMarcajes26 = marcajesDirectosSQL.some(m => m.dispositivo_id === 26);
-          
-          if (tieneMarcajes24 || tieneMarcajes25 || tieneMarcajes26) {
-          }
-          
-          // Buscar marcajes con búsqueda exacta solamente - validación estricta
-          marcajes = await Attlog.findAll({
+
+      if (fechaDesde && fechaHasta) {
+        const fInicio = new Date(fechaDesde); fInicio.setHours(0,0,0,0);
+        const fFin = new Date(fechaHasta); fFin.setHours(23,59,59,999);
+
+        // --- NORMALIZACIÓN DE RAÍZ ---
+        // Extraemos solo los números: "V25047058" -> "25047058"
+        const cedulaLimpia = empleado.cedula ? empleado.cedula.replace(/\D/g, '') : '';
+
+        const [excepciones, marcajes] = await Promise.all([
+          ExcepcionHorario.findAll({
+            where: { empleado_id: empleado.id, fecha: { [Op.between]: [fechaDesde, fechaHasta] } },
+            include: [{ model: PlantillaHorario, as: 'PlantillaHorario' }]
+          }),
+          Attlog.findAll({
             where: {
-              employee_no: empleado.cedula,
-              event_time: {
-                [Op.between]: [fechaInicio.toISOString(), fechaFin.toISOString()]
-              }
+              // Búsqueda inteligente: coincide con el formato de la BD o solo números
+              [Op.or]: [
+                { employee_no: empleado.cedula },
+                { employee_no: cedulaLimpia },
+                { employee_no: { [Op.like]: `%${cedulaLimpia}` } }
+              ],
+              // FILTRO DINÁMICO: Solo marcajes de equipos de ESTA sala
+              dispositivo_id: { [Op.in]: idsDispositivos }, 
+              event_time: { [Op.between]: [fInicio.toISOString(), fFin.toISOString()] }
             },
-            order: [['event_time', 'ASC']],
-            attributes: ['id', 'employee_no', 'event_time', 'dispositivo_id', 'nombre'],
-            raw: true // Usar raw para obtener objetos planos directamente
-          });
-          
-          // DEBUG: Comparar resultados de Sequelize vs SQL directa
-          if (empleado.id === empleados[0]?.id) {
-          }
-          
-          // Si hay marcajes, cargar los dispositivos asociados por separado para evitar problemas con JOIN
-          if (marcajes.length > 0) {
-            const dispositivoIds = [...new Set(marcajes.map(m => m.dispositivo_id).filter(id => id != null))];
-            if (dispositivoIds.length > 0) {
-              const dispositivos = await Dispositivo.findAll({
-                where: { id: { [Op.in]: dispositivoIds } },
-                attributes: ['id', 'nombre', 'ip_remota'],
-                raw: true
-              });
-              
-              // Crear un mapa de dispositivos por ID para acceso rápido
-              const dispositivosMap = {};
-              dispositivos.forEach(d => {
-                dispositivosMap[d.id] = d;
-              });
-              
-              // Agregar la información del dispositivo a cada marcaje
-              marcajes = marcajes.map(m => {
-                const marcajeConDispositivo = { ...m };
-                if (m.dispositivo_id && dispositivosMap[m.dispositivo_id]) {
-                  marcajeConDispositivo.Dispositivo = dispositivosMap[m.dispositivo_id];
-                }
-                return marcajeConDispositivo;
-              });
-            }
-          }
-        }
-        
-        // DEBUG: Log para verificar excepciones encontradas
-        if (excepciones.length > 0) {
-        }
-        
-        // Agregar excepciones y marcajes directamente al objeto del empleado (no solo en dataValues)
-        // IMPORTANTE: Asegurar que las excepciones se serialicen correctamente
-        const excepcionesMapeadas = excepciones.map(ex => {
-          const excepcionMapeada = {
-            id: ex.id,
-            empleado_id: ex.empleado_id,
-            fecha: ex.fecha,
-            plantilla_horario_id: ex.plantilla_horario_id
-          };
-          
-          // Incluir PlantillaHorario si está disponible
-          if (ex.PlantillaHorario) {
-            excepcionMapeada.PlantillaHorario = {
-              id: ex.PlantillaHorario.id,
-              codigo: ex.PlantillaHorario.codigo,
-              nombre: ex.PlantillaHorario.nombre,
-              hora_entrada: ex.PlantillaHorario.hora_entrada,
-              hora_salida: ex.PlantillaHorario.hora_salida,
-              color: ex.PlantillaHorario.color,
-              hora_descanso_entrada: ex.PlantillaHorario.hora_descanso_entrada,
-              hora_descanso_salida: ex.PlantillaHorario.hora_descanso_salida,
-              descanso_automatico: ex.PlantillaHorario.descanso_automatico
-            };
-          }
-          
-          return excepcionMapeada;
-        });
-        
-        // Asignar directamente al objeto empleado (no solo dataValues) para que se serialice en JSON
-        empleado.dataValues.excepciones = excepcionesMapeadas;
-        empleado.excepciones = excepcionesMapeadas;
-        
-        // Mapear marcajes (ya son objetos planos, no necesitan conversión)
-        const marcajesMapeados = marcajes.map(m => {
-          const marcajeMapeado = {
-            id: m.id,
-            employee_no: m.employee_no,
-            event_time: m.event_time,
-            dispositivo_id: m.dispositivo_id,
-            nombre: m.nombre
-          };
-          
-          // Incluir relación Dispositivo si está disponible (ya viene agregada en el paso anterior)
-          if (m.Dispositivo) {
-            marcajeMapeado.Dispositivo = {
-              id: m.Dispositivo.id,
-              nombre: m.Dispositivo.nombre,
-              ip_remota: m.Dispositivo.ip_remota
-            };
-          }
-          
-          return marcajeMapeado;
-        });
-        
-        empleado.dataValues.marcajes = marcajesMapeados;
-        empleado.marcajes = marcajesMapeados;
-        
-        return empleado;
-      }));
-      
-      // DEBUG: Contar total de excepciones y marcajes
-      const totalExcepciones = empleadosConDatos.reduce((sum, emp) => sum + (emp.excepciones?.length || 0), 0);
-      const totalMarcajes = empleadosConDatos.reduce((sum, emp) => sum + (emp.marcajes?.length || 0), 0);
-      
-      // Contar dispositivos en todos los marcajes devueltos
-      const todosDispositivosEnMarcajes = new Set();
-      empleadosConDatos.forEach(emp => {
-        if (emp.marcajes && Array.isArray(emp.marcajes)) {
-          emp.marcajes.forEach(m => {
-            if (m.dispositivo_id != null) {
-              todosDispositivosEnMarcajes.add(m.dispositivo_id);
-            }
-          });
-        }
-      });
-      
-      // Contar marcajes por dispositivo en TODOS los empleados
-      const marcajesPorDispositivoTotal = {};
-      empleadosConDatos.forEach(emp => {
-        if (emp.marcajes && Array.isArray(emp.marcajes)) {
-          emp.marcajes.forEach(m => {
-            const devId = m.dispositivo_id;
-            if (devId != null) {
-              marcajesPorDispositivoTotal[devId] = (marcajesPorDispositivoTotal[devId] || 0) + 1;
-            }
-          });
-        }
-      });
-      
-      return res.json(empleadosConDatos);
-    }
-    res.json(empleados);
+            include: [{ model: Dispositivo, as: 'Dispositivo', attributes: ['id', 'nombre'] }],
+            order: [['event_time', 'ASC']]
+          })
+        ]);
+
+        empData.excepciones = excepciones;
+        empData.marcajes = marcajes;
+      }
+
+      return empData;
+    }));
+
+    res.json(empleadosConTodo);
+
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+    console.error('Error en ruta dinámica de sala:', error);
+    res.status(500).json({ message: 'Error interno', error: error.message });
   }
 });
 
