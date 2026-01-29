@@ -3194,7 +3194,7 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   abrirModalMarcajes(empleado: any, dia: Date) {
-    this.cdr.detach(); // Optimización visual
+    this.cdr.detach(); // Desactivar detección para optimizar apertura
     
     this.modalEmpleado = empleado;
     this.modalFechaMarcajes = new Date(dia);
@@ -3204,63 +3204,102 @@ export class MarcajePersonalComponent implements OnInit {
     this.tieneModalAbierta = true;
     this.showMarcajesModal = true;
     
-    this.cdr.detectChanges();
+    this.cdr.detectChanges(); // Mostrar esqueleto del modal
 
     requestAnimationFrame(() => {
-      // 1. Obtener Info del Horario
+      // 1. Obtener Info del Horario (Plantilla)
       const bloque = this.getBloqueHorario(empleado, dia);
       if (bloque) this.modalPlantillaInfo = bloque;
 
-      // 2. Obtener Info Calculada
+      // 2. Obtener Info Calculada (Entrada/Salida procesada)
       const marcajeInfo = this.getHorarioInfo(empleado, dia, 'Descanso');
       this.modalMarcajeCalculado = (marcajeInfo && marcajeInfo !== 'Sin Registros') ? marcajeInfo : 'Sin Registros';
 
-      // 3. CARGAR MARCAJES DESDE MEMORIA (INSTANTÁNEO Y NORMALIZADO)
+      // 3. RECUPERAR DATOS DE MEMORIA (INSTANTÁNEO)
       const idLimpio = this.normalizarID(empleado.cedula);
       const todosLosLogs = this.marcajesCompletos.get(idLimpio) || [];
       
-      // Filtramos para mostrar ayer, hoy y mañana (para ver contexto)
-      const dInicio = new Date(dia); dInicio.setDate(dInicio.getDate() - 1); dInicio.setHours(0,0,0,0);
-      const dFin = new Date(dia); dFin.setDate(dFin.getDate() + 1); dFin.setHours(23,59,59,999);
+      // 4. Filtrar por fecha (Ayer, Hoy, Mañana) para dar contexto
+      const dRef = new Date(dia); dRef.setHours(0,0,0,0);
+      const dInicio = new Date(dRef); dInicio.setDate(dInicio.getDate() - 1);
+      const dFin = new Date(dRef); dFin.setDate(dFin.getDate() + 1); dFin.setHours(23,59,59,999);
       
       let logsFiltrados = todosLosLogs.filter((m: any) => {
         const t = new Date(m.event_time).getTime();
         return t >= dInicio.getTime() && t <= dFin.getTime();
       });
 
-      // Filtro por Dispositivos (si aplica)
+      // 5. Filtrar por Dispositivos (si aplica)
       if (this.selectedDispositivosIds.length > 0) {
-        const selectedIds = this.selectedDispositivosIds.map(id => Number(id));
+        const selIds = this.selectedDispositivosIds.map(Number);
         logsFiltrados = logsFiltrados.filter((m: any) => {
            const dId = Number(m.dispositivo_id || m.Dispositivo?.id || m.dispositivo?.id);
-           return selectedIds.includes(dId);
+           return selIds.includes(dId);
         });
       }
 
-      // 4. Mapear para la vista
-      const fechaRefStr = this.formatDateLocalYYYYMMDD(new Date(dia));
+      // 6. Identificar Entrada y Salida (Para colorear en la vista)
+      let marcajeEntradaId: number | null = null;
+      let marcajeSalidaId: number | null = null;
+
+      if (bloque) {
+         const calculados = this.calcularMarcajesDelDia(empleado, dia, bloque);
+         const hEnt = calculados.entrada;
+         const hSal = calculados.salida;
+         
+         logsFiltrados.forEach((m: any) => {
+             const mTime = new Date(m.event_time);
+             const mHora = mTime.toTimeString().substring(0, 5);
+             const mDateStr = this.formatDateLocalYYYYMMDD(mTime);
+             const refDateStr = this.formatDateLocalYYYYMMDD(dRef);
+             
+             // Coincidencia Entrada (Mismo día)
+             if (hEnt && hEnt !== 'Sin marcaje' && mHora === hEnt && mDateStr === refDateStr && !marcajeEntradaId) {
+                 marcajeEntradaId = m.id;
+             }
+             // Coincidencia Salida (Mismo día o Siguiente si es Nocturno)
+             if (hSal && hSal !== 'Sin marcaje' && mHora === hSal && !marcajeSalidaId) {
+                  const nextDateStr = this.formatDateLocalYYYYMMDD(new Date(dRef.getTime() + 86400000));
+                  if (mDateStr === refDateStr || mDateStr === nextDateStr) {
+                      marcajeSalidaId = m.id;
+                  }
+             }
+         });
+      }
+
+      // 7. Mapear para la vista
+      const fechaRefStr = this.formatDateLocalYYYYMMDD(dRef);
       
       this.marcajesModal = logsFiltrados.map((m: any) => {
-        const fechaHora = new Date(m.event_time);
-        const fechaStr = this.formatDateLocalYYYYMMDD(fechaHora);
+        const mTime = new Date(m.event_time);
+        const mDateStr = this.formatDateLocalYYYYMMDD(mTime);
         
         let tipoDia = 'Mismo día';
-        if (fechaStr < fechaRefStr) tipoDia = 'Día anterior';
-        if (fechaStr > fechaRefStr) tipoDia = 'Día después';
+        if (mDateStr < fechaRefStr) tipoDia = 'Día anterior';
+        if (mDateStr > fechaRefStr) tipoDia = 'Día después';
+        
+        let suffix = '';
+        let esEntrada = false;
+        let esSalida = false;
+        
+        if (m.id === marcajeEntradaId) { suffix = ' (Entrada)'; esEntrada = true; }
+        else if (m.id === marcajeSalidaId) { suffix = ' (Salida)'; esSalida = true; }
 
         return {
-          fecha: fechaHora, // Objeto Date para ordenar
-          hora: fechaHora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          fecha: mTime,
+          hora: mTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           dispositivo: m.Dispositivo?.nombre || m.dispositivo_id || 'Biométrico',
-          tipoDia: tipoDia,
+          tipoDia: tipoDia + suffix,
+          esEntrada,
+          esSalida,
           id: m.id
         };
       });
 
-      // Ordenar: Más recientes arriba (o abajo según prefieras, aquí cronológico)
+      // Ordenar cronológicamente
       this.marcajesModal.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
 
-      this.cdr.detectChanges();
+      this.cdr.detectChanges(); // Refrescar vista final
     });
   }
 
@@ -4661,7 +4700,6 @@ export class MarcajePersonalComponent implements OnInit {
     });
   }
 
-  // OPTIMIZACIÓN: Cargar todos los marcajes en UNA SOLA llamada (para recargar después de cambios)
   async cargarMarcajesCompletos(): Promise<void> {
     return new Promise((resolve) => {
       this.marcajesCompletos.clear();
@@ -4678,7 +4716,7 @@ export class MarcajePersonalComponent implements OnInit {
       }).subscribe({
         next: (response) => {
           const todosLosMarcajes = response.attlogs || [];
-          // Set de búsqueda rápida normalizado
+          // Set normalizado para búsqueda rápida
           const cedulasSet = new Set(empleadosConCedula.map(e => this.normalizarID(e.cedula)));
           
           todosLosMarcajes.forEach((marcaje: any) => {
@@ -10532,7 +10570,7 @@ export class MarcajePersonalComponent implements OnInit {
     return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
   }
 
-  // Agrega esto al final junto a tus funciones private
+  // Pégala al final de la clase, junto a tus otros métodos private
   private normalizarID(valor: any): string {
     if (!valor) return '';
     return valor.toString().replace(/\D/g, '').replace(/^0+/, '');
