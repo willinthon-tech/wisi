@@ -4041,97 +4041,444 @@ export class MarcajePersonalComponent implements OnInit {
       return;
     }
     
-    // Limpiamos los mapas antes de cargar para evitar duplicados de búsquedas anteriores
-    this.marcajesCompletos.clear();
-    this.excepcionesCompletas.clear();
-    this.excepcionesMap.clear();
-  
+    // Optimización: Obtener SOLO los empleados de esa sala (no todos)
+    // Pasar fechas para que el backend devuelva todo consolidado (horarios, excepciones, marcajes)
     this.empleadosService.getEmpleadosBySala(salaId, this.fechaDesde, this.fechaHasta).subscribe({
       next: (response) => {
+        // Los empleados ya vienen filtrados por sala desde el servidor
+        // OPTIMIZACIÓN: Los horarios, excepciones y marcajes ya vienen incluidos en cada empleado
         this.empleadosCompletos = response || [];
         
+        // Asegurar que cada empleado tenga horariosEmpleado (ya viene del backend)
+        // DEBUG: Verificar estructura de horarios y log para diagnóstico
+        this.empleadosCompletos.forEach(emp => {
+          if (!emp.horariosEmpleado) {
+            emp.horariosEmpleado = [];
+          } else {
+            // Verificar que los bloques estén presentes en cada horario
+            emp.horariosEmpleado.forEach((he: any) => {
+              if (he.Horario && he.Horario.bloques && he.Horario.bloques.length > 0) {
+                // Verificar que cada bloque tenga PlantillaHorario
+                he.Horario.bloques.forEach((bloque: any) => {
+                  if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+                  }
+                });
+              } else if (he.Horario) {
+              }
+            });
+            
+            // Log de muestra para el primer empleado con horarios
+            if (emp.horariosEmpleado.length > 0) {
+              const primerHorario = emp.horariosEmpleado[0];
+            }
+          }
+        });
+        
+        // Si no hay empleados, mostrar mensaje y terminar
         if (this.empleadosCompletos.length === 0) {
           this.loading = false;
           this.hasSearched = true;
           this.grupos = [];
           return;
         }
-  
-        // --- PROCESAMIENTO DE RAÍZ ---
+        
+        // OPTIMIZACIÓN: Procesar excepciones y marcajes que ya vienen en la respuesta
+        let totalExcepciones = 0;
         this.empleadosCompletos.forEach(emp => {
-          // 1. Normalización de Horarios
-          if (!emp.horariosEmpleado) {
-            emp.horariosEmpleado = [];
-          }
-  
-          // 2. Procesar Excepciones (Normalizando Fechas)
+          // Procesar excepciones
           if (emp.excepciones && Array.isArray(emp.excepciones)) {
             emp.excepciones.forEach((ex: any) => {
+              // Normalizar la fecha al formato YYYY-MM-DD para que coincida con el formato usado en getBloqueHorario
               let fechaNormalizada = ex.fecha;
               if (fechaNormalizada) {
+                // Si viene como string ISO o Date, convertir a YYYY-MM-DD
                 if (fechaNormalizada instanceof Date) {
                   fechaNormalizada = this.formatDateLocalYYYYMMDD(fechaNormalizada);
-                } else if (typeof fechaNormalizada === 'string' && !fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                  fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+                } else if (typeof fechaNormalizada === 'string') {
+                  // Si ya está en formato YYYY-MM-DD, usar tal cual
+                  // Si viene en otro formato, convertir
+                  if (!fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+                  }
                 }
               }
               const key = `${ex.empleado_id}|${fechaNormalizada}`;
               this.excepcionesCompletas.set(key, ex);
               this.excepcionesMap.set(key, ex);
-            });
-          }
-  
-          // 3. Procesar Marcajes (Normalizando Cédulas y Dispositivos)
-          if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
-            // Usamos la cédula original de la BD (con V/E) como llave única
-            const cedulaOriginal = emp.cedula;
-  
-            const marcajesNormalizados = emp.marcajes.map((marcaje: any) => {
-              // DETALLE: Extracción robusta del dispositivo_id para asegurar el filtrado
-              const dId = Number(marcaje.dispositivo_id) || 
-                          Number(marcaje.Dispositivo?.id) || 
-                          Number(marcaje.dispositivo?.id) || null;
+              totalExcepciones++;
               
-              return {
-                ...marcaje,
-                dispositivo_id: dId,
-                // Referencia limpia para comparaciones internas si fuera necesario
-                employee_no_limpio: this.limpiarID(marcaje.employee_no)
-              };
+              // DEBUG: Log para verificar que se está guardando correctamente
+              if (totalExcepciones <= 3) {
+              }
             });
-  
-            // Guardamos en el Mapa principal usando la llave real (V/E...)
-            this.marcajesCompletos.set(cedulaOriginal, marcajesNormalizados);
           }
         });
-  
-        // --- CARGA DE PLANTILLAS Y FILTROS FINAL ---
+        
+        // Procesar marcajes
+        let totalMarcajes = 0;
+        const dispositivosEnMarcajes = new Set<number>();
+        const muestraMarcajes: Array<{
+          empleado: string;
+          cedula: string;
+          marcajeId: number;
+          dispositivo_id: number | null;
+          Dispositivo: number | null;
+          DispositivoNombre?: string | null;
+          dispositivo: number | null;
+          dispositivoIdNormalizado: number | null;
+          event_time: string;
+          marcajeCompleto?: any;
+        }> = [];
+        
+        this.empleadosCompletos.forEach(emp => {
+          if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
+            // Normalizar y asegurar que cada marcaje tenga dispositivo_id correctamente extraído
+            const marcajesNormalizados = emp.marcajes.map((marcaje: any) => {
+              // Asegurar que dispositivo_id esté siempre presente y normalizado
+              let dispositivoId: number | null = null;
+              
+              // Intentar todas las formas posibles de obtener el dispositivo_id
+              if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
+                dispositivoId = Number(marcaje.dispositivo_id);
+              } else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.Dispositivo.id);
+              } else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.dispositivo.id);
+              }
+              
+              // Crear un objeto normalizado con dispositivo_id siempre presente
+              const marcajeNormalizado = {
+                ...marcaje,
+                dispositivo_id: dispositivoId !== null && !isNaN(dispositivoId) ? dispositivoId : marcaje.dispositivo_id,
+                // Mantener la relación Dispositivo si existe
+                Dispositivo: marcaje.Dispositivo || null,
+                dispositivo: marcaje.dispositivo || null
+              };
+              
+              return marcajeNormalizado;
+            });
+            
+            const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
+            marcajesEmpleado.push(...marcajesNormalizados);
+            this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+            totalMarcajes += marcajesNormalizados.length;
+            
+            // Analizar dispositivos en los marcajes normalizados
+            marcajesNormalizados.forEach((marcaje: any) => {
+              const dispositivoId = marcaje.dispositivo_id;
+              if (dispositivoId !== null && dispositivoId !== undefined && !isNaN(Number(dispositivoId))) {
+                dispositivosEnMarcajes.add(Number(dispositivoId));
+              }
+              
+              // Guardar muestra de marcajes para el log (especialmente los del dispositivo 24)
+              if (muestraMarcajes.length < 20 || dispositivoId === 24 || dispositivoId === 25 || dispositivoId === 26) {
+                muestraMarcajes.push({
+                  empleado: emp.nombre,
+                  cedula: emp.cedula,
+                  marcajeId: marcaje.id,
+                  dispositivo_id: marcaje.dispositivo_id,
+                  Dispositivo: marcaje.Dispositivo?.id,
+                  DispositivoNombre: marcaje.Dispositivo?.nombre,
+                  dispositivo: marcaje.dispositivo?.id,
+                  dispositivoIdNormalizado: dispositivoId,
+                  event_time: marcaje.event_time,
+                  marcajeCompleto: marcaje // Incluir el marcaje completo para debug
+                });
+              }
+            });
+            
+            // DEBUG: Buscar marcajes del dispositivo 24 específicamente en los marcajes normalizados
+            const marcajesDispositivo24Empleado = marcajesNormalizados.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 24;
+            });
+            
+            const marcajesDispositivo25Empleado = marcajesNormalizados.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 25;
+            });
+            
+            const marcajesDispositivo26Empleado = marcajesNormalizados.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 26;
+            });
+            
+            if (marcajesDispositivo24Empleado.length > 0 || marcajesDispositivo25Empleado.length > 0 || marcajesDispositivo26Empleado.length > 0) {
+            }
+            
+            // DEBUG: Log para verificar estructura de marcajes normalizados
+            if (marcajesNormalizados.length > 0 && totalMarcajes <= 10) {
+              const primerMarcaje = marcajesNormalizados[0];
+            }
+          }
+        });
+        
+        // DEBUG: Verificar específicamente los dispositivos 24, 25, 26 en los marcajes completos normalizados
+        const marcajesDispositivo24 = Array.from(this.marcajesCompletos.entries())
+          .flatMap(([cedula, marcajes]) => 
+            marcajes.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 24;
+            })
+          );
+        
+        const marcajesDispositivo25 = Array.from(this.marcajesCompletos.entries())
+          .flatMap(([cedula, marcajes]) => 
+            marcajes.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 25;
+            })
+          );
+        
+        const marcajesDispositivo26 = Array.from(this.marcajesCompletos.entries())
+          .flatMap(([cedula, marcajes]) => 
+            marcajes.filter((m: any) => {
+              const dispositivoId = m.dispositivo_id;
+              return dispositivoId !== null && dispositivoId !== undefined && Number(dispositivoId) === 26;
+            })
+          );
+        
+        // IMPORTANTE: Cargar todas las plantillas necesarias ANTES de calcular marcajes
+        // Extraer todos los plantilla_horario_id únicos de los bloques de horarios
+        const plantillaIdsNecesarios = new Set<number>();
+        this.empleadosCompletos.forEach(emp => {
+          if (emp.horariosEmpleado && Array.isArray(emp.horariosEmpleado)) {
+            emp.horariosEmpleado.forEach((he: any) => {
+              if (he.Horario && he.Horario.bloques && Array.isArray(he.Horario.bloques)) {
+                he.Horario.bloques.forEach((bloque: any) => {
+                  // Si el bloque no tiene PlantillaHorario cargada pero tiene plantilla_horario_id
+                  if (!bloque.PlantillaHorario && bloque.plantilla_horario_id) {
+                    plantillaIdsNecesarios.add(bloque.plantilla_horario_id);
+                  }
+                });
+              }
+            });
+          }
+        });
+        
+        // Cargar todas las plantillas necesarias
         const cargarPlantillasPromises: Promise<void>[] = [
           this.cargarFeriados(),
-          this.cargarPlantillasLibres(salaId),
-          new Promise<void>((res) => this.plantillasService.getPlantillasHorarios().subscribe({
-            next: (p) => { this.modalPlantillas = p; res(); },
-            error: () => res()
-          }))
+          this.cargarPlantillasLibres(salaId)
         ];
-  
+        
+        // CRÍTICO: SIEMPRE cargar todas las plantillas de la sala y todas las plantillas generales
+        // Esto asegura que la plantilla ID 14 y otras estén disponibles
+        // Cargar todas las plantillas de la sala para tenerlas disponibles
+        if (salaId) {
+          // SIEMPRE cargar, incluso si ya está en caché (para refrescar)
+          cargarPlantillasPromises.push(
+            new Promise<void>((resolve) => {
+              this.plantillasService.getBySala(salaId).subscribe({
+                next: (plantillas: any[]) => {
+                  this.plantillasPorSalaCache.set(salaId, plantillas || []);
+                  // También actualizar modalPlantillas con las plantillas de la sala
+                  if (plantillas && plantillas.length > 0) {
+                    this.modalPlantillas = [...(this.modalPlantillas || []), ...plantillas];
+                    // Eliminar duplicados por ID
+                    this.modalPlantillas = this.modalPlantillas.filter((p: any, index: number, self: any[]) => 
+                      index === self.findIndex((p2: any) => p2.id === p.id)
+                    );
+                  }
+                  resolve();
+                },
+                error: () => resolve()
+              });
+            })
+          );
+        }
+        
+        // También cargar TODAS las plantillas si no están cargadas (para asegurar que ID 14 esté disponible)
+        // SIEMPRE cargar, incluso si ya está en caché (para refrescar)
+        cargarPlantillasPromises.push(
+          new Promise<void>((resolve) => {
+            this.plantillasService.getPlantillasHorarios().subscribe({
+              next: (plantillas: any[]) => {
+                this.todasLasPlantillasCache = plantillas || [];
+                // También actualizar modalPlantillas con todas las plantillas
+                if (plantillas && plantillas.length > 0) {
+                  this.modalPlantillas = [...(this.modalPlantillas || []), ...plantillas];
+                  // Eliminar duplicados por ID
+                  this.modalPlantillas = this.modalPlantillas.filter((p: any, index: number, self: any[]) => 
+                    index === self.findIndex((p2: any) => p2.id === p.id)
+                  );
+                }
+                resolve();
+              },
+              error: () => resolve()
+            });
+          })
+        );
+        
         Promise.all(cargarPlantillasPromises).then(() => {
-          this.actualizarListasCascada();
-          this.aplicarFiltrosLocales();
+          // CRÍTICO: Identificar todas las plantillas necesarias de los bloques de horario
+          // y cargarlas si no están en los caches
+          const plantillaIdsNecesarios = new Set<number>();
+          
+          // Recorrer todos los empleados y extraer todos los plantilla_horario_id de sus horarios
+          this.empleadosCompletos.forEach((emp: any) => {
+            if (emp.horariosEmpleado && Array.isArray(emp.horariosEmpleado)) {
+              emp.horariosEmpleado.forEach((he: any) => {
+                if (he.Horario && he.Horario.bloques && Array.isArray(he.Horario.bloques)) {
+                  he.Horario.bloques.forEach((bloque: any) => {
+                    if (bloque.plantilla_horario_id) {
+                      plantillaIdsNecesarios.add(bloque.plantilla_horario_id);
+                    }
+                  });
+                }
+              });
+            }
+          });
+          
+          // Cargar las plantillas que no están en los caches
+          const plantillasFaltantes: Promise<void>[] = [];
+          plantillaIdsNecesarios.forEach((plantillaId: number) => {
+            // Verificar si la plantilla ya está en algún cache
+            const enModalPlantillas = this.modalPlantillas?.some((p: any) => p.id === plantillaId);
+            const enTodasLasPlantillas = this.todasLasPlantillasCache?.some((p: any) => p.id === plantillaId);
+            let enPlantillasPorSala = false;
+            if (salaId) {
+              const plantillasSala = this.plantillasPorSalaCache.get(salaId);
+              enPlantillasPorSala = plantillasSala?.some((p: any) => p.id === plantillaId) || false;
+            }
+            
+            // Si no está en ningún cache, cargarla directamente
+            if (!enModalPlantillas && !enTodasLasPlantillas && !enPlantillasPorSala) {
+              plantillasFaltantes.push(
+                new Promise<void>((resolve) => {
+                  this.plantillasService.getPlantillaHorario(plantillaId).subscribe({
+                    next: (plantilla: any) => {
+                      if (plantilla) {
+                        // Agregar a modalPlantillas
+                        if (!this.modalPlantillas) {
+                          this.modalPlantillas = [];
+                        }
+                        if (!this.modalPlantillas.some((p: any) => p.id === plantilla.id)) {
+                          this.modalPlantillas.push(plantilla);
+                        }
+                        // Agregar a todasLasPlantillasCache
+                        if (!this.todasLasPlantillasCache) {
+                          this.todasLasPlantillasCache = [];
+                        }
+                        if (!this.todasLasPlantillasCache.some((p: any) => p.id === plantilla.id)) {
+                          this.todasLasPlantillasCache.push(plantilla);
+                        }
+                        // Agregar a plantillasPorSalaCache si hay sala
+                        if (salaId && plantilla.sala_id === salaId) {
+                          if (!this.plantillasPorSalaCache.has(salaId)) {
+                            this.plantillasPorSalaCache.set(salaId, []);
+                          }
+                          const plantillasSala = this.plantillasPorSalaCache.get(salaId)!;
+                          if (!plantillasSala.some((p: any) => p.id === plantilla.id)) {
+                            plantillasSala.push(plantilla);
+                          }
+                        }
+                      }
+                      resolve();
+                    },
+                    error: () => resolve() // Continuar aunque falle
+                  });
+                })
+              );
+            }
+          });
+          
+          // Esperar a que se carguen todas las plantillas faltantes
+          Promise.all(plantillasFaltantes).then(() => {
+            // Actualizar listas de filtros (departamentos, áreas, cargos) con los empleados cargados
+            this.actualizarListasCascada();
+            // Aplicar filtros locales iniciales para mostrar los datos
+            this.aplicarFiltrosLocales();
+          });
         });
       },
-      error: (err) => {
+      error: (error) => {
         this.loading = false;
         this.hasSearched = true;
-        console.error('Error cargando datos consolidadores:', err);
+        this.empleadosCompletos = [];
+        this.grupos = [];
+        // Si falla getEmpleadosBySala, intentar con getEmpleados como fallback
+        this.empleadosService.getEmpleados().subscribe({
+          next: (response) => {
+            const todosEmpleados = response || [];
+            // Filtrar empleados por sala en el cliente como fallback
+            this.empleadosCompletos = todosEmpleados.filter((emp: any) => {
+              const cargo = emp?.Cargo;
+              if (!cargo) return false;
+              const area = cargo.Area;
+              if (!area) return false;
+              const departamento = area.Departamento;
+              if (!departamento) return false;
+              const sala = departamento.Sala;
+              const salaIdEmp = sala?.id || departamento.sala_id;
+              return salaIdEmp === salaId;
+            });
+            
+            if (this.empleadosCompletos.length > 0) {
+              // Asegurar que cada empleado tenga horariosEmpleado
+              this.empleadosCompletos.forEach(emp => {
+                if (!emp.horariosEmpleado) {
+                  emp.horariosEmpleado = [];
+                }
+              });
+              
+              // OPTIMIZACIÓN: Procesar excepciones y marcajes que ya vienen en la respuesta consolidada
+              this.empleadosCompletos.forEach(emp => {
+                // Procesar excepciones
+                if (emp.excepciones && Array.isArray(emp.excepciones)) {
+                  emp.excepciones.forEach((ex: any) => {
+                    // Normalizar la fecha al formato YYYY-MM-DD para que coincida con el formato usado en getBloqueHorario
+                    let fechaNormalizada = ex.fecha;
+                    if (fechaNormalizada) {
+                      // Si viene como string ISO o Date, convertir a YYYY-MM-DD
+                      if (fechaNormalizada instanceof Date) {
+                        fechaNormalizada = this.formatDateLocalYYYYMMDD(fechaNormalizada);
+                      } else if (typeof fechaNormalizada === 'string') {
+                        // Si ya está en formato YYYY-MM-DD, usar tal cual
+                        // Si viene en otro formato, convertir
+                        if (!fechaNormalizada.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                          fechaNormalizada = this.formatDateLocalYYYYMMDD(new Date(fechaNormalizada));
+                        }
+                      }
+                    }
+                    const key = `${ex.empleado_id}|${fechaNormalizada}`;
+                    this.excepcionesCompletas.set(key, ex);
+                    this.excepcionesMap.set(key, ex);
+                  });
+                }
+                
+                // Procesar marcajes
+                if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
+                  const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
+                  marcajesEmpleado.push(...emp.marcajes);
+                  this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+                }
+              });
+              
+              // OPTIMIZACIÓN: Ya NO necesitamos cargar horarios, excepciones ni marcajes individualmente
+              // Todo ya viene en la respuesta consolidada del backend
+              // Solo necesitamos cargar feriados y plantillas libres
+              Promise.all([
+                this.cargarFeriados(),
+                this.cargarPlantillasLibres(salaId)
+              ]).then(() => {
+                this.aplicarFiltrosLocales();
+              });
+            } else {
+              this.loading = false;
+              this.hasSearched = true;
+              this.grupos = [];
+            }
+          },
+          error: (err) => {
+            this.loading = false;
+            this.hasSearched = true;
+            this.empleadosCompletos = [];
+            this.grupos = [];
+          }
+        });
       }
     });
-  }
-  
-  // Función auxiliar indispensable para la raíz
-  private limpiarID(valor: any): string {
-    if (!valor) return '';
-    return valor.toString().replace(/\D/g, ''); // Deja solo los números
   }
 
   // Cargar horarios para todos los empleados completos
@@ -4317,60 +4664,132 @@ export class MarcajePersonalComponent implements OnInit {
   async cargarMarcajesPorRango(): Promise<void> {
     return new Promise((resolve) => {
       this.marcajesCompletos.clear();
+      
       const empleadosConCedula = this.empleadosCompletos.filter(e => e.cedula);
-  
+      
       if (empleadosConCedula.length === 0 || !this.fechaDesde || !this.fechaHasta) {
         resolve();
         return;
       }
-  
-      // --- PASO 1: EL TRADUCTOR (NORMALIZACIÓN DE RAÍZ) ---
-      // Creamos un mapa: "Número Puro" -> "Cédula Real BD (con V/E...)"
-      const traductor = new Map(
-        empleadosConCedula.map(e => [e.cedula.replace(/\D/g, ''), e.cedula])
-      );
-  
+      
+      // OPTIMIZACIÓN: UNA SOLA llamada para traer TODOS los marcajes del rango de fechas
+      // NO filtrar por employee_no - traer todos y filtrar localmente
+      // IMPORTANTE: No pasar limit para obtener TODOS los marcajes sin límite
       this.marcajesService.getMarcajes({
         fecha_inicio: this.fechaDesde,
         fecha_fin: this.fechaHasta
+        // NO incluir employee_no - traer todos los marcajes del rango
+        // NO incluir limit - traer TODOS sin límite
       }).subscribe({
         next: (response) => {
           const todosLosMarcajes = response.attlogs || [];
-  
-          todosLosMarcajes.forEach((marcaje: any) => {
-            // --- PASO 2: LIMPIEZA DEL DATO DEL RELOJ ---
-            const idLimpioReloj = marcaje.employee_no ? marcaje.employee_no.toString().replace(/\D/g, '') : '';
-  
-            // --- PASO 3: EL MATCH INTELIGENTE ---
-            const cedulaReal = traductor.get(idLimpioReloj);
-  
-            if (cedulaReal) {
-              // --- PASO 4: NORMALIZAR DISPOSITIVO ID ---
-              const dId = Number(marcaje.dispositivo_id) || 
-                          Number(marcaje.Dispositivo?.id) || 
-                          Number(marcaje.dispositivo?.id);
-              
-              marcaje.dispositivo_id = dId;
-  
-              // --- PASO 5: GUARDAR BAJO LA LLAVE REAL (V/E...) ---
-              if (!this.marcajesCompletos.has(cedulaReal)) {
-                this.marcajesCompletos.set(cedulaReal, []);
-              }
-              this.marcajesCompletos.get(cedulaReal)!.push(marcaje);
+          
+          // DEBUG: Analizar dispositivos en la respuesta del backend ANTES de filtrar
+          const dispositivosEnRespuesta = new Set<number>();
+          const muestraMarcajes = todosLosMarcajes.slice(0, 10).map((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnRespuesta.add(dispositivoId);
+            }
+            return {
+              id: m.id,
+              employee_no: m.employee_no,
+              dispositivo_id: m.dispositivo_id,
+              dispositivo: m.dispositivo?.id,
+              Dispositivo: m.Dispositivo?.id,
+              dispositivoIdNormalizado: dispositivoId,
+              event_time: m.event_time
+            };
+          });
+          
+          // Analizar TODOS los marcajes para obtener dispositivos únicos
+          todosLosMarcajes.forEach((m: any) => {
+            let dispositivoId: number | null = null;
+            if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+              dispositivoId = Number(m.dispositivo_id);
+            } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+              dispositivoId = Number(m.dispositivo.id);
+            } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+              dispositivoId = Number(m.Dispositivo.id);
+            }
+            if (dispositivoId !== null && !isNaN(dispositivoId)) {
+              dispositivosEnRespuesta.add(dispositivoId);
             }
           });
-  
-          // --- PASO 6: ASEGURAR ESTRUCTURA ---
+          
+          // Crear un mapa de cédulas para búsqueda rápida
+          const cedulasSet = new Set(empleadosConCedula.map(e => e.cedula));
+          
+          // DEBUG: Contadores para ver qué se está filtrando
+          const dispositivosEnMarcajesFiltrados = new Set<number>();
+          let marcajesFiltradosPorEmpleado = 0;
+          let marcajesDescartadosPorEmpleado = 0;
+          
+          // Agrupar marcajes por employee_no (cedula) localmente
+          todosLosMarcajes.forEach((marcaje: any) => {
+            const cedula = marcaje.employee_no;
+            // Solo procesar marcajes de empleados que están en la lista
+            if (cedula && cedulasSet.has(cedula)) {
+              if (!this.marcajesCompletos.has(cedula)) {
+                this.marcajesCompletos.set(cedula, []);
+              }
+              this.marcajesCompletos.get(cedula)!.push(marcaje);
+              marcajesFiltradosPorEmpleado++;
+              
+              // Extraer dispositivo_id para el log
+              let dispositivoId: number | null = null;
+              if (marcaje.dispositivo_id !== undefined && marcaje.dispositivo_id !== null) {
+                dispositivoId = Number(marcaje.dispositivo_id);
+              } else if (marcaje.Dispositivo?.id !== undefined && marcaje.Dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.Dispositivo.id);
+              } else if (marcaje.dispositivo?.id !== undefined && marcaje.dispositivo?.id !== null) {
+                dispositivoId = Number(marcaje.dispositivo.id);
+              }
+              if (dispositivoId !== null && !isNaN(dispositivoId)) {
+                dispositivosEnMarcajesFiltrados.add(dispositivoId);
+              }
+            } else {
+              marcajesDescartadosPorEmpleado++;
+            }
+          });
+          
+          // Asegurar que todos los empleados tengan un array (aunque esté vacío)
           empleadosConCedula.forEach(empleado => {
             if (!this.marcajesCompletos.has(empleado.cedula)) {
               this.marcajesCompletos.set(empleado.cedula, []);
             }
           });
-  
+          
+          // DEBUG: Verificar marcajes específicos del dispositivo 24 (Puerta Cecom)
+          const marcajesDispositivo24 = Array.from(this.marcajesCompletos.entries())
+            .flatMap(([cedula, marcajes]) => 
+              marcajes.filter((m: any) => {
+                let dispositivoId: number | null = null;
+                if (m.dispositivo_id !== undefined && m.dispositivo_id !== null) {
+                  dispositivoId = Number(m.dispositivo_id);
+                } else if (m.Dispositivo?.id !== undefined && m.Dispositivo?.id !== null) {
+                  dispositivoId = Number(m.Dispositivo.id);
+                } else if (m.dispositivo?.id !== undefined && m.dispositivo?.id !== null) {
+                  dispositivoId = Number(m.dispositivo.id);
+                }
+                return dispositivoId === 24;
+              })
+            );
+          
           resolve();
         },
         error: (err) => {
-          empleadosConCedula.forEach(e => this.marcajesCompletos.set(e.cedula, []));
+          // Si hay error, inicializar arrays vacíos para todos los empleados
+          empleadosConCedula.forEach(empleado => {
+            this.marcajesCompletos.set(empleado.cedula, []);
+          });
           resolve();
         }
       });
