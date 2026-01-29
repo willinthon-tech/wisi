@@ -8564,19 +8564,9 @@ app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req
 });
 
 // POST /api/tareas/dispositivo/agregar-usuario
-app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (req, res) => {
-  
+/* app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (req, res) => {
   try {
     const { tarea } = req.body;
-    
-    
-    
-    
-    
-    
-    
-    
-    
     // Detectar si es panel: si la acción incluye "Panel" o si ip_publica_dispositivo es igual a ip_local_dispositivo
     const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
                    (tarea.ip_local_dispositivo && 
@@ -8629,13 +8619,6 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
           gender: tarea.nombre_genero,
           userType: 'normal',
           doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
-          //doorRight: "1",
-          RightPlan: [
-            {
-              doorNo: "1",
-              planTemplateNo: "1"
-            }
-          ],
           localUIRight: false,
           maxOpenDoorTime: 0,
           Valid: {
@@ -8643,7 +8626,14 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
             beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2024-01-01T00:00:00',
             endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
             timeType: 'local'
-          }
+          },
+          doorRight: "1",
+          RightPlan: [
+            {
+              doorNo: "1",
+              planTemplateNo: "1"
+            }
+          ]
         }
       };
     }
@@ -8651,17 +8641,13 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
     const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
     
     // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      
+    if (response.status >= 200 && response.status < 300) { 
       res.json({
         success: true,
         message: `Usuario agregado correctamente al ${esPanel ? 'panel' : 'dispositivo'}`,
         deviceResponse: response.data
       });
-    } else {
-      
-      
+    } else { 
       res.status(500).json({
         success: false,
         message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
@@ -8676,10 +8662,136 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
       message: error.message
     });
   }
+}); */
+
+// POST /api/tareas/dispositivo/agregar-usuario
+app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (req, res) => {
+  try {
+    const { tarea } = req.body;
+
+    // Detectar si es panel
+    const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
+                    (tarea.ip_local_dispositivo && 
+                     tarea.ip_local_dispositivo.trim() !== '' && 
+                     tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
+    const method = 'PUT';
+    
+    let response;
+
+    // ==========================================
+    // LÓGICA PARA PANELES DE CONTROL
+    // ==========================================
+    if (esPanel) {
+      const body = {
+        UserInfo: {
+          employeeNo: tarea.numero_cedula_empleado,
+          name: tarea.nombre_empleado,
+          userType: 'normal',
+          closeDelayEnabled: false,
+          Valid: {
+            enable: true,
+            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2025-01-01T00:00:00',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
+            timeType: 'local'
+          },
+          belongGroup: '',
+          password: '',
+          doorRight: "1,2",
+          RightPlan: [
+            { doorNo: 1, planTemplateNo: "1" },
+            { doorNo: 2, planTemplateNo: "1" }
+          ],
+          maxOpenDoorTime: 0,
+          openDoorTime: 0
+        }
+      };
+      // Petición única para Paneles
+      response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+
+    } else {
+      // ==========================================
+      // LÓGICA PARA BIOMÉTRICOS (AQUÍ ESTÁ EL CAMBIO)
+      // ==========================================
+      
+      // 1. Preparamos datos comunes y limpiamos el género (vital para evitar errores 400)
+      
+      const baseUserInfo = {
+          employeeNo: tarea.numero_cedula_empleado,
+          name: tarea.nombre_empleado,
+          gender: tarea.nombre_genero, // Usamos el género corregido
+          userType: 'normal',
+          doorNo: 1, 
+          localUIRight: false,
+          maxOpenDoorTime: 0,
+          Valid: {
+            enable: true,
+            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2024-01-01T00:00:00',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
+            timeType: 'local'
+          }
+      };
+
+      // --- INTENTO 1: MODO COMPLETO (Para equipos nuevos DS-K1T320EFX) ---
+      // Incluimos RightPlan para que el usuario tenga permisos de inmediato
+      const bodyCompleto = {
+        UserInfo: {
+          ...baseUserInfo,
+          RightPlan: [{ doorNo: 1, planTemplateNo: "1" }] 
+        }
+      };
+
+      console.log(`[Biométrico] Intentando registro COMPLETO para ${tarea.nombre_empleado}...`);
+      response = await makeDigestRequest(deviceUrl, endpoint, method, bodyCompleto, tarea);
+
+      // Si falla el modo completo (status diferente de 200/201), intentamos el modo simple
+      if (!response || response.status < 200 || response.status >= 300) {
+        
+        console.warn(`[Biométrico] Falló modo completo (Status: ${response ? response.status : 'null'}). Reintentando modo SIMPLE...`);
+        
+        // --- INTENTO 2: MODO SIMPLE (Para equipos viejos) ---
+        // Quitamos RightPlan para no confundir al firmware viejo
+        const bodySimple = {
+          UserInfo: {
+            ...baseUserInfo
+            // Sin RightPlan
+          }
+        };
+
+        response = await makeDigestRequest(deviceUrl, endpoint, method, bodySimple, tarea);
+      }
+    }
+
+    // ==========================================
+    // RESPUESTA FINAL AL CLIENTE
+    // ==========================================
+    if (response && response.status >= 200 && response.status < 300) {
+      res.json({
+        success: true,
+        message: `Usuario procesado correctamente en el ${esPanel ? 'panel' : 'dispositivo'}`,
+        deviceResponse: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response ? response.status : 'Desconocido'} - ${response ? response.statusText : ''}`,
+        deviceResponse: response ? response.data : null
+      });
+    }
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 });
 
+
 // POST /api/tareas/dispositivo/editar-usuario
-app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req, res) => {
+/* app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req, res) => {
   try {
     const { tarea } = req.body;
     
@@ -8735,19 +8847,19 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
           gender: tarea.nombre_genero,
           userType: 'normal',
           doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
-          //doorRight: "1",
-          RightPlan: [
-            {
-              doorNo: "1",
-              planTemplateNo: "1"
-            }
-          ],
           Valid: {
             enable: true,
             beginTime: tarea.marcaje_empleado_inicio_dispositivo || tarea.fecha_ingreso || '2024-01-01T00:00:00',
             endTime: tarea.marcaje_empleado_fin_dispositivo || '2025-12-31T23:59:59',
             timeType: 'local'
-          }
+          },
+          doorRight: "1",
+          RightPlan: [
+            {
+              doorNo: "1",
+              planTemplateNo: "1"
+            }
+          ]
         }
       };
     }
@@ -8775,6 +8887,132 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
     
   } catch (error) {
     
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}); */
+// POST /api/tareas/dispositivo/editar-usuario
+app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req, res) => {
+  try {
+    const { tarea } = req.body;
+    
+    // Detectar si es panel
+    const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
+                    (tarea.ip_local_dispositivo && 
+                     tarea.ip_local_dispositivo.trim() !== '' && 
+                     tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+    
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
+    const method = 'PUT';
+    
+    let response;
+
+    // ==========================================
+    // LÓGICA PARA PANELES DE CONTROL
+    // ==========================================
+    if (esPanel) {
+      const body = {
+        UserInfo: {
+          employeeNo: tarea.numero_cedula_empleado,
+          name: tarea.nombre_empleado,
+          userType: 'normal',
+          closeDelayEnabled: false,
+          Valid: {
+            enable: true,
+            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2025-01-01T00:00:00',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
+            timeType: 'local'
+          },
+          belongGroup: '',
+          password: '',
+          doorRight: "1,2",
+          RightPlan: [
+            { doorNo: 1, planTemplateNo: "1" },
+            { doorNo: 2, planTemplateNo: "1" }
+          ],
+          maxOpenDoorTime: 0,
+          openDoorTime: 0
+        }
+      };
+      
+      response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+
+    } else {
+      // ==========================================
+      // LÓGICA PARA BIOMÉTRICOS (DOBLE INTENTO)
+      // ==========================================
+      
+      // 1. Limpieza de datos (Género e Info Base)
+      const genderFixed = (tarea.nombre_genero && tarea.nombre_genero.toLowerCase().includes('femenin')) ? 'female' : 'male';
+      
+      const baseUserInfo = {
+          employeeNo: tarea.numero_cedula_empleado,
+          name: tarea.nombre_empleado,
+          gender: genderFixed,
+          userType: 'normal',
+          doorNo: 1, // Necesario para la mayoría de Value Series
+          localUIRight: false,
+          maxOpenDoorTime: 0,
+          Valid: {
+            enable: true,
+            // Nota: En editar a veces usamos 'fecha_ingreso' como fallback si no hay marcaje definido
+            beginTime: tarea.marcaje_empleado_inicio_dispositivo || tarea.fecha_ingreso || '2024-01-01T00:00:00',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
+            timeType: 'local'
+          }
+      };
+
+      // --- INTENTO 1: MODO COMPLETO (Prioridad Nuevos) ---
+      // Enviamos RightPlan para asegurar que mantengan permisos al editarse
+      const bodyCompleto = {
+        UserInfo: {
+          ...baseUserInfo,
+          RightPlan: [{ doorNo: 1, planTemplateNo: "1" }]
+        }
+      };
+
+      console.log(`[Editar] Intentando modo COMPLETO para ${tarea.nombre_empleado}...`);
+      response = await makeDigestRequest(deviceUrl, endpoint, method, bodyCompleto, tarea);
+
+      // Si falla (status fuera del rango 200-299), intentamos el modo simple
+      if (!response || response.status < 200 || response.status >= 300) {
+        
+        console.warn(`[Editar] Falló modo completo (Status: ${response ? response.status : 'null'}). Reintentando modo SIMPLE...`);
+        
+        // --- INTENTO 2: MODO SIMPLE (Compatibilidad Viejos) ---
+        // Retiramos RightPlan para evitar error 'badJsonContent' en legacy
+        const bodySimple = {
+          UserInfo: {
+            ...baseUserInfo
+            // Sin RightPlan
+          }
+        };
+
+        response = await makeDigestRequest(deviceUrl, endpoint, method, bodySimple, tarea);
+      }
+    }
+    
+    // ==========================================
+    // RESPUESTA FINAL
+    // ==========================================
+    if (response && response.status >= 200 && response.status < 300) {
+      res.json({
+        success: true,
+        message: `Usuario editado correctamente en el ${esPanel ? 'panel' : 'dispositivo'}`,
+        deviceResponse: response.data
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response ? response.status : 'Desconocido'} - ${response ? response.statusText : ''}`,
+        deviceResponse: response ? response.data : null
+      });
+    }
+    
+  } catch (error) {
     res.status(500).json({
       success: false,
       message: error.message
