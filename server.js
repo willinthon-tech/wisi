@@ -8629,6 +8629,13 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
           gender: tarea.nombre_genero,
           userType: 'normal',
           doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
+          //doorRight: "1",
+          RightPlan: [
+            {
+              doorNo: "1",
+              planTemplateNo: "1"
+            }
+          ],
           localUIRight: false,
           maxOpenDoorTime: 0,
           Valid: {
@@ -8636,14 +8643,7 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
             beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2024-01-01T00:00:00',
             endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
             timeType: 'local'
-          },
-          /* doorRight: "1",
-          RightPlan: [
-            {
-              doorNo: "1",
-              planTemplateNo: "1"
-            }
-          ] */
+          }
         }
       };
     }
@@ -8735,19 +8735,19 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
           gender: tarea.nombre_genero,
           userType: 'normal',
           doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
-          Valid: {
-            enable: true,
-            beginTime: tarea.marcaje_empleado_inicio_dispositivo || tarea.fecha_ingreso || '2024-01-01T00:00:00',
-            endTime: tarea.marcaje_empleado_fin_dispositivo || '2025-12-31T23:59:59',
-            timeType: 'local'
-          },
-          /* doorRight: "1",
+          //doorRight: "1",
           RightPlan: [
             {
               doorNo: "1",
               planTemplateNo: "1"
             }
-          ] */
+          ],
+          Valid: {
+            enable: true,
+            beginTime: tarea.marcaje_empleado_inicio_dispositivo || tarea.fecha_ingreso || '2024-01-01T00:00:00',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2025-12-31T23:59:59',
+            timeType: 'local'
+          }
         }
       };
     }
