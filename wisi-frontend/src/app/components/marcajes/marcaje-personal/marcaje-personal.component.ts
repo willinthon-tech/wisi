@@ -3194,53 +3194,109 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   abrirModalMarcajes(empleado: any, dia: Date) {
-    this.cdr.detach(); // Optimización de rendimiento
+    // 1. Preparación inicial y optimización de UI
+    this.cdr.detach(); 
     this.modalEmpleado = empleado;
     this.modalFechaMarcajes = new Date(dia);
     this.marcajesModal = [];
+    this.modalPlantillaInfo = null;
+    this.modalMarcajeCalculado = '';
+    this.tieneModalAbierta = true;
     this.showMarcajesModal = true;
     this.cdr.detectChanges();
   
-    const diaAnterior = new Date(dia);
+    // 2. Definición de fechas locales para el rango de búsqueda (Ayer, Hoy, Mañana)
+    const diaReferencia = new Date(dia);
+    diaReferencia.setHours(0, 0, 0, 0);
+  
+    const diaAnterior = new Date(diaReferencia);
     diaAnterior.setDate(diaAnterior.getDate() - 1);
-    diaAnterior.setHours(0, 0, 0, 0);
   
-    const diaSiguiente = new Date(dia);
+    const diaSiguiente = new Date(diaReferencia);
     diaSiguiente.setDate(diaSiguiente.getDate() + 1);
-    diaSiguiente.setHours(23, 59, 59, 999);
+    const diaSiguienteLimite = new Date(diaSiguiente);
+    diaSiguienteLimite.setHours(23, 59, 59, 999);
   
-    // IMPORTANTE: Limpiamos la cédula para que el servicio SI encuentre la data
+    // 3. Normalización de Cédula para el servicio (Eliminar V/E)
     const cedulaBusqueda = this.limpiarID(empleado.cedula);
   
     this.marcajesService.getMarcajes({
       employee_no: cedulaBusqueda,
       fecha_inicio: diaAnterior.toISOString(),
-      fecha_fin: diaSiguiente.toISOString()
+      fecha_fin: diaSiguienteLimite.toISOString()
     }).subscribe({
       next: (response) => {
-        const marcajes = response.attlogs || [];
-        const fechaRefStr = new Date(dia).toISOString().split('T')[0];
+        const todosLosMarcajes = response.attlogs || [];
+        
+        // Filtro dinámico por dispositivos seleccionados (si aplica)
+        let marcajesFiltrados = todosLosMarcajes;
+        if (this.selectedDispositivosIds.length > 0) {
+          const selectedIds = this.selectedDispositivosIds.map(id => Number(id));
+          marcajesFiltrados = todosLosMarcajes.filter((m: any) => {
+            const dId = Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
+            return dId !== null && selectedIds.includes(dId);
+          });
+        }
   
-        this.marcajesModal = marcajes.map((m: any) => {
-          const fMarcaje = new Date(m.event_time);
-          const fStr = fMarcaje.toISOString().split('T')[0];
+        // 4. Identificar Marcajes de Entrada y Salida Calculados
+        const bloque = this.getBloqueHorario(empleado, diaReferencia);
+        let idEntradaCalculada: number | null = null;
+        let idSalidaCalculada: number | null = null;
+  
+        if (bloque) {
+          this.modalPlantillaInfo = bloque;
+          const calculados = this.calcularMarcajesDelDia(empleado, diaReferencia, bloque);
           
-          let tipo = 'Mismo día';
-          if (fStr < fechaRefStr) tipo = 'Día anterior';
-          if (fStr > fechaRefStr) tipo = 'Día siguiente';
+          // Buscamos los IDs reales en la lista para ponerles la etiqueta en la modal
+          marcajesFiltrados.forEach((m: any) => {
+            const horaM = new Date(m.event_time).toTimeString().split(' ')[0].substring(0, 5);
+            const fechaMStr = this.formatDateLocalYYYYMMDD(new Date(m.event_time));
+            const fechaRefStr = this.formatDateLocalYYYYMMDD(diaReferencia);
+            const fechaSiguienteStr = this.formatDateLocalYYYYMMDD(diaSiguiente);
+  
+            if (horaM === calculados.entrada && fechaMStr === fechaRefStr) idEntradaCalculada = m.id;
+            if (horaM === calculados.salida && (fechaMStr === fechaRefStr || fechaMStr === fechaSiguienteStr)) idSalidaCalculada = m.id;
+          });
+        }
+  
+        // 5. Mapeo Final con corrección de Fecha Local (Bug ISO resuelto)
+        const fechaRefStr = this.formatDateLocalYYYYMMDD(diaReferencia);
+  
+        this.marcajesModal = marcajesFiltrados.map((m: any) => {
+          const fechaHora = new Date(m.event_time);
+          const fechaMarcajeStr = this.formatDateLocalYYYYMMDD(fechaHora);
+          
+          let tipoDia = 'Mismo día';
+          if (fechaMarcajeStr < fechaRefStr) tipoDia = 'Día anterior';
+          if (fechaMarcajeStr > fechaRefStr) tipoDia = 'Día siguiente';
+  
+          const esEntrada = m.id === idEntradaCalculada;
+          const esSalida = m.id === idSalidaCalculada;
+  
+          if (esEntrada) tipoDia += ' (Entrada)';
+          if (esSalida) tipoDia += ' (Salida)';
   
           return {
-            fecha: fMarcaje,
-            hora: fMarcaje.toTimeString().split(' ')[0].substring(0, 5),
-            dispositivo: m.Dispositivo?.nombre || m.nombre || '-',
-            tipoDia: tipo
+            fecha: fechaHora,
+            hora: fechaHora.toTimeString().split(' ')[0].substring(0, 5),
+            dispositivo: m.Dispositivo?.nombre || m.nombre || 'Desconocido',
+            tipoDia: tipoDia,
+            esEntrada: esEntrada,
+            esSalida: esSalida,
+            id: m.id
           };
         });
   
+        // Ordenar cronológicamente
         this.marcajesModal.sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+        
         this.cdr.detectChanges();
       },
-      error: () => { this.marcajesModal = []; this.cdr.detectChanges(); }
+      error: (err) => {
+        console.error('Error cargando marcajes de la modal:', err);
+        this.marcajesModal = [];
+        this.cdr.detectChanges();
+      }
     });
   }
 
