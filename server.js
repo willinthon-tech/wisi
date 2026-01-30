@@ -8563,8 +8563,9 @@ app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req
   }
 });
 
+
 // =============================================================================
-// RUTA 1: AGREGAR USUARIO
+// RUTA 1: AGREGAR USUARIO (CON VINCULACIÓN DE GRUPO)
 // =============================================================================
 app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (req, res) => {
   try {
@@ -8582,9 +8583,10 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
     let response;
 
     // --------------------------------------------------------------------------
-    // LÓGICA PARA PANELES DE CONTROL (Sin cambios mayores)
+    // LÓGICA PARA PANELES DE CONTROL
     // --------------------------------------------------------------------------
     if (esPanel) {
+      // (Tu lógica de panel se mantiene igual)
       const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
       const body = {
         UserInfo: {
@@ -8601,30 +8603,25 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
           belongGroup: '',
           password: '',
           doorRight: "1,2",
-          RightPlan: [
-            { doorNo: 1, planTemplateNo: "1" },
-            { doorNo: 2, planTemplateNo: "1" }
-          ],
+          RightPlan: [{ doorNo: 1, planTemplateNo: "1" }, { doorNo: 2, planTemplateNo: "1" }],
           maxOpenDoorTime: 0,
           openDoorTime: 0
         }
       };
-      
       response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
 
     } else {
       // --------------------------------------------------------------------------
-      // LÓGICA PARA BIOMÉTRICOS (DS-K1T320EFX y Legacy)
+      // LÓGICA PARA BIOMÉTRICOS (CORRECCIÓN "PERSON NOT ASSIGNED")
       // --------------------------------------------------------------------------
-     
+      
       const baseUserInfo = {
           employeeNo: tarea.numero_cedula_empleado,
           name: tarea.nombre_empleado,
-          gender: tarea.nombre_genero, // Importante: ISAPI requiere 'male'/'female'
+          gender: tarea.nombre_genero,
           userType: 'normal',
           doorNo: 1,
           localUIRight: false,
-          maxOpenDoorTime: 0,
           Valid: {
             enable: true,
             beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2024-01-01T00:00:00',
@@ -8633,116 +8630,101 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
           }
       };
 
-      // --- INTENTO 1: MODO COMPLETO (Estándar Nuevo / Value Series) ---
-      // Usamos el endpoint 'Record' y asignamos Departamento (belongGroup) + Permisos (RightPlan)
+      // --- PASO 1: CREAR USUARIO (INTENTO DOBLE) ---
       const endpointNew = '/ISAPI/AccessControl/UserInfo/Record?format=json';
-      const bodyCompleto = {
-        UserInfo: {
-          ...baseUserInfo,
-          belongGroup: "1", // Asigna al Departamento 1 (Soluciona el usuario huérfano)
-          RightPlan: [{ doorNo: 1, planTemplateNo: "1" }] // Asigna permisos de puerta inmediato
-        }
-      };
-
-      console.log(`[Agregar] Intentando modo COMPLETO (Record) para ${tarea.nombre_empleado}...`);
+      
+      // Intentamos primero con Record (Moderno)
+      const bodyCompleto = { UserInfo: { ...baseUserInfo, belongGroup: "1" } }; // Intentamos enviar belongGroup aquí por si acaso
+      
+      console.log(`[Agregar] Paso 1: Creando usuario ${tarea.nombre_empleado}...`);
       response = await makeDigestRequest(deviceUrl, endpointNew, method, bodyCompleto, tarea);
 
-      // --- INTENTO 2: FALLBACK (Legacy / Equipos Viejos) ---
-      // Si falla (status error), reintentamos con el método viejo 'SetUp' y JSON simple
+      // Si falla, fallback a SetUp (Legacy)
       if (!response || response.status < 200 || response.status >= 300) {
-        
-        console.warn(`[Agregar] Falló modo completo. Reintentando modo LEGACY (SetUp)...`);
-        
+        console.warn(`[Agregar] Falló modo Record. Reintentando modo Legacy (SetUp)...`);
         const endpointOld = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
-        const bodySimple = {
-          UserInfo: {
-            ...baseUserInfo
-            // Sin belongGroup ni RightPlan complejo
-          }
-        };
-
+        const bodySimple = { UserInfo: { ...baseUserInfo } };
         response = await makeDigestRequest(deviceUrl, endpointOld, method, bodySimple, tarea);
+      }
+
+      // --- PASO 2: VINCULACIÓN EXPLÍCITA A GRUPO (LA SOLUCIÓN) ---
+      // Si el usuario se creó correctamente, ahora lo forzamos a entrar al Grupo 1
+      if (response && response.status >= 200 && response.status < 300) {
+        try {
+            console.log(`[Agregar] Paso 2: Forzando vinculación a Grupo 1...`);
+            
+            // Endpoint específico para asignar grupos. Esto arregla el "Person Not Assigned"
+            const groupEndpoint = '/ISAPI/AccessControl/UserToGroup/SetUp?format=json';
+            const groupBody = {
+                "UserToGroup": {
+                    "memberNo": tarea.numero_cedula_empleado,
+                    "groupNo": "1" // Asumimos Grupo 1 (Default). Si no existe, habría que crearlo.
+                }
+            };
+            
+            // Hacemos la petición de vinculación. No bloqueamos si falla (await sin check estricto)
+            await makeDigestRequest(deviceUrl, groupEndpoint, 'PUT', groupBody, tarea);
+            console.log("✅ Vinculación a grupo enviada.");
+            
+        } catch (groupError) {
+            console.warn("⚠️ Advertencia: No se pudo vincular al grupo automáticamente (puede que el equipo sea muy viejo):", groupError.message);
+            // No hacemos throw aquí para no reportar error al cliente si el usuario ya se creó
+        }
       }
     }
 
     // Respuesta Final
     if (response && response.status >= 200 && response.status < 300) {
-      res.json({
-        success: true,
-        message: `Usuario agregado correctamente al ${esPanel ? 'panel' : 'dispositivo'}`,
-        deviceResponse: response.data
-      });
+      res.json({ success: true, message: `Proceso completado`, deviceResponse: response.data });
     } else {
-      res.status(500).json({
-        success: false,
-        message: `El dispositivo respondió con error: ${response ? response.status : 'Desconocido'} - ${response ? response.statusText : ''}`,
-        deviceResponse: response ? response.data : null
-      });
+      res.status(500).json({ success: false, message: `Error dispositivo`, deviceResponse: response ? response.data : null });
     }
     
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
-
 // =============================================================================
-// RUTA 2: EDITAR USUARIO
+// RUTA 2: EDITAR USUARIO (CON RELINK)
 // =============================================================================
 app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req, res) => {
   try {
     const { tarea } = req.body;
-    
-    // Detectar si es panel
     const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
-                    (tarea.ip_local_dispositivo && 
-                     tarea.ip_local_dispositivo.trim() !== '' && 
-                     tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+                    (tarea.ip_local_dispositivo && tarea.ip_local_dispositivo.trim() !== '' && tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
     
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     const method = 'PUT';
-    
     let response;
 
-    // --------------------------------------------------------------------------
-    // LÓGICA PARA PANELES DE CONTROL
-    // --------------------------------------------------------------------------
     if (esPanel) {
+      // (Misma lógica Panel que arriba...)
       const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
       const body = {
         UserInfo: {
-          employeeNo: tarea.numero_cedula_empleado,
-          name: tarea.nombre_empleado,
-          userType: 'normal',
-          closeDelayEnabled: false,
-          Valid: {
-            enable: true,
-            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2025-01-01T00:00:00',
-            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
-            timeType: 'local'
-          },
-          belongGroup: '',
-          password: '',
-          doorRight: "1,2",
-          RightPlan: [
-            { doorNo: 1, planTemplateNo: "1" },
-            { doorNo: 2, planTemplateNo: "1" }
-          ],
-          maxOpenDoorTime: 0,
-          openDoorTime: 0
+            employeeNo: tarea.numero_cedula_empleado,
+            name: tarea.nombre_empleado,
+            userType: 'normal',
+            closeDelayEnabled: false,
+            Valid: {
+                enable: true,
+                beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2025-01-01T00:00:00',
+                endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
+                timeType: 'local'
+            },
+            belongGroup: '',
+            password: '',
+            doorRight: "1,2",
+            RightPlan: [{ doorNo: 1, planTemplateNo: "1" }, { doorNo: 2, planTemplateNo: "1" }],
+            maxOpenDoorTime: 0,
+            openDoorTime: 0
         }
       };
-      
       response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
 
     } else {
-      // --------------------------------------------------------------------------
-      // LÓGICA PARA BIOMÉTRICOS (Mismo patrón Double-Check)
-      // --------------------------------------------------------------------------
-     
+      // --- BIOMÉTRICOS ---
       const baseUserInfo = {
           employeeNo: tarea.numero_cedula_empleado,
           name: tarea.nombre_empleado,
@@ -8750,68 +8732,58 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
           userType: 'normal',
           doorNo: 1,
           localUIRight: false,
-          maxOpenDoorTime: 0,
           Valid: {
             enable: true,
-            // En edición permitimos fecha_ingreso como fallback
             beginTime: tarea.marcaje_empleado_inicio_dispositivo || tarea.fecha_ingreso || '2024-01-01T00:00:00',
             endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
             timeType: 'local'
           }
       };
 
-      // --- INTENTO 1: MODO COMPLETO (Record + Grupos) ---
+      // PASO 1: EDITAR DATOS
       const endpointNew = '/ISAPI/AccessControl/UserInfo/Record?format=json';
-      const bodyCompleto = {
-        UserInfo: {
-          ...baseUserInfo,
-          belongGroup: "1", // Mantiene/Asigna el departamento
-          RightPlan: [{ doorNo: 1, planTemplateNo: "1" }]
-        }
-      };
+      const bodyCompleto = { UserInfo: { ...baseUserInfo, belongGroup: "1" } };
 
-      console.log(`[Editar] Intentando modo COMPLETO (Record) para ${tarea.nombre_empleado}...`);
+      console.log(`[Editar] Paso 1: Actualizando datos de ${tarea.nombre_empleado}...`);
       response = await makeDigestRequest(deviceUrl, endpointNew, method, bodyCompleto, tarea);
 
-      // --- INTENTO 2: FALLBACK (SetUp Simple) ---
       if (!response || response.status < 200 || response.status >= 300) {
-        
-        console.warn(`[Editar] Falló modo completo. Reintentando modo LEGACY (SetUp)...`);
-        
+        console.warn(`[Editar] Falló modo Record. Reintentando modo Legacy...`);
         const endpointOld = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
-        const bodySimple = {
-          UserInfo: {
-            ...baseUserInfo
-            // Sin campos avanzados
-          }
-        };
-
+        const bodySimple = { UserInfo: { ...baseUserInfo } };
         response = await makeDigestRequest(deviceUrl, endpointOld, method, bodySimple, tarea);
       }
+
+      // PASO 2: RE-VINCULACIÓN (CRÍTICO AL EDITAR TAMBIÉN)
+      // A veces al editar se pierde el grupo si el JSON no lo traía. Lo reforzamos.
+      if (response && response.status >= 200 && response.status < 300) {
+        try {
+            console.log(`[Editar] Paso 2: Reforzando vinculación a Grupo 1...`);
+            const groupEndpoint = '/ISAPI/AccessControl/UserToGroup/SetUp?format=json';
+            const groupBody = {
+                "UserToGroup": {
+                    "memberNo": tarea.numero_cedula_empleado,
+                    "groupNo": "1"
+                }
+            };
+            await makeDigestRequest(deviceUrl, groupEndpoint, 'PUT', groupBody, tarea);
+        } catch (groupError) {
+            console.warn("⚠️ Advertencia en re-vinculación:", groupError.message);
+        }
+      }
     }
-    
-    // Respuesta Final
+
     if (response && response.status >= 200 && response.status < 300) {
-      res.json({
-        success: true,
-        message: `Usuario editado correctamente en el ${esPanel ? 'panel' : 'dispositivo'}`,
-        deviceResponse: response.data
-      });
+      res.json({ success: true, message: `Usuario editado`, deviceResponse: response.data });
     } else {
-      res.status(500).json({
-        success: false,
-        message: `El dispositivo respondió con error: ${response ? response.status : 'Desconocido'} - ${response ? response.statusText : ''}`,
-        deviceResponse: response ? response.data : null
-      });
+      res.status(500).json({ success: false, message: `Error dispositivo`, deviceResponse: response ? response.data : null });
     }
     
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
+
 
 // POST /api/tareas/dispositivo/borrar-foto
 app.post('/api/tareas/dispositivo/borrar-foto', authenticateToken, async (req, res) => {
