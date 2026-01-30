@@ -8832,35 +8832,38 @@ app.post('/api/tareas/dispositivo/borrar-foto', authenticateToken, async (req, r
 
 
 // =============================================================================
-// RUTA: AGREGAR FOTO (CON PAUSA DE SEGURIDAD Y DOBLE BORRADO)
+// RUTA: AGREGAR FOTO (CON BORRADO AGRESIVO Y DELAY)
 // =============================================================================
 app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, res) => {
   try {
     const { tarea } = req.body;
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     
-    // --- PASO 1: BORRADO PREVENTIVO ---
-    console.log(`[Agregar Foto] Borrando registro previo para ${tarea.numero_cedula_empleado}...`);
+    // 1. PASO CRÍTICO: BORRADO AGRESIVO
+    // Intentamos borrar usando el endpoint de búsqueda/eliminación por FDID
+    console.log(`[Agregar Foto] Limpieza profunda para: ${tarea.numero_cedula_empleado}`);
     const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
-    const deleteBody = { FPID: [{ value: tarea.numero_cedula_empleado }] };
-    
+    const deleteBody = {
+      FPID: [{ value: tarea.numero_cedula_empleado }]
+    };
+
     try {
-        await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
-        console.log("✅ Comando de borrado enviado. Esperando que el dispositivo procese...");
-        
-        // --- PASO 2: PAUSA CRÍTICA (2 SEGUNDOS) ---
-        // Los equipos Value Series necesitan tiempo para limpiar su caché de rostros
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
+      // Forzamos el borrado
+      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
+      
+      // 2. PAUSA DE SEGURIDAD AUMENTADA (3 SEGUNDOS)
+      // Los modelos Value Series con V4.39 necesitan este tiempo para actualizar el índice facial
+      console.log("⏳ Borrado enviado. Esperando 3 segundos para sincronización interna...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
     } catch (e) {
-        console.warn("⚠️ No se pudo borrar (quizás no existía). Continuando...");
+      console.warn("⚠️ No se pudo ejecutar el borrado previo, intentando continuar...");
     }
     
-    // --- PASO 3: SUBIDA AL SERVIDOR ---
+    // 3. SUBIR AL SERVIDOR
     const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
-    if (!imageUrl) return res.status(500).json({ success: false, message: 'Error en servidor de imágenes.' });
+    if (!imageUrl) return res.status(500).json({ success: false, message: 'Error en servidor local de imágenes.' });
     
-    // --- PASO 4: CREACIÓN (POST) ---
+    // 4. REGISTRO (POST)
     const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
     const body = {
       faceURL: imageUrl,
@@ -8871,49 +8874,47 @@ app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, 
       gender: tarea.nombre_genero
     };
 
-    console.log(`[Agregar Foto] Registrando rostro...`);
+    console.log(`[Agregar Foto] Enviando nuevo registro...`);
     const response = await makeDigestRequest(deviceUrl, endpoint, 'POST', body, tarea);
 
-    if (response.status >= 200 && response.status < 300) {
+    if (response && response.status >= 200 && response.status < 300) {
       res.json({ success: true, message: 'Foto agregada correctamente', deviceResponse: response.data });
     } else {
       res.status(500).json({ 
-          success: false, 
-          message: "El dispositivo aún reporta que la foto existe. Intente de nuevo en unos segundos.", 
-          deviceResponse: response.data 
+        success: false, 
+        message: "El equipo sigue reportando duplicado. Intente borrar el usuario completo y crearlo de nuevo.", 
+        deviceResponse: response ? response.data : null 
       });
     }
-    
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
 // =============================================================================
-// RUTA: EDITAR FOTO (MISMA LÓGICA DE PAUSA)
+// RUTA: EDITAR FOTO (LÓGICA MEJORADA)
 // =============================================================================
 app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, res) => {
   try {
     const { tarea } = req.body;
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     
-    // PASO 1: BORRADO OBLIGATORIO
-    console.log(`[Editar Foto] Eliminando anterior...`);
+    // 1. BORRADO Y ESPERA OBLIGATORIA
+    console.log(`[Editar Foto] Forzando eliminación de rostro: ${tarea.numero_cedula_empleado}`);
     const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
     const deleteBody = { FPID: [{ value: tarea.numero_cedula_empleado }] };
     
     try {
-        await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
-        // PAUSA DE 2 SEGUNDOS PARA ASEGURAR LIMPIEZA
-        console.log("⏳ Esperando 2 seg...");
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
+      console.log("⏳ Esperando 3 seg para asegurar limpieza de caché...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
     } catch (e) { }
 
-    // PASO 2: SUBIR
+    // 2. SUBIR IMAGEN
     const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
-    if (!imageUrl) return res.status(500).json({ success: false, message: 'Error imagen.' });
+    if (!imageUrl) return res.status(500).json({ success: false, message: 'Error procesando imagen.' });
     
-    // PASO 3: REGISTRAR NUEVA
+    // 3. REGISTRO
     const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
     const body = {
       faceURL: imageUrl,
@@ -8926,12 +8927,15 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
 
     const response = await makeDigestRequest(deviceUrl, endpoint, 'POST', body, tarea);
 
-    if (response.status >= 200 && response.status < 300) {
+    if (response && response.status >= 200 && response.status < 300) {
       res.json({ success: true, message: 'Foto editada correctamente', deviceResponse: response.data });
     } else {
-      res.status(500).json({ success: false, message: "Error al reemplazar foto (Aún detectada como duplicada)", deviceResponse: response.data });
+      res.status(500).json({ 
+        success: false, 
+        message: "Error: El dispositivo no liberó el ID facial a tiempo.", 
+        deviceResponse: response ? response.data : null 
+      });
     }
-    
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
