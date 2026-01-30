@@ -8871,7 +8871,7 @@ app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, 
       FDID: '1',
       FPID: tarea.numero_cedula_empleado,
       name: tarea.nombre_empleado,
-      gender: tarea.nombre_genero
+      gender: (tarea.nombre_genero && tarea.nombre_genero.toLowerCase().includes('femenin')) ? 'female' : 'male'
     };
 
     console.log(`[Agregar Foto] Enviando nuevo registro...`);
@@ -8922,7 +8922,7 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
       FDID: '1',
       FPID: tarea.numero_cedula_empleado,
       name: tarea.nombre_empleado,
-      gender: tarea.nombre_genero
+      gender: (tarea.nombre_genero && tarea.nombre_genero.toLowerCase().includes('femenin')) ? 'female' : 'male'
     };
 
     const response = await makeDigestRequest(deviceUrl, endpoint, 'POST', body, tarea);
