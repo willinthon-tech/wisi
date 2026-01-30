@@ -8830,29 +8830,27 @@ app.post('/api/tareas/dispositivo/borrar-foto', authenticateToken, async (req, r
   }
 });
 
+
 // =============================================================================
-// RUTA: AGREGAR FOTO (CON MANEJO DE "ALREADY EXIST")
+// RUTA: AGREGAR FOTO (CORREGIDO: MANEJO DE RESPUESTA SIN EXCEPCIONES)
 // =============================================================================
 app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, res) => {
   try {
     const { tarea } = req.body;
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     
-    // 1. INTENTO DE BORRADO PREVIO (Por si acaso)
-    try {
-      const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
-      const deleteBody = { FPID: [{ value: tarea.numero_cedula_empleado }] };
-      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
-    } catch (e) { 
-        // Ignoramos errores de borrado, seguimos adelante
-    }
+    // 1. INTENTO DE BORRADO (Opcional, ignoramos el resultado)
+    // Usamos PUT porque algunos dispositivos V4.39 lo prefieren para borrar
+    const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
+    const deleteBody = { FPID: [{ value: tarea.numero_cedula_empleado }] };
+    await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
     
-    // 2. SUBIR IMAGEN AL SERVIDOR
+    // 2. SUBIR IMAGEN
     console.log(`[Agregar Foto] Subiendo imagen...`);
     const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
     if (!imageUrl) return res.status(500).json({ success: false, message: 'Error subiendo imagen al servidor.' });
     
-    // 3. ENVIAR AL DISPOSITIVO (Lógica Inteligente)
+    // 3. ENVIAR AL DISPOSITIVO (Lógica if/else en lugar de try/catch)
     const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
     const body = {
       faceURL: imageUrl,
@@ -8860,58 +8858,42 @@ app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, 
       FDID: '1',
       FPID: tarea.numero_cedula_empleado,
       name: tarea.nombre_empleado,
-      // Solo 'male' o 'female'
-      gender: (tarea.nombre_genero && tarea.nombre_genero.toLowerCase().includes('femenin')) ? 'female' : 'male'
+      gender: tarea.nombre_genero
     };
 
-    let response;
-    
-    try {
-       // INTENTO A: POST (Crear nueva)
-       console.log(`[Agregar Foto] Intentando CREAR (POST)...`);
-       response = await makeDigestRequest(deviceUrl, endpoint, 'POST', body, tarea);
-       
-    } catch (error) {
-       // ANALIZAMOS EL ERROR
-       const errorData = error.response?.data || {};
-       const esErrorDuplicado = errorData.subStatusCode === 'alreadyExistThisFace' || 
-                                errorData.errorMsg === 'saveFacePic';
+    console.log(`[Agregar Foto] Intentando CREAR (POST)...`);
+    let response = await makeDigestRequest(deviceUrl, endpoint, 'POST', body, tarea);
 
-       if (esErrorDuplicado) {
-           console.warn(`⚠️ La foto ya existe (alreadyExistThisFace). Cambiando a ACTUALIZAR (PUT)...`);
-           // INTENTO B: PUT (Sobreescribir existente)
-           try {
-               response = await makeDigestRequest(deviceUrl, endpoint, 'PUT', body, tarea);
-           } catch (putError) {
-               // Si falla el PUT, devolvemos el error original del PUT
-               throw putError;
-           }
-       } else {
-           // Si es otro error (ej. URL invalida), lanzamos el original
-           throw error;
-       }
+    // --- DETECCIÓN DEL ERROR "YA EXISTE" ---
+    // Si falla (status >= 300) Y el mensaje dice que ya existe...
+    const data = response ? response.data : {};
+    const esDuplicado = data && (
+        (data.subStatusCode === 'alreadyExistThisFace') || 
+        (data.errorMsg === 'saveFacePic' && data.statusCode === 4)
+    );
+
+    if (esDuplicado) {
+        console.warn(`⚠️ La foto ya existe. Cambiando estrategia a ACTUALIZAR (PUT)...`);
+        // Plan B: Intentar ACTUALIZAR (PUT)
+        response = await makeDigestRequest(deviceUrl, endpoint, 'PUT', body, tarea);
     }
 
-    if (response.status >= 200 && response.status < 300) {
+    // --- EVALUACIÓN FINAL ---
+    if (response && response.status >= 200 && response.status < 300) {
       res.json({ success: true, message: 'Foto agregada correctamente', deviceResponse: response.data });
     } else {
-      res.status(500).json({ success: false, message: `Error dispositivo: ${response.status}`, deviceResponse: response.data });
+      // Si falló el POST y el PUT (o no era duplicado), mostramos el error original
+      res.status(500).json({ success: false, message: `Error dispositivo: ${response ? response.status : 'Desconocido'}`, deviceResponse: response ? response.data : null });
     }
     
   } catch (error) {
-    // Aquí atrapamos el error final si fallaron ambos intentos
-    const data = error.response?.data;
-    res.status(500).json({ 
-        success: false, 
-        message: data?.subStatusCode || error.message,
-        deviceResponse: data 
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
 
 // =============================================================================
-// RUTA: EDITAR FOTO (MISMA LÓGICA INTELIGENTE)
+// RUTA: EDITAR FOTO (MISMA LÓGICA CORREGIDA)
 // =============================================================================
 app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, res) => {
   try {
@@ -8919,11 +8901,9 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     
     // 1. INTENTO DE BORRADO (Crítico en edición)
-    try {
-      const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
-      const deleteBody = { FPID: [{ value: tarea.numero_cedula_empleado }] };
-      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
-    } catch (e) { } // Continuamos aunque falle
+    const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
+    const deleteBody = { FPID: [{ value: tarea.numero_cedula_empleado }] };
+    await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
 
     // 2. SUBIR IMAGEN
     const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
@@ -8937,48 +8917,37 @@ app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, r
       FDID: '1',
       FPID: tarea.numero_cedula_empleado,
       name: tarea.nombre_empleado,
-      gender: (tarea.nombre_genero && tarea.nombre_genero.toLowerCase().includes('femenin')) ? 'female' : 'male'
+      gender: tarea.nombre_genero
     };
 
-    let response;
+    console.log(`[Editar Foto] Intentando ACTUALIZAR (PUT)...`);
+    // En editar, probamos PUT primero (lógica inversa)
+    let response = await makeDigestRequest(deviceUrl, endpoint, 'PUT', body, tarea);
     
-    try {
-       // En EDITAR, probamos PUT primero (es lo lógico)
-       console.log(`[Editar Foto] Intentando ACTUALIZAR (PUT)...`);
-       response = await makeDigestRequest(deviceUrl, endpoint, 'PUT', body, tarea);
+    // Si falla el PUT (ej. no existe la cara), probamos POST
+    // Código de error 5 o 'notExist' suele indicar que no existe para actualizar
+    if (response && response.status >= 400) {
+       console.warn(`⚠️ Falló PUT (Status ${response.status}). Intentando CREAR (POST)...`);
+       response = await makeDigestRequest(deviceUrl, endpoint, 'POST', body, tarea);
        
-    } catch (error) {
-       // Si falla PUT (quizás no existía la foto), probamos POST
-       console.warn(`⚠️ Falló PUT. Intentando CREAR (POST)...`);
-       try {
-           response = await makeDigestRequest(deviceUrl, endpoint, 'POST', body, tarea);
-       } catch (postError) {
-           // Si falla POST, revisamos si es porque ya existe (caso raro de condición de carrera)
-           const errData = postError.response?.data || {};
-           if (errData.subStatusCode === 'alreadyExistThisFace') {
-               // Si dice que ya existe, volvemos a intentar PUT una última vez
-               response = await makeDigestRequest(deviceUrl, endpoint, 'PUT', body, tarea);
-           } else {
-               throw postError;
-           }
+       // Si el POST falla diciendo "ya existe" (condición de carrera rara), reintentamos PUT una última vez
+       const data = response ? response.data : {};
+       if (data.subStatusCode === 'alreadyExistThisFace') {
+           response = await makeDigestRequest(deviceUrl, endpoint, 'PUT', body, tarea);
        }
     }
 
-    if (response.status >= 200 && response.status < 300) {
+    if (response && response.status >= 200 && response.status < 300) {
       res.json({ success: true, message: 'Foto editada correctamente', deviceResponse: response.data });
     } else {
-      res.status(500).json({ success: false, message: `Error dispositivo: ${response.status}`, deviceResponse: response.data });
+      res.status(500).json({ success: false, message: `Error dispositivo: ${response ? response.status : 'Desconocido'}`, deviceResponse: response ? response.data : null });
     }
     
   } catch (error) {
-    const data = error.response?.data;
-    res.status(500).json({ 
-        success: false, 
-        message: data?.subStatusCode || error.message,
-        deviceResponse: data 
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
+
 
 // Función helper para generar cardNo desde cédula
 // Convierte V -> 1, E -> 2 y mantiene el resto del número
