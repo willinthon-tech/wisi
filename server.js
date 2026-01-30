@@ -8830,102 +8830,159 @@ app.post('/api/tareas/dispositivo/borrar-foto', authenticateToken, async (req, r
   }
 });
 
-
-// =============================================================================
-// RUTA: AGREGAR FOTO (FLUJO ASÍNCRONO SECUENCIAL)
-// =============================================================================
+// POST /api/tareas/dispositivo/agregar-foto
 app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, res) => {
   try {
     const { tarea } = req.body;
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     
-    // 1. ELIMINACIÓN PREVIA CON ESPERA DE RESPUESTA
-    console.log(`[Agregar Foto] Solicitando eliminación de ID: ${tarea.numero_cedula_empleado}`);
-    const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
-    const deleteBody = { FPID: [{ value: tarea.numero_cedula_empleado }] };
-    
-    // Esperamos la respuesta del borrado antes de seguir
-    const delRes = await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
-    
-    if (delRes && delRes.status < 300) {
-      console.log("✅ Dispositivo confirmó eliminación del rostro previo.");
-    } else {
-      console.log("ℹ️ El dispositivo no encontró rostro previo o ya estaba limpio.");
+    // Primero eliminar la foto existente del dispositivo (si existe)
+    try {
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
+      const deleteBody = {
+        FPID: [
+          {
+            value: tarea.numero_cedula_empleado
+          }
+        ]
+      };
+      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
+    } catch (deleteError) {
+      // Continuar aunque falle la eliminación (puede que no exista foto previa)
     }
-
-    // 2. SUBIDA AL SERVIDOR (Solo si el paso anterior terminó)
+    
+    // Subir la imagen al servidor interno (base64 -> URL)
+    console.log(`[Agregar Foto] Subiendo imagen para cédula: ${tarea.numero_cedula_empleado}`);
     const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
-    if (!imageUrl) throw new Error('Error al procesar la imagen en el servidor local');
-
-    // 3. REGISTRO DE NUEVA FOTO
-    const recordEndpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
-    const recordBody = {
+    if (!imageUrl) {
+      console.error(`[Agregar Foto] Error: No se pudo subir la imagen para cédula ${tarea.numero_cedula_empleado}`);
+      return res.status(500).json({
+        success: false,
+        message: 'Error al subir la imagen al servidor'
+      });
+    }
+    console.log(`[Agregar Foto] Imagen subida exitosamente. URL: ${imageUrl}`);
+    
+    // Agregar la nueva foto al dispositivo usando la URL
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
+    const method = 'POST';
+    const body = {
       faceURL: imageUrl,
       faceLibType: 'blackFD',
       FDID: '1',
       FPID: tarea.numero_cedula_empleado,
       name: tarea.nombre_empleado,
-      gender: (tarea.nombre_genero && tarea.nombre_genero.toLowerCase().includes('femenin')) ? 'female' : 'male'
+      gender: tarea.nombre_genero === 'Masculino' ? 'male' : 'female',
+      featurePointType: 'face'
     };
 
-    console.log(`[Agregar Foto] Enviando registro POST...`);
-    const response = await makeDigestRequest(deviceUrl, recordEndpoint, 'POST', recordBody, tarea);
-
-    if (response && response.status >= 200 && response.status < 300) {
-      res.json({ success: true, message: 'Foto agregada correctamente', deviceResponse: response.data });
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      
+      
+      res.json({
+        success: true,
+        message: 'Foto agregada correctamente al dispositivo',
+        deviceResponse: response.data
+      });
     } else {
-      res.status(500).json({ success: false, message: 'El dispositivo rechazó el registro', deviceResponse: response ? response.data : null });
+      
+      
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
     }
     
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 });
 
-// =============================================================================
-// RUTA: EDITAR FOTO (FLUJO ASÍNCRONO SECUENCIAL)
-// =============================================================================
+// POST /api/tareas/dispositivo/editar-foto
 app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, res) => {
   try {
     const { tarea } = req.body;
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
     
-    // 1. ELIMINACIÓN OBLIGATORIA CON ESPERA
-    console.log(`[Editar Foto] Limpiando ID facial: ${tarea.numero_cedula_empleado}`);
-    const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
-    const deleteBody = { FPID: [{ value: tarea.numero_cedula_empleado }] };
+    // Primero borrar la foto existente
+    try {
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
+      const deleteBody = {
+        FPID: [
+          {
+            value: tarea.numero_cedula_empleado
+          }
+        ]
+      };
+      
+      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
+    } catch (deleteError) {
+      
+    }
     
-    const delRes = await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
-    console.log(`✅ Respuesta de borrado recibida: ${delRes ? delRes.status : 'N/A'}`);
-
-    // 2. PROCESAMIENTO DE IMAGEN
+    // Luego agregar la nueva foto (subir al servidor interno: base64 -> URL)
+    console.log(`[Editar Foto] Subiendo nueva imagen para cédula: ${tarea.numero_cedula_empleado}`);
     const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
-    if (!imageUrl) throw new Error('Error al subir imagen');
+    if (!imageUrl) {
+      console.error(`[Editar Foto] Error: No se pudo subir la nueva imagen para cédula ${tarea.numero_cedula_empleado}`);
+      return res.status(500).json({
+        success: false,
+        message: 'Error al subir la nueva imagen al servidor'
+      });
+    }
+    console.log(`[Editar Foto] Nueva imagen subida exitosamente. URL: ${imageUrl}`);
     
-    // 3. REGISTRO DE LA NUEVA IMAGEN
-    const recordEndpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
-    const recordBody = {
+    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+    const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
+    const method = 'POST';
+    const body = {
       faceURL: imageUrl,
       faceLibType: 'blackFD',
       FDID: '1',
       FPID: tarea.numero_cedula_empleado,
       name: tarea.nombre_empleado,
-      gender: (tarea.nombre_genero && tarea.nombre_genero.toLowerCase().includes('femenin')) ? 'female' : 'male'
+      gender: tarea.nombre_genero === 'Masculino' ? 'male' : 'female',
+      featurePointType: 'face'
     };
 
-    const response = await makeDigestRequest(deviceUrl, recordEndpoint, 'POST', recordBody, tarea);
-
-    if (response && response.status >= 200 && response.status < 300) {
-      res.json({ success: true, message: 'Foto editada correctamente', deviceResponse: response.data });
+    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+    
+    // Verificar si la respuesta del dispositivo fue exitosa
+    if (response.status >= 200 && response.status < 300) {
+      
+      
+      res.json({
+        success: true,
+        message: 'Foto editada correctamente en el dispositivo',
+        deviceResponse: response.data
+      });
     } else {
-      res.status(500).json({ success: false, message: 'Fallo al registrar nueva foto', deviceResponse: response ? response.data : null });
+      
+      
+      res.status(500).json({
+        success: false,
+        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+        deviceResponse: response.data
+      });
     }
     
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 });
-
 
 // Función helper para generar cardNo desde cédula
 // Convierte V -> 1, E -> 2 y mantiene el resto del número
