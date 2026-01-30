@@ -8563,35 +8563,30 @@ app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req
   }
 });
 
-// POST /api/tareas/dispositivo/agregar-usuario
+// =============================================================================
+// RUTA 1: AGREGAR USUARIO
+// =============================================================================
 app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (req, res) => {
-  
   try {
     const { tarea } = req.body;
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    // Detectar si es panel: si la acción incluye "Panel" o si ip_publica_dispositivo es igual a ip_local_dispositivo
+
+    // Detectar si es panel
     const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
-                   (tarea.ip_local_dispositivo && 
-                    tarea.ip_local_dispositivo.trim() !== '' && 
-                    tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+                    (tarea.ip_local_dispositivo && 
+                     tarea.ip_local_dispositivo.trim() !== '' && 
+                     tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
     
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
     const method = 'PUT';
     
-    // Estructura diferente para panel vs biométrico
-    let body;
+    let response;
+
+    // --------------------------------------------------------------------------
+    // LÓGICA PARA PANELES DE CONTROL (Sin cambios mayores)
+    // --------------------------------------------------------------------------
     if (esPanel) {
-      // Estructura para PANEL
-      body = {
+      const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
+      const body = {
         UserInfo: {
           employeeNo: tarea.numero_cedula_empleado,
           name: tarea.nombre_empleado,
@@ -8607,29 +8602,27 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
           password: '',
           doorRight: "1,2",
           RightPlan: [
-            {
-              doorNo: 1,
-              planTemplateNo: "1"
-            },
-            {
-              doorNo: 2,
-              planTemplateNo: "1"
-            }
+            { doorNo: 1, planTemplateNo: "1" },
+            { doorNo: 2, planTemplateNo: "1" }
           ],
           maxOpenDoorTime: 0,
           openDoorTime: 0
         }
       };
+      
+      response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+
     } else {
-      // Estructura para BIOMÉTRICO 
-      body = {
-        UserInfo: {
+      // --------------------------------------------------------------------------
+      // LÓGICA PARA BIOMÉTRICOS (DS-K1T320EFX y Legacy)
+      // --------------------------------------------------------------------------
+     
+      const baseUserInfo = {
           employeeNo: tarea.numero_cedula_empleado,
           name: tarea.nombre_empleado,
-          gender: tarea.nombre_genero,
+          gender: tarea.nombre_genero, // Importante: ISAPI requiere 'male'/'female'
           userType: 'normal',
-          doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
-          belongGroup: '1',
+          doorNo: 1,
           localUIRight: false,
           maxOpenDoorTime: 0,
           Valid: {
@@ -8637,41 +8630,57 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
             beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2024-01-01T00:00:00',
             endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
             timeType: 'local'
-          },
-          /* doorRight: "1",
-          RightPlan: [
-            {
-              doorNo: "1",
-              planTemplateNo: "1"
-            }
-          ] */
+          }
+      };
+
+      // --- INTENTO 1: MODO COMPLETO (Estándar Nuevo / Value Series) ---
+      // Usamos el endpoint 'Record' y asignamos Departamento (belongGroup) + Permisos (RightPlan)
+      const endpointNew = '/ISAPI/AccessControl/UserInfo/Record?format=json';
+      const bodyCompleto = {
+        UserInfo: {
+          ...baseUserInfo,
+          belongGroup: "1", // Asigna al Departamento 1 (Soluciona el usuario huérfano)
+          RightPlan: [{ doorNo: 1, planTemplateNo: "1" }] // Asigna permisos de puerta inmediato
         }
       };
+
+      console.log(`[Agregar] Intentando modo COMPLETO (Record) para ${tarea.nombre_empleado}...`);
+      response = await makeDigestRequest(deviceUrl, endpointNew, method, bodyCompleto, tarea);
+
+      // --- INTENTO 2: FALLBACK (Legacy / Equipos Viejos) ---
+      // Si falla (status error), reintentamos con el método viejo 'SetUp' y JSON simple
+      if (!response || response.status < 200 || response.status >= 300) {
+        
+        console.warn(`[Agregar] Falló modo completo. Reintentando modo LEGACY (SetUp)...`);
+        
+        const endpointOld = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
+        const bodySimple = {
+          UserInfo: {
+            ...baseUserInfo
+            // Sin belongGroup ni RightPlan complejo
+          }
+        };
+
+        response = await makeDigestRequest(deviceUrl, endpointOld, method, bodySimple, tarea);
+      }
     }
 
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      
+    // Respuesta Final
+    if (response && response.status >= 200 && response.status < 300) {
       res.json({
         success: true,
         message: `Usuario agregado correctamente al ${esPanel ? 'panel' : 'dispositivo'}`,
         deviceResponse: response.data
       });
     } else {
-      
-      
       res.status(500).json({
         success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
+        message: `El dispositivo respondió con error: ${response ? response.status : 'Desconocido'} - ${response ? response.statusText : ''}`,
+        deviceResponse: response ? response.data : null
       });
     }
     
   } catch (error) {
-    
     res.status(500).json({
       success: false,
       message: error.message
@@ -8679,26 +8688,31 @@ app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (re
   }
 });
 
-// POST /api/tareas/dispositivo/editar-usuario
+
+// =============================================================================
+// RUTA 2: EDITAR USUARIO
+// =============================================================================
 app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req, res) => {
   try {
     const { tarea } = req.body;
     
-    // Detectar si es panel: si la acción incluye "Panel" o si ip_publica_dispositivo es igual a ip_local_dispositivo
+    // Detectar si es panel
     const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
-                   (tarea.ip_local_dispositivo && 
-                    tarea.ip_local_dispositivo.trim() !== '' && 
-                    tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+                    (tarea.ip_local_dispositivo && 
+                     tarea.ip_local_dispositivo.trim() !== '' && 
+                     tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
     
     const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
     const method = 'PUT';
     
-    // Estructura diferente para panel vs biométrico
-    let body;
+    let response;
+
+    // --------------------------------------------------------------------------
+    // LÓGICA PARA PANELES DE CONTROL
+    // --------------------------------------------------------------------------
     if (esPanel) {
-      // Estructura para PANEL
-      body = {
+      const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
+      const body = {
         UserInfo: {
           employeeNo: tarea.numero_cedula_empleado,
           name: tarea.nombre_empleado,
@@ -8714,69 +8728,84 @@ app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req
           password: '',
           doorRight: "1,2",
           RightPlan: [
-            {
-              doorNo: 1,
-              planTemplateNo: "1"
-            },
-            {
-              doorNo: 2,
-              planTemplateNo: "1"
-            }
+            { doorNo: 1, planTemplateNo: "1" },
+            { doorNo: 2, planTemplateNo: "1" }
           ],
           maxOpenDoorTime: 0,
           openDoorTime: 0
         }
       };
+      
+      response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+
     } else {
-      // Estructura para BIOMÉTRICO
-      body = {
-        UserInfo: {
+      // --------------------------------------------------------------------------
+      // LÓGICA PARA BIOMÉTRICOS (Mismo patrón Double-Check)
+      // --------------------------------------------------------------------------
+     
+      const baseUserInfo = {
           employeeNo: tarea.numero_cedula_empleado,
           name: tarea.nombre_empleado,
           gender: tarea.nombre_genero,
           userType: 'normal',
-          doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
-          belongGroup: '1',
+          doorNo: 1,
+          localUIRight: false,
+          maxOpenDoorTime: 0,
           Valid: {
             enable: true,
+            // En edición permitimos fecha_ingreso como fallback
             beginTime: tarea.marcaje_empleado_inicio_dispositivo || tarea.fecha_ingreso || '2024-01-01T00:00:00',
-            endTime: tarea.marcaje_empleado_fin_dispositivo || '2025-12-31T23:59:59',
+            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
             timeType: 'local'
-          },
-          /* doorRight: "1",
-          RightPlan: [
-            {
-              doorNo: "1",
-              planTemplateNo: "1"
-            }
-          ] */
+          }
+      };
+
+      // --- INTENTO 1: MODO COMPLETO (Record + Grupos) ---
+      const endpointNew = '/ISAPI/AccessControl/UserInfo/Record?format=json';
+      const bodyCompleto = {
+        UserInfo: {
+          ...baseUserInfo,
+          belongGroup: "1", // Mantiene/Asigna el departamento
+          RightPlan: [{ doorNo: 1, planTemplateNo: "1" }]
         }
       };
-    }
 
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
+      console.log(`[Editar] Intentando modo COMPLETO (Record) para ${tarea.nombre_empleado}...`);
+      response = await makeDigestRequest(deviceUrl, endpointNew, method, bodyCompleto, tarea);
+
+      // --- INTENTO 2: FALLBACK (SetUp Simple) ---
+      if (!response || response.status < 200 || response.status >= 300) {
+        
+        console.warn(`[Editar] Falló modo completo. Reintentando modo LEGACY (SetUp)...`);
+        
+        const endpointOld = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
+        const bodySimple = {
+          UserInfo: {
+            ...baseUserInfo
+            // Sin campos avanzados
+          }
+        };
+
+        response = await makeDigestRequest(deviceUrl, endpointOld, method, bodySimple, tarea);
+      }
+    }
     
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      
+    // Respuesta Final
+    if (response && response.status >= 200 && response.status < 300) {
       res.json({
         success: true,
         message: `Usuario editado correctamente en el ${esPanel ? 'panel' : 'dispositivo'}`,
         deviceResponse: response.data
       });
     } else {
-      
-      
       res.status(500).json({
         success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
+        message: `El dispositivo respondió con error: ${response ? response.status : 'Desconocido'} - ${response ? response.statusText : ''}`,
+        deviceResponse: response ? response.data : null
       });
     }
     
   } catch (error) {
-    
     res.status(500).json({
       success: false,
       message: error.message
