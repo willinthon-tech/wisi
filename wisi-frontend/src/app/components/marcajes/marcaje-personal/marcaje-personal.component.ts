@@ -10125,26 +10125,27 @@ export class MarcajePersonalComponent implements OnInit {
     return this.formatearMinutosAHora(totalMinutos);
   }
 
-  // Calcular resumen: Totalizar horas trabajadas desde las 02:00 am hasta la salida
+// Calcular resumen: Totalizar horas trabajadas desde las 02:00 am hasta la salida
+// CORRECCIÓN: Ahora valida obligatoriamente que exista marcaje de entrada
 getResumenDiferenciaHorasPorEmpleado(empleado: any): string {
   let totalMinutosDiferencia = 0;
   const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am = 120 minutos
 
   this.diasDelMes.forEach(dia => {
-    // Solo procesar si el empleado tiene un horario asignado para ese día
     if (!this.isSinHorario(empleado, dia)) {
       const bloque = this.getBloqueHorario(empleado, dia);
       if (bloque) {
-        // Obtenemos los marcajes calculados (entrada, salida, etc.)
         const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
 
-        // Verificamos que exista un marcaje de salida válido
-        if (marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+        // VALIDACIÓN CRÍTICA: Debe haber entrada Y salida válida (no 'Sin marcaje' ni 'SNM')
+        const tieneEntrada = marcajes.entrada && marcajes.entrada !== 'Sin marcaje';
+        const tieneSalida = marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM';
+
+        if (tieneEntrada && tieneSalida) {
           const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
 
           if (!isNaN(salidaMinutos)) {
-            // Caso 1: La salida es después de las 02:00 am del mismo día
-            // Caso 2: Si es turno nocturno y la salida cruzó la medianoche (sigue siendo > 02:00 am)
+            // Solo sumamos si la salida es posterior a las 02:00 am
             if (salidaMinutos > HORA_LIMITE_INICIO) {
               const diferenciaDia = salidaMinutos - HORA_LIMITE_INICIO;
               totalMinutosDiferencia += diferenciaDia;
