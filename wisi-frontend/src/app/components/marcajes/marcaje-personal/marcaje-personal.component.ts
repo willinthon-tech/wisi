@@ -10129,34 +10129,41 @@ export class MarcajePersonalComponent implements OnInit {
 // CORRECCIÓN: Ahora valida obligatoriamente que exista marcaje de entrada
 getResumenDiferenciaHorasPorEmpleado(empleado: any): string {
   let totalMinutosDiferencia = 0;
-  const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am en minutos (120 min)
+  const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am (120 min)
+
+  // Convertimos las fechas de filtro a objetos Date para comparar
+  const desde = new Date(this.fechaDesde);
+  const hasta = new Date(this.fechaHasta);
+  // Normalizamos a las 00:00 para comparar solo fechas
+  desde.setHours(0, 0, 0, 0);
+  hasta.setHours(0, 0, 0, 0);
 
   this.diasDelMes.forEach(dia => {
-    if (!this.isSinHorario(empleado, dia)) {
-      const bloque = this.getBloqueHorario(empleado, dia);
-      if (bloque) {
-        const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+    const fechaDia = new Date(dia);
+    fechaDia.setHours(0, 0, 0, 0);
 
-        // Validamos que el empleado realmente trabajó ese día (entrada y salida presentes)
-        const tieneEntrada = marcajes.entrada && marcajes.entrada !== 'Sin marcaje';
-        const tieneSalida = marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM';
+    // FILTRO CRÍTICO: Solo procesar si el día está dentro del rango 'Desde' y 'Hasta'
+    if (fechaDia >= desde && fechaDia <= hasta) {
+      if (!this.isSinHorario(empleado, dia)) {
+        const bloque = this.getBloqueHorario(empleado, dia);
+        if (bloque) {
+          const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
 
-        if (tieneEntrada && tieneSalida) {
-          const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
-          const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
+          const tieneEntrada = marcajes.entrada && marcajes.entrada !== 'Sin marcaje';
+          const tieneSalida = marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM';
 
-          // ESCENARIO: El empleado está trabajando a las 2:00 am
-          // Esto ocurre si su salida es después de las 2:00 am 
-          // Y su entrada fue antes de las 2:00 am (o exactamente a las 2)
-          if (salidaMinutos > HORA_LIMITE_INICIO) {
-            
-            // Si entró antes de las 2am, empezamos a contar desde las 2am
-            // Si entró después de las 2am, empezamos a contar desde su entrada real
-            const inicioConteoEfectivo = Math.max(entradaMinutos, HORA_LIMITE_INICIO);
+          if (tieneEntrada && tieneSalida) {
+            const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
+            const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
 
-            if (salidaMinutos > inicioConteoEfectivo) {
-              const minutosDelDia = salidaMinutos - inicioConteoEfectivo;
-              totalMinutosDiferencia += minutosDelDia;
+            // Solo si la salida es posterior a las 2:00 am
+            if (salidaMinutos > HORA_LIMITE_INICIO) {
+              // El conteo inicia a las 2am o a la hora de entrada (lo que sea mayor)
+              const inicioConteoEfectivo = Math.max(entradaMinutos, HORA_LIMITE_INICIO);
+
+              if (salidaMinutos > inicioConteoEfectivo) {
+                totalMinutosDiferencia += (salidaMinutos - inicioConteoEfectivo);
+              }
             }
           }
         }
