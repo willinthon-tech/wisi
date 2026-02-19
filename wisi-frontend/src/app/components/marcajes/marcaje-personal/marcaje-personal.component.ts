@@ -256,6 +256,7 @@ import { DispositivosService } from '../../../services/dispositivos.service';
                     <th class="resumen-metric-col">Nocturnos</th>
                     <th class="resumen-metric-col">Horas<br />Diurnos</th>
                     <th class="resumen-metric-col">Horas<br />Nocturnos</th>
+                    <th class="resumen-metric-col">Diferencia<br />Horas</th>
                     <th class="resumen-metric-col">Domingos</th>
                     <th class="resumen-metric-col">Feriados</th>
                     <th class="resumen-metric-col" *ngFor="let plantilla of plantillasLibres">
@@ -284,6 +285,9 @@ import { DispositivosService } from '../../../services/dispositivos.service';
                       </td>
                       <td class="resumen-value-cell">
                         {{ getResumenHorasNocturnoPorEmpleado(empleado) }}
+                      </td>
+                      <td class="resumen-value-cell diferenciahoras">
+                        {{ getResumenDiferenciaHorasPorEmpleado(empleado) }}
                       </td>
                       <td class="resumen-value-cell">
                         {{ getResumenDomingosTrabajadosPorEmpleado(empleado) }}
@@ -10120,6 +10124,39 @@ export class MarcajePersonalComponent implements OnInit {
     
     return this.formatearMinutosAHora(totalMinutos);
   }
+
+  // Calcular resumen: Totalizar horas trabajadas desde las 02:00 am hasta la salida
+getResumenDiferenciaHorasPorEmpleado(empleado: any): string {
+  let totalMinutosDiferencia = 0;
+  const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am = 120 minutos
+
+  this.diasDelMes.forEach(dia => {
+    // Solo procesar si el empleado tiene un horario asignado para ese día
+    if (!this.isSinHorario(empleado, dia)) {
+      const bloque = this.getBloqueHorario(empleado, dia);
+      if (bloque) {
+        // Obtenemos los marcajes calculados (entrada, salida, etc.)
+        const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+
+        // Verificamos que exista un marcaje de salida válido
+        if (marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+          const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+
+          if (!isNaN(salidaMinutos)) {
+            // Caso 1: La salida es después de las 02:00 am del mismo día
+            // Caso 2: Si es turno nocturno y la salida cruzó la medianoche (sigue siendo > 02:00 am)
+            if (salidaMinutos > HORA_LIMITE_INICIO) {
+              const diferenciaDia = salidaMinutos - HORA_LIMITE_INICIO;
+              totalMinutosDiferencia += diferenciaDia;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  return this.formatearMinutosAHora(totalMinutosDiferencia);
+}
 
   // Calcular resumen: Días Domingos Trabajados (por empleado) - si tiene registro de diurno, nocturno o mixto
   getResumenDomingosTrabajadosPorEmpleado(empleado: any): number {
