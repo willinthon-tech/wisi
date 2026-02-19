@@ -10129,7 +10129,7 @@ export class MarcajePersonalComponent implements OnInit {
 // CORRECCIÓN: Ahora valida obligatoriamente que exista marcaje de entrada
 getResumenDiferenciaHorasPorEmpleado(empleado: any): string {
   let totalMinutosDiferencia = 0;
-  const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am = 120 minutos
+  const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am en minutos (120 min)
 
   this.diasDelMes.forEach(dia => {
     if (!this.isSinHorario(empleado, dia)) {
@@ -10137,18 +10137,26 @@ getResumenDiferenciaHorasPorEmpleado(empleado: any): string {
       if (bloque) {
         const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
 
-        // VALIDACIÓN CRÍTICA: Debe haber entrada Y salida válida (no 'Sin marcaje' ni 'SNM')
+        // Validamos que el empleado realmente trabajó ese día (entrada y salida presentes)
         const tieneEntrada = marcajes.entrada && marcajes.entrada !== 'Sin marcaje';
         const tieneSalida = marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM';
 
         if (tieneEntrada && tieneSalida) {
           const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+          const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
 
-          if (!isNaN(salidaMinutos)) {
-            // Solo sumamos si la salida es posterior a las 02:00 am
-            if (salidaMinutos > HORA_LIMITE_INICIO) {
-              const diferenciaDia = salidaMinutos - HORA_LIMITE_INICIO;
-              totalMinutosDiferencia += diferenciaDia;
+          // ESCENARIO: El empleado está trabajando a las 2:00 am
+          // Esto ocurre si su salida es después de las 2:00 am 
+          // Y su entrada fue antes de las 2:00 am (o exactamente a las 2)
+          if (salidaMinutos > HORA_LIMITE_INICIO) {
+            
+            // Si entró antes de las 2am, empezamos a contar desde las 2am
+            // Si entró después de las 2am, empezamos a contar desde su entrada real
+            const inicioConteoEfectivo = Math.max(entradaMinutos, HORA_LIMITE_INICIO);
+
+            if (salidaMinutos > inicioConteoEfectivo) {
+              const minutosDelDia = salidaMinutos - inicioConteoEfectivo;
+              totalMinutosDiferencia += minutosDelDia;
             }
           }
         }
