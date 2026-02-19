@@ -10125,45 +10125,31 @@ export class MarcajePersonalComponent implements OnInit {
     return this.formatearMinutosAHora(totalMinutos);
   }
 
-// Calcular resumen: Totalizar horas trabajadas desde las 02:00 am hasta la salida
-// CORRECCIÓN: Ahora valida obligatoriamente que exista marcaje de entrada
+// Calcular resumen: Diferencia Horas (por empleado) - Siguiendo la estructura de Diurno/Nocturno
 getResumenDiferenciaHorasPorEmpleado(empleado: any): string {
   let totalMinutosDiferencia = 0;
-  const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am (120 min)
-
-  // Convertimos las fechas de filtro a objetos Date para comparar
-  const desde = new Date(this.fechaDesde);
-  const hasta = new Date(this.fechaHasta);
-  // Normalizamos a las 00:00 para comparar solo fechas
-  desde.setHours(0, 0, 0, 0);
-  hasta.setHours(0, 0, 0, 0);
+  const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am = 120 minutos
 
   this.diasDelMes.forEach(dia => {
-    const fechaDia = new Date(dia);
-    fechaDia.setHours(0, 0, 0, 0);
-
-    // FILTRO CRÍTICO: Solo procesar si el día está dentro del rango 'Desde' y 'Hasta'
-    if (fechaDia >= desde && fechaDia <= hasta) {
-      if (!this.isSinHorario(empleado, dia)) {
-        const bloque = this.getBloqueHorario(empleado, dia);
-        if (bloque) {
-          const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
-
-          const tieneEntrada = marcajes.entrada && marcajes.entrada !== 'Sin marcaje';
-          const tieneSalida = marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM';
-
-          if (tieneEntrada && tieneSalida) {
-            const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
-            const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
-
-            // Solo si la salida es posterior a las 2:00 am
-            if (salidaMinutos > HORA_LIMITE_INICIO) {
-              // El conteo inicia a las 2am o a la hora de entrada (lo que sea mayor)
-              const inicioConteoEfectivo = Math.max(entradaMinutos, HORA_LIMITE_INICIO);
-
-              if (salidaMinutos > inicioConteoEfectivo) {
-                totalMinutosDiferencia += (salidaMinutos - inicioConteoEfectivo);
-              }
+    if (!this.isSinHorario(empleado, dia)) {
+      const bloque = this.getBloqueHorario(empleado, dia);
+      if (bloque) {
+        const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+        
+        // Verificación igual a tus funciones Diurno/Nocturno
+        if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+          const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
+          const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+          
+          if (!isNaN(entradaMinutos) && !isNaN(salidaMinutos)) {
+            
+            // Condición: Que la jornada haya cruzado o terminado después de las 2:00 am
+            // y que la entrada haya sido antes o igual a las 2:00 am
+            if (entradaMinutos <= HORA_LIMITE_INICIO && salidaMinutos > HORA_LIMITE_INICIO) {
+              
+              // Totalizamos: desde las 2:00 am hasta la salida
+              const minutosDiferencia = salidaMinutos - HORA_LIMITE_INICIO;
+              totalMinutosDiferencia += minutosDiferencia;
             }
           }
         }
