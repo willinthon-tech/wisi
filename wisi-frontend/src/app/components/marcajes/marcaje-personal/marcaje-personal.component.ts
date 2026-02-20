@@ -7386,6 +7386,7 @@ export class MarcajePersonalComponent implements OnInit {
     } else {
       // Turno diurno: marcajes del mismo día + día siguiente (por si hay horas extras que terminan en madrugada)
       
+
       const marcajesHoy = this.getMarcajesDelDia(empleado, dia);
       const diaSiguiente = new Date(dia);
       diaSiguiente.setDate(diaSiguiente.getDate() + 1);
