@@ -10125,40 +10125,47 @@ export class MarcajePersonalComponent implements OnInit {
     return this.formatearMinutosAHora(totalMinutos);
   }
 
-// Calcular resumen: Diferencia Horas (por empleado) - Siguiendo la estructura de Diurno/Nocturno
-getResumenDiferenciaHorasPorEmpleado(empleado: any): string {
-  let totalMinutosDiferencia = 0;
-  const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am = 120 minutos
+  // Calcular resumen: Diferencia Horas (por empleado) - Siguiendo la estructura de Diurno/Nocturno
+  getResumenDiferenciaHorasPorEmpleado(empleado: any): string {
+    let totalMinutosDiferencia = 0;
+    const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am (120 min)
 
-  this.diasDelMes.forEach(dia => {
-    if (!this.isSinHorario(empleado, dia)) {
-      const bloque = this.getBloqueHorario(empleado, dia);
-      if (bloque) {
-        const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
-        
-        // Verificación igual a tus funciones Diurno/Nocturno
-        if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
-          const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
-          const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+    this.diasDelMes.forEach(dia => {
+      if (!this.isSinHorario(empleado, dia)) {
+        const bloque = this.getBloqueHorario(empleado, dia);
+        if (bloque) {
+          const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
           
-          if (!isNaN(entradaMinutos) && !isNaN(salidaMinutos)) {
+          // Validación estándar de marcajes
+          if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+            const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
+            const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
             
-            // Condición: Que la jornada haya cruzado o terminado después de las 2:00 am
-            // y que la entrada haya sido antes o igual a las 2:00 am
-            if (entradaMinutos <= HORA_LIMITE_INICIO && salidaMinutos > HORA_LIMITE_INICIO) {
+            if (!isNaN(entradaMinutos) && !isNaN(salidaMinutos)) {
               
-              // Totalizamos: desde las 2:00 am hasta la salida
-              const minutosDiferencia = salidaMinutos - HORA_LIMITE_INICIO;
-              totalMinutosDiferencia += minutosDiferencia;
+              /**
+               * EXPLICACIÓN DEL CAMBIO:
+               * Para que cuente la diferencia a partir de las 2am:
+               * 1. La salida debe ser después de las 2:00 AM (salidaMinutos > 120).
+               * 2. La entrada debe ser ANTES de las 2:00 AM (entradaMinutos <= 120) 
+               * O debe ser una entrada de un turno que empezó el día anterior (ej. 22:00).
+               */
+              const entroAntesDeLas2Am = entradaMinutos <= HORA_LIMITE_INICIO;
+              const esTurnoNocturnoAnterior = entradaMinutos > (20 * 60); // Entró después de las 8pm del día anterior
+
+              if ((entroAntesDeLas2Am || esTurnoNocturnoAnterior) && salidaMinutos > HORA_LIMITE_INICIO) {
+                // Sumamos desde las 2am hasta la salida
+                const minutosDiferencia = salidaMinutos - HORA_LIMITE_INICIO;
+                totalMinutosDiferencia += minutosDiferencia;
+              }
             }
           }
         }
       }
-    }
-  });
+    });
 
-  return this.formatearMinutosAHora(totalMinutosDiferencia);
-}
+    return this.formatearMinutosAHora(totalMinutosDiferencia);
+  }
 
   // Calcular resumen: Días Domingos Trabajados (por empleado) - si tiene registro de diurno, nocturno o mixto
   getResumenDomingosTrabajadosPorEmpleado(empleado: any): number {
