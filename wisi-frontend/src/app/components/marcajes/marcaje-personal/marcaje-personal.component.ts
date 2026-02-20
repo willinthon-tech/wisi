@@ -10404,9 +10404,11 @@ export class MarcajePersonalComponent implements OnInit {
       salidaDescanso: 'Sin marcaje'
     };
 
-    // FALLBACK IMPORTANTE:
-    // Si con la lógica en cascada NO se logró asignar nada (y sí existen marcajes para ese día),
-    // usamos la lógica estándar de calcularMarcajesDelDiaInterno para no perder información visual.
+    // FALLBACK IMPORTANTE (DIURNO):
+    // Si con la lógica en cascada NO se logró asignar nada para un turno diurno
+    // pero sí existen marcajes en ese día, usar como prioridad:
+    //  - primer marcaje del día como ENTRADA
+    //  - último marcaje del día como SALIDA
     const tieneMarcajesDia = logs.some(log => {
       const f = this.formatDateLocalYYYYMMDD(new Date(log.event_time));
       return f === fechaStr;
@@ -10415,10 +10417,29 @@ export class MarcajePersonalComponent implements OnInit {
     if (
       tieneMarcajesDia &&
       resultadoCascada.entrada === 'Sin marcaje' &&
-      resultadoCascada.salida === 'Sin marcaje'
+      resultadoCascada.salida === 'Sin marcaje' &&
+      !esNocturno
     ) {
-      const resultadoFallback = this.calcularMarcajesDelDiaInterno(empleado, dia, bloque);
-      this.cacheMarcajesCalculados.set(key, resultadoFallback);
+      const logsDelDia = logs.filter(log => {
+        const f = this.formatDateLocalYYYYMMDD(new Date(log.event_time));
+        return f === fechaStr;
+      });
+
+      if (logsDelDia.length > 0) {
+        const primera = logsDelDia[0];
+        const ultima = logsDelDia[logsDelDia.length - 1];
+
+        const resultadoFallback = {
+          entrada: primera ? this.formatHora(primera.event_time) : 'Sin marcaje',
+          salida: ultima && ultima !== primera ? this.formatHora(ultima.event_time) : 'Sin marcaje',
+          entradaDescanso: 'Sin marcaje',
+          salidaDescanso: 'Sin marcaje'
+        };
+
+        this.cacheMarcajesCalculados.set(key, resultadoFallback);
+      } else {
+        this.cacheMarcajesCalculados.set(key, resultadoCascada);
+      }
     } else {
       this.cacheMarcajesCalculados.set(key, resultadoCascada);
     }
