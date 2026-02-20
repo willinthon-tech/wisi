@@ -10358,7 +10358,7 @@ export class MarcajePersonalComponent implements OnInit {
       return; // Salimos para no procesar horarios normales
     }
   
-    // === TU LÓGICA 100% FUNCIONAL (NO TOCAR RANGOS) ===
+    // === LÓGICA PRINCIPAL BASADA EN PLANTILLA ===
     if (!plantilla || !plantilla.hora_entrada || !plantilla.hora_salida) {
       this.cacheMarcajesCalculados.set(key, { 
         entrada: 'Sin marcaje', salida: 'Sin marcaje', 
@@ -10396,11 +10396,31 @@ export class MarcajePersonalComponent implements OnInit {
   
     if (salidaReal) this.marcajesUsadosGlobal.add(salidaReal.id);
   
-    this.cacheMarcajesCalculados.set(key, {
+    const resultadoCascada = {
       entrada: entradaReal ? this.formatHora(entradaReal.event_time) : 'Sin marcaje',
       salida: salidaReal ? this.formatHora(salidaReal.event_time) : 'Sin marcaje',
-      entradaDescanso: 'Sin marcaje', salidaDescanso: 'Sin marcaje'
+      entradaDescanso: 'Sin marcaje',
+      salidaDescanso: 'Sin marcaje'
+    };
+
+    // FALLBACK IMPORTANTE:
+    // Si con la lógica en cascada NO se logró asignar nada (y sí existen marcajes para ese día),
+    // usamos la lógica estándar de calcularMarcajesDelDiaInterno para no perder información visual.
+    const tieneMarcajesDia = logs.some(log => {
+      const f = this.formatDateLocalYYYYMMDD(new Date(log.event_time));
+      return f === fechaStr;
     });
+
+    if (
+      tieneMarcajesDia &&
+      resultadoCascada.entrada === 'Sin marcaje' &&
+      resultadoCascada.salida === 'Sin marcaje'
+    ) {
+      const resultadoFallback = this.calcularMarcajesDelDiaInterno(empleado, dia, bloque);
+      this.cacheMarcajesCalculados.set(key, resultadoFallback);
+    } else {
+      this.cacheMarcajesCalculados.set(key, resultadoCascada);
+    }
   }
   
   private crearFechaHora(d: Date, hora: string | null | undefined): Date {
