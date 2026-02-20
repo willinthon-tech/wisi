@@ -7726,109 +7726,56 @@ export class MarcajePersonalComponent implements OnInit {
       salida: 'Sin marcaje'
     };
 
-    if (marcajes.length === 0) {
-      return resultado;
-    }
+    if (marcajes.length === 0) return resultado;
 
-    // Ordenar marcajes por hora
+    // 1. Ordenar siempre por tiempo real
     const marcajesOrdenados = marcajes.sort((a, b) => 
       new Date(a.event_time).getTime() - new Date(b.event_time).getTime()
     );
 
     if (turno === 'NOCTURNO') {
-      // Lógica para turno nocturno
-      // CRÍTICO: Si hay 2 marcajes (uno del día actual y uno del día siguiente), usar asignación inteligente
-      // NO usar la lógica de "un solo marcaje" porque puede que haya un marcaje en cada día
+      // El nocturno SI necesita la lógica inteligente por el cruce de medianoche
       if (marcajesOrdenados.length === 1) {
-        // Un solo marcaje en nocturno: determinar si es entrada o salida
         const marcaje = marcajesOrdenados[0];
         const horaMarcaje = this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0]);
         const horaMarcajeMinutos = this.convertirHoraAMinutos(horaMarcaje);
-        
-        // Si es antes de medianoche, probablemente es entrada
-        if (horaMarcajeMinutos < 720) { // Antes de 12:00 PM
-          resultado.entrada = horaMarcaje;
-        } else {
-          resultado.salida = horaMarcaje;
-        }
-      } else if (marcajesOrdenados.length >= 2) {
-        // Dos o más marcajes: usar asignación inteligente (puede ser uno del día actual y uno del día siguiente)
-        const marcajesAsignados = this.asignarMarcajesInteligente(marcajesOrdenados, bloque, turno, diaTurno);
-        return marcajesAsignados;
+        if (horaMarcajeMinutos < 720) resultado.entrada = horaMarcaje;
+        else resultado.salida = horaMarcaje;
+      } else {
+        return this.asignarMarcajesInteligente(marcajesOrdenados, bloque, turno, diaTurno);
       }
     } else {
-      // Lógica para turno diurno
-      /* 
-      if (marcajesOrdenados.length === 1) {
-        // Un solo marcaje en diurno: análisis inteligente basado en proximidad
-        const marcaje = marcajesOrdenados[0];
-        const horaMarcaje = this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0]);
-        const horaMarcajeMinutos = this.convertirHoraAMinutos(horaMarcaje);
-        
-        const horaEntradaProgramada = this.convertirHoraAMinutos(bloque.hora_entrada);
-        const horaSalidaProgramada = this.convertirHoraAMinutos(bloque.hora_salida);
-        
-        // Calcular distancias a las horas programadas
-        const distanciaEntrada = Math.abs(horaMarcajeMinutos - horaEntradaProgramada);
-        const distanciaSalida = Math.abs(horaMarcajeMinutos - horaSalidaProgramada);
-        
-        // Calcular la mitad del turno para análisis adicional
-        const mitadTurno = horaEntradaProgramada + ((horaSalidaProgramada - horaEntradaProgramada) / 2);
-        
-        
-        
-        
-        if (distanciaEntrada < distanciaSalida) {
-          // Más cerca de la entrada programada
-          resultado.entrada = horaMarcaje;
-          
-        } else if (horaMarcajeMinutos > mitadTurno) {
-          // Está después de la mitad del turno, probablemente es salida
-          resultado.salida = horaMarcaje;
-          
-        } else {
-          // Por defecto, si está más cerca de salida, es salida
-          resultado.salida = horaMarcaje;
-          
-        }
-      } else {
-        // Dos o más marcajes en diurno: usar asignación inteligente según proximidad
-        const marcajesAsignados = this.asignarMarcajesInteligente(marcajesOrdenados, bloque, turno, diaTurno);
-        return marcajesAsignados;
-      }
-      */
-      if (marcajesOrdenados.length === 1) {
-        const marcaje = marcajesOrdenados[0];
-        const horaMarcaje = this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0]);
-        const horaMarcajeMinutos = this.convertirHoraAMinutos(horaMarcaje);
-        
-        // Si solo hay uno, usamos la mitad del turno para decidir si entró o salió
-        const hEntradaProg = this.convertirHoraAMinutos(bloque.hora_entrada || '08:00');
-        const hSalidaProg = this.convertirHoraAMinutos(bloque.hora_salida || '17:00');
-        const mitadTurno = hEntradaProg + ((hSalidaProg - hEntradaProg) / 2);
+      // --- LÓGICA PARA DIURNO Y LIBRE (SIN FILTROS DE PROXIMIDAD) ---
+      // Si hay marcajes, el primero es SIEMPRE la entrada
+      resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
 
-        if (horaMarcajeMinutos <= mitadTurno) {
-          resultado.entrada = horaMarcaje;
-        } else {
-          resultado.salida = horaMarcaje;
-        }
-      } else {
-        // SI HAY 2 O MÁS: Asignación directa por extremos (Ignoramos asignarMarcajesInteligente)
-        resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
+      if (marcajesOrdenados.length >= 2) {
+        // El último es SIEMPRE la salida
         resultado.salida = this.formatearHora(new Date(marcajesOrdenados[marcajesOrdenados.length - 1].event_time).toTimeString().split(' ')[0]);
         
-        // Si hay marcajes intermedios, podrías asignarlos a descansos si quisieras
+        // Marcajes intermedios para descansos (opcional)
         if (marcajesOrdenados.length === 3) {
-            resultado.entradaDescanso = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
+          resultado.entradaDescanso = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
         } else if (marcajesOrdenados.length >= 4) {
-            resultado.entradaDescanso = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
-            resultado.salidaDescanso = this.formatearHora(new Date(marcajesOrdenados[2].event_time).toTimeString().split(' ')[0]);
+          resultado.entradaDescanso = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
+          resultado.salidaDescanso = this.formatearHora(new Date(marcajesOrdenados[2].event_time).toTimeString().split(' ')[0]);
+        }
+      } else if (marcajesOrdenados.length === 1) {
+        // Si solo hay uno, decidimos si es entrada o salida por la mitad del turno
+        const hEntradaProg = this.convertirHoraAMinutos(bloque.PlantillaHorario?.hora_entrada || '08:00');
+        const hSalidaProg = this.convertirHoraAMinutos(bloque.PlantillaHorario?.hora_salida || '17:00');
+        const mitadTurno = hEntradaProg + ((hSalidaProg - hEntradaProg) / 2);
+        const horaMinutos = this.convertirHoraAMinutos(resultado.entrada);
+
+        if (horaMinutos > mitadTurno) {
+          resultado.salida = resultado.entrada;
+          resultado.entrada = 'Sin marcaje';
         }
       }
     }
 
     return resultado;
-  }
+}
 
   // Calcular resumen de horas trabajadas
   calcularResumenHoras(marcajes: { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string }, bloque: any): { texto: string, claseColor: string } {
