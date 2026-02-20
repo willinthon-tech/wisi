@@ -3898,6 +3898,11 @@ export class MarcajePersonalComponent implements OnInit {
       alert('La fecha "Desde" debe ser anterior o igual a la fecha "Hasta"');
       return;
     }
+
+    // --- INTEGRACIÓN: LIMPIEZA DE CACHÉ LÓGICO ---
+    // Llamamos aquí para asegurar que no se arrastren marcajes calculados 
+    // de la consulta anterior y evitar valores "pegados".
+    this.limpiarCacheSistema();
     
     this.loading = true;
     this.hasSearched = false;
@@ -7089,132 +7094,51 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   // Validar que la entrada del día actual no sea igual a la salida del día anterior (turno nocturno)
-  validarEntradaVsSalidaAnterior(empleado: any, dia: Date, marcajesActuales: { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string }, bloque: any): { entrada: string, entradaDescanso: string, salidaDescanso: string, salida: string } {
-    // Si no hay entrada marcada, no hay nada que validar
+  validarEntradaVsSalidaAnterior(empleado: any, dia: Date, marcajesActuales: any, bloque: any): any {
     if (!marcajesActuales.entrada || marcajesActuales.entrada === 'Sin marcaje') {
       return marcajesActuales;
     }
 
-    // IMPORTANTE: Si el día actual tiene una excepción (horario manual), NO validar contra el día anterior
-    // Las excepciones tienen prioridad absoluta y no deben invalidarse por turnos anteriores
     const fechaStr = this.formatDateLocalYYYYMMDD(new Date(dia));
     const key = `${empleado?.id}|${fechaStr}`;
     const tieneExcepcion = this.excepcionesMap.has(key) || this.excepcionesCompletas.has(key);
     
-    if (tieneExcepcion) {
-      // Si hay excepción, no validar contra el día anterior - la excepción tiene prioridad
-      return marcajesActuales;
-    }
+    if (tieneExcepcion) return marcajesActuales;
 
-    // Obtener el día anterior
     const diaAnterior = new Date(dia);
     diaAnterior.setDate(diaAnterior.getDate() - 1);
-
-    // Obtener el bloque horario del día anterior
     const bloqueAnterior = this.getBloqueHorario(empleado, diaAnterior);
     
-    // Si no hay bloque anterior, no hay nada que validar
-    if (!bloqueAnterior) {
-      return marcajesActuales;
-    }
+    if (!bloqueAnterior) return marcajesActuales;
 
-    // Verificar si el turno anterior era nocturno (primero verificar esto para evitar procesar si no es necesario)
-    const plantillaAnterior = bloqueAnterior?.PlantillaHorario;
-    if (!plantillaAnterior || !plantillaAnterior.hora_entrada || !plantillaAnterior.hora_salida) {
-      return marcajesActuales;
-    }
-
-    const horaEntradaAnterior = this.convertirHoraAMinutos(plantillaAnterior.hora_entrada);
-    const horaSalidaAnterior = this.convertirHoraAMinutos(plantillaAnterior.hora_salida);
-    const esTurnoAnteriorNocturno = horaEntradaAnterior > horaSalidaAnterior;
-
-    // Verificar si el turno actual es nocturno
-    const plantillaActual = bloque?.PlantillaHorario;
-    let esTurnoActualNocturno = false;
-    if (plantillaActual && plantillaActual.hora_entrada && plantillaActual.hora_salida) {
-      const horaEntradaActual = this.convertirHoraAMinutos(plantillaActual.hora_entrada);
-      const horaSalidaActual = this.convertirHoraAMinutos(plantillaActual.hora_salida);
-      esTurnoActualNocturno = horaEntradaActual > horaSalidaActual;
-    }
-
-    // Validar si el turno anterior era nocturno O si el turno actual es nocturno
-    // (en ambos casos, la entrada no puede ser igual a la salida del día anterior)
-    if (!esTurnoAnteriorNocturno && !esTurnoActualNocturno) {
-      return marcajesActuales;
-    }
-
-    // Obtener los marcajes del día anterior (sin procesar validaciones para evitar recursión)
-    // Usar una bandera para evitar recursión infinita
     const marcajesAnteriores = this.calcularMarcajesDelDiaSinValidacion(empleado, diaAnterior, bloqueAnterior);
     
-    // Si no hay salida del día anterior, no hay nada que validar
-    if (!marcajesAnteriores.salida || marcajesAnteriores.salida === 'Sin marcaje' || marcajesAnteriores.salida === 'SNM') {
+    if (!marcajesAnteriores.salida || marcajesAnteriores.salida === 'Sin marcaje') {
       return marcajesActuales;
     }
 
-    // Convertir las horas a minutos para comparar
     const entradaActualMinutos = this.convertirHoraAMinutos(marcajesActuales.entrada);
     const salidaAnteriorMinutos = this.convertirHoraAMinutos(marcajesAnteriores.salida);
 
-    // Si la entrada del día actual es igual a la salida del día anterior, verificar si realmente es un conflicto
-    // Solo invalidar si es un turno nocturno y la entrada está muy cerca de la salida del día anterior
-    // (dentro de 1 hora de diferencia para evitar invalidar marcajes válidos)
     if (entradaActualMinutos === salidaAnteriorMinutos && entradaActualMinutos > 0) {
-      // Verificar si el turno anterior era nocturno y terminó en el día actual
-      // Si es así, la entrada del día actual no puede ser igual a esa salida
-      // PERO: solo invalidar si realmente es un conflicto (mismo ID de marcaje o muy cercano)
-      
-      // Obtener los marcajes reales para verificar si es el mismo marcaje
       const marcajesHoy = this.getMarcajesDelDia(empleado, dia);
       const marcajesAyer = this.getMarcajesDelDia(empleado, diaAnterior);
       const todosMarcajes = [...marcajesAyer, ...marcajesHoy];
       
-      // Buscar el marcaje de entrada actual y salida anterior
-      const marcajeEntradaActual = todosMarcajes.find(m => {
-        const horaMarcaje = this.convertirHoraAMinutos(
-          this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0])
-        );
-        return horaMarcaje === entradaActualMinutos;
-      });
+      const mEntradaActual = todosMarcajes.find(m => this.convertirHoraAMinutos(this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0])) === entradaActualMinutos);
+      const mSalidaAnterior = todosMarcajes.find(m => this.convertirHoraAMinutos(this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0])) === salidaAnteriorMinutos);
       
-      const marcajeSalidaAnterior = todosMarcajes.find(m => {
-        const horaMarcaje = this.convertirHoraAMinutos(
-          this.formatearHora(new Date(m.event_time).toTimeString().split(' ')[0])
-        );
-        return horaMarcaje === salidaAnteriorMinutos;
-      });
-      
-      // Solo invalidar si es el MISMO marcaje (mismo ID) o si están muy cerca (menos de 5 minutos)
-      const esMismoMarcaje = marcajeEntradaActual && marcajeSalidaAnterior && 
-                             marcajeEntradaActual.id === marcajeSalidaAnterior.id;
+      const esMismoMarcaje = mEntradaActual && mSalidaAnterior && mEntradaActual.id === mSalidaAnterior.id;
       
       if (esMismoMarcaje) {
-        // Es el mismo marcaje, invalidar la entrada del día actual
-        const tieneSalidaValida = marcajesActuales.salida && 
-                                   marcajesActuales.salida !== 'Sin marcaje' && 
-                                   marcajesActuales.salida !== 'SNM';
-        
-        if (!tieneSalidaValida) {
-          // Si no hay salida válida, invalidar todo para que se muestre "Sin Registros"
-          return {
-            entrada: 'Sin marcaje',
-            entradaDescanso: 'Sin marcaje',
-            salidaDescanso: 'Sin marcaje',
-            salida: 'Sin marcaje'
-          };
-        } else {
-          // Si hay salida válida, solo invalidar la entrada
-          return {
-            entrada: 'Sin marcaje',
-            entradaDescanso: marcajesActuales.entradaDescanso || 'Sin marcaje',
-            salidaDescanso: marcajesActuales.salidaDescanso || 'Sin marcaje',
-            salida: marcajesActuales.salida
-          };
-        }
+        // SOLUCIÓN: Solo invalidamos la entrada. 
+        // NO retornamos todo 'Sin marcaje' para no causar el error de "Sin Registros".
+        return {
+          ...marcajesActuales,
+          entrada: 'Sin marcaje' 
+        };
       }
-      // Si no es el mismo marcaje, mantener los marcajes (puede ser coincidencia de hora)
     }
-
     return marcajesActuales;
   }
 
@@ -7323,12 +7247,12 @@ export class MarcajePersonalComponent implements OnInit {
           // Decidir: si está más cerca de la entrada del día siguiente que de la salida del día actual,
           // el marcaje le corresponde al día siguiente
           // PERO: usar umbral de 6 horas (360 minutos) para ser más flexible
-          const umbralFlexible = 360; // 6 horas en minutos
+          const umbralFlexible = 600; // 6 horas en minutos
           
           // Solo invalidar si la diferencia es significativa (más de 6 horas de diferencia)
           // Si ambas distancias son menores al umbral, mantener la asignación de la primera vuelta
           if (distanciaEntradaSiguiente < distanciaSalidaActual && 
-              distanciaEntradaSiguiente <= umbralFlexible &&
+              distanciaEntradaSiguiente <= 360 &&
               distanciaSalidaActual > umbralFlexible) {
             // El marcaje está claramente más cerca de la entrada del día siguiente Y la salida actual está muy lejos
             // Invalidar la salida del día actual y también los descansos (ya que dependen de tener salida)
@@ -10632,6 +10556,14 @@ export class MarcajePersonalComponent implements OnInit {
   private normalizarID(valor: any): string {
     if (!valor) return '';
     return valor.toString().replace(/\D/g, '').replace(/^0+/, '');
+  }
+
+  public limpiarCacheSistema(): void {
+    this.cacheMarcajesCalculados.clear();
+    this.marcajesUsadosGlobal.clear();
+    // Si usas cache de bloques, límpialo también
+    if (this.cacheBloquesHorario) this.cacheBloquesHorario.clear();
+    console.log("Caché limpiado: el sistema recalculará con los datos más recientes.");
   }
 
 }
