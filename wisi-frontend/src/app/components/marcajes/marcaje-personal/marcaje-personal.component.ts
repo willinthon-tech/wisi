@@ -10388,12 +10388,21 @@ export class MarcajePersonalComponent implements OnInit {
   
     if (entradaReal) this.marcajesUsadosGlobal.add(entradaReal.id);
   
-    const salidaReal = logs.find(log => {
+    /* const salidaReal = logs.find(log => {
       if (this.marcajesUsadosGlobal.has(log.id)) return false;
       const logTime = new Date(log.event_time);
       if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
       const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
       return diffSalida >= -420 && diffSalida <= 480; // Mantengo tus rangos
+    }); */
+
+    // En lugar de logs.find(...), usamos logs.slice().reverse().find(...)
+    const salidaReal = [...logs].reverse().find(log => {
+      if (this.marcajesUsadosGlobal.has(log.id)) return false;
+      const logTime = new Date(log.event_time);
+      if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
+      const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
+      return diffSalida >= -420 && diffSalida <= 480;
     });
   
     if (salidaReal) this.marcajesUsadosGlobal.add(salidaReal.id);
