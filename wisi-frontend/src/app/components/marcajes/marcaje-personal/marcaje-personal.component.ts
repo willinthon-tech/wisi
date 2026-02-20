@@ -7246,7 +7246,7 @@ export class MarcajePersonalComponent implements OnInit {
           // Solo invalidar si la diferencia es significativa (más de 6 horas de diferencia)
           // Si ambas distancias son menores al umbral, mantener la asignación de la primera vuelta
           if (distanciaEntradaSiguiente < distanciaSalidaActual && 
-              distanciaEntradaSiguiente <= 540 &&
+              distanciaEntradaSiguiente <= 480 &&
               distanciaSalidaActual > umbralFlexible) {
             // El marcaje está claramente más cerca de la entrada del día siguiente Y la salida actual está muy lejos
             // Invalidar la salida del día actual y también los descansos (ya que dependen de tener salida)
@@ -8794,7 +8794,7 @@ export class MarcajePersonalComponent implements OnInit {
                   mejorMarcaje = candidato;
                 }
               }
-              const umbralMaximo = 540; 
+              const umbralMaximo = 480; 
               if (mejorDiferencia <= umbralMaximo) {
                 marcajeMasCercano = mejorMarcaje;
               } else {
@@ -8870,7 +8870,7 @@ export class MarcajePersonalComponent implements OnInit {
                 }
              }
              // Si el más cercano está muy lejos, tomar el último del día (entrada nocturna)
-             if (menorDiferencia > 540) {
+             if (menorDiferencia > 480) {
                 const ordenados = [...marcajesDelDia].sort((a, b) => a.hora - b.hora);
                 marcajeMasCercano = ordenados[ordenados.length - 1];
              }
@@ -10393,7 +10393,7 @@ export class MarcajePersonalComponent implements OnInit {
       const logTime = new Date(log.event_time);
       if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
       const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
-      return diffSalida >= -420 && diffSalida <= 540; // Mantengo tus rangos
+      return diffSalida >= -420 && diffSalida <= 480; // Mantengo tus rangos
     });
   
     if (salidaReal) this.marcajesUsadosGlobal.add(salidaReal.id);
