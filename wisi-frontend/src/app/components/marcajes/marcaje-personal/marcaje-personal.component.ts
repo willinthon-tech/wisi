@@ -7241,7 +7241,7 @@ export class MarcajePersonalComponent implements OnInit {
           // Decidir: si está más cerca de la entrada del día siguiente que de la salida del día actual,
           // el marcaje le corresponde al día siguiente
           // PERO: usar umbral de 6 horas (360 minutos) para ser más flexible
-          const umbralFlexible = 720; // 6 horas en minutos
+          const umbralFlexible = 540; // 6 horas en minutos
           
           // Solo invalidar si la diferencia es significativa (más de 6 horas de diferencia)
           // Si ambas distancias son menores al umbral, mantener la asignación de la primera vuelta
