@@ -7241,12 +7241,12 @@ export class MarcajePersonalComponent implements OnInit {
           // Decidir: si está más cerca de la entrada del día siguiente que de la salida del día actual,
           // el marcaje le corresponde al día siguiente
           // PERO: usar umbral de 6 horas (360 minutos) para ser más flexible
-          const umbralFlexible = 600; // 6 horas en minutos
+          const umbralFlexible = 720; // 6 horas en minutos
           
           // Solo invalidar si la diferencia es significativa (más de 6 horas de diferencia)
           // Si ambas distancias son menores al umbral, mantener la asignación de la primera vuelta
           if (distanciaEntradaSiguiente < distanciaSalidaActual && 
-              distanciaEntradaSiguiente <= 360 &&
+              distanciaEntradaSiguiente <= 540 &&
               distanciaSalidaActual > umbralFlexible) {
             // El marcaje está claramente más cerca de la entrada del día siguiente Y la salida actual está muy lejos
             // Invalidar la salida del día actual y también los descansos (ya que dependen de tener salida)
@@ -7385,7 +7385,7 @@ export class MarcajePersonalComponent implements OnInit {
       );
     } else {
       // Turno diurno: marcajes del mismo día + día siguiente (por si hay horas extras que terminan en madrugada)
-      
+
 
       const marcajesHoy = this.getMarcajesDelDia(empleado, dia);
       const diaSiguiente = new Date(dia);
@@ -8794,7 +8794,7 @@ export class MarcajePersonalComponent implements OnInit {
                   mejorMarcaje = candidato;
                 }
               }
-              const umbralMaximo = 360; 
+              const umbralMaximo = 540; 
               if (mejorDiferencia <= umbralMaximo) {
                 marcajeMasCercano = mejorMarcaje;
               } else {
@@ -8870,7 +8870,7 @@ export class MarcajePersonalComponent implements OnInit {
                 }
              }
              // Si el más cercano está muy lejos, tomar el último del día (entrada nocturna)
-             if (menorDiferencia > 360) {
+             if (menorDiferencia > 540) {
                 const ordenados = [...marcajesDelDia].sort((a, b) => a.hora - b.hora);
                 marcajeMasCercano = ordenados[ordenados.length - 1];
              }
@@ -10383,7 +10383,7 @@ export class MarcajePersonalComponent implements OnInit {
       if (this.marcajesUsadosGlobal.has(log.id)) return false;
       const logTime = new Date(log.event_time).getTime();
       const diff = Math.abs((logTime - entradaTeorica.getTime()) / 60000);
-      return diff <= 240; // Mantengo tus 4 horas
+      return diff <= 420; // Mantengo tus 4 horas
     });
   
     if (entradaReal) this.marcajesUsadosGlobal.add(entradaReal.id);
@@ -10393,7 +10393,7 @@ export class MarcajePersonalComponent implements OnInit {
       const logTime = new Date(log.event_time);
       if (entradaReal && logTime <= new Date(entradaReal.event_time)) return false;
       const diffSalida = (logTime.getTime() - salidaTeorica.getTime()) / 60000;
-      return diffSalida >= -240 && diffSalida <= 360; // Mantengo tus rangos
+      return diffSalida >= -420 && diffSalida <= 540; // Mantengo tus rangos
     });
   
     if (salidaReal) this.marcajesUsadosGlobal.add(salidaReal.id);
