@@ -10128,42 +10128,32 @@ export class MarcajePersonalComponent implements OnInit {
   // Calcular resumen: Diferencia Horas (por empleado) - Siguiendo la estructura de Diurno/Nocturno
   getResumenDiferenciaHorasPorEmpleado(empleado: any): string {
     let totalMinutosDiferencia = 0;
-    const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am (120 min)
-
+    const HORA_LIMITE_INICIO = 2 * 60; // 02:00 am = 120 min
+  
     this.diasDelMes.forEach(dia => {
-      if (!this.isSinHorario(empleado, dia)) {
-        const bloque = this.getBloqueHorario(empleado, dia);
-        if (bloque) {
-          const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
-          
-          // Validación estándar de marcajes
-          if (marcajes.entrada !== 'Sin marcaje' && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
-            const entradaMinutos = this.convertirHoraAMinutos(marcajes.entrada);
-            const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+      // 1. Obtenemos el bloque y los marcajes calculados para ese día
+      const bloque = this.getBloqueHorario(empleado, dia);
+      if (bloque) {
+        const marcajes = this.calcularMarcajesDelDia(empleado, dia, bloque);
+  
+        // 2. Para nocturnos, nos enfocamos en la SALIDA. 
+        // Si hay una salida válida y es después de las 2:00 AM, calculamos.
+        if (marcajes.salida && marcajes.salida !== 'Sin marcaje' && marcajes.salida !== 'SNM') {
+          const salidaMinutos = this.convertirHoraAMinutos(marcajes.salida);
+  
+          if (!isNaN(salidaMinutos) && salidaMinutos > HORA_LIMITE_INICIO) {
+            // 3. Calculamos la diferencia desde las 2:00 AM
+            // Ejemplo: Salida 06:00 AM (360) - 02:00 AM (120) = 240 min (4 horas)
+            const minutosDiferencia = salidaMinutos - HORA_LIMITE_INICIO;
             
-            if (!isNaN(entradaMinutos) && !isNaN(salidaMinutos)) {
-              
-              /**
-               * EXPLICACIÓN DEL CAMBIO:
-               * Para que cuente la diferencia a partir de las 2am:
-               * 1. La salida debe ser después de las 2:00 AM (salidaMinutos > 120).
-               * 2. La entrada debe ser ANTES de las 2:00 AM (entradaMinutos <= 120) 
-               * O debe ser una entrada de un turno que empezó el día anterior (ej. 22:00).
-               */
-              const entroAntesDeLas2Am = entradaMinutos <= HORA_LIMITE_INICIO;
-              const esTurnoNocturnoAnterior = entradaMinutos > (20 * 60); // Entró después de las 8pm del día anterior
-
-              if ((entroAntesDeLas2Am || esTurnoNocturnoAnterior) && salidaMinutos > HORA_LIMITE_INICIO) {
-                // Sumamos desde las 2am hasta la salida
-                const minutosDiferencia = salidaMinutos - HORA_LIMITE_INICIO;
-                totalMinutosDiferencia += minutosDiferencia;
-              }
-            }
+            // Opcional: Solo sumar si el marcaje de entrada existe o si es claramente un turno que viene de atrás
+            // Pero según lo que me pides, si hay salida después de las 2am, se totaliza.
+            totalMinutosDiferencia += minutosDiferencia;
           }
         }
       }
     });
-
+  
     return this.formatearMinutosAHora(totalMinutosDiferencia);
   }
 
