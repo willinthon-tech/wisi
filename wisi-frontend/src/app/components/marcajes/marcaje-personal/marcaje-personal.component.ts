@@ -7758,6 +7758,7 @@ export class MarcajePersonalComponent implements OnInit {
       }
     } else {
       // Lógica para turno diurno
+      /* 
       if (marcajesOrdenados.length === 1) {
         // Un solo marcaje en diurno: análisis inteligente basado en proximidad
         const marcaje = marcajesOrdenados[0];
@@ -7794,6 +7795,35 @@ export class MarcajePersonalComponent implements OnInit {
         // Dos o más marcajes en diurno: usar asignación inteligente según proximidad
         const marcajesAsignados = this.asignarMarcajesInteligente(marcajesOrdenados, bloque, turno, diaTurno);
         return marcajesAsignados;
+      }
+      */
+      if (marcajesOrdenados.length === 1) {
+        const marcaje = marcajesOrdenados[0];
+        const horaMarcaje = this.formatearHora(new Date(marcaje.event_time).toTimeString().split(' ')[0]);
+        const horaMarcajeMinutos = this.convertirHoraAMinutos(horaMarcaje);
+        
+        // Si solo hay uno, usamos la mitad del turno para decidir si entró o salió
+        const hEntradaProg = this.convertirHoraAMinutos(bloque.hora_entrada || '08:00');
+        const hSalidaProg = this.convertirHoraAMinutos(bloque.hora_salida || '17:00');
+        const mitadTurno = hEntradaProg + ((hSalidaProg - hEntradaProg) / 2);
+
+        if (horaMarcajeMinutos <= mitadTurno) {
+          resultado.entrada = horaMarcaje;
+        } else {
+          resultado.salida = horaMarcaje;
+        }
+      } else {
+        // SI HAY 2 O MÁS: Asignación directa por extremos (Ignoramos asignarMarcajesInteligente)
+        resultado.entrada = this.formatearHora(new Date(marcajesOrdenados[0].event_time).toTimeString().split(' ')[0]);
+        resultado.salida = this.formatearHora(new Date(marcajesOrdenados[marcajesOrdenados.length - 1].event_time).toTimeString().split(' ')[0]);
+        
+        // Si hay marcajes intermedios, podrías asignarlos a descansos si quisieras
+        if (marcajesOrdenados.length === 3) {
+            resultado.entradaDescanso = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
+        } else if (marcajesOrdenados.length >= 4) {
+            resultado.entradaDescanso = this.formatearHora(new Date(marcajesOrdenados[1].event_time).toTimeString().split(' ')[0]);
+            resultado.salidaDescanso = this.formatearHora(new Date(marcajesOrdenados[2].event_time).toTimeString().split(' ')[0]);
+        }
       }
     }
 
@@ -8849,6 +8879,7 @@ export class MarcajePersonalComponent implements OnInit {
       } else {
         // TURNO DIURNO - PRIORIDAD 1: Marcaje en el mismo día, último del día, más cercano a hora programada, después de entrada
         // Solo buscar si hay entrada asignada (base principal)
+        /* 
         if (entradaAsignada && entradaAsignada !== 'Sin marcaje') {
           const horaEntradaAsignada = this.convertirHoraAMinutos(entradaAsignada);
           
@@ -8883,6 +8914,20 @@ export class MarcajePersonalComponent implements OnInit {
             }
             
             marcajeMasCercano = mejorMarcaje;
+          }
+        } */
+        // TURNO DIURNO - PRIORIDAD 1: Marcaje en el mismo día
+        if (entradaAsignada && entradaAsignada !== 'Sin marcaje') {
+          const horaEntradaAsignada = this.convertirHoraAMinutos(entradaAsignada);
+          
+          // Filtramos todos los marcajes del día que sean después de la entrada
+          const marcajesCandidatos = marcajesConHoras
+              .filter(m => !marcajesUsados.has(m.marcaje) && !m.esDelDiaAnterior && !m.esDelDiaSiguiente && m.hora > horaEntradaAsignada);
+
+          if (marcajesCandidatos.length > 0) {
+              // FORZAR: En turno diurno, la salida es SIEMPRE el último marcaje del día
+              marcajesCandidatos.sort((a, b) => b.hora - a.hora); // Ordenamos de mayor a menor
+              marcajeMasCercano = marcajesCandidatos[0]; // Tomamos el último
           }
         }
       }
