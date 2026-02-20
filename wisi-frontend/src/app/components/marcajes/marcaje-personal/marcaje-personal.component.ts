@@ -4071,9 +4071,10 @@ export class MarcajePersonalComponent implements OnInit {
               return marcajeNormalizado;
             });
             
-            const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
+            const idLimpioEmp = this.normalizarID(emp.cedula);
+            const marcajesEmpleado = this.marcajesCompletos.get(idLimpioEmp) || [];
             marcajesEmpleado.push(...marcajesNormalizados);
-            this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+            this.marcajesCompletos.set(idLimpioEmp, marcajesEmpleado);
             totalMarcajes += marcajesNormalizados.length;
             
             // Analizar dispositivos en los marcajes normalizados
@@ -4362,9 +4363,10 @@ export class MarcajePersonalComponent implements OnInit {
                 
                 // Procesar marcajes
                 if (emp.marcajes && Array.isArray(emp.marcajes) && emp.cedula) {
-                  const marcajesEmpleado = this.marcajesCompletos.get(emp.cedula) || [];
+                  const idLimpioEmp = this.normalizarID(emp.cedula);
+                  const marcajesEmpleado = this.marcajesCompletos.get(idLimpioEmp) || [];
                   marcajesEmpleado.push(...emp.marcajes);
-                  this.marcajesCompletos.set(emp.cedula, marcajesEmpleado);
+                  this.marcajesCompletos.set(idLimpioEmp, marcajesEmpleado);
                 }
               });
               
@@ -4637,23 +4639,23 @@ export class MarcajePersonalComponent implements OnInit {
             }
           });
           
-          // Crear un mapa de cédulas para búsqueda rápida
-          const cedulasSet = new Set(empleadosConCedula.map(e => e.cedula));
+          // Crear un mapa de cédulas normalizadas para búsqueda rápida
+          const cedulasSet = new Set(empleadosConCedula.map(e => this.normalizarID(e.cedula)));
           
           // DEBUG: Contadores para ver qué se está filtrando
           const dispositivosEnMarcajesFiltrados = new Set<number>();
           let marcajesFiltradosPorEmpleado = 0;
           let marcajesDescartadosPorEmpleado = 0;
           
-          // Agrupar marcajes por employee_no (cedula) localmente
+          // Agrupar marcajes por employee_no (cedula) localmente usando ID normalizado
           todosLosMarcajes.forEach((marcaje: any) => {
-            const cedula = marcaje.employee_no;
+            const idLimpio = this.normalizarID(marcaje.employee_no);
             // Solo procesar marcajes de empleados que están en la lista
-            if (cedula && cedulasSet.has(cedula)) {
-              if (!this.marcajesCompletos.has(cedula)) {
-                this.marcajesCompletos.set(cedula, []);
+            if (idLimpio && cedulasSet.has(idLimpio)) {
+              if (!this.marcajesCompletos.has(idLimpio)) {
+                this.marcajesCompletos.set(idLimpio, []);
               }
-              this.marcajesCompletos.get(cedula)!.push(marcaje);
+              this.marcajesCompletos.get(idLimpio)!.push(marcaje);
               marcajesFiltradosPorEmpleado++;
               
               // Extraer dispositivo_id para el log
@@ -4675,8 +4677,9 @@ export class MarcajePersonalComponent implements OnInit {
           
           // Asegurar que todos los empleados tengan un array (aunque esté vacío)
           empleadosConCedula.forEach(empleado => {
-            if (!this.marcajesCompletos.has(empleado.cedula)) {
-              this.marcajesCompletos.set(empleado.cedula, []);
+            const idLimpioEmp = this.normalizarID(empleado.cedula);
+            if (!this.marcajesCompletos.has(idLimpioEmp)) {
+              this.marcajesCompletos.set(idLimpioEmp, []);
             }
           });
           
@@ -4701,7 +4704,8 @@ export class MarcajePersonalComponent implements OnInit {
         error: (err) => {
           // Si hay error, inicializar arrays vacíos para todos los empleados
           empleadosConCedula.forEach(empleado => {
-            this.marcajesCompletos.set(empleado.cedula, []);
+            const idLimpioEmp = this.normalizarID(empleado.cedula);
+            this.marcajesCompletos.set(idLimpioEmp, []);
           });
           resolve();
         }
@@ -4913,7 +4917,8 @@ export class MarcajePersonalComponent implements OnInit {
       // FILTRADO SÍNCRONO: Filtrar marcajes primero para que estén disponibles al filtrar empleados
       base.forEach(empleado => {
         if (empleado.cedula) {
-          const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
+          const idLimpioEmp = this.normalizarID(empleado.cedula);
+          const marcajesCompletos = this.marcajesCompletos.get(idLimpioEmp) || [];
           
           // Filtrar marcajes por rango de fechas y dispositivos seleccionados
           const marcajesFiltrados = marcajesCompletos.filter((marcaje: any) => {
@@ -5033,7 +5038,8 @@ export class MarcajePersonalComponent implements OnInit {
       
       base.forEach(empleado => {
         if (empleado.cedula) {
-          const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
+          const idLimpioEmp = this.normalizarID(empleado.cedula);
+          const marcajesCompletos = this.marcajesCompletos.get(idLimpioEmp) || [];
           const marcajesFiltrados = this.marcajesPorEmpleado.get(empleado.cedula) || [];
           
           totalMarcajesCompletos += marcajesCompletos.length;
@@ -5079,7 +5085,8 @@ export class MarcajePersonalComponent implements OnInit {
       let marcajesDispositivo26Completos = 0;
       base.forEach(empleado => {
         if (empleado.cedula) {
-          const marcajesCompletos = this.marcajesCompletos.get(empleado.cedula) || [];
+          const idLimpioEmp = this.normalizarID(empleado.cedula);
+          const marcajesCompletos = this.marcajesCompletos.get(idLimpioEmp) || [];
           marcajesCompletos.forEach((m: any) => {
             const devId = Number(m.dispositivo_id) || Number(m.Dispositivo?.id) || Number(m.dispositivo?.id);
             if (devId === 24) marcajesDispositivo24Completos++;
@@ -10326,7 +10333,8 @@ export class MarcajePersonalComponent implements OnInit {
   
     // === MEJORA PARA DÍAS LIBRES TRABAJADOS ===
     if (this.esDiaLibre(bloque)) {
-      const logsDelDia = (this.marcajesCompletos.get(empleado.cedula) || [])
+      const idLimpioEmp = this.normalizarID(empleado.cedula);
+      const logsDelDia = (this.marcajesCompletos.get(idLimpioEmp) || [])
         .filter(log => this.formatDateLocalYYYYMMDD(new Date(log.event_time)) === fechaStr)
         .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
   
@@ -10358,8 +10366,9 @@ export class MarcajePersonalComponent implements OnInit {
       });
       return; 
     }
-  
-    const todosLosLogs = this.marcajesCompletos.get(empleado.cedula) || [];
+
+    const idLimpioEmp = this.normalizarID(empleado.cedula);
+    const todosLosLogs = this.marcajesCompletos.get(idLimpioEmp) || [];
     const logs = [...todosLosLogs].sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
   
     const entradaTeorica = this.crearFechaHora(dia, plantilla.hora_entrada);
