@@ -1088,6 +1088,149 @@ const authorizeLevel = (requiredLevel) => {
   };
 };
 
+
+
+
+// =============================================
+// RUTAS
+// =============================================
+
+
+
+app.get('/privacidad', async (req, res) => {
+  const htmlContent = `
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Políticas de Privacidad | wisi.space</title>
+      <style>
+          :root {
+              --primary-color: #1a365d;
+              --accent-color: #c53030;
+              --text-color: #333333;
+              --bg-color: #f4f7f6;
+          }
+          body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+              line-height: 1.6;
+              color: var(--text-color);
+              background-color: var(--bg-color);
+              margin: 0;
+              padding: 0;
+          }
+          .header {
+              background-color: var(--primary-color);
+              color: white;
+              padding: 2rem 0;
+              text-align: center;
+              border-bottom: 5px solid var(--accent-color);
+          }
+          .header h1 {
+              margin: 0;
+              font-size: 2.5rem;
+          }
+          .container {
+              max-width: 800px;
+              margin: 2rem auto;
+              background: white;
+              padding: 2rem 3rem;
+              border-radius: 8px;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+          }
+          h2 {
+              color: var(--primary-color);
+              border-bottom: 1px solid #eee;
+              padding-bottom: 0.5rem;
+              margin-top: 2rem;
+          }
+          p, li {
+              font-size: 1.05rem;
+              color: #555;
+          }
+          ul {
+              padding-left: 20px;
+          }
+          .last-updated {
+              font-style: italic;
+              color: #777;
+              font-size: 0.9rem;
+              text-align: right;
+          }
+          .footer {
+              text-align: center;
+              padding: 2rem;
+              color: #666;
+              font-size: 0.9rem;
+          }
+          @media (max-width: 768px) {
+              .container {
+                  margin: 1rem;
+                  padding: 1.5rem;
+              }
+          }
+      </style>
+  </head>
+  <body>
+
+      <div class="header">
+          <h1>wisi.space</h1>
+          <p>Políticas de Privacidad y Tratamiento de Datos</p>
+      </div>
+
+      <div class="container">
+          <p class="last-updated">Última actualización: Febrero 2026</p>
+
+          <p>Bienvenido a <strong>wisi.space</strong>. Este documento establece las políticas de privacidad y los términos de uso de la información manejada a través de nuestra plataforma de administración y gestión operativa de casinos.</p>
+
+          <h2>1. Naturaleza de la Plataforma</h2>
+          <p><strong>wisi.space</strong> es una herramienta de uso corporativo interno diseñada para la gestión integral de operaciones de casino. El acceso a esta plataforma está estrictamente restringido a personal autorizado y administradores del establecimiento.</p>
+
+          <h2>2. Información que Recopilamos</h2>
+          <p>Debido a la naturaleza de los servicios prestados, la plataforma recopila y procesa las siguientes categorías de información:</p>
+          <ul>
+              <li><strong>Datos de Identificación y Acceso:</strong> Credenciales de usuarios, niveles de permisos, y registros de entrada/salida (marcaje personal).</li>
+              <li><strong>Registros de Seguridad (CECOM):</strong> Datos derivados de los controles de acceso físicos, monitoreo y gestión del Centro de Comunicaciones.</li>
+              <li><strong>Datos de Comunicación:</strong> Registros generados por el servidor telefónico integrado (logs de llamadas, extensiones, horarios).</li>
+              <li><strong>Datos Operativos:</strong> Información sobre el inventario de máquinas, estados de mantenimiento y operaciones internas del casino.</li>
+          </ul>
+
+          <h2>3. Uso de la Información</h2>
+          <p>La información recopilada se utiliza de manera exclusiva para fines operativos e internos del casino, incluyendo:</p>
+          <ul>
+              <li>Control de asistencia y auditoría del personal.</li>
+              <li>Garantizar la seguridad de las instalaciones y los activos mediante la gestión de controles de acceso y CECOM.</li>
+              <li>Mantenimiento preventivo y correctivo del inventario de máquinas.</li>
+              <li>Auditoría y control de las telecomunicaciones internas.</li>
+          </ul>
+
+          <h2>4. Protección y Seguridad de los Datos</h2>
+          <p>Implementamos medidas de seguridad técnicas, administrativas y físicas de alto nivel para proteger los datos contra acceso no autorizado, alteración, divulgación o destrucción. <strong>wisi.space</strong> utiliza encriptación en sus bases de datos y exige autenticación estricta para el acceso a sus distintos módulos.</p>
+
+          <h2>5. Compartición de Datos</h2>
+          <p>Los datos alojados en <strong>wisi.space</strong> son de propiedad exclusiva de la administración del casino. No vendemos, alquilamos ni compartimos información con terceros, excepto cuando sea estrictamente requerido por ley o por las autoridades reguladoras competentes en materia de juegos de azar y seguridad laboral.</p>
+
+          <h2>6. Derechos de los Usuarios (Personal)</h2>
+          <p>El personal registrado en la plataforma tiene derecho a solicitar a la administración del casino la revisión, corrección o actualización de sus datos personales y laborales registrados en el sistema de marcaje, sujeto a las políticas internas de Recursos Humanos.</p>
+
+          <h2>7. Contacto</h2>
+          <p>Si tiene preguntas sobre esta política de privacidad, el manejo de sus datos o reportes de seguridad en el sistema, por favor contacte al departamento de TI o al administrador del sistema en su establecimiento.</p>
+          <p><strong>Correo de soporte técnico:</strong> soporte@wisi.space (Ejemplo)</p>
+      </div>
+
+      <div class="footer">
+          &copy; 2026 wisi.space - Sistema de Gestión de Casinos. Todos los derechos reservados.
+      </div>
+
+  </body>
+  </html>
+  `;
+
+  // Enviamos el HTML al cliente
+  res.send(htmlContent);
+});
+
 // =============================================
 // RUTAS DE AUTENTICACIÓN
 // =============================================
