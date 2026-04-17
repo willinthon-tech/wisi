@@ -1,15 +1,15 @@
 // Configurar zona horaria para GMT-04:00 (Atlantic Time - Canada)
-process.env.TZ = 'America/Halifax';
+process.env.TZ = "America/Halifax";
 
-const express = require('express');
-const path = require('path');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const cors = require('cors');
-const helmet = require('helmet');
+const express = require("express");
+const path = require("path");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const cors = require("cors");
+const helmet = require("helmet");
 // const rateLimit = require('express-rate-limit'); // DESHABILITADO
-const axios = require('axios');
-const cron = require('node-cron');
+const axios = require("axios");
+const cron = require("node-cron");
 
 // Variables para control de cola de CRON
 let cronQueue = [];
@@ -24,39 +24,39 @@ let pendingDevices = new Set(); // Dispositivos pendientes de procesar
 let lastSyncCycle = null; // Timestamp del último ciclo de sincronización
 
 // Sistema de persistencia de cola
-const fs = require('fs');
-const QUEUE_FILE = path.join(__dirname, 'cron-queue.json');
-const TRACKING_FILE = path.join(__dirname, 'cron-tracking.json');
+const fs = require("fs");
+const QUEUE_FILE = path.join(__dirname, "cron-queue.json");
+const TRACKING_FILE = path.join(__dirname, "cron-tracking.json");
 // Función para convertir tiempo a milisegundos
 function timeToMs(timeValue) {
   const timeMap = {
-    '10s': 10 * 1000,     // 10 segundos
-    '30s': 30 * 1000,     // 30 segundos
-    '1m': 60 * 1000,      // 1 minuto
-    '5m': 5 * 60 * 1000,  // 5 minutos
-    '10m': 10 * 60 * 1000, // 10 minutos
-    '30m': 30 * 60 * 1000, // 30 minutos
-    '1h': 60 * 60 * 1000,  // 1 hora
-    '6h': 6 * 60 * 60 * 1000, // 6 horas
-    '12h': 12 * 60 * 60 * 1000, // 12 horas
-    '24h': 24 * 60 * 60 * 1000  // 24 horas
+    "10s": 10 * 1000, // 10 segundos
+    "30s": 30 * 1000, // 30 segundos
+    "1m": 60 * 1000, // 1 minuto
+    "5m": 5 * 60 * 1000, // 5 minutos
+    "10m": 10 * 60 * 1000, // 10 minutos
+    "30m": 30 * 60 * 1000, // 30 minutos
+    "1h": 60 * 60 * 1000, // 1 hora
+    "6h": 6 * 60 * 60 * 1000, // 6 horas
+    "12h": 12 * 60 * 60 * 1000, // 12 horas
+    "24h": 24 * 60 * 60 * 1000, // 24 horas
   };
   return timeMap[timeValue] || 60 * 1000; // Default 1 minuto
 }
 const CRON_TIMEOUT = 300000; // 5 minutos timeout máximo por dispositivo (aumentado para dispositivos lentos)
-const hikConnectRoutes = require('./hik-connect-api');
-const hybridRoutes = require('./wisi-hikvision-hybrid');
-const TPPHikvisionAPI = require('./tpp-hikvision-api');
-const { 
-  sequelize, 
-  User, 
-  Sala, 
-  Module, 
-  Permission, 
+const hikConnectRoutes = require("./hik-connect-api");
+const hybridRoutes = require("./wisi-hikvision-hybrid");
+const TPPHikvisionAPI = require("./tpp-hikvision-api");
+const {
+  sequelize,
+  User,
+  Sala,
+  Module,
+  Permission,
   Page,
-  UserSala, 
-  UserModule, 
-  UserPermission, 
+  UserSala,
+  UserModule,
+  UserPermission,
   UserModulePermission,
   PageModule,
   SalaModule,
@@ -84,76 +84,73 @@ const {
   PlantillaHorario,
   ExcepcionHorario,
   Feriado,
-  syncDatabase 
-} = require('./models');
-const { Op } = require('sequelize');
-require('dotenv').config();
+  syncDatabase,
+} = require("./models");
+const { Op } = require("sequelize");
+require("dotenv").config();
 
 // Función para asignar automáticamente elementos al usuario creador
 async function assignToCreator(element, elementType) {
   try {
     // Buscar el usuario creador
-    const creator = await User.findOne({ where: { nivel: 'TODO' } });
-    
+    const creator = await User.findOne({ where: { nivel: "TODO" } });
+
     if (!creator) {
       return;
     }
 
-
     switch (elementType) {
-      case 'sala':
+      case "sala":
         await creator.addSala(element);
         break;
-        
-      case 'module':
+
+      case "module":
         await creator.addModule(element);
         break;
-        
-      case 'permission':
+
+      case "permission":
         await creator.addPermission(element);
         break;
-        
-      case 'page':
+
+      case "page":
         // Las páginas no se asignan directamente a usuarios, pero registramos la creación
         break;
-        
+
       default:
     }
-  } catch (error) {
-  }
+  } catch (error) {}
 }
 
 // Función para agregar dispositivo a la cola de forma segura (evita duplicados)
 function addDeviceToQueue(dispositivo, priority = 1) {
   const deviceId = dispositivo.id;
-  
+
   // Verificar si ya está en la cola o ya fue procesado
   if (processedDevices.has(deviceId)) {
-    ;
     return false;
   }
-  
+
   // Verificar si ya está en la cola
-  const alreadyInQueue = cronQueue.some(item => item.dispositivo.id === deviceId);
+  const alreadyInQueue = cronQueue.some(
+    (item) => item.dispositivo.id === deviceId,
+  );
   if (alreadyInQueue) {
-    ;
     return false;
   }
-  
+
   // Agregar a la cola
   cronQueue.push({
     dispositivo: dispositivo,
     timestamp: new Date().toISOString(),
-    priority: priority
+    priority: priority,
   });
-  
+
   // Marcar como pendiente
   pendingDevices.add(deviceId);
-  
+
   // Guardar estado en disco después de agregar dispositivo
   saveQueueToDisk();
-  
-  ;
+
   return true;
 }
 
@@ -164,9 +161,7 @@ function resetSyncCycle() {
     processedDevices.clear();
     pendingDevices.clear();
     lastSyncCycle = new Date().toISOString();
-    ;
   } else {
-    ;
   }
 }
 
@@ -178,44 +173,35 @@ function saveQueueToDisk() {
       processedDevices: Array.from(processedDevices),
       pendingDevices: Array.from(pendingDevices),
       lastSyncCycle: lastSyncCycle,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
-    
+
     fs.writeFileSync(QUEUE_FILE, JSON.stringify(queueData, null, 2));
-    ;
-  } catch (error) {
-    ;
-  }
+  } catch (error) {}
 }
 
 // Función para cargar la cola desde disco
 function loadQueueFromDisk() {
   try {
     if (fs.existsSync(QUEUE_FILE)) {
-      const data = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8'));
-      
+      const data = JSON.parse(fs.readFileSync(QUEUE_FILE, "utf8"));
+
       // Verificar si los datos no son muy antiguos (máximo 1 hora)
       const dataAge = Date.now() - new Date(data.timestamp).getTime();
       const maxAge = 60 * 60 * 1000; // 1 hora en milisegundos
-      
+
       if (dataAge < maxAge) {
         cronQueue = data.queue || [];
         processedDevices = new Set(data.processedDevices || []);
         pendingDevices = new Set(data.pendingDevices || []);
         lastSyncCycle = data.lastSyncCycle;
-        
-        ;
-        ;
-        
+
         return true;
       } else {
-        ;
         return false;
       }
     }
-  } catch (error) {
-    ;
-  }
+  } catch (error) {}
   return false;
 }
 
@@ -228,10 +214,7 @@ function clearPersistenceFiles() {
     if (fs.existsSync(TRACKING_FILE)) {
       fs.unlinkSync(TRACKING_FILE);
     }
-    ;
-  } catch (error) {
-    ;
-  }
+  } catch (error) {}
 }
 
 // Función para procesar la cola de CRON de forma asíncrona
@@ -239,145 +222,127 @@ async function processCronQueue() {
   if (isProcessingCron || cronQueue.length === 0) {
     return;
   }
-  
+
   isProcessingCron = true;
-  ;
-  
   while (cronQueue.length > 0) {
     const { dispositivo, timestamp } = cronQueue.shift();
     const deviceId = dispositivo.id;
-    
+
     // Actualizar dispositivo actual
     currentProcessingDevice = dispositivo;
-    ;
-    
     try {
       // Verificar salud del dispositivo antes de proceder
       const isHealthy = await checkDeviceHealth(dispositivo);
       if (!isHealthy) {
-        ;
         // Marcar como procesado aunque haya fallado
         processedDevices.add(deviceId);
         pendingDevices.delete(deviceId);
         currentProcessingDevice = null;
         continue;
       }
-      
+
       // Ejecutar sincronización con timeout
       const result = await Promise.race([
         syncAttendanceFromDevice(dispositivo),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), CRON_TIMEOUT)
-        )
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), CRON_TIMEOUT),
+        ),
       ]);
-      
+
       if (result.error) {
-        ;
       } else {
-        ;
       }
-      
+
       // Marcar como procesado exitosamente
       processedDevices.add(deviceId);
       pendingDevices.delete(deviceId);
-      
+
       // Guardar estado en disco después de cada dispositivo
       saveQueueToDisk();
-      
     } catch (error) {
-      ;
-      
       // Si es un error de timeout, marcar el dispositivo como problemático
-      if (error.message === 'Timeout' || error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
-        ;
+      if (
+        error.message === "Timeout" ||
+        error.code === "ETIMEDOUT" ||
+        error.code === "ECONNREFUSED"
+      ) {
       }
-      
+
       // Marcar como procesado aunque haya fallado
       processedDevices.add(deviceId);
       pendingDevices.delete(deviceId);
-      
+
       // Guardar estado en disco después de cada dispositivo
       saveQueueToDisk();
     }
-    
+
     // Delay entre dispositivos basado en la configuración del CRON global
     if (cronQueue.length > 0) {
       const cronConfig = await Cron.findOne();
-      const cronValue = cronConfig ? cronConfig.value : '1m';
+      const cronValue = cronConfig ? cronConfig.value : "1m";
       const delayMs = timeToMs(cronValue);
-      
-      ;
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
-  
+
   // Limpiar dispositivo actual
   currentProcessingDevice = null;
   isProcessingCron = false;
-  
+
   // Verificar si quedaron dispositivos sin procesar
   if (pendingDevices.size > 0) {
-    ;
   }
-  
+
   // Guardar estado final
   saveQueueToDisk();
-  
+
   // Si no hay dispositivos pendientes, limpiar archivos de persistencia y resetear tracking
   if (pendingDevices.size === 0 && cronQueue.length === 0) {
     clearPersistenceFiles();
     // Resetear tracking para el próximo ciclo
     processedDevices.clear();
     pendingDevices.clear();
-    ;
   }
-  
-  ;
 }
 
 // Función para verificar la salud del dispositivo
 async function checkDeviceHealth(dispositivo) {
   try {
-    
-    
     // Crear objeto de autenticación
     const authObject = {
       usuario_login_dispositivo: dispositivo.usuario,
-      clave_login_dispositivo: dispositivo.clave
+      clave_login_dispositivo: dispositivo.clave,
     };
-    
+
     // Intentar una petición simple de información del dispositivo con timeout corto
     const healthResponse = await makeDigestRequest(
-      `http://${dispositivo.ip_remota}`, 
-      '/ISAPI/System/deviceInfo', 
-      'GET', 
-      null, 
-      authObject
+      `http://${dispositivo.ip_remota}`,
+      "/ISAPI/System/deviceInfo",
+      "GET",
+      null,
+      authObject,
     );
-    
+
     if (healthResponse && healthResponse.status === 200) {
-      
       return true;
     } else {
-      
       return false;
     }
   } catch (error) {
-    
     return false;
   }
 }
 
 // Función para sincronizar marcajes desde dispositivo con paginación
 async function syncAttendanceFromDevice(dispositivo) {
-  const fs = require('fs');
-  const path = require('path');
-  
+  const fs = require("fs");
+  const path = require("path");
+
   try {
     // Verificar salud del dispositivo antes de proceder
     const isDeviceHealthy = await checkDeviceHealth(dispositivo);
     if (!isDeviceHealthy) {
-      
       return {
         totalEvents: 0,
         savedCount: 0,
@@ -387,17 +352,15 @@ async function syncAttendanceFromDevice(dispositivo) {
         imagesErrors: 0,
         eventsWithoutImage: 0,
         dispositivo: dispositivo.nombre,
-        error: 'Dispositivo no disponible'
+        error: "Dispositivo no disponible",
       };
     }
     // Crear carpeta attlogs si no existe (compatible con Linux y Windows)
-    const attlogsDir = path.join(__dirname, 'attlogs');
+    const attlogsDir = path.join(__dirname, "attlogs");
     if (!fs.existsSync(attlogsDir)) {
       try {
         fs.mkdirSync(attlogsDir, { recursive: true, mode: 0o755 }); // Permisos para Linux
-        ;
       } catch (mkdirError) {
-        ;
         // Continuar sin el directorio si no se puede crear
       }
     }
@@ -405,65 +368,51 @@ async function syncAttendanceFromDevice(dispositivo) {
     // Obtener el último evento sincronizado para este dispositivo
     const lastEvent = await Attlog.findOne({
       where: { dispositivo_id: dispositivo.id },
-      order: [['event_time', 'DESC']]
+      order: [["event_time", "DESC"]],
     });
 
     const lastEventTime = lastEvent ? lastEvent.event_time : null;
-    
-    
+
     // Función para formatear fechas al formato correcto de Hikvision
     function formatDateForHikvision(dateInput) {
-      
-      
       if (!dateInput) {
-        
         return null;
       }
-      
+
       const date = new Date(dateInput);
-      
-      
+
       if (isNaN(date.getTime())) {
-        
         return null;
       }
-      
+
       // Convertir de UTC a GMT-04:00 (zona horaria del dispositivo)
       // Restar 4 horas para ajustar a la zona horaria del dispositivo
-      const adjustedDate = new Date(date.getTime() - (4 * 60 * 60 * 1000));
-      
+      const adjustedDate = new Date(date.getTime() - 4 * 60 * 60 * 1000);
+
       // Formato específico para Hikvision: YYYY-MM-DDTHH:mm:ss-04:00
       const year = adjustedDate.getFullYear();
-      const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
-      const day = String(adjustedDate.getDate()).padStart(2, '0');
-      const hours = String(adjustedDate.getHours()).padStart(2, '0');
-      const minutes = String(adjustedDate.getMinutes()).padStart(2, '0');
-      const seconds = String(adjustedDate.getSeconds()).padStart(2, '0');
-      
+      const month = String(adjustedDate.getMonth() + 1).padStart(2, "0");
+      const day = String(adjustedDate.getDate()).padStart(2, "0");
+      const hours = String(adjustedDate.getHours()).padStart(2, "0");
+      const minutes = String(adjustedDate.getMinutes()).padStart(2, "0");
+      const seconds = String(adjustedDate.getSeconds()).padStart(2, "0");
+
       const result = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-04:00`;
-      
+
       return result;
     }
-    
+
     // Si no hay eventos previos, usar marcaje_inicio del dispositivo
     // Si hay eventos previos, usar el último evento
     let startTimeForQuery = lastEventTime || dispositivo.marcaje_inicio;
     startTimeForQuery = formatDateForHikvision(startTimeForQuery);
-    
+
     // Convertir marcaje_fin al formato correcto
-    
-    
-    
+
     let endTimeForQuery = formatDateForHikvision(dispositivo.marcaje_fin);
-    
-    
-    
-    
-    
-    
+
     // Validar que las fechas sean válidas
     if (!startTimeForQuery || !endTimeForQuery) {
-      
       return {
         totalEvents: 0,
         savedCount: 0,
@@ -472,7 +421,7 @@ async function syncAttendanceFromDevice(dispositivo) {
         imagesDownloaded: 0,
         imagesErrors: 0,
         dispositivo: dispositivo.nombre,
-        error: 'Fechas inválidas para la consulta'
+        error: "Fechas inválidas para la consulta",
       };
     }
 
@@ -481,93 +430,109 @@ async function syncAttendanceFromDevice(dispositivo) {
     let hasMoreData = true;
     let totalProcessed = 0;
 
-    
-
     // Primera consulta: obtener información general (sin eventos, solo para saber cuántos hay)
-    
+
     const initialEndpoint = `/ISAPI/AccessControl/AcsEvent?format=json`;
     const initialBody = {
-      "AcsEventCond": {
-        "searchID": "0",
-        "searchResultPosition": 0,
-        "maxResults": 1, // Solo 1 para verificar
-        "major": 5,
-        "minor": 75,
-        "startTime": startTimeForQuery,
-        "endTime": endTimeForQuery
-      }
+      AcsEventCond: {
+        searchID: "0",
+        searchResultPosition: 0,
+        maxResults: 1, // Solo 1 para verificar
+        major: 5,
+        minor: 75,
+        startTime: startTimeForQuery,
+        endTime: endTimeForQuery,
+      },
     };
 
     // Crear objeto similar a tarea para la autenticación
     const authObject = {
       usuario_login_dispositivo: dispositivo.usuario,
-      clave_login_dispositivo: dispositivo.clave
+      clave_login_dispositivo: dispositivo.clave,
     };
-    
-    
-    
-    
-    
-    
-    const initialResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, initialEndpoint, 'POST', initialBody, authObject);
-    
+
+    const initialResponse = await makeDigestRequest(
+      `http://${dispositivo.ip_remota}`,
+      initialEndpoint,
+      "POST",
+      initialBody,
+      authObject,
+    );
+
     if (!initialResponse) {
-      
-      return { totalEvents: 0, savedCount: 0, skippedCount: 0, errorCount: 1, dispositivo: dispositivo.nombre };
+      return {
+        totalEvents: 0,
+        savedCount: 0,
+        skippedCount: 0,
+        errorCount: 1,
+        dispositivo: dispositivo.nombre,
+      };
     }
-    
+
     if (!initialResponse || initialResponse.status !== 200) {
-      
-      return { totalEvents: 0, savedCount: 0, skippedCount: 0, errorCount: 1, dispositivo: dispositivo.nombre };
+      return {
+        totalEvents: 0,
+        savedCount: 0,
+        skippedCount: 0,
+        errorCount: 1,
+        dispositivo: dispositivo.nombre,
+      };
     }
 
     // Paginación para obtener todos los eventos
     while (hasMoreData) {
       const endpoint = `/ISAPI/AccessControl/AcsEvent?format=json`;
-      
+
       const requestBody = {
-        "AcsEventCond": {
-          "searchID": "0",
-          "searchResultPosition": startIndex,
-          "maxResults": 30,
-          "major": 5,
-          "minor": 75,
-          "startTime": startTimeForQuery,
-          "endTime": endTimeForQuery
-        }
+        AcsEventCond: {
+          searchID: "0",
+          searchResultPosition: startIndex,
+          maxResults: 30,
+          major: 5,
+          minor: 75,
+          startTime: startTimeForQuery,
+          endTime: endTimeForQuery,
+        },
       };
-      
-      
-      
-      
-      
-      const response = await makeDigestRequest(`http://${dispositivo.ip_remota}`, endpoint, 'POST', requestBody, authObject);
-      
+
+      const response = await makeDigestRequest(
+        `http://${dispositivo.ip_remota}`,
+        endpoint,
+        "POST",
+        requestBody,
+        authObject,
+      );
+
       if (!response) {
-        
         hasMoreData = false;
         continue;
       }
-      
+
       // Pausa entre peticiones para evitar sobrecargar el dispositivo
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 1 segundo de pausa
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 segundo de pausa
+
       if (response && response.status === 200 && response.data) {
         // Manejar diferentes estructuras de respuesta
         let events = [];
-        
+
         if (Array.isArray(response.data)) {
           // Si la respuesta es un array directo
           events = response.data;
-        } else if (response.data.AcsEvent && Array.isArray(response.data.AcsEvent)) {
+        } else if (
+          response.data.AcsEvent &&
+          Array.isArray(response.data.AcsEvent)
+        ) {
           // Si la respuesta tiene estructura AcsEvent
           events = response.data.AcsEvent;
         } else if (response.data.AcsEvent) {
           // Si AcsEvent existe pero no es array, intentar convertirlo
-          if (typeof response.data.AcsEvent === 'object' && response.data.AcsEvent !== null) {
+          if (
+            typeof response.data.AcsEvent === "object" &&
+            response.data.AcsEvent !== null
+          ) {
             // Si es un objeto, intentar convertirlo a array
             const values = Object.values(response.data.AcsEvent);
-            
+
             // Si los valores son arrays, aplanarlos
             events = [];
             for (const value of values) {
@@ -584,33 +549,23 @@ async function syncAttendanceFromDevice(dispositivo) {
           // Si no hay eventos, array vacío
           events = [];
         }
-        
+
         if (events.length === 0) {
           hasMoreData = false;
-          
         } else {
           allEvents = allEvents.concat(events);
           totalProcessed += events.length;
           startIndex += 30;
-          
-          
-          
+
           // Si recibimos menos de 30 eventos, es la última página
           if (events.length < 30) {
             hasMoreData = false;
-            
           }
-          
         }
       } else {
-        
-        
         hasMoreData = false;
       }
     }
-    
-
-    
 
     // Procesar cada evento
     let savedCount = 0;
@@ -622,48 +577,49 @@ async function syncAttendanceFromDevice(dispositivo) {
 
     for (const event of allEvents) {
       try {
-        
         // Verificar si el evento ya existe y validar datos
         if (!event.employeeNoString) {
-          
           skippedCount++;
           continue;
         }
 
         // Validar que employeeNoString no contenga datos corruptos (headers HTTP)
-        if (event.employeeNoString.includes('GMT') || 
-            event.employeeNoString.includes('Server:') || 
-            event.employeeNoString.includes('Content-') ||
-            event.employeeNoString.includes('Connection:') ||
-            event.employeeNoString.includes('Keep-Alive:') ||
-            event.employeeNoString.includes('X-Frame-Options:') ||
-            event.employeeNoString.includes('Cache-Control:') ||
-            event.employeeNoString.includes('Pragma:')) {
-          
+        if (
+          event.employeeNoString.includes("GMT") ||
+          event.employeeNoString.includes("Server:") ||
+          event.employeeNoString.includes("Content-") ||
+          event.employeeNoString.includes("Connection:") ||
+          event.employeeNoString.includes("Keep-Alive:") ||
+          event.employeeNoString.includes("X-Frame-Options:") ||
+          event.employeeNoString.includes("Cache-Control:") ||
+          event.employeeNoString.includes("Pragma:")
+        ) {
           skippedCount++;
           continue;
         }
 
         // Validar que el nombre no contenga datos corruptos
-        if (event.name && (event.name.includes('GMT') || 
-            event.name.includes('Server:') || 
-            event.name.includes('Content-') ||
-            event.name.includes('Connection:') ||
-            event.name.includes('Keep-Alive:') ||
-            event.name.includes('X-Frame-Options:') ||
-            event.name.includes('Cache-Control:') ||
-            event.name.includes('Pragma:'))) {
-          
+        if (
+          event.name &&
+          (event.name.includes("GMT") ||
+            event.name.includes("Server:") ||
+            event.name.includes("Content-") ||
+            event.name.includes("Connection:") ||
+            event.name.includes("Keep-Alive:") ||
+            event.name.includes("X-Frame-Options:") ||
+            event.name.includes("Cache-Control:") ||
+            event.name.includes("Pragma:"))
+        ) {
           skippedCount++;
           continue;
         }
-        
+
         const existingLog = await Attlog.findOne({
           where: {
             dispositivo_id: dispositivo.id,
             employee_no: event.employeeNoString,
-            event_time: event.time
-          }
+            event_time: event.time,
+          },
         });
 
         if (existingLog) {
@@ -672,103 +628,93 @@ async function syncAttendanceFromDevice(dispositivo) {
         }
 
         // Crear nuevo registro
-        
+
         const attlog = await Attlog.create({
           dispositivo_id: dispositivo.id,
           employee_no: event.employeeNoString,
           event_time: event.time,
-          nombre: event.name
+          nombre: event.name,
         });
-        
 
         // Verificar si el evento tiene campo de imagen antes de procesar
-        
-        
-        if (!event.pictureURL || event.pictureURL === '' || event.pictureURL === null || event.pictureURL === undefined) {
-          
+
+        if (
+          !event.pictureURL ||
+          event.pictureURL === "" ||
+          event.pictureURL === null ||
+          event.pictureURL === undefined
+        ) {
           eventsWithoutImage++;
           // Continuar con el siguiente evento sin procesar imagen
         } else {
-          
-          
           // Procesar imagen de forma síncrona para mejor control
           try {
-              // Usar la URL completa de la imagen para autenticación
-              const fullImageUrl = event.pictureURL.split('@')[0];
-              
-              
-              // Extraer solo la ruta para makeDigestRequest
-              const imagePath = event.pictureURL.split('@')[0].replace(`http://${dispositivo.ip_remota}`, '');
-              
-              
-              // Descargar imagen usando Digest Authentication con headers específicos para imagen
-              const imageResponse = await makeDigestRequestForImage(`http://${dispositivo.ip_remota}`, imagePath, authObject);
-              
-              
-              
-              
-              
-              if (imageResponse.status === 200 && imageResponse.data) {
-                let imageBuffer;
-                
-                // Manejar diferentes formatos de respuesta
-                if (Buffer.isBuffer(imageResponse.data)) {
-                  // Si ya es un buffer (imagen binaria)
-                  imageBuffer = imageResponse.data;
-                  
-                } else if (typeof imageResponse.data === 'string') {
-                  // Si es string, limpiar el prefijo data:image/jpeg;base64, si existe
-                  let base64Data = imageResponse.data;
-                  if (base64Data.startsWith('data:image/')) {
-                    base64Data = base64Data.split(',')[1]; // Remover prefijo data:image/jpeg;base64,
-                    
-                  }
-                  imageBuffer = Buffer.from(base64Data, 'base64');
-                  
-                } else if (imageResponse.data.pictureInfo && imageResponse.data.pictureInfo.picData) {
-                  // Si es objeto con pictureInfo.picData
-                  imageBuffer = Buffer.from(imageResponse.data.pictureInfo.picData, 'base64');
-                  
-                } else {
-                  
-                  
-                  
-                  return; // Salir sin error para no detener el CRON
+            // Usar la URL completa de la imagen para autenticación
+            const fullImageUrl = event.pictureURL.split("@")[0];
+
+            // Extraer solo la ruta para makeDigestRequest
+            const imagePath = event.pictureURL
+              .split("@")[0]
+              .replace(`http://${dispositivo.ip_remota}`, "");
+
+            // Descargar imagen usando Digest Authentication con headers específicos para imagen
+            const imageResponse = await makeDigestRequestForImage(
+              `http://${dispositivo.ip_remota}`,
+              imagePath,
+              authObject,
+            );
+
+            if (imageResponse.status === 200 && imageResponse.data) {
+              let imageBuffer;
+
+              // Manejar diferentes formatos de respuesta
+              if (Buffer.isBuffer(imageResponse.data)) {
+                // Si ya es un buffer (imagen binaria)
+                imageBuffer = imageResponse.data;
+              } else if (typeof imageResponse.data === "string") {
+                // Si es string, limpiar el prefijo data:image/jpeg;base64, si existe
+                let base64Data = imageResponse.data;
+                if (base64Data.startsWith("data:image/")) {
+                  base64Data = base64Data.split(",")[1]; // Remover prefijo data:image/jpeg;base64,
                 }
-                
-                // Verificar que el buffer no esté vacío
-                if (imageBuffer && imageBuffer.length > 0) {
-                  const filePath = path.join(attlogsDir, `${attlog.id}.jpg`);
-                  fs.writeFileSync(filePath, imageBuffer);
-                  
-                  imagesDownloaded++;
-                } else {
-                  
-                  imagesErrors++;
-                }
+                imageBuffer = Buffer.from(base64Data, "base64");
+              } else if (
+                imageResponse.data.pictureInfo &&
+                imageResponse.data.pictureInfo.picData
+              ) {
+                // Si es objeto con pictureInfo.picData
+                imageBuffer = Buffer.from(
+                  imageResponse.data.pictureInfo.picData,
+                  "base64",
+                );
               } else {
-                
-                
+                return; // Salir sin error para no detener el CRON
+              }
+
+              // Verificar que el buffer no esté vacío
+              if (imageBuffer && imageBuffer.length > 0) {
+                const filePath = path.join(attlogsDir, `${attlog.id}.jpg`);
+                fs.writeFileSync(filePath, imageBuffer);
+
+                imagesDownloaded++;
+              } else {
                 imagesErrors++;
               }
-            } catch (imageError) {
-              
-              
+            } else {
               imagesErrors++;
             }
+          } catch (imageError) {
+            imagesErrors++;
+          }
         }
 
         savedCount++;
-        
-
       } catch (eventError) {
         errorCount++;
-        
       }
     }
 
     // Descargar imágenes para eventos que tienen pictureInfo
-    
 
     return {
       totalEvents: allEvents.length,
@@ -778,17 +724,16 @@ async function syncAttendanceFromDevice(dispositivo) {
       imagesDownloaded,
       imagesErrors,
       eventsWithoutImage,
-      dispositivo: dispositivo.nombre
+      dispositivo: dispositivo.nombre,
     };
-
   } catch (error) {
-    
-    
     // Manejo específico para socket hang up
-    if (error.code === 'ECONNRESET' || error.message.includes('socket hang up')) {
-      
+    if (
+      error.code === "ECONNRESET" ||
+      error.message.includes("socket hang up")
+    ) {
     }
-    
+
     // Devolver un resultado de error en lugar de lanzar la excepción
     return {
       totalEvents: 0,
@@ -798,7 +743,7 @@ async function syncAttendanceFromDevice(dispositivo) {
       imagesDownloaded: 0,
       imagesErrors: 0,
       dispositivo: dispositivo.nombre,
-      error: error.message
+      error: error.message,
     };
   }
 }
@@ -809,26 +754,35 @@ const activeCronJobs = new Map(); // Almacena los trabajos CRON activos
 // Función para convertir tiempo a expresión CRON
 function timeToCronExpression(timeString) {
   switch (timeString) {
-    case '10s': return '*/10 * * * * *'; // Cada 10 segundos
-    case '30s': return '*/30 * * * * *'; // Cada 30 segundos
-    case '1m': return '*/1 * * * *';    // Cada minuto
-    case '5m': return '*/5 * * * *';    // Cada 5 minutos
-    case '10m': return '*/10 * * * *';  // Cada 10 minutos
-    case '30m': return '*/30 * * * *';  // Cada 30 minutos
-    case '1h': return '0 */1 * * *';     // Cada hora
-    case '6h': return '0 */6 * * *';     // Cada 6 horas
-    case '12h': return '0 */12 * * *';   // Cada 12 horas
-    case '24h': return '0 0 * * *';   // Cada 24 horas (diario a medianoche)
-    default: return '0 0 * * *';      // Por defecto cada 24 horas (diario a medianoche)
+    case "10s":
+      return "*/10 * * * * *"; // Cada 10 segundos
+    case "30s":
+      return "*/30 * * * * *"; // Cada 30 segundos
+    case "1m":
+      return "*/1 * * * *"; // Cada minuto
+    case "5m":
+      return "*/5 * * * *"; // Cada 5 minutos
+    case "10m":
+      return "*/10 * * * *"; // Cada 10 minutos
+    case "30m":
+      return "*/30 * * * *"; // Cada 30 minutos
+    case "1h":
+      return "0 */1 * * *"; // Cada hora
+    case "6h":
+      return "0 */6 * * *"; // Cada 6 horas
+    case "12h":
+      return "0 */12 * * *"; // Cada 12 horas
+    case "24h":
+      return "0 0 * * *"; // Cada 24 horas (diario a medianoche)
+    default:
+      return "0 0 * * *"; // Por defecto cada 24 horas (diario a medianoche)
   }
 }
 
 // Función para iniciar CRON para un dispositivo
 function startCronForDevice(dispositivo) {
   const jobId = `device_${dispositivo.id}`;
-  
-  
-  
+
   // Detener CRON existente si existe
   if (activeCronJobs.has(jobId)) {
     activeCronJobs.get(jobId).destroy();
@@ -837,35 +791,35 @@ function startCronForDevice(dispositivo) {
 
   if (dispositivo.cron_activo === 1) {
     const cronExpression = timeToCronExpression(dispositivo.cron_tiempo);
-    
-    const job = cron.schedule(cronExpression, () => {
-      // Agregar a la cola de forma segura (evita duplicados)
-      if (addDeviceToQueue(dispositivo, 1)) {
-        // Procesar cola si no está en proceso
-        if (!isProcessingCron) {
-          processCronQueue();
+
+    const job = cron.schedule(
+      cronExpression,
+      () => {
+        // Agregar a la cola de forma segura (evita duplicados)
+        if (addDeviceToQueue(dispositivo, 1)) {
+          // Procesar cola si no está en proceso
+          if (!isProcessingCron) {
+            processCronQueue();
+          }
         }
-      }
-    }, {
-      scheduled: true,
-        timezone: "America/Halifax"
-    });
-    
-    
+      },
+      {
+        scheduled: true,
+        timezone: "America/Halifax",
+      },
+    );
 
     activeCronJobs.set(jobId, job);
-    
   }
 }
 
 // Función para detener CRON de un dispositivo
 function stopCronForDevice(dispositivoId) {
   const jobId = `device_${dispositivoId}`;
-  
+
   if (activeCronJobs.has(jobId)) {
     activeCronJobs.get(jobId).destroy();
     activeCronJobs.delete(jobId);
-    
   }
 }
 
@@ -874,32 +828,34 @@ async function executeGlobalSync() {
   try {
     // Verificar si ya hay un ciclo en proceso
     if (isProcessingCron) {
-      ;
       return;
     }
-    
-    ;
-    
+
     // Limpiar el tracking del ciclo anterior
     resetSyncCycle();
-    
+
     // Obtener todos los dispositivos con credenciales completas
     const dispositivos = await Dispositivo.findAll({
-      where: { 
+      where: {
         ip_remota: { [Op.ne]: null },
         usuario: { [Op.ne]: null },
-        clave: { [Op.ne]: null }
+        clave: { [Op.ne]: null },
       },
-      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'marcaje_inicio', 'marcaje_fin']
+      attributes: [
+        "id",
+        "nombre",
+        "ip_remota",
+        "usuario",
+        "clave",
+        "marcaje_inicio",
+        "marcaje_fin",
+      ],
     });
-    
-    ;
-    
+
     if (dispositivos.length === 0) {
-      ;
       return;
     }
-    
+
     // Agregar dispositivos a la cola de forma segura (evita duplicados)
     let addedCount = 0;
     for (const dispositivo of dispositivos) {
@@ -907,114 +863,116 @@ async function executeGlobalSync() {
         addedCount++;
       }
     }
-    
-    ;
-    
+
     // Procesar cola si no está en proceso
     if (!isProcessingCron && cronQueue.length > 0) {
       processCronQueue();
     } else {
-      ;
     }
-    
-  } catch (error) {
-    ;
-  }
+  } catch (error) {}
 }
 
 // Función para inicializar el CRON global
 async function initializeAllCronJobs() {
   try {
-    
-    
     // Obtener configuración de CRON
     const cronConfig = await Cron.findOne();
-    const cronValue = cronConfig ? cronConfig.value : 'Desactivado';
-    
-    
-    
-    if (cronValue === 'Desactivado') {
-      
+    const cronValue = cronConfig ? cronConfig.value : "Desactivado";
+
+    if (cronValue === "Desactivado") {
       return;
     }
-    
+
     // Limpiar trabajos CRON existentes
     for (const [jobId, job] of activeCronJobs) {
       job.destroy();
     }
     activeCronJobs.clear();
-    
+
     // Crear CRON global
     const cronExpression = timeToCronExpression(cronValue);
-    const globalCronJob = cron.schedule(cronExpression, () => {
-      
-      executeGlobalSync();
-    }, {
-      scheduled: true,
-        timezone: "America/Halifax"
-    });
-    
-    activeCronJobs.set('global', globalCronJob);
-    
-    
-  } catch (error) {
-    
-  }
+    const globalCronJob = cron.schedule(
+      cronExpression,
+      () => {
+        executeGlobalSync();
+      },
+      {
+        scheduled: true,
+        timezone: "America/Halifax",
+      },
+    );
+
+    activeCronJobs.set("global", globalCronJob);
+  } catch (error) {}
 }
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrcAttr: ["'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "http://localhost:3000", "https://localhost:3000", "data:"],
-      fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "data:"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:", "blob:"],
+        connectSrc: [
+          "'self'",
+          "http://localhost:3000",
+          "https://localhost:3000",
+          "data:",
+        ],
+        fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "data:"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+      },
     },
-  },
-}));
+  }),
+);
 app.use(cors());
-app.use(express.json({ limit: '500mb' }));
-app.use(express.urlencoded({ limit: '500mb', extended: true }));
+app.use(express.json({ limit: "500mb" }));
+app.use(express.urlencoded({ limit: "500mb", extended: true }));
 
 // Middleware anti-caché para todas las rutas de API
-app.use('/api/*', (req, res, next) => {
-  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.setHeader('Last-Modified', new Date().toUTCString());
-  res.setHeader('ETag', '');
+app.use("/api/*", (req, res, next) => {
+  res.setHeader(
+    "Cache-Control",
+    "no-cache, no-store, must-revalidate, private",
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Last-Modified", new Date().toUTCString());
+  res.setHeader("ETag", "");
   next();
 });
 
 // Servir archivos estáticos de la aplicación Angular PWA (ANTES de las rutas de API)
-app.use(express.static(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser'), {
-  setHeaders: (res, path) => {
-    // Configurar MIME types correctos
-    if (path.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    } else if (path.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    } else if (path.endsWith('.html')) {
-      res.setHeader('Content-Type', 'text/html');
-    }
-    
-    // Headers anti-caché
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-  }
-}));
+app.use(
+  express.static(
+    path.join(__dirname, "wisi-frontend/dist/wisi-frontend/browser"),
+    {
+      setHeaders: (res, path) => {
+        // Configurar MIME types correctos
+        if (path.endsWith(".js")) {
+          res.setHeader("Content-Type", "application/javascript");
+        } else if (path.endsWith(".css")) {
+          res.setHeader("Content-Type", "text/css");
+        } else if (path.endsWith(".html")) {
+          res.setHeader("Content-Type", "text/html");
+        }
 
+        // Headers anti-caché
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      },
+    },
+  ),
+);
 
 // Rate limiting DESHABILITADO para desarrollo
 // const limiter = rateLimit({
@@ -1040,20 +998,20 @@ app.use(express.static(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/br
 syncDatabase();
 
 // JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || 'wisi_secret_key_2024';
+const JWT_SECRET = process.env.JWT_SECRET || "wisi_secret_key_2024";
 
 // Middleware de autenticación
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ message: 'Token de acceso requerido' });
+    return res.status(401).json({ message: "Token de acceso requerido" });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      return res.status(403).json({ message: 'Token inválido' });
+      return res.status(403).json({ message: "Token inválido" });
     }
     req.user = user;
     next();
@@ -1064,40 +1022,42 @@ const authenticateToken = (req, res, next) => {
 const authorizeLevel = (requiredLevel) => {
   return (req, res, next) => {
     const userLevel = req.user.nivel;
-    
-    
+
     // El nivel TODO tiene acceso a todo
-    if (userLevel === 'TODO') {
+    if (userLevel === "TODO") {
       return next();
     }
-    
+
     // Verificar nivel específico
-    if (requiredLevel === 'TODO' && userLevel !== 'TODO') {
-      return res.status(403).json({ message: 'Solo el creador puede realizar esta acción' });
+    if (requiredLevel === "TODO" && userLevel !== "TODO") {
+      return res
+        .status(403)
+        .json({ message: "Solo el creador puede realizar esta acción" });
     }
-    
-    if (requiredLevel === 'ADMINISTRADOR' && userLevel !== 'ADMINISTRADOR' && userLevel !== 'TODO') {
-      return res.status(403).json({ message: 'Acceso denegado - Se requiere nivel de administrador' });
+
+    if (
+      requiredLevel === "ADMINISTRADOR" &&
+      userLevel !== "ADMINISTRADOR" &&
+      userLevel !== "TODO"
+    ) {
+      return res.status(403).json({
+        message: "Acceso denegado - Se requiere nivel de administrador",
+      });
     }
-    
-    if (requiredLevel === 'USUARIO_ACCESO') {
+
+    if (requiredLevel === "USUARIO_ACCESO") {
       return next(); // Todos los usuarios autenticados pueden acceder
     }
-    
+
     next();
   };
 };
-
-
-
 
 // =============================================
 // RUTAS
 // =============================================
 
-
-
-app.get('/privacidad', async (req, res) => {
+app.get("/privacidad", async (req, res) => {
   const htmlContent = `
   <!DOCTYPE html>
   <html lang="es">
@@ -1235,58 +1195,59 @@ app.get('/privacidad', async (req, res) => {
 // RUTAS DE AUTENTICACIÓN
 // =============================================
 
-app.post('/api/auth/login', async (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   try {
     const { usuario, password } = req.body;
 
     if (!usuario || !password) {
-      return res.status(400).json({ message: 'Usuario y contraseña son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "Usuario y contraseña son requeridos" });
     }
 
     const user = await User.findOne({
-      where: { usuario},
+      where: { usuario },
       include: [
         { model: Sala, through: UserSala, where: {}, required: false },
-        { model: Module, through: UserModule, where: {}, required: false }
-      ]
+        { model: Module, through: UserModule, where: {}, required: false },
+      ],
     });
 
     if (!user) {
-      return res.status(401).json({ message: 'Credenciales inválidas' });
+      return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
-      return res.status(401).json({ message: 'Credenciales inválidas' });
+      return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
     const token = jwt.sign(
-      { 
-        id: user.id, 
-        usuario: user.usuario, 
+      {
+        id: user.id,
+        usuario: user.usuario,
         nivel: user.nivel,
-        nombre: user.nombre_apellido
+        nombre: user.nombre_apellido,
       },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: "24h" },
     );
 
     res.json({
-      message: 'Login exitoso',
+      message: "Login exitoso",
       token,
       user: {
         id: user.id,
         nombre_apellido: user.nombre_apellido,
         usuario: user.usuario,
-        nivel: user.nivel
+        nivel: user.nivel,
       },
       salas: user.Salas || [],
-      modules: user.Modules || []
+      modules: user.Modules || [],
     });
-
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -1294,440 +1255,493 @@ app.post('/api/auth/login', async (req, res) => {
 // RUTAS DE USUARIOS
 // =============================================
 
-app.get('/api/users', authenticateToken, authorizeLevel('ADMINISTRADOR'), async (req, res) => {
-  try {
-    const users = await User.findAll({
-      where: {nivel: { [Op.ne]: 'TODO' } // Excluir al creador
-      },
-      include: [
-        { model: Sala, through: UserSala },
-        { model: Module, through: UserModule },
-        { model: Permission, through: UserPermission },
-        { 
-          model: UserModulePermission,
-          include: [
-            { model: Module },
-            { model: Permission }
-          ]
-        }
-      ],
-      attributes: { include: ['password'] } // Incluir contraseña para administración
-    });
-    
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+app.get(
+  "/api/users",
+  authenticateToken,
+  authorizeLevel("ADMINISTRADOR"),
+  async (req, res) => {
+    try {
+      const users = await User.findAll({
+        where: {
+          nivel: { [Op.ne]: "TODO" }, // Excluir al creador
+        },
+        include: [
+          { model: Sala, through: UserSala },
+          { model: Module, through: UserModule },
+          { model: Permission, through: UserPermission },
+          {
+            model: UserModulePermission,
+            include: [{ model: Module }, { model: Permission }],
+          },
+        ],
+        attributes: { include: ["password"] }, // Incluir contraseña para administración
+      });
 
-app.post('/api/users', authenticateToken, authorizeLevel('ADMINISTRADOR'), async (req, res) => {
-  try {
-    const { nombre_apellido, usuario, password, nivel, salas, modulePermissions } = req.body;
-
-    if (!nombre_apellido || !usuario || !password || !nivel) {
-      return res.status(400).json({ message: 'Todos los campos son requeridos' });
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
+  },
+);
 
-    // Verificar que el usuario no exista
-    const existingUser = await User.findOne({ where: { usuario } });
-    if (existingUser) {
-      return res.status(400).json({ message: 'El usuario ya existe' });
-    }
+app.post(
+  "/api/users",
+  authenticateToken,
+  authorizeLevel("ADMINISTRADOR"),
+  async (req, res) => {
+    try {
+      const {
+        nombre_apellido,
+        usuario,
+        password,
+        nivel,
+        salas,
+        modulePermissions,
+      } = req.body;
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+      if (!nombre_apellido || !usuario || !password || !nivel) {
+        return res
+          .status(400)
+          .json({ message: "Todos los campos son requeridos" });
+      }
 
-    const user = await User.create({
-      nombre_apellido,
-      usuario,
-      password: hashedPassword,
-      password_plain: password, // Guardar contraseña en texto plano para administración
-      nivel
-    });
+      // Verificar que el usuario no exista
+      const existingUser = await User.findOne({ where: { usuario } });
+      if (existingUser) {
+        return res.status(400).json({ message: "El usuario ya existe" });
+      }
 
-    // Asignar salas
-    if (salas && salas.length > 0) {
-      const salasToAssign = await Sala.findAll({ where: { id: salas} });
-      await user.addSalas(salasToAssign);
-    }
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Asignar módulos con permisos específicos
-    if (modulePermissions && modulePermissions.length > 0) {
-      for (const modulePermission of modulePermissions) {
-        const { moduleId, permissions } = modulePermission;
-        
-        // Verificar que el módulo exista
-        const module = await Module.findOne({ where: { id: moduleId} });
-        if (!module) continue;
+      const user = await User.create({
+        nombre_apellido,
+        usuario,
+        password: hashedPassword,
+        password_plain: password, // Guardar contraseña en texto plano para administración
+        nivel,
+      });
 
-        // Asignar el módulo al usuario
-        await user.addModule(module);
+      // Asignar salas
+      if (salas && salas.length > 0) {
+        const salasToAssign = await Sala.findAll({ where: { id: salas } });
+        await user.addSalas(salasToAssign);
+      }
 
-        // Buscar el permiso VER
-        const verPermission = await Permission.findOne({ where: { nombre: 'VER' } });
-        
-        // Asignar permisos específicos para este módulo
-        if (permissions && permissions.length > 0) {
-          for (const permissionId of permissions) {
-            await UserModulePermission.create({
-              user_id: user.id,
-              module_id: moduleId,
-              permission_id: permissionId
-            });
+      // Asignar módulos con permisos específicos
+      if (modulePermissions && modulePermissions.length > 0) {
+        for (const modulePermission of modulePermissions) {
+          const { moduleId, permissions } = modulePermission;
+
+          // Verificar que el módulo exista
+          const module = await Module.findOne({ where: { id: moduleId } });
+          if (!module) continue;
+
+          // Asignar el módulo al usuario
+          await user.addModule(module);
+
+          // Buscar el permiso VER
+          const verPermission = await Permission.findOne({
+            where: { nombre: "VER" },
+          });
+
+          // Asignar permisos específicos para este módulo
+          if (permissions && permissions.length > 0) {
+            for (const permissionId of permissions) {
+              await UserModulePermission.create({
+                user_id: user.id,
+                module_id: moduleId,
+                permission_id: permissionId,
+              });
+            }
+
+            // Agregar automáticamente el permiso VER si no está ya incluido
+            if (verPermission && !permissions.includes(verPermission.id)) {
+              await UserModulePermission.create({
+                user_id: user.id,
+                module_id: moduleId,
+                permission_id: verPermission.id,
+              });
+            }
           }
-          
+        }
+      }
+
+      res
+        .status(201)
+        .json({ message: "Usuario creado exitosamente", id: user.id });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
+
+// Ruta para actualizar asignaciones de salas de un usuario
+app.put(
+  "/api/users/:id/salas",
+  authenticateToken,
+  authorizeLevel("ADMINISTRADOR"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { salas } = req.body;
+
+      const user = await User.findOne({
+        where: {
+          id: id,
+          nivel: { [Op.ne]: "TODO" }, // Excluir al creador
+        },
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // Actualizar salas
+      if (salas && salas.length > 0) {
+        const salasToAssign = await Sala.findAll({ where: { id: salas } });
+        await user.setSalas(salasToAssign);
+      } else {
+        await user.setSalas([]);
+      }
+
+      res.json({ message: "Salas actualizadas exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
+
+// Ruta para actualizar asignaciones completas de un usuario
+app.put(
+  "/api/users/:id/assignments",
+  authenticateToken,
+  authorizeLevel("ADMINISTRADOR"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { salas, modulePermissions, nombre_apellido, usuario, password } =
+        req.body;
+
+      const user = await User.findOne({
+        where: {
+          id: id,
+          nivel: { [Op.ne]: "TODO" }, // Excluir al creador
+        },
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // Actualizar información básica del usuario
+      const updateData = {
+        nombre_apellido,
+        usuario,
+      };
+
+      // Si se proporciona una nueva contraseña, actualizarla
+      if (password && password.trim() !== "") {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        updateData.password = hashedPassword;
+        updateData.password_plain = password; // Guardar también en texto plano
+      }
+
+      await user.update(updateData);
+
+      // Actualizar salas
+      if (salas && salas.length > 0) {
+        const salasToAssign = await Sala.findAll({ where: { id: salas } });
+        await user.setSalas(salasToAssign);
+      } else {
+        await user.setSalas([]);
+      }
+
+      // Limpiar módulos y permisos anteriores
+      await user.setModules([]);
+      await UserModulePermission.destroy({ where: { user_id: id } });
+
+      // Asignar nuevos módulos con permisos específicos
+      if (modulePermissions && modulePermissions.length > 0) {
+        for (const modulePermission of modulePermissions) {
+          const { moduleId, permissions } = modulePermission;
+
+          // Verificar que el módulo exista
+          const module = await Module.findOne({ where: { id: moduleId } });
+          if (!module) {
+            continue;
+          }
+
+          // Verificar que el módulo tenga al menos un permiso
+          if (!permissions || permissions.length === 0) {
+            continue;
+          }
+
+          // Asignar el módulo al usuario
+          await user.addModule(module);
+
+          // Buscar el permiso VER
+          const verPermission = await Permission.findOne({
+            where: { nombre: "VER" },
+          });
+
+          // Asignar permisos específicos para este módulo
+          for (const permissionId of permissions) {
+            const permission = await Permission.findByPk(permissionId);
+            if (permission) {
+              await UserModulePermission.create({
+                user_id: id,
+                module_id: moduleId,
+                permission_id: permissionId,
+              });
+            }
+          }
+
           // Agregar automáticamente el permiso VER si no está ya incluido
           if (verPermission && !permissions.includes(verPermission.id)) {
             await UserModulePermission.create({
-              user_id: user.id,
-              module_id: moduleId,
-              permission_id: verPermission.id
-            });
-          }
-        }
-      }
-    }
-
-    res.status(201).json({ message: 'Usuario creado exitosamente', id: user.id });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Ruta para actualizar asignaciones de salas de un usuario
-app.put('/api/users/:id/salas', authenticateToken, authorizeLevel('ADMINISTRADOR'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { salas } = req.body;
-
-    const user = await User.findOne({
-      where: { 
-        id: id,
-        nivel: { [Op.ne]: 'TODO' } // Excluir al creador
-      }
-    });
-    
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-
-    // Actualizar salas
-    if (salas && salas.length > 0) {
-      const salasToAssign = await Sala.findAll({ where: { id: salas } });
-      await user.setSalas(salasToAssign);
-    } else {
-      await user.setSalas([]);
-    }
-
-    res.json({ message: 'Salas actualizadas exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Ruta para actualizar asignaciones completas de un usuario
-app.put('/api/users/:id/assignments', authenticateToken, authorizeLevel('ADMINISTRADOR'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { salas, modulePermissions, nombre_apellido, usuario, password } = req.body;
-
-    const user = await User.findOne({
-      where: { 
-        id: id,
-        nivel: { [Op.ne]: 'TODO' } // Excluir al creador
-      }
-    });
-    
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-
-    // Actualizar información básica del usuario
-    const updateData = {
-      nombre_apellido,
-      usuario
-    };
-
-    // Si se proporciona una nueva contraseña, actualizarla
-    if (password && password.trim() !== '') {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      updateData.password = hashedPassword;
-      updateData.password_plain = password; // Guardar también en texto plano
-    }
-
-    await user.update(updateData);
-
-    // Actualizar salas
-    if (salas && salas.length > 0) {
-      const salasToAssign = await Sala.findAll({ where: { id: salas} });
-      await user.setSalas(salasToAssign);
-    } else {
-      await user.setSalas([]);
-    }
-
-    // Limpiar módulos y permisos anteriores
-    await user.setModules([]);
-    await UserModulePermission.destroy({ where: { user_id: id } });
-
-    // Asignar nuevos módulos con permisos específicos
-    if (modulePermissions && modulePermissions.length > 0) {
-      
-      for (const modulePermission of modulePermissions) {
-        const { moduleId, permissions } = modulePermission;
-        
-        // Verificar que el módulo exista
-        const module = await Module.findOne({ where: { id: moduleId} });
-        if (!module) {
-          continue;
-        }
-
-        // Verificar que el módulo tenga al menos un permiso
-        if (!permissions || permissions.length === 0) {
-          continue;
-        }
-
-        // Asignar el módulo al usuario
-        await user.addModule(module);
-
-        // Buscar el permiso VER
-        const verPermission = await Permission.findOne({ where: { nombre: 'VER' } });
-        
-        // Asignar permisos específicos para este módulo
-        for (const permissionId of permissions) {
-          const permission = await Permission.findByPk(permissionId);
-          if (permission) {
-            
-            await UserModulePermission.create({
               user_id: id,
               module_id: moduleId,
-              permission_id: permissionId
+              permission_id: verPermission.id,
             });
           }
         }
-        
-        // Agregar automáticamente el permiso VER si no está ya incluido
-        if (verPermission && !permissions.includes(verPermission.id)) {
-          await UserModulePermission.create({
-            user_id: id,
-            module_id: moduleId,
-            permission_id: verPermission.id
-          });
-        }
       }
-    }
 
-    res.json({ message: 'Asignaciones actualizadas exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      res.json({ message: "Asignaciones actualizadas exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Ruta para obtener usuarios con sus salas
-app.get('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const user = await User.findOne({
-      where: { 
-        id: id,
-        nivel: { [Op.ne]: 'TODO' } // Excluir al creador
-      },
-      include: [
-        { model: Sala, through: UserSala },
-        { model: Module, through: UserModule },
-        { model: Permission, through: UserPermission },
-        { 
-          model: UserModulePermission,
-          include: [
-            { model: Module },
-            { model: Permission }
-          ]
-        }
-      ]
-    });
-    
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+app.get(
+  "/api/users/:id",
+  authenticateToken,
+  authorizeLevel("ADMINISTRADOR"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const user = await User.findOne({
+        where: {
+          id: id,
+          nivel: { [Op.ne]: "TODO" }, // Excluir al creador
+        },
+        include: [
+          { model: Sala, through: UserSala },
+          { model: Module, through: UserModule },
+          { model: Permission, through: UserPermission },
+          {
+            model: UserModulePermission,
+            include: [{ model: Module }, { model: Permission }],
+          },
+        ],
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-    
-    res.json(user);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Ruta para actualizar usuario
-app.put('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { nombre_apellido, usuario, nivel} = req.body;
+app.put(
+  "/api/users/:id",
+  authenticateToken,
+  authorizeLevel("ADMINISTRADOR"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { nombre_apellido, usuario, nivel } = req.body;
 
-    const user = await User.findOne({
-      where: { 
-        id: id,
-        nivel: { [Op.ne]: 'TODO' } // Excluir al creador
+      const user = await User.findOne({
+        where: {
+          id: id,
+          nivel: { [Op.ne]: "TODO" }, // Excluir al creador
+        },
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
-    });
-    
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+
+      await user.update({
+        nombre_apellido,
+        usuario,
+        nivel,
+      });
+
+      res.json({ message: "Usuario actualizado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    await user.update({
-      nombre_apellido,
-      usuario,
-      nivel
-    });
-
-    res.json({ message: 'Usuario actualizado exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Ruta para eliminar usuario
-app.delete('/api/users/:id', authenticateToken, authorizeLevel('ADMINISTRADOR'), async (req, res) => {
-  try {
-    const { id } = req.params;
+app.delete(
+  "/api/users/:id",
+  authenticateToken,
+  authorizeLevel("ADMINISTRADOR"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+      const user = await User.findByPk(id);
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      // No permitir eliminar al usuario creador
+      if (user.nivel === "TODO") {
+        return res
+          .status(403)
+          .json({ message: "No se puede eliminar al usuario creador" });
+      }
+
+      // Eliminar todas las relaciones primero
+      await UserSala.destroy({ where: { user_id: id } });
+      await UserModule.destroy({ where: { user_id: id } });
+      await UserPermission.destroy({ where: { user_id: id } });
+      await UserModulePermission.destroy({ where: { user_id: id } });
+
+      // Ahora eliminar el usuario
+      await user.destroy();
+
+      res.json({ message: "Usuario eliminado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    // No permitir eliminar al usuario creador
-    if (user.nivel === 'TODO') {
-      return res.status(403).json({ message: 'No se puede eliminar al usuario creador' });
-    }
-
-    // Eliminar todas las relaciones primero
-    await UserSala.destroy({ where: { user_id: id } });
-    await UserModule.destroy({ where: { user_id: id } });
-    await UserPermission.destroy({ where: { user_id: id } });
-    await UserModulePermission.destroy({ where: { user_id: id } });
-
-    // Ahora eliminar el usuario
-    await user.destroy();
-
-    res.json({ message: 'Usuario eliminado exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // =============================================
 // RUTAS DE SALAS
 // =============================================
 
-app.get('/api/salas', authenticateToken, async (req, res) => {
+app.get("/api/salas", authenticateToken, async (req, res) => {
   try {
     const salas = await Sala.findAll({ where: {} });
     res.json(salas);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
-app.post('/api/salas', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { 
-      nombre, 
-      logo, 
-      rif, 
-      ubicacion, 
-      correo, 
-      telefono, 
-      nombre_comercial 
-    } = req.body;
-    
+app.post(
+  "/api/salas",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const {
+        nombre,
+        logo,
+        rif,
+        ubicacion,
+        correo,
+        telefono,
+        nombre_comercial,
+      } = req.body;
 
-    if (!nombre) {
-      return res.status(400).json({ message: 'El nombre es requerido' });
+      if (!nombre) {
+        return res.status(400).json({ message: "El nombre es requerido" });
+      }
+
+      // Verificar que la sala no exista
+      const existingSala = await Sala.findOne({ where: { nombre } });
+      if (existingSala) {
+        return res
+          .status(400)
+          .json({ message: "Ya existe una sala con ese nombre" });
+      }
+
+      const sala = await Sala.create({
+        nombre,
+        logo: logo || null,
+        rif: rif || null,
+        ubicacion: ubicacion || null,
+        correo: correo || null,
+        telefono: telefono || null,
+        nombre_comercial: nombre_comercial || null,
+      });
+
+      // Asignar automáticamente al usuario creador
+      await assignToCreator(sala, "sala");
+
+      res
+        .status(201)
+        .json({ message: "Sala creada exitosamente", id: sala.id });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    // Verificar que la sala no exista
-    const existingSala = await Sala.findOne({ where: { nombre } });
-    if (existingSala) {
-      return res.status(400).json({ message: 'Ya existe una sala con ese nombre' });
-    }
-
-    const sala = await Sala.create({ 
-      nombre,
-      logo: logo || null,
-      rif: rif || null,
-      ubicacion: ubicacion || null,
-      correo: correo || null,
-      telefono: telefono || null,
-      nombre_comercial: nombre_comercial || null
-    });
-    
-
-    // Asignar automáticamente al usuario creador
-    await assignToCreator(sala, 'sala');
-
-    res.status(201).json({ message: 'Sala creada exitosamente', id: sala.id });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Ruta para actualizar sala
-app.put('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { 
-      nombre, 
-      logo, 
-      rif, 
-      ubicacion, 
-      correo, 
-      telefono, 
-      nombre_comercial 
-    } = req.body;
+app.put(
+  "/api/salas/:id",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        nombre,
+        logo,
+        rif,
+        ubicacion,
+        correo,
+        telefono,
+        nombre_comercial,
+      } = req.body;
 
-    const sala = await Sala.findByPk(id);
-    if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+      const sala = await Sala.findByPk(id);
+      if (!sala) {
+        return res.status(404).json({ message: "Sala no encontrada" });
+      }
+
+      await sala.update({
+        nombre,
+        logo: logo || null,
+        rif: rif || null,
+        ubicacion: ubicacion || null,
+        correo: correo || null,
+        telefono: telefono || null,
+        nombre_comercial: nombre_comercial || null,
+      });
+
+      res.json({ message: "Sala actualizada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    await sala.update({ 
-      nombre,
-      logo: logo || null,
-      rif: rif || null,
-      ubicacion: ubicacion || null,
-      correo: correo || null,
-      telefono: telefono || null,
-      nombre_comercial: nombre_comercial || null
-    });
-
-    res.json({ message: 'Sala actualizada exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Ruta para eliminar sala
-app.delete('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { id } = req.params;
+app.delete(
+  "/api/salas/:id",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    const sala = await Sala.findByPk(id);
-    if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
-    }
+      const sala = await Sala.findByPk(id);
+      if (!sala) {
+        return res.status(404).json({ message: "Sala no encontrada" });
+      }
 
-    // Verificar si la sala tiene relaciones que impidan su eliminación
-    
-    
-    const relations = await sequelize.query(`
+      // Verificar si la sala tiene relaciones que impidan su eliminación
+
+      const relations = await sequelize.query(
+        `
       SELECT table_name, count FROM (
         SELECT 'Usuarios' as table_name, COUNT(*) as count FROM user_salas WHERE sala_id = ?
         UNION ALL
@@ -1751,301 +1765,350 @@ app.delete('/api/salas/:id', authenticateToken, authorizeLevel('TODO'), async (r
         UNION ALL
         SELECT 'Dispositivos' as table_name, COUNT(*) as count FROM dispositivos WHERE sala_id = ?
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id, id, id, id, id, id, id, id, id, id, id],
-      type: sequelize.QueryTypes.SELECT
-    });
-    
-    
+    `,
+        {
+          replacements: [id, id, id, id, id, id, id, id, id, id, id],
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
 
-    if (relations.length > 0) {
-      return res.status(400).json({ 
-        message: 'No se puede eliminar la sala porque tiene elementos asociados.',
-        relations: relations,
-        sala: {
-          id: sala.id,
-          nombre: sala.nombre
-        }
-      });
+      if (relations.length > 0) {
+        return res.status(400).json({
+          message:
+            "No se puede eliminar la sala porque tiene elementos asociados.",
+          relations: relations,
+          sala: {
+            id: sala.id,
+            nombre: sala.nombre,
+          },
+        });
+      }
+
+      await sala.destroy();
+
+      res.json({ message: "Sala eliminada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    await sala.destroy();
-
-    res.json({ message: 'Sala eliminada exitosamente' });
-  } catch (error) {
-    
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // =============================================
 // RUTAS DE MÓDULOS
 // =============================================
 
-app.get('/api/modules', authenticateToken, async (req, res) => {
+app.get("/api/modules", authenticateToken, async (req, res) => {
   try {
-    const modules = await Module.findAll({ 
+    const modules = await Module.findAll({
       where: {},
-      include: [{
-        model: Page,
-        required: false
-      }]
+      include: [
+        {
+          model: Page,
+          required: false,
+        },
+      ],
     });
     res.json(modules);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener todos los módulos (incluyendo ins) - solo para administradores
-app.get('/api/modules/all', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const modules = await Module.findAll({
-      include: [{
-        model: Page,
-        required: false
-      }]
-    });
-    res.json(modules);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-app.post('/api/modules', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { nombre, icono, ruta, page_id } = req.body;
-    
-
-    if (!nombre) {
-      return res.status(400).json({ message: 'Nombre es requerido' });
+app.get(
+  "/api/modules/all",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const modules = await Module.findAll({
+        include: [
+          {
+            model: Page,
+            required: false,
+          },
+        ],
+      });
+      res.json(modules);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
+  },
+);
 
-    // Verificar que el módulo no exista
-    const existingModule = await Module.findOne({ where: { nombre } });
-    if (existingModule) {
-      return res.status(400).json({ message: 'Ya existe un módulo con ese nombre' });
+app.post(
+  "/api/modules",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { nombre, icono, ruta, page_id } = req.body;
+
+      if (!nombre) {
+        return res.status(400).json({ message: "Nombre es requerido" });
+      }
+
+      // Verificar que el módulo no exista
+      const existingModule = await Module.findOne({ where: { nombre } });
+      if (existingModule) {
+        return res
+          .status(400)
+          .json({ message: "Ya existe un módulo con ese nombre" });
+      }
+
+      const module = await Module.create({
+        nombre,
+        icono: icono || "settings",
+        ruta: ruta || `/${nombre.toLowerCase().replace(/\s+/g, "-")}`,
+        page_id: page_id || null,
+      });
+
+      // Asignar automáticamente al usuario creador
+      await assignToCreator(module, "module");
+
+      res
+        .status(201)
+        .json({ message: "Módulo creado exitosamente", id: module.id });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
+  },
+);
 
-    const module = await Module.create({ 
-      nombre, 
-      icono: icono || 'settings', 
-      ruta: ruta || `/${nombre.toLowerCase().replace(/\s+/g, '-')}`, 
-      page_id: page_id || null});
-    
+app.put(
+  "/api/modules/:id",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { nombre, icono, ruta, page_id } = req.body;
 
-    // Asignar automáticamente al usuario creador
-    await assignToCreator(module, 'module');
+      const module = await Module.findByPk(id);
+      if (!module) {
+        return res.status(404).json({ message: "Módulo no encontrado" });
+      }
 
-    res.status(201).json({ message: 'Módulo creado exitosamente', id: module.id });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      await module.update({ nombre, icono, ruta, page_id });
 
-app.put('/api/modules/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { nombre, icono, ruta, page_id } = req.body;
-
-    const module = await Module.findByPk(id);
-    if (!module) {
-      return res.status(404).json({ message: 'Módulo no encontrado' });
+      res.json({ message: "Módulo actualizado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
+  },
+);
 
-    await module.update({ nombre, icono, ruta, page_id });
+app.delete(
+  "/api/modules/:id",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    res.json({ message: 'Módulo actualizado exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      const module = await Module.findByPk(id);
+      if (!module) {
+        return res.status(404).json({ message: "Módulo no encontrado" });
+      }
 
-app.delete('/api/modules/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { id } = req.params;
+      // Eliminar el módulo
+      await module.destroy();
 
-    const module = await Module.findByPk(id);
-    if (!module) {
-      return res.status(404).json({ message: 'Módulo no encontrado' });
+      res.json({ message: "Módulo eliminado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    // Eliminar el módulo
-    await module.destroy();
-
-    res.json({ message: 'Módulo eliminado exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // =============================================
 // RUTAS DE PÁGINAS
 // =============================================
 
-app.get('/api/pages', authenticateToken, async (req, res) => {
+app.get("/api/pages", authenticateToken, async (req, res) => {
   try {
-    const pages = await Page.findAll({ 
+    const pages = await Page.findAll({
       where: {},
-      include: [{
-        model: Module,
-        where: {},
-        required: false
-      }],
-      order: [['orden', 'ASC']]
+      include: [
+        {
+          model: Module,
+          where: {},
+          required: false,
+        },
+      ],
+      order: [["orden", "ASC"]],
     });
     res.json(pages);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener todas las páginas (incluyendo inactivas) - solo para administradores
-app.get('/api/pages/all', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const pages = await Page.findAll({
-      include: [{
-        model: Module,
-        required: false
-      }],
-      order: [['orden', 'ASC']]
-    });
-    res.json(pages);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-app.post('/api/pages', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { nombre, icono, orden } = req.body;
-    
-
-    if (!nombre) {
-      return res.status(400).json({ message: 'Nombre es requerido' });
+app.get(
+  "/api/pages/all",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const pages = await Page.findAll({
+        include: [
+          {
+            model: Module,
+            required: false,
+          },
+        ],
+        order: [["orden", "ASC"]],
+      });
+      res.json(pages);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
+  },
+);
 
-    // Verificar que la página no exista
-    const existingPage = await Page.findOne({ where: { nombre } });
-    if (existingPage) {
-      return res.status(400).json({ message: 'Ya existe una página con ese nombre' });
+app.post(
+  "/api/pages",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { nombre, icono, orden } = req.body;
+
+      if (!nombre) {
+        return res.status(400).json({ message: "Nombre es requerido" });
+      }
+
+      // Verificar que la página no exista
+      const existingPage = await Page.findOne({ where: { nombre } });
+      if (existingPage) {
+        return res
+          .status(400)
+          .json({ message: "Ya existe una página con ese nombre" });
+      }
+
+      const page = await Page.create({
+        nombre,
+        icono: icono || "file",
+        orden: orden || 0,
+      });
+
+      // Asignar automáticamente al usuario creador (las páginas no se asignan directamente, pero el creador tiene acceso)
+      await assignToCreator(page, "page");
+
+      res
+        .status(201)
+        .json({ message: "Página creada exitosamente", id: page.id });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
+  },
+);
 
-    const page = await Page.create({ 
-      nombre, 
-      icono: icono || 'file', 
-      orden: orden || 0});
-    
+app.put(
+  "/api/pages/:id",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { nombre, icono, orden } = req.body;
 
-    // Asignar automáticamente al usuario creador (las páginas no se asignan directamente, pero el creador tiene acceso)
-    await assignToCreator(page, 'page');
+      const page = await Page.findByPk(id);
+      if (!page) {
+        return res.status(404).json({ message: "Página no encontrada" });
+      }
 
-    res.status(201).json({ message: 'Página creada exitosamente', id: page.id });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      await page.update({ nombre, icono, orden });
 
-app.put('/api/pages/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { nombre, icono, orden} = req.body;
-
-    const page = await Page.findByPk(id);
-    if (!page) {
-      return res.status(404).json({ message: 'Página no encontrada' });
+      res.json({ message: "Página actualizada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
+  },
+);
 
-    await page.update({ nombre, icono, orden});
+app.delete(
+  "/api/pages/:id",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    res.json({ message: 'Página actualizada exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      const page = await Page.findByPk(id);
+      if (!page) {
+        return res.status(404).json({ message: "Página no encontrada" });
+      }
 
-app.delete('/api/pages/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { id } = req.params;
+      // Eliminar la página
+      await page.destroy();
 
-    const page = await Page.findByPk(id);
-    if (!page) {
-      return res.status(404).json({ message: 'Página no encontrada' });
+      res.json({ message: "Página eliminada exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    // Eliminar la página
-    await page.destroy();
-
-    res.json({ message: 'Página eliminada exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Endpoint para debug - ver todos los módulos (TEMPORAL)
-app.get('/api/debug/modules', authenticateToken, async (req, res) => {
+app.get("/api/debug/modules", authenticateToken, async (req, res) => {
   try {
-    const modules = await Module.findAll({ 
-      order: [['id', 'ASC']],
-      include: [{
-        model: Page,
-        required: false
-      }]
+    const modules = await Module.findAll({
+      order: [["id", "ASC"]],
+      include: [
+        {
+          model: Page,
+          required: false,
+        },
+      ],
     });
     res.json(modules);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Endpoint para debug - ver permisos de un usuario específico
-app.get('/api/debug/user-permissions/:userId', authenticateToken, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    const userPermissions = await UserModulePermission.findAll({
-      where: { user_id: userId },
-      include: [
-        {
-          model: Module,
-          where: {}
-        },
-        {
-          model: Permission,
-          where: {}
-        }
-      ]
-    });
-    
-    res.json(userPermissions);
-  } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+app.get(
+  "/api/debug/user-permissions/:userId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const userPermissions = await UserModulePermission.findAll({
+        where: { user_id: userId },
+        include: [
+          {
+            model: Module,
+            where: {},
+          },
+          {
+            model: Permission,
+            where: {},
+          },
+        ],
+      });
+
+      res.json(userPermissions);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Endpoint para obtener permisos del usuario
-app.get('/api/user/permissions', authenticateToken, async (req, res) => {
+app.get("/api/user/permissions", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     // Si es el usuario creador (TODO), devolver todos los permisos de todos los módulos
-    if (userLevel === 'TODO') {
-      
+    if (userLevel === "TODO") {
       const allModules = await Module.findAll({ where: {} });
       const allPermissions = await Permission.findAll({ where: {} });
-      
+
       const creatorPermissions = [];
       for (const module of allModules) {
         for (const permission of allPermissions) {
@@ -2053,98 +2116,100 @@ app.get('/api/user/permissions', authenticateToken, async (req, res) => {
             module_id: module.id,
             permission_id: permission.id,
             Permission: {
-              nombre: permission.nombre
-            }
+              nombre: permission.nombre,
+            },
           });
         }
       }
-      
+
       return res.json(creatorPermissions);
     }
-    
+
     // Para usuarios normales, obtener permisos específicos
     const userPermissions = await UserModulePermission.findAll({
       where: { user_id: userId },
       include: [
         {
           model: Module,
-          where: {}
+          where: {},
         },
         {
           model: Permission,
-          where: {}
-        }
-      ]
+          where: {},
+        },
+      ],
     });
 
-    
-    const permissions = userPermissions.map(up => ({
+    const permissions = userPermissions.map((up) => ({
       module_id: up.Module.id,
       permission_id: up.Permission.id,
       Permission: {
-        nombre: up.Permission.nombre
-      }
+        nombre: up.Permission.nombre,
+      },
     }));
 
     res.json(permissions);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Endpoint para asignar permisos de prueba (TEMPORAL)
-app.post('/api/admin/assign-permissions', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    // Obtener todos los módulos y permisos
-    const modules = await Module.findAll({ where: {} });
-    const permissions = await Permission.findAll({ where: {} });
-    
-    
-    // Asignar todos los permisos a todos los módulos para este usuario
-    const userPermissions = [];
-    for (const module of modules) {
-      for (const permission of permissions) {
-        userPermissions.push({
-          user_id: userId,
-          module_id: module.id,
-          permission_id: permission.id
-        });
+app.post(
+  "/api/admin/assign-permissions",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const userId = req.user.id;
+
+      // Obtener todos los módulos y permisos
+      const modules = await Module.findAll({ where: {} });
+      const permissions = await Permission.findAll({ where: {} });
+
+      // Asignar todos los permisos a todos los módulos para este usuario
+      const userPermissions = [];
+      for (const module of modules) {
+        for (const permission of permissions) {
+          userPermissions.push({
+            user_id: userId,
+            module_id: module.id,
+            permission_id: permission.id,
+          });
+        }
       }
+
+      // Eliminar permisos existentes del usuario
+      await UserModulePermission.destroy({ where: { user_id: userId } });
+
+      // Crear nuevos permisos
+      await UserModulePermission.bulkCreate(userPermissions);
+
+      res.json({
+        message: "Permisos asignados correctamente",
+        count: userPermissions.length,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-    
-    // Eliminar permisos existentes del usuario
-    await UserModulePermission.destroy({ where: { user_id: userId } });
-    
-    // Crear nuevos permisos
-    await UserModulePermission.bulkCreate(userPermissions);
-    
-    res.json({ message: 'Permisos asignados correctamente', count: userPermissions.length });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Endpoint para obtener menú del usuario organizado por páginas
-app.get('/api/user/menu', authenticateToken, async (req, res) => {
+app.get("/api/user/menu", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Primero, obtener el usuario básico
     const user = await User.findByPk(userId);
     if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-
     // Si es el creador, devolver todas las páginas
-    if (user.nivel === 'TODO') {
+    if (user.nivel === "TODO") {
       const allPages = await Page.findAll({
         where: {},
-        order: [['orden', 'ASC']]
+        order: [["orden", "ASC"]],
       });
       return res.json(allPages);
     }
@@ -2152,164 +2217,172 @@ app.get('/api/user/menu', authenticateToken, async (req, res) => {
     // Obtener módulos del usuario de forma separada
     const userModules = await UserModule.findAll({
       where: { user_id: userId },
-      include: [{
-        model: Module,
-        where: {}
-      }]
+      include: [
+        {
+          model: Module,
+          where: {},
+        },
+      ],
     });
 
-    userModules.forEach(um => {
-    });
+    userModules.forEach((um) => {});
 
     if (userModules.length === 0) {
       return res.json([]);
     }
 
     // Obtener IDs de módulos
-    const moduleIds = userModules.map(um => um.Module.id);
+    const moduleIds = userModules.map((um) => um.Module.id);
 
     // Obtener páginas que contienen estos módulos
     const pages = await Page.findAll({
       where: {},
-      include: [{
-        model: Module,
-        where: {id: moduleIds
+      include: [
+        {
+          model: Module,
+          where: { id: moduleIds },
+          required: true,
         },
-        required: true
-      }],
-      order: [['orden', 'ASC']]
+      ],
+      order: [["orden", "ASC"]],
     });
 
-    pages.forEach(page => {
-    });
+    pages.forEach((page) => {});
 
     res.json(pages);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener módulos asignados al usuario
-app.get('/api/user/modules', authenticateToken, async (req, res) => {
+app.get("/api/user/modules", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Obtener módulos asignados al usuario
     const userModules = await UserModule.findAll({
       where: { user_id: userId },
-      include: [{
-        model: Module,
-        where: {}
-      }]
+      include: [
+        {
+          model: Module,
+          where: {},
+        },
+      ],
     });
 
-    
     // Extraer solo los módulos
-    const modules = userModules.map(um => um.Module);
-    
+    const modules = userModules.map((um) => um.Module);
+
     res.json(modules);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Endpoint duplicado eliminado - usar el de línea 2038
 
 // Obtener juegos asignados al usuario
-app.get('/api/user/juegos', authenticateToken, async (req, res) => {
+app.get("/api/user/juegos", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let juegos;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       // El creador tiene acceso a todos los juegos
       juegos = await Juego.findAll({
         where: {},
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       // Obtener juegos de las salas asignadas al usuario
       const userSalas = await UserSala.findAll({
         where: { user_id: userId },
-        include: [{
-          model: Sala,
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            where: {},
+          },
+        ],
       });
 
-      const userSalaIds = userSalas.map(us => us.Sala.id);
-      
+      const userSalaIds = userSalas.map((us) => us.Sala.id);
+
       juegos = await Juego.findAll({
-        where: {sala_id: userSalaIds
-        },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        where: { sala_id: userSalaIds },
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(juegos);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener rangos asignados al usuario
-app.get('/api/user/rangos', authenticateToken, async (req, res) => {
+app.get("/api/user/rangos", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let rangos;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       // El creador tiene acceso a todos los rangos
       rangos = await Rango.findAll({
         where: {},
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       // Obtener rangos de las salas asignadas al usuario
       const userSalas = await UserSala.findAll({
         where: { user_id: userId },
-        include: [{
-          model: Sala,
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            where: {},
+          },
+        ],
       });
 
-      const userSalaIds = userSalas.map(us => us.Sala.id);
-      
+      const userSalaIds = userSalas.map((us) => us.Sala.id);
+
       rangos = await Rango.findAll({
-        where: {sala_id: userSalaIds
-        },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        where: { sala_id: userSalaIds },
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(rangos);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -2317,113 +2390,128 @@ app.get('/api/user/rangos', authenticateToken, async (req, res) => {
 // RUTAS DE PERMISOS
 // =============================================
 
-app.get('/api/permissions', authenticateToken, async (req, res) => {
+app.get("/api/permissions", authenticateToken, async (req, res) => {
   try {
     const permissions = await Permission.findAll();
     res.json(permissions);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
-app.post('/api/permissions', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { nombre } = req.body;
-    
+app.post(
+  "/api/permissions",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { nombre } = req.body;
 
-    if (!nombre) {
-      return res.status(400).json({ message: 'El nombre es requerido' });
+      if (!nombre) {
+        return res.status(400).json({ message: "El nombre es requerido" });
+      }
+
+      // Verificar que el permiso no exista
+      const existingPermission = await Permission.findOne({
+        where: { nombre },
+      });
+
+      if (existingPermission) {
+        return res
+          .status(400)
+          .json({ message: "Ya existe un permiso con ese nombre" });
+      }
+
+      const permission = await Permission.create({ nombre });
+
+      // Asignar automáticamente al usuario creador
+      await assignToCreator(permission, "permission");
+
+      res
+        .status(201)
+        .json({ message: "Permiso creado exitosamente", id: permission.id });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
+  },
+);
 
-    // Verificar que el permiso no exista
-    const existingPermission = await Permission.findOne({ 
-      where: { nombre } 
-    });
-    
-    if (existingPermission) {
-      return res.status(400).json({ message: 'Ya existe un permiso con ese nombre' });
+app.put(
+  "/api/permissions/:id",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { nombre } = req.body;
+
+      const permission = await Permission.findByPk(id);
+      if (!permission) {
+        return res.status(404).json({ message: "Permiso no encontrado" });
+      }
+
+      await permission.update({ nombre });
+
+      res.json({ message: "Permiso actualizado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
+  },
+);
 
-    const permission = await Permission.create({ nombre});
-    
+app.delete(
+  "/api/permissions/:id",
+  authenticateToken,
+  authorizeLevel("TODO"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    // Asignar automáticamente al usuario creador
-    await assignToCreator(permission, 'permission');
+      const permission = await Permission.findByPk(id);
+      if (!permission) {
+        return res.status(404).json({ message: "Permiso no encontrado" });
+      }
 
-    res.status(201).json({ message: 'Permiso creado exitosamente', id: permission.id });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      await permission.destroy();
 
-app.put('/api/permissions/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { nombre} = req.body;
-
-    const permission = await Permission.findByPk(id);
-    if (!permission) {
-      return res.status(404).json({ message: 'Permiso no encontrado' });
+      res.json({ message: "Permiso eliminado exitosamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    await permission.update({ nombre});
-
-    res.json({ message: 'Permiso actualizado exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-app.delete('/api/permissions/:id', authenticateToken, authorizeLevel('TODO'), async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const permission = await Permission.findByPk(id);
-    if (!permission) {
-      return res.status(404).json({ message: 'Permiso no encontrado' });
-    }
-
-    await permission.destroy();
-
-    res.json({ message: 'Permiso eliminado exitosamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // =============================================
 // RUTAS DE LIBROS
 // =============================================
 
 // Obtener salas del usuario para crear libros
-app.get('/api/user/salas', authenticateToken, async (req, res) => {
+app.get("/api/user/salas", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let salas;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       // El creador tiene acceso a todas las salas
       salas = await Sala.findAll({
-        where: {}
+        where: {},
       });
     } else {
       // Otros usuarios solo ven sus salas asignadas
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
       salas = user.Salas;
@@ -2431,103 +2519,105 @@ app.get('/api/user/salas', authenticateToken, async (req, res) => {
 
     res.json(salas);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener todos los libros
-app.get('/api/libros', authenticateToken, async (req, res) => {
+app.get("/api/libros", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let libros;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       // El creador ve todos los libros
       libros = await Libro.findAll({
         where: {},
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       // Otros usuarios solo ven libros de sus salas asignadas
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
 
       libros = await Libro.findAll({
-        where: {sala_id: userSalaIds
-        },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        where: { sala_id: userSalaIds },
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(libros);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener un libro por ID
-app.get('/api/libros/:id', authenticateToken, async (req, res) => {
+app.get("/api/libros/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const libro = await Libro.findByPk(id);
-    
+
     if (!libro) {
-      return res.status(404).json({ message: 'Libro no encontrado' });
+      return res.status(404).json({ message: "Libro no encontrado" });
     }
-    
+
     res.json(libro);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear un nuevo libro
-app.post('/api/libros', authenticateToken, async (req, res) => {
+app.post("/api/libros", authenticateToken, async (req, res) => {
   try {
     const { sala_id } = req.body;
-    
+
     if (!sala_id) {
-      return res.status(400).json({ message: 'La sala es requerida' });
+      return res.status(400).json({ message: "La sala es requerida" });
     }
 
     // Verificar que la sala existe
     const sala = await Sala.findByPk(sala_id);
     if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+      return res.status(404).json({ message: "Sala no encontrada" });
     }
 
     // Obtener el último libro creado para esta sala específica
     const ultimoLibroSala = await Libro.findOne({
       where: { sala_id: sala_id },
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     let fechaCreacion = new Date();
-    
+
     if (ultimoLibroSala) {
       // Si existe un libro anterior en esta sala, agregar 1 día a su fecha
       const ultimaFecha = new Date(ultimoLibroSala.created_at);
@@ -2539,58 +2629,58 @@ app.post('/api/libros', authenticateToken, async (req, res) => {
     const libro = await Libro.create({
       sala_id: sala_id,
       created_at: fechaCreacion,
-      updated_at: fechaCreacion
+      updated_at: fechaCreacion,
     });
 
     // Obtener el libro con la información de la sala
     const libroConSala = await Libro.findByPk(libro.id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
     res.status(201).json(libroConSala);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar un libro
-app.put('/api/libros/:id', authenticateToken, async (req, res) => {
+app.put("/api/libros/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     // No se requieren campos para actualizar libros
 
     const libro = await Libro.findByPk(id);
     if (!libro) {
-      return res.status(404).json({ message: 'Libro no encontrado' });
+      return res.status(404).json({ message: "Libro no encontrado" });
     }
 
-    await libro.update({
-    });
+    await libro.update({});
 
-    res.json({ message: 'Libro actualizado exitosamente', libro });
+    res.json({ message: "Libro actualizado exitosamente", libro });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar un libro
-app.delete('/api/libros/:id', authenticateToken, async (req, res) => {
+app.delete("/api/libros/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
     const libro = await Libro.findByPk(id);
     if (!libro) {
-      return res.status(404).json({ message: 'Libro no encontrado' });
+      return res.status(404).json({ message: "Libro no encontrado" });
     }
 
     // Verificar si el libro tiene relaciones que impidan su eliminación
-    
-    const relations = await sequelize.query(`
+
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE libro_id = ?
         UNION ALL
@@ -2602,26 +2692,26 @@ app.delete('/api/libros/:id', authenticateToken, async (req, res) => {
         UNION ALL
         SELECT 'Drops' as table_name, COUNT(*) as count FROM drops WHERE libro_id = ?
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id, id, id, id, id],
-      type: sequelize.QueryTypes.SELECT
-    });
-    
-    
+    `,
+      {
+        replacements: [id, id, id, id, id],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
+
     if (relations.length > 0) {
       return res.status(400).json({
-        message: 'No se puede eliminar el libro porque tiene relaciones',
-        relations: relations
+        message: "No se puede eliminar el libro porque tiene relaciones",
+        relations: relations,
       });
     }
 
     // Si no hay relaciones, eliminar el libro
     await libro.destroy();
 
-    res.json({ message: 'Libro eliminado exitosamente' });
+    res.json({ message: "Libro eliminado exitosamente" });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -2630,71 +2720,77 @@ app.delete('/api/libros/:id', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener todos los rangos
-app.get('/api/rangos', authenticateToken, async (req, res) => {
+app.get("/api/rangos", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let rangos;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       rangos = await Rango.findAll({
         where: {},
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       rangos = await Rango.findAll({
-        where: {sala_id: userSalaIds
-        },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        where: { sala_id: userSalaIds },
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(rangos);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear un nuevo rango
-app.post('/api/rangos', authenticateToken, async (req, res) => {
+app.post("/api/rangos", authenticateToken, async (req, res) => {
   try {
     const { nombre, sala_id } = req.body;
-    
+
     if (!nombre || !sala_id) {
-      return res.status(400).json({ message: 'El nombre y la sala son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "El nombre y la sala son requeridos" });
     }
 
     const sala = await Sala.findByPk(sala_id);
     if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+      return res.status(404).json({ message: "Sala no encontrada" });
     }
 
     const ultimoRangoSala = await Rango.findOne({
       where: { sala_id: sala_id },
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     let fechaCreacion = new Date();
@@ -2708,98 +2804,101 @@ app.post('/api/rangos', authenticateToken, async (req, res) => {
       nombre: nombre,
       sala_id: sala_id,
       created_at: fechaCreacion,
-      updated_at: fechaCreacion
+      updated_at: fechaCreacion,
     });
 
     const rangoConSala = await Rango.findByPk(rango.id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
     res.status(201).json(rangoConSala);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar un rango
-app.put('/api/rangos/:id', authenticateToken, async (req, res) => {
+app.put("/api/rangos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, sala_id } = req.body;
-    
+
     const rango = await Rango.findByPk(id);
-    
+
     if (!rango) {
-      return res.status(404).json({ message: 'Rango no encontrado' });
+      return res.status(404).json({ message: "Rango no encontrado" });
     }
-    
+
     // Verificar permisos del usuario
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'super_admin') {
+
+    if (userLevel !== "super_admin") {
       // Verificar si el usuario tiene acceso a la sala del rango
       const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: rango.sala_id }
+        where: { user_id: userId, sala_id: rango.sala_id },
       });
-      
+
       if (!userSala) {
-        return res.status(403).json({ message: 'No tienes permisos para actualizar este rango' });
+        return res
+          .status(403)
+          .json({ message: "No tienes permisos para actualizar este rango" });
       }
     }
-    
+
     // Actualizar el rango
     await rango.update({
       nombre,
-      sala_id
+      sala_id,
     });
-    
-    res.json({ message: 'Rango actualizado correctamente', rango });
+
+    res.json({ message: "Rango actualizado correctamente", rango });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar un rango
-app.delete('/api/rangos/:id', authenticateToken, async (req, res) => {
+app.delete("/api/rangos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const rango = await Rango.findByPk(id);
-    
+
     if (!rango) {
-      return res.status(404).json({ message: 'Rango no encontrado' });
+      return res.status(404).json({ message: "Rango no encontrado" });
     }
-    
+
     // Verificar si el rango tiene relaciones que impidan su eliminación
-    
-    const relations = await sequelize.query(`
+
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Máquinas' as table_name, COUNT(*) as count FROM maquinas WHERE rango_id = ?
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id],
-      type: sequelize.QueryTypes.SELECT
-    });
-    
-    
+    `,
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
+
     if (relations.length > 0) {
       return res.status(400).json({
-        message: 'No se puede eliminar el rango porque tiene relaciones',
-        relations: relations
+        message: "No se puede eliminar el rango porque tiene relaciones",
+        relations: relations,
       });
     }
-    
+
     // Si no hay relaciones, eliminar el rango
     await rango.destroy();
-    res.json({ message: 'Rango eliminado exitosamente' });
+    res.json({ message: "Rango eliminado exitosamente" });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -2808,95 +2907,106 @@ app.delete('/api/rangos/:id', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener todas las áreas
-app.get('/api/areas', authenticateToken, async (req, res) => {
+app.get("/api/areas", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let areas;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       areas = await Area.findAll({
         where: {},
-        include: [{
-          model: Departamento,
-          as: 'Departamento',
-          attributes: ['id', 'nombre'],
-          required: false,
-          include: [{
-            model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre'],
-            required: false
-          }]
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Departamento,
+            as: "Departamento",
+            attributes: ["id", "nombre"],
+            required: false,
+            include: [
+              {
+                model: Sala,
+                as: "Sala",
+                attributes: ["id", "nombre"],
+                required: false,
+              },
+            ],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       areas = await Area.findAll({
         where: {
-          '$Departamento.sala_id$': {
-            [Op.in]: userSalaIds
-          }
-        },
-        include: [{
-          model: Departamento,
-          as: 'Departamento',
-          attributes: ['id', 'nombre'],
-          required: true,
-          where: {
-            sala_id: {
-              [Op.in]: userSalaIds
-            }
+          "$Departamento.sala_id$": {
+            [Op.in]: userSalaIds,
           },
-          include: [{
-            model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre'],
-            required: true
-          }]
-        }],
-        order: [['created_at', 'DESC']]
+        },
+        include: [
+          {
+            model: Departamento,
+            as: "Departamento",
+            attributes: ["id", "nombre"],
+            required: true,
+            where: {
+              sala_id: {
+                [Op.in]: userSalaIds,
+              },
+            },
+            include: [
+              {
+                model: Sala,
+                as: "Sala",
+                attributes: ["id", "nombre"],
+                required: true,
+              },
+            ],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(areas);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear una nueva área
-app.post('/api/areas', authenticateToken, async (req, res) => {
+app.post("/api/areas", authenticateToken, async (req, res) => {
   try {
     const { nombre, departamento_id } = req.body;
-    
+
     if (!nombre || !departamento_id) {
-      return res.status(400).json({ message: 'El nombre y el departamento son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "El nombre y el departamento son requeridos" });
     }
 
     const departamento = await Departamento.findByPk(departamento_id);
     if (!departamento) {
-      return res.status(404).json({ message: 'Departamento no encontrado' });
+      return res.status(404).json({ message: "Departamento no encontrado" });
     }
 
     const ultimaAreaDepartamento = await Area.findOne({
       where: { departamento_id: departamento_id },
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     let fechaCreacion = new Date();
@@ -2910,115 +3020,124 @@ app.post('/api/areas', authenticateToken, async (req, res) => {
       nombre: nombre,
       departamento_id: departamento_id,
       created_at: fechaCreacion,
-      updated_at: fechaCreacion
+      updated_at: fechaCreacion,
     });
 
     const areaConDepartamento = await Area.findByPk(area.id, {
-      include: [{
-        model: Departamento,
-        as: 'Departamento',
-        attributes: ['id', 'nombre'],
-        required: false,
-        include: [{
-          model: Sala,
-          as: 'Sala',
-          attributes: ['id', 'nombre'],
-          required: false
-        }]
-      }]
+      include: [
+        {
+          model: Departamento,
+          as: "Departamento",
+          attributes: ["id", "nombre"],
+          required: false,
+          include: [
+            {
+              model: Sala,
+              as: "Sala",
+              attributes: ["id", "nombre"],
+              required: false,
+            },
+          ],
+        },
+      ],
     });
 
     res.status(201).json(areaConDepartamento);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar un área
-app.put('/api/areas/:id', authenticateToken, async (req, res) => {
+app.put("/api/areas/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, departamento_id } = req.body;
-    
+
     const area = await Area.findByPk(id);
     if (!area) {
-      return res.status(404).json({ message: 'Área no encontrada' });
+      return res.status(404).json({ message: "Área no encontrada" });
     }
 
     if (departamento_id) {
       const departamento = await Departamento.findByPk(departamento_id);
       if (!departamento) {
-        return res.status(404).json({ message: 'Departamento no encontrado' });
+        return res.status(404).json({ message: "Departamento no encontrado" });
       }
     }
 
     await area.update({
       nombre: nombre || area.nombre,
-      departamento_id: departamento_id || area.departamento_id
+      departamento_id: departamento_id || area.departamento_id,
     });
 
     const areaActualizada = await Area.findByPk(area.id, {
-      include: [{
-        model: Departamento,
-        as: 'Departamento',
-        attributes: ['id', 'nombre'],
-        required: false,
-        include: [{
-          model: Sala,
-          as: 'Sala',
-          attributes: ['id', 'nombre'],
-          required: false
-        }]
-      }]
+      include: [
+        {
+          model: Departamento,
+          as: "Departamento",
+          attributes: ["id", "nombre"],
+          required: false,
+          include: [
+            {
+              model: Sala,
+              as: "Sala",
+              attributes: ["id", "nombre"],
+              required: false,
+            },
+          ],
+        },
+      ],
     });
 
     res.json(areaActualizada);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar un área
-app.delete('/api/areas/:id', authenticateToken, async (req, res) => {
+app.delete("/api/areas/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const area = await Area.findByPk(id);
-    
+
     if (!area) {
-      return res.status(404).json({ message: 'Área no encontrada' });
+      return res.status(404).json({ message: "Área no encontrada" });
     }
-    
+
     // Verificar si el área tiene relaciones que impidan su eliminación
-    const relations = await sequelize.query(`
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Cargos' as table_name, COUNT(*) as count FROM cargos WHERE area_id = ?
         UNION ALL
         SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE cargo_id IN (SELECT id FROM cargos WHERE area_id = ?)
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id, id],
-      type: sequelize.QueryTypes.SELECT
-    });
+    `,
+      {
+        replacements: [id, id],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
 
     if (relations.length > 0) {
-      return res.status(400).json({ 
-        message: 'No se puede eliminar el área porque tiene elementos asociados.',
+      return res.status(400).json({
+        message:
+          "No se puede eliminar el área porque tiene elementos asociados.",
         relations: relations,
         area: {
           id: area.id,
-          nombre: area.nombre
-        }
+          nombre: area.nombre,
+        },
       });
     }
-    
+
     // Eliminar el área
     await area.destroy();
-    res.json({ message: 'Área eliminada exitosamente' });
+    res.json({ message: "Área eliminada exitosamente" });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -3027,151 +3146,167 @@ app.delete('/api/areas/:id', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener todas las áreas del usuario (para el selector de departamentos)
-app.get('/api/user/areas', authenticateToken, async (req, res) => {
+app.get("/api/user/areas", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let areas;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       areas = await Area.findAll({
         where: {},
-        include: [{
-          model: Departamento,
-          as: 'Departamento',
-          attributes: ['id', 'nombre'],
-          required: false,
-          include: [{
-            model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre'],
-            required: false
-          }]
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Departamento,
+            as: "Departamento",
+            attributes: ["id", "nombre"],
+            required: false,
+            include: [
+              {
+                model: Sala,
+                as: "Sala",
+                attributes: ["id", "nombre"],
+                required: false,
+              },
+            ],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       areas = await Area.findAll({
         where: {
-          '$Departamento.sala_id$': {
-            [Op.in]: userSalaIds
-          }
-        },
-        include: [{
-          model: Departamento,
-          as: 'Departamento',
-          attributes: ['id', 'nombre'],
-          required: true,
-          where: {
-            sala_id: {
-              [Op.in]: userSalaIds
-            }
+          "$Departamento.sala_id$": {
+            [Op.in]: userSalaIds,
           },
-          include: [{
-            model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre'],
-            required: true
-          }]
-        }],
-        order: [['created_at', 'DESC']]
+        },
+        include: [
+          {
+            model: Departamento,
+            as: "Departamento",
+            attributes: ["id", "nombre"],
+            required: true,
+            where: {
+              sala_id: {
+                [Op.in]: userSalaIds,
+              },
+            },
+            include: [
+              {
+                model: Sala,
+                as: "Sala",
+                attributes: ["id", "nombre"],
+                required: true,
+              },
+            ],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(areas);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener todos los departamentos
-app.get('/api/departamentos', authenticateToken, async (req, res) => {
+app.get("/api/departamentos", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let departamentos;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       departamentos = await Departamento.findAll({
         where: {},
-        include: [{
-          model: Sala,
-          as: 'Sala',
-          attributes: ['id', 'nombre'],
-          required: false
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            as: "Sala",
+            attributes: ["id", "nombre"],
+            required: false,
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       departamentos = await Departamento.findAll({
         where: {
           sala_id: {
-            [Op.in]: userSalaIds
-          }
+            [Op.in]: userSalaIds,
+          },
         },
-        include: [{
-          model: Sala,
-          as: 'Sala',
-          attributes: ['id', 'nombre'],
-          required: true
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            as: "Sala",
+            attributes: ["id", "nombre"],
+            required: true,
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(departamentos);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear un nuevo departamento
-app.post('/api/departamentos', authenticateToken, async (req, res) => {
+app.post("/api/departamentos", authenticateToken, async (req, res) => {
   try {
     const { nombre, sala_id } = req.body;
-    
+
     if (!nombre || !sala_id) {
-      return res.status(400).json({ message: 'El nombre y la sala son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "El nombre y la sala son requeridos" });
     }
 
     const sala = await Sala.findByPk(sala_id);
     if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+      return res.status(404).json({ message: "Sala no encontrada" });
     }
 
     const ultimoDepartamentoSala = await Departamento.findOne({
       where: { sala_id: sala_id },
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     let fechaCreacion = new Date();
@@ -3185,76 +3320,82 @@ app.post('/api/departamentos', authenticateToken, async (req, res) => {
       nombre: nombre,
       sala_id: sala_id,
       created_at: fechaCreacion,
-      updated_at: fechaCreacion
+      updated_at: fechaCreacion,
     });
 
     const departamentoConSala = await Departamento.findByPk(departamento.id, {
-      include: [{
-        model: Sala,
-        as: 'Sala',
-        attributes: ['id', 'nombre'],
-        required: false
-      }]
+      include: [
+        {
+          model: Sala,
+          as: "Sala",
+          attributes: ["id", "nombre"],
+          required: false,
+        },
+      ],
     });
 
     res.status(201).json(departamentoConSala);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar un departamento
-app.put('/api/departamentos/:id', authenticateToken, async (req, res) => {
+app.put("/api/departamentos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, sala_id } = req.body;
-    
+
     const departamento = await Departamento.findByPk(id);
     if (!departamento) {
-      return res.status(404).json({ message: 'Departamento no encontrado' });
+      return res.status(404).json({ message: "Departamento no encontrado" });
     }
 
     if (sala_id) {
       const sala = await Sala.findByPk(sala_id);
       if (!sala) {
-        return res.status(404).json({ message: 'Sala no encontrada' });
+        return res.status(404).json({ message: "Sala no encontrada" });
       }
     }
 
     await departamento.update({
       nombre: nombre || departamento.nombre,
-      sala_id: sala_id || departamento.sala_id
+      sala_id: sala_id || departamento.sala_id,
     });
 
-    const departamentoActualizado = await Departamento.findByPk(departamento.id, {
-      include: [{
-        model: Sala,
-        as: 'Sala',
-        attributes: ['id', 'nombre'],
-        required: false
-      }]
-    });
+    const departamentoActualizado = await Departamento.findByPk(
+      departamento.id,
+      {
+        include: [
+          {
+            model: Sala,
+            as: "Sala",
+            attributes: ["id", "nombre"],
+            required: false,
+          },
+        ],
+      },
+    );
 
     res.json(departamentoActualizado);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar un departamento
-app.delete('/api/departamentos/:id', authenticateToken, async (req, res) => {
+app.delete("/api/departamentos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const departamento = await Departamento.findByPk(id);
-    
+
     if (!departamento) {
-      return res.status(404).json({ message: 'Departamento no encontrado' });
+      return res.status(404).json({ message: "Departamento no encontrado" });
     }
-    
+
     // Verificar si el departamento tiene relaciones que impidan su eliminación
-    const relations = await sequelize.query(`
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Áreas' as table_name, COUNT(*) as count FROM areas WHERE departamento_id = ?
         UNION ALL
@@ -3262,28 +3403,30 @@ app.delete('/api/departamentos/:id', authenticateToken, async (req, res) => {
         UNION ALL
         SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE cargo_id IN (SELECT id FROM cargos WHERE area_id IN (SELECT id FROM areas WHERE departamento_id = ?))
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id, id, id],
-      type: sequelize.QueryTypes.SELECT
-    });
+    `,
+      {
+        replacements: [id, id, id],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
 
     if (relations.length > 0) {
-      return res.status(400).json({ 
-        message: 'No se puede eliminar el departamento porque tiene elementos asociados.',
+      return res.status(400).json({
+        message:
+          "No se puede eliminar el departamento porque tiene elementos asociados.",
         relations: relations,
         departamento: {
           id: departamento.id,
-          nombre: departamento.nombre
-        }
+          nombre: departamento.nombre,
+        },
       });
     }
-    
+
     // Eliminar el departamento
     await departamento.destroy();
-    res.json({ message: 'Departamento eliminado exitosamente' });
+    res.json({ message: "Departamento eliminado exitosamente" });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -3292,164 +3435,183 @@ app.delete('/api/departamentos/:id', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener todos los departamentos del usuario (para el selector de cargos)
-app.get('/api/user/departamentos', authenticateToken, async (req, res) => {
+app.get("/api/user/departamentos", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let departamentos;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       departamentos = await Departamento.findAll({
         where: {},
-        include: [{
-          model: Sala,
-          as: 'Sala',
-          attributes: ['id', 'nombre'],
-          required: false
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            as: "Sala",
+            attributes: ["id", "nombre"],
+            required: false,
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       departamentos = await Departamento.findAll({
         where: {
           sala_id: {
-            [Op.in]: userSalaIds
-          }
+            [Op.in]: userSalaIds,
+          },
         },
-        include: [{
-          model: Sala,
-          as: 'Sala',
-          attributes: ['id', 'nombre'],
-          required: false
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            as: "Sala",
+            attributes: ["id", "nombre"],
+            required: false,
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(departamentos);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener todos los cargos
-app.get('/api/cargos', authenticateToken, async (req, res) => {
+app.get("/api/cargos", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let cargos;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       cargos = await Cargo.findAll({
         where: {},
-        include: [{
-          model: Area,
-          as: 'Area',
-          attributes: ['id', 'nombre'],
-          required: false,
-          include: [{
-            model: Departamento,
-            as: 'Departamento',
-            attributes: ['id', 'nombre'],
+        include: [
+          {
+            model: Area,
+            as: "Area",
+            attributes: ["id", "nombre"],
             required: false,
-            include: [{
-              model: Sala,
-              as: 'Sala',
-              attributes: ['id', 'nombre'],
-              required: false
-            }]
-          }]
-        }],
-        order: [['created_at', 'DESC']]
+            include: [
+              {
+                model: Departamento,
+                as: "Departamento",
+                attributes: ["id", "nombre"],
+                required: false,
+                include: [
+                  {
+                    model: Sala,
+                    as: "Sala",
+                    attributes: ["id", "nombre"],
+                    required: false,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       cargos = await Cargo.findAll({
         where: {
-          '$Area.Departamento.sala_id$': {
-            [Op.in]: userSalaIds
-          }
+          "$Area.Departamento.sala_id$": {
+            [Op.in]: userSalaIds,
+          },
         },
-        include: [{
-          model: Area,
-          as: 'Area',
-          attributes: ['id', 'nombre'],
-          required: true,
-          include: [{
-            model: Departamento,
-            as: 'Departamento',
-            attributes: ['id', 'nombre'],
+        include: [
+          {
+            model: Area,
+            as: "Area",
+            attributes: ["id", "nombre"],
             required: true,
-            where: {
-              sala_id: {
-                [Op.in]: userSalaIds
-              }
-            },
-            include: [{
-              model: Sala,
-              as: 'Sala',
-              attributes: ['id', 'nombre'],
-              required: true
-            }]
-          }]
-        }],
-        order: [['created_at', 'DESC']]
+            include: [
+              {
+                model: Departamento,
+                as: "Departamento",
+                attributes: ["id", "nombre"],
+                required: true,
+                where: {
+                  sala_id: {
+                    [Op.in]: userSalaIds,
+                  },
+                },
+                include: [
+                  {
+                    model: Sala,
+                    as: "Sala",
+                    attributes: ["id", "nombre"],
+                    required: true,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(cargos);
   } catch (error) {
-    ;
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear un nuevo cargo
-app.post('/api/cargos', authenticateToken, async (req, res) => {
+app.post("/api/cargos", authenticateToken, async (req, res) => {
   try {
     const { nombre, area_id } = req.body;
-    
+
     if (!nombre || !area_id) {
-      return res.status(400).json({ message: 'El nombre y el área son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "El nombre y el área son requeridos" });
     }
 
     const area = await Area.findByPk(area_id);
     if (!area) {
-      return res.status(404).json({ message: 'Área no encontrada' });
+      return res.status(404).json({ message: "Área no encontrada" });
     }
 
     const ultimoCargoArea = await Cargo.findOne({
       where: { area_id: area_id },
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     let fechaCreacion = new Date();
@@ -3463,152 +3625,167 @@ app.post('/api/cargos', authenticateToken, async (req, res) => {
       nombre: nombre,
       area_id: area_id,
       created_at: fechaCreacion,
-      updated_at: fechaCreacion
+      updated_at: fechaCreacion,
     });
 
     const cargoConArea = await Cargo.findByPk(cargo.id, {
-      include: [{
-        model: Area,
-        as: 'Area',
-        attributes: ['id', 'nombre'],
-        required: false,
-        include: [{
-          model: Departamento,
-          as: 'Departamento',
-          attributes: ['id', 'nombre'],
+      include: [
+        {
+          model: Area,
+          as: "Area",
+          attributes: ["id", "nombre"],
           required: false,
-          include: [{
-            model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre'],
-            required: false
-          }]
-        }]
-      }]
+          include: [
+            {
+              model: Departamento,
+              as: "Departamento",
+              attributes: ["id", "nombre"],
+              required: false,
+              include: [
+                {
+                  model: Sala,
+                  as: "Sala",
+                  attributes: ["id", "nombre"],
+                  required: false,
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     res.status(201).json(cargoConArea);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar un cargo
-app.put('/api/cargos/:id', authenticateToken, async (req, res) => {
+app.put("/api/cargos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, area_id } = req.body;
-    
+
     const cargo = await Cargo.findByPk(id);
     if (!cargo) {
-      return res.status(404).json({ message: 'Cargo no encontrado' });
+      return res.status(404).json({ message: "Cargo no encontrado" });
     }
 
     if (area_id) {
       const area = await Area.findByPk(area_id);
       if (!area) {
-        return res.status(404).json({ message: 'Área no encontrada' });
+        return res.status(404).json({ message: "Área no encontrada" });
       }
     }
 
     await cargo.update({
       nombre: nombre || cargo.nombre,
-      area_id: area_id || cargo.area_id
+      area_id: area_id || cargo.area_id,
     });
 
     const cargoActualizado = await Cargo.findByPk(cargo.id, {
-      include: [{
-        model: Area,
-        as: 'Area',
-        attributes: ['id', 'nombre'],
-        required: false,
-        include: [{
-          model: Departamento,
-          as: 'Departamento',
-          attributes: ['id', 'nombre'],
+      include: [
+        {
+          model: Area,
+          as: "Area",
+          attributes: ["id", "nombre"],
           required: false,
-          include: [{
-            model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre'],
-            required: false
-          }]
-        }]
-      }]
+          include: [
+            {
+              model: Departamento,
+              as: "Departamento",
+              attributes: ["id", "nombre"],
+              required: false,
+              include: [
+                {
+                  model: Sala,
+                  as: "Sala",
+                  attributes: ["id", "nombre"],
+                  required: false,
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     res.json(cargoActualizado);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar un cargo
-app.delete('/api/cargos/:id', authenticateToken, async (req, res) => {
+app.delete("/api/cargos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const cargo = await Cargo.findByPk(id);
-    
+
     if (!cargo) {
-      return res.status(404).json({ message: 'Cargo no encontrado' });
+      return res.status(404).json({ message: "Cargo no encontrado" });
     }
-    
+
     // Verificar si el cargo tiene relaciones que impidan su eliminación
-    const relations = await sequelize.query(`
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Empleados' as table_name, COUNT(*) as count FROM empleados WHERE cargo_id = ?
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id],
-      type: sequelize.QueryTypes.SELECT
-    });
+    `,
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
 
     if (relations.length > 0) {
-      return res.status(400).json({ 
-        message: 'No se puede eliminar el cargo porque tiene elementos asociados.',
+      return res.status(400).json({
+        message:
+          "No se puede eliminar el cargo porque tiene elementos asociados.",
         relations: relations,
         cargo: {
           id: cargo.id,
-          nombre: cargo.nombre
-        }
+          nombre: cargo.nombre,
+        },
       });
     }
-    
+
     // Eliminar el cargo
     await cargo.destroy();
-    res.json({ message: 'Cargo eliminado exitosamente' });
+    res.json({ message: "Cargo eliminado exitosamente" });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
-
 
 // =============================================
 // RUTAS PARA HORARIOS (SISTEMA DE BLOQUES)
 // =============================================
 
 // Obtener todos los horarios con sus bloques
-app.get('/api/horarios', authenticateToken, async (req, res) => {
+app.get("/api/horarios", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let horarios;
-    
-    if (userLevel === 'TODO') {
-      const results = await sequelize.query(`
-        SELECT h.*, s.nombre as sala_nombre 
-        FROM horarios h 
-        LEFT JOIN salas s ON h.sala_id = s.id 
+
+    if (userLevel === "TODO") {
+      const results = await sequelize.query(
+        `
+        SELECT h.*, s.nombre as sala_nombre
+        FROM horarios h
+        LEFT JOIN salas s ON h.sala_id = s.id
         ORDER BY h.created_at DESC
-      `, {
-        type: sequelize.QueryTypes.SELECT
-      });
-      
-      horarios = results.map(row => ({
+      `,
+        {
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
+
+      horarios = results.map((row) => ({
         id: row.id,
         nombre: row.nombre,
         sala_id: row.sala_id,
@@ -3616,103 +3793,112 @@ app.get('/api/horarios', authenticateToken, async (req, res) => {
         updated_at: row.updated_at,
         Sala: {
           id: row.sala_id,
-          nombre: row.sala_nombre || 'Sala sin nombre'
-        }
+          nombre: row.sala_nombre || "Sala sin nombre",
+        },
       }));
-      
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       horarios = await Horario.findAll({
-        where: {sala_id: userSalaIds
-        },
-        order: [['created_at', 'DESC']],
-        raw: true
+        where: { sala_id: userSalaIds },
+        order: [["created_at", "DESC"]],
+        raw: true,
       });
-      
+
       // Obtener salas por separado
-      const salaIds = [...new Set(horarios.map(h => h.sala_id))];
+      const salaIds = [...new Set(horarios.map((h) => h.sala_id))];
       const salas = await Sala.findAll({
         where: { id: salaIds },
-        attributes: ['id', 'nombre']
+        attributes: ["id", "nombre"],
       });
-      
+
       // Mapear salas a horarios
       const salasMap = {};
-      salas.forEach(sala => {
+      salas.forEach((sala) => {
         salasMap[sala.id] = sala;
       });
-      
-      horarios = horarios.map(horario => ({
+
+      horarios = horarios.map((horario) => ({
         ...horario,
-        Sala: salasMap[horario.sala_id]
+        Sala: salasMap[horario.sala_id],
       }));
     }
-    
+
     // Obtener bloques para cada horario con sus plantillas
     for (let horario of horarios) {
       const bloques = await Bloque.findAll({
         where: { horario_id: horario.id },
-        order: [['orden', 'ASC']]
+        order: [["orden", "ASC"]],
       });
-      
+
       // Obtener información de plantillas para cada bloque
       for (let bloque of bloques) {
-        const plantilla = await PlantillaHorario.findByPk(bloque.plantilla_horario_id);
+        const plantilla = await PlantillaHorario.findByPk(
+          bloque.plantilla_horario_id,
+        );
         if (plantilla) {
           bloque.dataValues.PlantillaHorario = {
             id: plantilla.id,
             codigo: plantilla.codigo,
             nombre: plantilla.nombre,
-            color: plantilla.color || '#ffffff',
+            color: plantilla.color || "#ffffff",
             hora_entrada: plantilla.hora_entrada,
             hora_salida: plantilla.hora_salida,
             hora_descanso_entrada: plantilla.hora_descanso_entrada,
             hora_descanso_salida: plantilla.hora_descanso_salida,
-            descanso_automatico: plantilla.descanso_automatico || null
+            descanso_automatico: plantilla.descanso_automatico || null,
           };
         }
       }
-      
+
       horario.bloques = bloques;
     }
-    
+
     res.json(horarios);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear un nuevo horario con bloques
-app.post('/api/horarios', authenticateToken, async (req, res) => {
+app.post("/api/horarios", authenticateToken, async (req, res) => {
   try {
     const { nombre, sala_id, bloques } = req.body;
-    
-    if (!nombre || !sala_id || !bloques || !Array.isArray(bloques) || bloques.length === 0) {
-      return res.status(400).json({ message: 'Nombre, sala y al menos un bloque son requeridos' });
+
+    if (
+      !nombre ||
+      !sala_id ||
+      !bloques ||
+      !Array.isArray(bloques) ||
+      bloques.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Nombre, sala y al menos un bloque son requeridos" });
     }
 
     const sala = await Sala.findByPk(sala_id);
     if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+      return res.status(404).json({ message: "Sala no encontrada" });
     }
 
     // Crear el horario
     const horario = await Horario.create({
       nombre,
-      sala_id
+      sala_id,
     });
 
     // Crear los bloques
@@ -3721,125 +3907,139 @@ app.post('/api/horarios', authenticateToken, async (req, res) => {
       await Bloque.create({
         horario_id: horario.id,
         plantilla_horario_id: bloque.plantilla_horario_id,
-        orden: i + 1
+        orden: i + 1,
       });
     }
 
     // Obtener el horario completo con bloques
     const horarioCompleto = await Horario.findByPk(horario.id, {
-      include: [{
-        model: Bloque,
-        as: 'bloques',
-        order: [['orden', 'ASC']]
-      }]
+      include: [
+        {
+          model: Bloque,
+          as: "bloques",
+          order: [["orden", "ASC"]],
+        },
+      ],
     });
 
     if (!horarioCompleto) {
-      return res.status(500).json({ message: 'Error creando horario' });
+      return res.status(500).json({ message: "Error creando horario" });
     }
 
     res.status(201).json(horarioCompleto);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar un horario con sus bloques
-app.put('/api/horarios/:id', authenticateToken, async (req, res) => {
+app.put("/api/horarios/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, sala_id, bloques } = req.body;
-    
+
     const horario = await Horario.findByPk(id);
     if (!horario) {
-      return res.status(404).json({ message: 'Horario no encontrado' });
+      return res.status(404).json({ message: "Horario no encontrado" });
     }
 
     // Actualizar el horario
     await horario.update({
       nombre: nombre || horario.nombre,
-      sala_id: sala_id || horario.sala_id
+      sala_id: sala_id || horario.sala_id,
     });
 
     // Si se proporcionan bloques, actualizarlos
     if (bloques && Array.isArray(bloques)) {
       // Eliminar bloques existentes
       await Bloque.destroy({ where: { horario_id: id } });
-      
+
       // Crear nuevos bloques
       for (let i = 0; i < bloques.length; i++) {
         const bloque = bloques[i];
         await Bloque.create({
           horario_id: id,
           plantilla_horario_id: bloque.plantilla_horario_id,
-          orden: i + 1
+          orden: i + 1,
         });
       }
     }
 
     // Obtener el horario actualizado con bloques
     const horarioActualizado = await Horario.findByPk(id, {
-      include: [{
-        model: Bloque,
-        as: 'bloques',
-        order: [['orden', 'ASC']]
-      }]
+      include: [
+        {
+          model: Bloque,
+          as: "bloques",
+          order: [["orden", "ASC"]],
+        },
+      ],
     });
 
     if (!horarioActualizado) {
-      return res.status(500).json({ message: 'Error actualizando horario' });
+      return res.status(500).json({ message: "Error actualizando horario" });
     }
 
     res.json(horarioActualizado);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar un horario (soft delete)
-app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
+app.delete("/api/horarios/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const horario = await Horario.findByPk(id);
     if (!horario) {
-      return res.status(404).json({ message: 'Horario no encontrado' });
+      return res.status(404).json({ message: "Horario no encontrado" });
     }
 
     // Verificar si el horario tiene relaciones que impidan su eliminación
     let relations = [];
     try {
-      relations = await sequelize.query(`
+      relations = await sequelize.query(
+        `
         SELECT table_name, count FROM (
           SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?
           UNION ALL
           SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE horario_id = ?
         ) as relations WHERE count > 0
-      `, {
-        replacements: [id, id],
-        type: sequelize.QueryTypes.SELECT
-      });
+      `,
+        {
+          replacements: [id, id],
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
     } catch (relationError) {
       // Si falla la verificación, intentar verificar manualmente
       try {
         const horariosEmpleadosCount = await sequelize.query(
-          'SELECT COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?',
-          { replacements: [id], type: sequelize.QueryTypes.SELECT }
+          "SELECT COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?",
+          { replacements: [id], type: sequelize.QueryTypes.SELECT },
         );
         const bloquesCount = await sequelize.query(
-          'SELECT COUNT(*) as count FROM bloques WHERE horario_id = ?',
-          { replacements: [id], type: sequelize.QueryTypes.SELECT }
+          "SELECT COUNT(*) as count FROM bloques WHERE horario_id = ?",
+          { replacements: [id], type: sequelize.QueryTypes.SELECT },
         );
-        
-        if (horariosEmpleadosCount[0]?.count > 0 || bloquesCount[0]?.count > 0) {
+
+        if (
+          horariosEmpleadosCount[0]?.count > 0 ||
+          bloquesCount[0]?.count > 0
+        ) {
           relations = [];
           if (horariosEmpleadosCount[0]?.count > 0) {
-            relations.push({ table_name: 'Horarios de Empleados', count: horariosEmpleadosCount[0].count });
+            relations.push({
+              table_name: "Horarios de Empleados",
+              count: horariosEmpleadosCount[0].count,
+            });
           }
           if (bloquesCount[0]?.count > 0) {
-            relations.push({ table_name: 'Bloques', count: bloquesCount[0].count });
+            relations.push({
+              table_name: "Bloques",
+              count: bloquesCount[0].count,
+            });
           }
         }
       } catch (manualError) {
@@ -3848,42 +4048,46 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
     }
 
     if (relations.length > 0) {
-      return res.status(400).json({ 
-        message: 'No se puede eliminar el horario porque tiene elementos asociados.',
+      return res.status(400).json({
+        message:
+          "No se puede eliminar el horario porque tiene elementos asociados.",
         relations: relations,
         horario: {
           id: horario.id,
-          nombre: horario.nombre
-        }
+          nombre: horario.nombre,
+        },
       });
     }
 
     // Eliminar el horario
     try {
       await horario.destroy();
-      res.json({ message: 'Horario eliminado correctamente' });
+      res.json({ message: "Horario eliminado correctamente" });
     } catch (destroyError) {
       // Cualquier error en destroy() probablemente es por foreign key constraint
       // Intentar obtener las relaciones nuevamente para mostrar información útil
       const { id } = req.params;
       let relations = [];
       try {
-        relations = await sequelize.query(`
+        relations = await sequelize.query(
+          `
           SELECT table_name, count FROM (
             SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?
             UNION ALL
             SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE horario_id = ?
           ) as relations WHERE count > 0
-        `, {
-          replacements: [id, id],
-          type: sequelize.QueryTypes.SELECT
-        });
+        `,
+          {
+            replacements: [id, id],
+            type: sequelize.QueryTypes.SELECT,
+          },
+        );
       } catch (relationError) {
         // Error al obtener relaciones, continuar sin relaciones
       }
 
       // Intentar obtener el horario si no está disponible
-      let horarioInfo = { id: id, nombre: 'Horario' };
+      let horarioInfo = { id: id, nombre: "Horario" };
       if (!horario) {
         try {
           const horarioTemp = await Horario.findByPk(id);
@@ -3897,9 +4101,18 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
 
       // SIEMPRE devolver error 400 cuando destroy() falla (probablemente por relaciones)
       return res.status(400).json({
-        message: 'No se puede eliminar el horario porque tiene elementos asociados.',
-        relations: relations.length > 0 ? relations : [{ table_name: 'Elementos asociados', count: 'Tiene registros relacionados' }],
-        horario: horarioInfo
+        message:
+          "No se puede eliminar el horario porque tiene elementos asociados.",
+        relations:
+          relations.length > 0
+            ? relations
+            : [
+                {
+                  table_name: "Elementos asociados",
+                  count: "Tiene registros relacionados",
+                },
+              ],
+        horario: horarioInfo,
       });
     }
   } catch (error) {
@@ -3907,19 +4120,22 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
     // Intentar verificar relaciones y devolver 400 si las hay
     const { id } = req.params;
     try {
-      const relations = await sequelize.query(`
+      const relations = await sequelize.query(
+        `
         SELECT table_name, count FROM (
           SELECT 'Horarios de Empleados' as table_name, COUNT(*) as count FROM horarios_empleados WHERE horario_id = ?
           UNION ALL
           SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE horario_id = ?
         ) as relations WHERE count > 0
-      `, {
-        replacements: [id, id],
-        type: sequelize.QueryTypes.SELECT
-      });
+      `,
+        {
+          replacements: [id, id],
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
 
       if (relations.length > 0) {
-        let horarioInfo = { id: id, nombre: 'Horario' };
+        let horarioInfo = { id: id, nombre: "Horario" };
         try {
           const horarioTemp = await Horario.findByPk(id);
           if (horarioTemp) {
@@ -3928,22 +4144,22 @@ app.delete('/api/horarios/:id', authenticateToken, async (req, res) => {
         } catch (e) {}
 
         return res.status(400).json({
-          message: 'No se puede eliminar el horario porque tiene elementos asociados.',
+          message:
+            "No se puede eliminar el horario porque tiene elementos asociados.",
           relations: relations,
-          horario: horarioInfo
+          horario: horarioInfo,
         });
       }
-    } catch (e) {
-    }
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    } catch (e) {}
+
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // =============================================
 // EXCEPCIONES DE HORARIO (colocado ANTES de /api/horarios/:id para evitar colisión)
 // =============================================
-app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
+app.get("/api/horarios/excepciones", authenticateToken, async (req, res) => {
   try {
     const { empleado_id, desde, hasta } = req.query;
     const where = {};
@@ -3955,343 +4171,398 @@ app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
     const excepciones = await ExcepcionHorario.findAll({
       where,
       include: [
-        { model: Empleado, attributes: ['id', 'nombre', 'cedula', 'cargo_id'] },
-        { 
+        { model: Empleado, attributes: ["id", "nombre", "cedula", "cargo_id"] },
+        {
           model: PlantillaHorario,
-          attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
-        }
+          attributes: [
+            "id",
+            "codigo",
+            "nombre",
+            "hora_entrada",
+            "hora_salida",
+            "color",
+            "hora_descanso_entrada",
+            "hora_descanso_salida",
+            "descanso_automatico",
+          ],
+        },
       ],
-      order: [['fecha', 'ASC']]
+      order: [["fecha", "ASC"]],
     });
     res.json(excepciones);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
-app.post('/api/horarios/excepciones', authenticateToken, async (req, res) => {
+app.post("/api/horarios/excepciones", authenticateToken, async (req, res) => {
   try {
     const { empleado_id, fecha, plantilla_horario_id, motivo } = req.body;
     if (!empleado_id || !fecha || !plantilla_horario_id) {
-      return res.status(400).json({ message: 'empleado_id, fecha y plantilla_horario_id son requeridos' });
+      return res.status(400).json({
+        message: "empleado_id, fecha y plantilla_horario_id son requeridos",
+      });
     }
-    const existente = await ExcepcionHorario.findOne({ where: { empleado_id, fecha } });
-    if (existente) return res.status(409).json({ message: 'Ya existe una excepción para ese día' });
-    const nueva = await ExcepcionHorario.create({ empleado_id, fecha, plantilla_horario_id, motivo, created_by: req.user.id });
+    const existente = await ExcepcionHorario.findOne({
+      where: { empleado_id, fecha },
+    });
+    if (existente)
+      return res
+        .status(409)
+        .json({ message: "Ya existe una excepción para ese día" });
+    const nueva = await ExcepcionHorario.create({
+      empleado_id,
+      fecha,
+      plantilla_horario_id,
+      motivo,
+      created_by: req.user.id,
+    });
     res.status(201).json(nueva);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
-app.put('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { plantilla_horario_id, motivo } = req.body;
-    const ex = await ExcepcionHorario.findByPk(id);
-    if (!ex) return res.status(404).json({ message: 'Excepción no encontrada' });
-    if (typeof plantilla_horario_id !== 'undefined') ex.plantilla_horario_id = plantilla_horario_id;
-    if (typeof motivo !== 'undefined') ex.motivo = motivo;
-    await ex.save();
-    res.json(ex);
-  } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+app.put(
+  "/api/horarios/excepciones/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { plantilla_horario_id, motivo } = req.body;
+      const ex = await ExcepcionHorario.findByPk(id);
+      if (!ex)
+        return res.status(404).json({ message: "Excepción no encontrada" });
+      if (typeof plantilla_horario_id !== "undefined")
+        ex.plantilla_horario_id = plantilla_horario_id;
+      if (typeof motivo !== "undefined") ex.motivo = motivo;
+      await ex.save();
+      res.json(ex);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
-app.delete('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const ex = await ExcepcionHorario.findByPk(id);
-    if (!ex) return res.status(404).json({ message: 'Excepción no encontrada' });
-    await ex.destroy();
-    res.json({ message: 'Excepción eliminada' });
-  } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+app.delete(
+  "/api/horarios/excepciones/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ex = await ExcepcionHorario.findByPk(id);
+      if (!ex)
+        return res.status(404).json({ message: "Excepción no encontrada" });
+      await ex.destroy();
+      res.json({ message: "Excepción eliminada" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Obtener un horario específico con sus bloques
-app.get('/api/horarios/:id', authenticateToken, async (req, res) => {
+app.get("/api/horarios/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const horario = await Horario.findByPk(id, {
-      include: [{
-        model: Bloque,
-        as: 'bloques',
-        order: [['orden', 'ASC']]
-      }]
+      include: [
+        {
+          model: Bloque,
+          as: "bloques",
+          order: [["orden", "ASC"]],
+        },
+      ],
     });
 
     if (!horario) {
-      return res.status(404).json({ message: 'Horario no encontrado' });
+      return res.status(404).json({ message: "Horario no encontrado" });
     }
 
     res.json(horario);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener horarios por sala
-app.get('/api/horarios/sala/:salaId', authenticateToken, async (req, res) => {
+app.get("/api/horarios/sala/:salaId", authenticateToken, async (req, res) => {
   try {
     const { salaId } = req.params;
-    
+
     const horarios = await Horario.findAll({
       where: { sala_id: salaId },
-      include: [{
-        model: Bloque,
-        as: 'bloques',
-        order: [['orden', 'ASC']]
-      }],
-      order: [['nombre', 'ASC']]
+      include: [
+        {
+          model: Bloque,
+          as: "bloques",
+          order: [["orden", "ASC"]],
+        },
+      ],
+      order: [["nombre", "ASC"]],
     });
 
     res.json(horarios);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener horarios asignados a un empleado
-app.get('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, res) => {
-  try {
-    const { empleadoId } = req.params;
-    
-    const horariosEmpleado = await HorarioEmpleado.findAll({
-      where: { empleado_id: empleadoId },
-      include: [{
-        model: Horario,
-        as: 'Horario',
-        include: [{
-          model: Bloque,
-          as: 'bloques',
-          order: [['orden', 'ASC']]
-        }]
-      }],
-      order: [['primer_dia', 'DESC']]
-    });
+app.get(
+  "/api/empleados/:empleadoId/horarios",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { empleadoId } = req.params;
 
-    // Agregar información de PlantillaHorario a cada bloque
-    for (let horarioEmp of horariosEmpleado) {
-      if (horarioEmp.Horario && horarioEmp.Horario.bloques) {
-        for (let bloque of horarioEmp.Horario.bloques) {
-          const plantilla = await PlantillaHorario.findByPk(bloque.plantilla_horario_id);
+      const horariosEmpleado = await HorarioEmpleado.findAll({
+        where: { empleado_id: empleadoId },
+        include: [
+          {
+            model: Horario,
+            as: "Horario",
+            include: [
+              {
+                model: Bloque,
+                as: "bloques",
+                order: [["orden", "ASC"]],
+              },
+            ],
+          },
+        ],
+        order: [["primer_dia", "DESC"]],
+      });
+
+      // Agregar información de PlantillaHorario a cada bloque
+      for (let horarioEmp of horariosEmpleado) {
+        if (horarioEmp.Horario && horarioEmp.Horario.bloques) {
+          for (let bloque of horarioEmp.Horario.bloques) {
+            const plantilla = await PlantillaHorario.findByPk(
+              bloque.plantilla_horario_id,
+            );
+            if (plantilla) {
+              bloque.dataValues.PlantillaHorario = {
+                id: plantilla.id,
+                codigo: plantilla.codigo,
+                nombre: plantilla.nombre,
+                color: plantilla.color || "#ffffff",
+                hora_entrada: plantilla.hora_entrada,
+                hora_salida: plantilla.hora_salida,
+                hora_descanso_entrada: plantilla.hora_descanso_entrada,
+                hora_descanso_salida: plantilla.hora_descanso_salida,
+                descanso_automatico: plantilla.descanso_automatico || null,
+              };
+            }
+          }
+        }
+      }
+
+      res.json(horariosEmpleado);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
+
+// Asignar horario a un empleado
+app.post(
+  "/api/empleados/:empleadoId/horarios",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { empleadoId } = req.params;
+      const { primer_dia, horario_id } = req.body;
+
+      if (!primer_dia || !horario_id) {
+        return res
+          .status(400)
+          .json({ message: "primer_dia y horario_id son requeridos" });
+      }
+
+      // Verificar que el empleado existe
+      const empleado = await Empleado.findByPk(empleadoId);
+      if (!empleado) {
+        return res.status(404).json({ message: "Empleado no encontrado" });
+      }
+
+      // Verificar que el horario existe
+      const horario = await Horario.findByPk(horario_id);
+      if (!horario) {
+        return res.status(404).json({ message: "Horario no encontrado" });
+      }
+
+      // Validar que la fecha no sea menor o igual a horarios existentes
+      const horariosExistentes = await HorarioEmpleado.findAll({
+        where: { empleado_id: empleadoId },
+        order: [["primer_dia", "DESC"]],
+      });
+
+      if (horariosExistentes.length > 0) {
+        const fechaMasReciente = horariosExistentes[0].primer_dia;
+        if (primer_dia <= fechaMasReciente) {
+          return res.status(400).json({
+            message: `La fecha debe ser posterior a ${fechaMasReciente}. Ya existe un horario asignado con fecha anterior o igual.`,
+          });
+        }
+      }
+
+      // Crear la asignación
+      const horarioEmpleado = await HorarioEmpleado.create({
+        empleado_id: parseInt(empleadoId),
+        horario_id: parseInt(horario_id),
+        primer_dia: primer_dia,
+      });
+
+      // Obtener el horario con sus bloques para la respuesta
+      const horarioCompleto = await Horario.findByPk(horario_id, {
+        include: [
+          {
+            model: Bloque,
+            as: "bloques",
+            order: [["orden", "ASC"]],
+          },
+        ],
+      });
+
+      // Enriquecer cada bloque con su PlantillaHorario (igual que en GET horarios de empleado)
+      if (horarioCompleto && Array.isArray(horarioCompleto.bloques)) {
+        for (let bloque of horarioCompleto.bloques) {
+          const plantilla = await PlantillaHorario.findByPk(
+            bloque.plantilla_horario_id,
+          );
           if (plantilla) {
             bloque.dataValues.PlantillaHorario = {
               id: plantilla.id,
               codigo: plantilla.codigo,
               nombre: plantilla.nombre,
-              color: plantilla.color || '#ffffff',
+              color: plantilla.color || "#ffffff",
               hora_entrada: plantilla.hora_entrada,
               hora_salida: plantilla.hora_salida,
               hora_descanso_entrada: plantilla.hora_descanso_entrada,
               hora_descanso_salida: plantilla.hora_descanso_salida,
-              descanso_automatico: plantilla.descanso_automatico || null
+              descanso_automatico: plantilla.descanso_automatico || null,
             };
           }
         }
       }
+
+      res.json({
+        id: horarioEmpleado.id,
+        empleado_id: horarioEmpleado.empleado_id,
+        horario_id: horarioEmpleado.horario_id,
+        primer_dia: horarioEmpleado.primer_dia,
+        Horario: horarioCompleto,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    res.json(horariosEmpleado);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// Asignar horario a un empleado
-app.post('/api/empleados/:empleadoId/horarios', authenticateToken, async (req, res) => {
-  try {
-    const { empleadoId } = req.params;
-    const { primer_dia, horario_id } = req.body;
-    
-    if (!primer_dia || !horario_id) {
-      return res.status(400).json({ message: 'primer_dia y horario_id son requeridos' });
-    }
-
-    // Verificar que el empleado existe
-    const empleado = await Empleado.findByPk(empleadoId);
-    if (!empleado) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
-    }
-
-    // Verificar que el horario existe
-    const horario = await Horario.findByPk(horario_id);
-    if (!horario) {
-      return res.status(404).json({ message: 'Horario no encontrado' });
-    }
-
-    // Validar que la fecha no sea menor o igual a horarios existentes
-    const horariosExistentes = await HorarioEmpleado.findAll({
-      where: { empleado_id: empleadoId },
-      order: [['primer_dia', 'DESC']]
-    });
-
-    if (horariosExistentes.length > 0) {
-      const fechaMasReciente = horariosExistentes[0].primer_dia;
-      if (primer_dia <= fechaMasReciente) {
-        return res.status(400).json({ 
-          message: `La fecha debe ser posterior a ${fechaMasReciente}. Ya existe un horario asignado con fecha anterior o igual.` 
-        });
-      }
-    }
-
-    // Crear la asignación
-    const horarioEmpleado = await HorarioEmpleado.create({
-      empleado_id: parseInt(empleadoId),
-      horario_id: parseInt(horario_id),
-      primer_dia: primer_dia
-    });
-
-    // Obtener el horario con sus bloques para la respuesta
-    const horarioCompleto = await Horario.findByPk(horario_id, {
-      include: [{
-        model: Bloque,
-        as: 'bloques',
-        order: [['orden', 'ASC']]
-      }]
-    });
-
-    // Enriquecer cada bloque con su PlantillaHorario (igual que en GET horarios de empleado)
-    if (horarioCompleto && Array.isArray(horarioCompleto.bloques)) {
-      for (let bloque of horarioCompleto.bloques) {
-        const plantilla = await PlantillaHorario.findByPk(bloque.plantilla_horario_id);
-        if (plantilla) {
-          bloque.dataValues.PlantillaHorario = {
-            id: plantilla.id,
-            codigo: plantilla.codigo,
-            nombre: plantilla.nombre,
-            color: plantilla.color || '#ffffff',
-            hora_entrada: plantilla.hora_entrada,
-            hora_salida: plantilla.hora_salida,
-            hora_descanso_entrada: plantilla.hora_descanso_entrada,
-            hora_descanso_salida: plantilla.hora_descanso_salida,
-            descanso_automatico: plantilla.descanso_automatico || null
-          };
-        }
-      }
-    }
-
-    res.json({
-      id: horarioEmpleado.id,
-      empleado_id: horarioEmpleado.empleado_id,
-      horario_id: horarioEmpleado.horario_id,
-      primer_dia: horarioEmpleado.primer_dia,
-      Horario: horarioCompleto
-    });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Eliminar horario asignado a un empleado
-app.delete('/api/empleados/:empleadoId/horarios/:horarioEmpleadoId', authenticateToken, async (req, res) => {
-  try {
-    const { empleadoId, horarioEmpleadoId } = req.params;
-    
-    const horarioEmpleado = await HorarioEmpleado.findOne({
-      where: {
-        id: horarioEmpleadoId,
-        empleado_id: empleadoId
+app.delete(
+  "/api/empleados/:empleadoId/horarios/:horarioEmpleadoId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { empleadoId, horarioEmpleadoId } = req.params;
+
+      const horarioEmpleado = await HorarioEmpleado.findOne({
+        where: {
+          id: horarioEmpleadoId,
+          empleado_id: empleadoId,
+        },
+      });
+
+      if (!horarioEmpleado) {
+        return res
+          .status(404)
+          .json({ message: "Asignación de horario no encontrada" });
       }
-    });
 
-    if (!horarioEmpleado) {
-      return res.status(404).json({ message: 'Asignación de horario no encontrada' });
+      // Verificar si el horario del empleado tiene relaciones que impidan su eliminación
+
+      // Obtener el empleado para usar su cédula en la consulta
+      const empleado = await Empleado.findByPk(empleadoId);
+      if (!empleado) {
+        return res.status(404).json({ message: "Empleado no encontrado" });
+      }
+
+      // Verificar relaciones de forma más simple
+      // COMENTADO: Verificaciones de relaciones que impiden eliminar horarios
+      // Los marcajes y novedades no deberían impedir cambiar horarios
+      // const relations = [];
+
+      // try {
+      //   // Verificar marcajes
+      //   const marcajesCount = await Attlog.count({
+      //     where: { employee_no: empleado.cedula }
+      //   });
+      //   if (marcajesCount > 0) {
+      //     relations.push({ table_name: 'Marcajes', count: marcajesCount });
+      //   }
+
+      //   // Verificar novedades de máquinas
+      //   const novedadesCount = await NovedadMaquinaRegistro.count({
+      //     where: { empleado_id: empleadoId }
+      //   });
+      //   if (novedadesCount > 0) {
+      //     relations.push({ table_name: 'Novedades de Máquinas', count: novedadesCount });
+      //   }
+      // } catch (relationError) {
+
+      //   // Si hay error en la verificación, continuar con la eliminación
+      // }
+
+      // if (relations.length > 0) {
+      //   return res.status(400).json({
+      //     message: 'No se puede eliminar el horario porque tiene elementos asociados.',
+      //     relations: relations,
+      //     horarioEmpleado: {
+      //       id: horarioEmpleado.id,
+      //       empleado_id: horarioEmpleado.empleado_id,
+      //       horario_id: horarioEmpleado.horario_id,
+      //       primer_dia: horarioEmpleado.primer_dia
+      //     }
+      //   });
+      // }
+
+      await horarioEmpleado.destroy();
+      res.json({ message: "Horario eliminado correctamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    // Verificar si el horario del empleado tiene relaciones que impidan su eliminación
-    
-    
-    // Obtener el empleado para usar su cédula en la consulta
-    const empleado = await Empleado.findByPk(empleadoId);
-    if (!empleado) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
-    }
-
-    // Verificar relaciones de forma más simple
-    // COMENTADO: Verificaciones de relaciones que impiden eliminar horarios
-    // Los marcajes y novedades no deberían impedir cambiar horarios
-    // const relations = [];
-    
-    // try {
-    //   // Verificar marcajes
-    //   const marcajesCount = await Attlog.count({
-    //     where: { employee_no: empleado.cedula }
-    //   });
-    //   if (marcajesCount > 0) {
-    //     relations.push({ table_name: 'Marcajes', count: marcajesCount });
-    //   }
-      
-    //   // Verificar novedades de máquinas
-    //   const novedadesCount = await NovedadMaquinaRegistro.count({
-    //     where: { empleado_id: empleadoId }
-    //   });
-    //   if (novedadesCount > 0) {
-    //     relations.push({ table_name: 'Novedades de Máquinas', count: novedadesCount });
-    //   }
-    // } catch (relationError) {
-      
-    //   // Si hay error en la verificación, continuar con la eliminación
-    // }
-    
-    
-
-    // if (relations.length > 0) {
-    //   return res.status(400).json({ 
-    //     message: 'No se puede eliminar el horario porque tiene elementos asociados.',
-    //     relations: relations,
-    //     horarioEmpleado: {
-    //       id: horarioEmpleado.id,
-    //       empleado_id: horarioEmpleado.empleado_id,
-    //       horario_id: horarioEmpleado.horario_id,
-    //       primer_dia: horarioEmpleado.primer_dia
-    //     }
-    //   });
-    // }
-
-    await horarioEmpleado.destroy();
-    res.json({ message: 'Horario eliminado correctamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // =============================================
 // RUTAS PARA PLANTILLAS HORARIOS
 // =============================================
 
 // Obtener todas las plantillas horarios
-app.get('/api/plantillas-horarios', authenticateToken, async (req, res) => {
+app.get("/api/plantillas-horarios", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let plantillas;
-    
-    if (userLevel === 'TODO') {
-      const results = await sequelize.query(`
-        SELECT ph.*, s.nombre as sala_nombre 
-        FROM plantillas_horarios ph 
-        LEFT JOIN salas s ON ph.sala_id = s.id 
+
+    if (userLevel === "TODO") {
+      const results = await sequelize.query(
+        `
+        SELECT ph.*, s.nombre as sala_nombre
+        FROM plantillas_horarios ph
+        LEFT JOIN salas s ON ph.sala_id = s.id
         ORDER BY ph.created_at DESC
-      `, {
-        type: sequelize.QueryTypes.SELECT
-      });
-      
-      plantillas = results.map(row => ({
+      `,
+        {
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
+
+      plantillas = results.map((row) => ({
         id: row.id,
         nombre: row.nombre,
         sala_id: row.sala_id,
@@ -4306,81 +4577,101 @@ app.get('/api/plantillas-horarios', authenticateToken, async (req, res) => {
         updated_at: row.updated_at,
         Sala: {
           id: row.sala_id,
-          nombre: row.sala_nombre
-        }
+          nombre: row.sala_nombre,
+        },
       }));
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: UserSala,
-          attributes: ['id', 'nombre']
-        }]
+        include: [
+          {
+            model: Sala,
+            through: UserSala,
+            attributes: ["id", "nombre"],
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       plantillas = await PlantillaHorario.findAll({
         where: { sala_id: userSalaIds },
-        order: [['created_at', 'DESC']],
-        raw: true
+        order: [["created_at", "DESC"]],
+        raw: true,
       });
-      
+
       // Obtener salas por separado
-      const salaIds = [...new Set(plantillas.map(p => p.sala_id))];
+      const salaIds = [...new Set(plantillas.map((p) => p.sala_id))];
       const salas = await Sala.findAll({
         where: { id: salaIds },
-        attributes: ['id', 'nombre']
+        attributes: ["id", "nombre"],
       });
-      
+
       // Mapear salas a plantillas
       const salasMap = {};
-      salas.forEach(sala => {
+      salas.forEach((sala) => {
         salasMap[sala.id] = sala;
       });
-      
-      plantillas = plantillas.map(plantilla => ({
+
+      plantillas = plantillas.map((plantilla) => ({
         ...plantilla,
-        Sala: salasMap[plantilla.sala_id]
+        Sala: salasMap[plantilla.sala_id],
       }));
     }
-    
+
     res.json(plantillas);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error interno del servidor", error: error.message });
   }
 });
 
 // Crear una nueva plantilla horario
-app.post('/api/plantillas-horarios', authenticateToken, async (req, res) => {
+app.post("/api/plantillas-horarios", authenticateToken, async (req, res) => {
   try {
-    const { nombre, sala_id, codigo, hora_entrada, hora_salida, hora_descanso_entrada, hora_descanso_salida, descanso_automatico, color } = req.body;
-    
+    const {
+      nombre,
+      sala_id,
+      codigo,
+      hora_entrada,
+      hora_salida,
+      hora_descanso_entrada,
+      hora_descanso_salida,
+      descanso_automatico,
+      color,
+    } = req.body;
+
     if (!nombre || !sala_id || !codigo) {
-      return res.status(400).json({ message: 'Nombre, sala y código son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "Nombre, sala y código son requeridos" });
     }
 
     // Verificar que la sala existe
     const sala = await Sala.findByPk(sala_id);
     if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+      return res.status(404).json({ message: "Sala no encontrada" });
     }
 
     // Verificar permisos de sala para usuarios no TODO
-    if (req.user.nivel !== 'TODO') {
+    if (req.user.nivel !== "TODO") {
       const user = await User.findByPk(req.user.id, {
-        include: [{
-          model: Sala,
-          through: UserSala,
-          where: { id: sala_id }
-        }]
+        include: [
+          {
+            model: Sala,
+            through: UserSala,
+            where: { id: sala_id },
+          },
+        ],
       });
 
       if (!user || user.Salas.length === 0) {
-        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+        return res
+          .status(403)
+          .json({ message: "No tienes acceso a esta sala" });
       }
     }
 
@@ -4393,41 +4684,58 @@ app.post('/api/plantillas-horarios', authenticateToken, async (req, res) => {
       hora_descanso_entrada: hora_descanso_entrada || null,
       hora_descanso_salida: hora_descanso_salida || null,
       descanso_automatico: descanso_automatico || null,
-      color: color || '#ffffff'
+      color: color || "#ffffff",
     });
 
     res.status(201).json(plantilla);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar una plantilla horario
-app.put('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
+app.put("/api/plantillas-horarios/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, sala_id, codigo, hora_entrada, hora_salida, hora_descanso_entrada, hora_descanso_salida, descanso_automatico, color } = req.body;
-    
+    const {
+      nombre,
+      sala_id,
+      codigo,
+      hora_entrada,
+      hora_salida,
+      hora_descanso_entrada,
+      hora_descanso_salida,
+      descanso_automatico,
+      color,
+    } = req.body;
+
     if (!nombre || !sala_id || !codigo) {
-      return res.status(400).json({ message: 'Nombre, sala y código son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "Nombre, sala y código son requeridos" });
     }
 
     const plantilla = await PlantillaHorario.findByPk(id);
     if (!plantilla) {
-      return res.status(404).json({ message: 'Plantilla horario no encontrada' });
+      return res
+        .status(404)
+        .json({ message: "Plantilla horario no encontrada" });
     }
-    if (req.user.nivel !== 'TODO') {
+    if (req.user.nivel !== "TODO") {
       const user = await User.findByPk(req.user.id, {
-        include: [{
-          model: Sala,
-          through: UserSala,
-          where: { id: sala_id }
-        }]
+        include: [
+          {
+            model: Sala,
+            through: UserSala,
+            where: { id: sala_id },
+          },
+        ],
       });
 
       if (!user || user.Salas.length === 0) {
-        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+        return res
+          .status(403)
+          .json({ message: "No tienes acceso a esta sala" });
       }
     }
 
@@ -4440,155 +4748,190 @@ app.put('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
       hora_descanso_entrada: hora_descanso_entrada || null,
       hora_descanso_salida: hora_descanso_salida || null,
       descanso_automatico: descanso_automatico || null,
-      color: color || '#ffffff'
+      color: color || "#ffffff",
     });
 
     res.json(plantilla);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar una plantilla horario
-app.delete('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const plantilla = await PlantillaHorario.findByPk(id);
-    if (!plantilla) {
-      return res.status(404).json({ message: 'Plantilla horario no encontrada' });
-    }
+app.delete(
+  "/api/plantillas-horarios/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    // Verificar permisos de sala para usuarios no TODO
-    if (req.user.nivel !== 'TODO') {
-      const user = await User.findByPk(req.user.id, {
-        include: [{
-          model: Sala,
-          through: UserSala,
-          where: { id: plantilla.sala_id }
-        }]
-      });
-
-      if (!user || user.Salas.length === 0) {
-        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+      const plantilla = await PlantillaHorario.findByPk(id);
+      if (!plantilla) {
+        return res
+          .status(404)
+          .json({ message: "Plantilla horario no encontrada" });
       }
-    }
 
-    // Verificar si la plantilla tiene relaciones que impidan su eliminación
-    let relations = [];
-    try {
-      relations = await sequelize.query(`
+      // Verificar permisos de sala para usuarios no TODO
+      if (req.user.nivel !== "TODO") {
+        const user = await User.findByPk(req.user.id, {
+          include: [
+            {
+              model: Sala,
+              through: UserSala,
+              where: { id: plantilla.sala_id },
+            },
+          ],
+        });
+
+        if (!user || user.Salas.length === 0) {
+          return res
+            .status(403)
+            .json({ message: "No tienes acceso a esta sala" });
+        }
+      }
+
+      // Verificar si la plantilla tiene relaciones que impidan su eliminación
+      let relations = [];
+      try {
+        relations = await sequelize.query(
+          `
         SELECT table_name, count FROM (
           SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE plantilla_horario_id = ?
           UNION ALL
           SELECT 'Excepciones de Horario' as table_name, COUNT(*) as count FROM excepciones_horario WHERE plantilla_horario_id = ?
         ) as relations WHERE count > 0
-      `, {
-        replacements: [id, id],
-        type: sequelize.QueryTypes.SELECT
-      });
-    } catch (relationError) {
-      // Error al verificar relaciones, continuar sin relaciones
-    }
+      `,
+          {
+            replacements: [id, id],
+            type: sequelize.QueryTypes.SELECT,
+          },
+        );
+      } catch (relationError) {
+        // Error al verificar relaciones, continuar sin relaciones
+      }
 
-    if (relations.length > 0) {
-      return res.status(400).json({ 
-        message: 'No se puede eliminar la plantilla de horario porque tiene elementos asociados.',
-        relations: relations,
-        plantilla: {
-          id: plantilla.id,
-          nombre: plantilla.nombre || plantilla.codigo || 'Plantilla de Horario'
-        }
-      });
-    }
+      if (relations.length > 0) {
+        return res.status(400).json({
+          message:
+            "No se puede eliminar la plantilla de horario porque tiene elementos asociados.",
+          relations: relations,
+          plantilla: {
+            id: plantilla.id,
+            nombre:
+              plantilla.nombre || plantilla.codigo || "Plantilla de Horario",
+          },
+        });
+      }
 
-    // Eliminar la plantilla
-    try {
-      await plantilla.destroy();
-      res.json({ message: 'Plantilla horario eliminada correctamente' });
-    } catch (destroyError) {
-      // Cualquier error en destroy() probablemente es por foreign key constraint
-      const relations = await sequelize.query(`
+      // Eliminar la plantilla
+      try {
+        await plantilla.destroy();
+        res.json({ message: "Plantilla horario eliminada correctamente" });
+      } catch (destroyError) {
+        // Cualquier error en destroy() probablemente es por foreign key constraint
+        const relations = await sequelize.query(
+          `
         SELECT table_name, count FROM (
           SELECT 'Bloques' as table_name, COUNT(*) as count FROM bloques WHERE plantilla_horario_id = ?
           UNION ALL
           SELECT 'Excepciones de Horario' as table_name, COUNT(*) as count FROM excepciones_horario WHERE plantilla_horario_id = ?
         ) as relations WHERE count > 0
-      `, {
-        replacements: [id, id],
-        type: sequelize.QueryTypes.SELECT
-      });
+      `,
+          {
+            replacements: [id, id],
+            type: sequelize.QueryTypes.SELECT,
+          },
+        );
 
-      return res.status(400).json({
-        message: 'No se puede eliminar la plantilla de horario porque tiene elementos asociados.',
-        relations: relations.length > 0 ? relations : [{ table_name: 'Elementos asociados', count: 'Tiene registros relacionados' }],
-        plantilla: {
-          id: plantilla.id,
-          nombre: plantilla.nombre || plantilla.codigo || 'Plantilla de Horario'
-        }
-      });
+        return res.status(400).json({
+          message:
+            "No se puede eliminar la plantilla de horario porque tiene elementos asociados.",
+          relations:
+            relations.length > 0
+              ? relations
+              : [
+                  {
+                    table_name: "Elementos asociados",
+                    count: "Tiene registros relacionados",
+                  },
+                ],
+          plantilla: {
+            id: plantilla.id,
+            nombre:
+              plantilla.nombre || plantilla.codigo || "Plantilla de Horario",
+          },
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-  } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Obtener una plantilla horario específica
-app.get('/api/plantillas-horarios/:id', authenticateToken, async (req, res) => {
+app.get("/api/plantillas-horarios/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const plantilla = await PlantillaHorario.findByPk(id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
     if (!plantilla) {
-      return res.status(404).json({ message: 'Plantilla horario no encontrada' });
+      return res
+        .status(404)
+        .json({ message: "Plantilla horario no encontrada" });
     }
 
     res.json(plantilla);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener plantillas horarios por sala
-app.get('/api/plantillas-horarios/sala/:salaId', authenticateToken, async (req, res) => {
-  try {
-    const { salaId } = req.params;
-    
-    const plantillas = await PlantillaHorario.findAll({
-      where: { sala_id: salaId },
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }],
-      order: [['nombre', 'ASC']]
-    });
+app.get(
+  "/api/plantillas-horarios/sala/:salaId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { salaId } = req.params;
 
-    res.json(plantillas);
-  } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      const plantillas = await PlantillaHorario.findAll({
+        where: { sala_id: salaId },
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["nombre", "ASC"]],
+      });
+
+      res.json(plantillas);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // =============================================
 // RUTAS PARA EXCEPCIONES DE HORARIO (día a día)
 // =============================================
 
 // Ping/Debug para verificar que las rutas estén cargadas
-app.get('/api/horarios/excepciones/ping', (req, res) => {
-  res.json({ ok: true, message: 'excepciones route loaded' });
+app.get("/api/horarios/excepciones/ping", (req, res) => {
+  res.json({ ok: true, message: "excepciones route loaded" });
 });
 
 // Listar excepciones por empleado y rango
-app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
+app.get("/api/horarios/excepciones", authenticateToken, async (req, res) => {
   try {
     const { empleado_id, desde, hasta } = req.query;
     const where = {};
@@ -4600,102 +4943,142 @@ app.get('/api/horarios/excepciones', authenticateToken, async (req, res) => {
     const excepciones = await ExcepcionHorario.findAll({
       where,
       include: [
-        { model: Empleado, attributes: ['id', 'nombre', 'cedula', 'cargo_id'] },
-        { 
+        { model: Empleado, attributes: ["id", "nombre", "cedula", "cargo_id"] },
+        {
           model: PlantillaHorario,
-          attributes: ['id', 'codigo', 'nombre', 'hora_entrada', 'hora_salida', 'color', 'hora_descanso_entrada', 'hora_descanso_salida', 'descanso_automatico']
-        }
+          attributes: [
+            "id",
+            "codigo",
+            "nombre",
+            "hora_entrada",
+            "hora_salida",
+            "color",
+            "hora_descanso_entrada",
+            "hora_descanso_salida",
+            "descanso_automatico",
+          ],
+        },
       ],
-      order: [['fecha', 'ASC']]
+      order: [["fecha", "ASC"]],
     });
     res.json(excepciones);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear excepción
-app.post('/api/horarios/excepciones', authenticateToken, async (req, res) => {
+app.post("/api/horarios/excepciones", authenticateToken, async (req, res) => {
   try {
     const { empleado_id, fecha, plantilla_horario_id, motivo } = req.body;
     if (!empleado_id || !fecha || !plantilla_horario_id) {
-      return res.status(400).json({ message: 'empleado_id, fecha y plantilla_horario_id son requeridos' });
+      return res.status(400).json({
+        message: "empleado_id, fecha y plantilla_horario_id son requeridos",
+      });
     }
 
     // Validaciones básicas
-    const empleado = await Empleado.findByPk(empleado_id, { 
-      include: [{ 
-        model: Cargo, 
-        as: 'Cargo',
-        required: false,
-        include: [{ 
-          model: Area, 
-          as: 'Area',
+    const empleado = await Empleado.findByPk(empleado_id, {
+      include: [
+        {
+          model: Cargo,
+          as: "Cargo",
           required: false,
-          include: [{ 
-            model: Departamento, 
-            as: 'Departamento',
-            required: false,
-            include: [{
-              model: Sala,
-              as: 'Sala',
-              required: false
-            }] 
-          }] 
-        }] 
-      }] 
+          include: [
+            {
+              model: Area,
+              as: "Area",
+              required: false,
+              include: [
+                {
+                  model: Departamento,
+                  as: "Departamento",
+                  required: false,
+                  include: [
+                    {
+                      model: Sala,
+                      as: "Sala",
+                      required: false,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
-    if (!empleado) return res.status(404).json({ message: 'Empleado no encontrado' });
+    if (!empleado)
+      return res.status(404).json({ message: "Empleado no encontrado" });
     const plantilla = await PlantillaHorario.findByPk(plantilla_horario_id);
-    if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada' });
+    if (!plantilla)
+      return res.status(404).json({ message: "Plantilla no encontrada" });
 
     // Restricción única (empleado_id, fecha)
-    const existente = await ExcepcionHorario.findOne({ where: { empleado_id, fecha } });
-    if (existente) return res.status(409).json({ message: 'Ya existe una excepción para ese día' });
+    const existente = await ExcepcionHorario.findOne({
+      where: { empleado_id, fecha },
+    });
+    if (existente)
+      return res
+        .status(409)
+        .json({ message: "Ya existe una excepción para ese día" });
 
-    const nueva = await ExcepcionHorario.create({ empleado_id, fecha, plantilla_horario_id, motivo, created_by: req.user.id });
+    const nueva = await ExcepcionHorario.create({
+      empleado_id,
+      fecha,
+      plantilla_horario_id,
+      motivo,
+      created_by: req.user.id,
+    });
     res.status(201).json(nueva);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar excepción
-app.put('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { plantilla_horario_id, motivo } = req.body;
-    const ex = await ExcepcionHorario.findByPk(id);
-    if (!ex) return res.status(404).json({ message: 'Excepción no encontrada' });
-    if (plantilla_horario_id) {
-      const plantilla = await PlantillaHorario.findByPk(plantilla_horario_id);
-      if (!plantilla) return res.status(404).json({ message: 'Plantilla no encontrada' });
-      ex.plantilla_horario_id = plantilla_horario_id;
+app.put(
+  "/api/horarios/excepciones/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { plantilla_horario_id, motivo } = req.body;
+      const ex = await ExcepcionHorario.findByPk(id);
+      if (!ex)
+        return res.status(404).json({ message: "Excepción no encontrada" });
+      if (plantilla_horario_id) {
+        const plantilla = await PlantillaHorario.findByPk(plantilla_horario_id);
+        if (!plantilla)
+          return res.status(404).json({ message: "Plantilla no encontrada" });
+        ex.plantilla_horario_id = plantilla_horario_id;
+      }
+      if (typeof motivo !== "undefined") ex.motivo = motivo;
+      await ex.save();
+      res.json(ex);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-    if (typeof motivo !== 'undefined') ex.motivo = motivo;
-    await ex.save();
-    res.json(ex);
-  } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Eliminar excepción
-app.delete('/api/horarios/excepciones/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const ex = await ExcepcionHorario.findByPk(id);
-    if (!ex) return res.status(404).json({ message: 'Excepción no encontrada' });
-    await ex.destroy();
-    res.json({ message: 'Excepción eliminada' });
-  } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+app.delete(
+  "/api/horarios/excepciones/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ex = await ExcepcionHorario.findByPk(id);
+      if (!ex)
+        return res.status(404).json({ message: "Excepción no encontrada" });
+      await ex.destroy();
+      res.json({ message: "Excepción eliminada" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // =============================================
 // RUTAS PARA FERIADOS
@@ -4704,174 +5087,204 @@ app.delete('/api/horarios/excepciones/:id', authenticateToken, async (req, res) 
 // RUTAS PARA FERIADOS (Actualizado por Willinthon)
 // =============================================
 // Obtener todos los feriados
-app.get('/api/feriados', authenticateToken, async (req, res) => {
+app.get("/api/feriados", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let feriados;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       // Admins ven todo: específicos y nacionales
       feriados = await Feriado.findAll({
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['mes', 'ASC'], ['dia', 'ASC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [
+          ["mes", "ASC"],
+          ["dia", "ASC"],
+        ],
       });
     } else {
       // Usuarios normales ven los de sus salas + los nacionales (sala_id: null)
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: UserSala,
-          attributes: ['id']
-        }]
+        include: [
+          {
+            model: Sala,
+            through: UserSala,
+            attributes: ["id"],
+          },
+        ],
       });
 
-      if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+      if (!user)
+        return res.status(404).json({ message: "Usuario no encontrado" });
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
-      
+      const userSalaIds = user.Salas.map((sala) => sala.id);
+
       feriados = await Feriado.findAll({
         where: {
           [Op.or]: [
             { sala_id: userSalaIds },
-            { sala_id: null } // Traer feriados nacionales
-          ]
+            { sala_id: null }, // Traer feriados nacionales
+          ],
         },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['mes', 'ASC'], ['dia', 'ASC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [
+          ["mes", "ASC"],
+          ["dia", "ASC"],
+        ],
       });
     }
-    
+
     res.json(feriados);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener un feriado específico
-app.get('/api/feriados/:id', authenticateToken, async (req, res) => {
+app.get("/api/feriados/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const feriado = await Feriado.findByPk(id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
-    if (!feriado) return res.status(404).json({ message: 'Feriado no encontrado' });
+    if (!feriado)
+      return res.status(404).json({ message: "Feriado no encontrado" });
 
     res.json(feriado);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener feriados por sala (Incluye nacionales por defecto para esa sala)
-app.get('/api/feriados/sala/:salaId', authenticateToken, async (req, res) => {
+app.get("/api/feriados/sala/:salaId", authenticateToken, async (req, res) => {
   try {
     const { salaId } = req.params;
-    
+
     const feriados = await Feriado.findAll({
       where: {
-        [Op.or]: [
-          { sala_id: salaId },
-          { sala_id: null }
-        ]
+        [Op.or]: [{ sala_id: salaId }, { sala_id: null }],
       },
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }],
-      order: [['mes', 'ASC'], ['dia', 'ASC']]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
+      order: [
+        ["mes", "ASC"],
+        ["dia", "ASC"],
+      ],
     });
 
     res.json(feriados);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear un nuevo feriado
-app.post('/api/feriados', authenticateToken, async (req, res) => {
+app.post("/api/feriados", authenticateToken, async (req, res) => {
   try {
     const { nombre, sala_id, dia, mes } = req.body;
-    
+
     // Validación de campos básicos
     if (!nombre || !dia || !mes) {
-      return res.status(400).json({ message: 'Nombre, día y mes son obligatorios' });
+      return res
+        .status(400)
+        .json({ message: "Nombre, día y mes son obligatorios" });
     }
 
     // Validar rangos
     if (mes < 1 || mes > 12 || dia < 1 || dia > 31) {
-      return res.status(400).json({ message: 'Día o mes fuera de rango' });
+      return res.status(400).json({ message: "Día o mes fuera de rango" });
     }
 
     // Si se asigna a una sala, verificar que existe y permisos
     if (sala_id) {
       const sala = await Sala.findByPk(sala_id);
-      if (!sala) return res.status(404).json({ message: 'Sala no encontrada' });
+      if (!sala) return res.status(404).json({ message: "Sala no encontrada" });
 
-      if (req.user.nivel !== 'TODO') {
+      if (req.user.nivel !== "TODO") {
         const user = await User.findByPk(req.user.id, {
-          include: [{ model: Sala, through: UserSala, attributes: ['id'] }]
+          include: [{ model: Sala, through: UserSala, attributes: ["id"] }],
         });
-        const userSalaIds = user.Salas.map(s => Number(s.id));
+        const userSalaIds = user.Salas.map((s) => Number(s.id));
         if (!userSalaIds.includes(Number(sala_id))) {
-          return res.status(403).json({ message: 'No tienes permiso para esta sala' });
+          return res
+            .status(403)
+            .json({ message: "No tienes permiso para esta sala" });
         }
       }
-    } else if (req.user.nivel !== 'TODO') {
+    } else if (req.user.nivel !== "TODO") {
       // Solo usuarios TODO pueden crear feriados nacionales (sala_id: null)
-      return res.status(403).json({ message: 'Solo administradores pueden crear feriados nacionales' });
+      return res.status(403).json({
+        message: "Solo administradores pueden crear feriados nacionales",
+      });
     }
 
     const feriado = await Feriado.create({
       nombre,
       sala_id: sala_id || null, // Guardar como null si no viene
       dia,
-      mes
+      mes,
     });
 
     const feriadoConSala = await Feriado.findByPk(feriado.id, {
-      include: [{ model: Sala, attributes: ['id', 'nombre'] }]
+      include: [{ model: Sala, attributes: ["id", "nombre"] }],
     });
 
     res.status(201).json(feriadoConSala);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar un feriado
-app.put('/api/feriados/:id', authenticateToken, async (req, res) => {
+app.put("/api/feriados/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, sala_id, dia, mes } = req.body;
-    
+
     const feriado = await Feriado.findByPk(id);
-    if (!feriado) return res.status(404).json({ message: 'Feriado no encontrado' });
+    if (!feriado)
+      return res.status(404).json({ message: "Feriado no encontrado" });
 
     // Bloqueo de seguridad: Si es nacional (sala_id: null) y no es TODO, no toca.
-    if (!feriado.sala_id && req.user.nivel !== 'TODO') {
-      return res.status(403).json({ message: 'Los feriados nacionales solo pueden ser editados por administradores TODO' });
+    if (!feriado.sala_id && req.user.nivel !== "TODO") {
+      return res.status(403).json({
+        message:
+          "Los feriados nacionales solo pueden ser editados por administradores TODO",
+      });
     }
 
     // Verificar permisos para feriados regionales
-    if (feriado.sala_id && req.user.nivel !== 'TODO') {
+    if (feriado.sala_id && req.user.nivel !== "TODO") {
       const user = await User.findByPk(req.user.id, {
-        include: [{ model: Sala, through: UserSala, attributes: ['id'] }]
+        include: [{ model: Sala, through: UserSala, attributes: ["id"] }],
       });
-      const userSalaIds = user.Salas.map(s => Number(s.id));
+      const userSalaIds = user.Salas.map((s) => Number(s.id));
       if (!userSalaIds.includes(Number(feriado.sala_id))) {
-        return res.status(403).json({ message: 'No tienes permiso sobre esta sala' });
+        return res
+          .status(403)
+          .json({ message: "No tienes permiso sobre esta sala" });
       }
     }
 
@@ -4879,36 +5292,39 @@ app.put('/api/feriados/:id', authenticateToken, async (req, res) => {
       nombre: nombre || feriado.nombre,
       sala_id: sala_id !== undefined ? sala_id : feriado.sala_id,
       dia: dia || feriado.dia,
-      mes: mes || feriado.mes
+      mes: mes || feriado.mes,
     });
 
     const feriadoActualizado = await Feriado.findByPk(feriado.id, {
-      include: [{ model: Sala, attributes: ['id', 'nombre'] }]
+      include: [{ model: Sala, attributes: ["id", "nombre"] }],
     });
 
     res.json(feriadoActualizado);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar un feriado
-app.delete('/api/feriados/:id', authenticateToken, async (req, res) => {
+app.delete("/api/feriados/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const feriado = await Feriado.findByPk(id);
-    
-    if (!feriado) return res.status(404).json({ message: 'Feriado no encontrado' });
+
+    if (!feriado)
+      return res.status(404).json({ message: "Feriado no encontrado" });
 
     // Protección para nacionales
-    if (!feriado.sala_id && req.user.nivel !== 'TODO') {
-      return res.status(403).json({ message: 'Solo administradores pueden eliminar feriados nacionales' });
+    if (!feriado.sala_id && req.user.nivel !== "TODO") {
+      return res.status(403).json({
+        message: "Solo administradores pueden eliminar feriados nacionales",
+      });
     }
 
     await feriado.destroy();
-    res.json({ message: 'Feriado eliminado correctamente' });
+    res.json({ message: "Feriado eliminado correctamente" });
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -4917,85 +5333,96 @@ app.delete('/api/feriados/:id', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener todas las mesas
-app.get('/api/mesas', authenticateToken, async (req, res) => {
+app.get("/api/mesas", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let mesas;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       mesas = await Mesa.findAll({
         where: { activo: 1 },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }, {
-          model: Juego,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+          {
+            model: Juego,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       mesas = await Mesa.findAll({
         where: {
           sala_id: userSalaIds,
-          activo: 1
+          activo: 1,
         },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }, {
-          model: Juego,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+          {
+            model: Juego,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(mesas);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear una nueva mesa
-app.post('/api/mesas', authenticateToken, async (req, res) => {
+app.post("/api/mesas", authenticateToken, async (req, res) => {
   try {
     const { nombre, juego_id } = req.body;
-    
+
     if (!nombre || !juego_id) {
-      return res.status(400).json({ message: 'El nombre y el juego son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "El nombre y el juego son requeridos" });
     }
 
     const juego = await Juego.findByPk(juego_id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
-    
+
     if (!juego) {
-      return res.status(404).json({ message: 'Juego no encontrado' });
+      return res.status(404).json({ message: "Juego no encontrado" });
     }
 
     const ultimaMesaSala = await Mesa.findOne({
       where: { sala_id: juego.sala_id },
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     let fechaCreacion = new Date();
@@ -5010,109 +5437,115 @@ app.post('/api/mesas', authenticateToken, async (req, res) => {
       sala_id: juego.sala_id,
       juego_id: juego_id,
       created_at: fechaCreacion,
-      updated_at: fechaCreacion
+      updated_at: fechaCreacion,
     });
 
     const mesaConRelaciones = await Mesa.findByPk(mesa.id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }, {
-        model: Juego,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+        {
+          model: Juego,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
     res.status(201).json(mesaConRelaciones);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar una mesa
-app.put('/api/mesas/:id', authenticateToken, async (req, res) => {
+app.put("/api/mesas/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, juego_id } = req.body;
-    
+
     const mesa = await Mesa.findByPk(id);
-    
+
     if (!mesa) {
-      return res.status(404).json({ message: 'Mesa no encontrada' });
+      return res.status(404).json({ message: "Mesa no encontrada" });
     }
-    
+
     // Verificar permisos del usuario
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'super_admin') {
+
+    if (userLevel !== "super_admin") {
       // Verificar si el usuario tiene acceso a la sala de la mesa
       const juego = await Juego.findByPk(mesa.juego_id, {
-        include: [{ model: Sala, as: 'Sala' }]
+        include: [{ model: Sala, as: "Sala" }],
       });
-      
+
       if (!juego || !juego.Sala) {
-        return res.status(403).json({ message: 'No tienes permisos para actualizar esta mesa' });
+        return res
+          .status(403)
+          .json({ message: "No tienes permisos para actualizar esta mesa" });
       }
-      
+
       const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: juego.Sala.id }
+        where: { user_id: userId, sala_id: juego.Sala.id },
       });
-      
+
       if (!userSala) {
-        return res.status(403).json({ message: 'No tienes permisos para actualizar esta mesa' });
+        return res
+          .status(403)
+          .json({ message: "No tienes permisos para actualizar esta mesa" });
       }
     }
-    
+
     // Actualizar la mesa
     await mesa.update({
       nombre,
-      juego_id
+      juego_id,
     });
-    
-    res.json({ message: 'Mesa actualizada correctamente', mesa });
+
+    res.json({ message: "Mesa actualizada correctamente", mesa });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar una mesa
-app.delete('/api/mesas/:id', authenticateToken, async (req, res) => {
+app.delete("/api/mesas/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const mesa = await Mesa.findByPk(id);
-    
+
     if (!mesa) {
-      return res.status(404).json({ message: 'Mesa no encontrada' });
+      return res.status(404).json({ message: "Mesa no encontrada" });
     }
-    
+
     // Verificar si la mesa tiene relaciones que impidan su eliminación
-    
-    const relations = await sequelize.query(`
+
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Drops' as table_name, COUNT(*) as count FROM drops WHERE mesa_id = ?
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id],
-      type: sequelize.QueryTypes.SELECT
-    });
-    
-    
+    `,
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
+
     if (relations.length > 0) {
       return res.status(400).json({
-        message: 'No se puede eliminar la mesa porque tiene relaciones',
-        relations: relations
+        message: "No se puede eliminar la mesa porque tiene relaciones",
+        relations: relations,
       });
     }
-    
+
     // Si no hay relaciones, eliminar físicamente de la base de datos
     await mesa.destroy();
-    res.json({ message: 'Mesa eliminada permanentemente de la base de datos' });
+    res.json({ message: "Mesa eliminada permanentemente de la base de datos" });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -5121,71 +5554,77 @@ app.delete('/api/mesas/:id', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener todos los juegos
-app.get('/api/juegos', authenticateToken, async (req, res) => {
+app.get("/api/juegos", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let juegos;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       juegos = await Juego.findAll({
         where: {},
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       juegos = await Juego.findAll({
-        where: {sala_id: userSalaIds
-        },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        where: { sala_id: userSalaIds },
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(juegos);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear un nuevo juego
-app.post('/api/juegos', authenticateToken, async (req, res) => {
+app.post("/api/juegos", authenticateToken, async (req, res) => {
   try {
     const { nombre, sala_id } = req.body;
-    
+
     if (!nombre || !sala_id) {
-      return res.status(400).json({ message: 'El nombre y la sala son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "El nombre y la sala son requeridos" });
     }
 
     const sala = await Sala.findByPk(sala_id);
     if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+      return res.status(404).json({ message: "Sala no encontrada" });
     }
 
     const ultimoJuegoSala = await Juego.findOne({
       where: { sala_id: sala_id },
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     let fechaCreacion = new Date();
@@ -5199,98 +5638,101 @@ app.post('/api/juegos', authenticateToken, async (req, res) => {
       nombre: nombre,
       sala_id: sala_id,
       created_at: fechaCreacion,
-      updated_at: fechaCreacion
+      updated_at: fechaCreacion,
     });
 
     const juegoConSala = await Juego.findByPk(juego.id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
     res.status(201).json(juegoConSala);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar un juego
-app.put('/api/juegos/:id', authenticateToken, async (req, res) => {
+app.put("/api/juegos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, sala_id } = req.body;
-    
+
     const juego = await Juego.findByPk(id);
-    
+
     if (!juego) {
-      return res.status(404).json({ message: 'Juego no encontrado' });
+      return res.status(404).json({ message: "Juego no encontrado" });
     }
-    
+
     // Verificar permisos del usuario
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'super_admin') {
+
+    if (userLevel !== "super_admin") {
       // Verificar si el usuario tiene acceso a la sala del juego
       const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: juego.sala_id }
+        where: { user_id: userId, sala_id: juego.sala_id },
       });
-      
+
       if (!userSala) {
-        return res.status(403).json({ message: 'No tienes permisos para actualizar este juego' });
+        return res
+          .status(403)
+          .json({ message: "No tienes permisos para actualizar este juego" });
       }
     }
-    
+
     // Actualizar el juego
     await juego.update({
       nombre,
-      sala_id
+      sala_id,
     });
-    
-    res.json({ message: 'Juego actualizado correctamente', juego });
+
+    res.json({ message: "Juego actualizado correctamente", juego });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar un juego
-app.delete('/api/juegos/:id', authenticateToken, async (req, res) => {
+app.delete("/api/juegos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const juego = await Juego.findByPk(id);
-    
+
     if (!juego) {
-      return res.status(404).json({ message: 'Juego no encontrado' });
+      return res.status(404).json({ message: "Juego no encontrado" });
     }
-    
+
     // Verificar si el juego tiene relaciones que impidan su eliminación
-    
-    const relations = await sequelize.query(`
+
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Mesas' as table_name, COUNT(*) as count FROM mesas WHERE juego_id = ?
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id],
-      type: sequelize.QueryTypes.SELECT
-    });
-    
-    
+    `,
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
+
     if (relations.length > 0) {
       return res.status(400).json({
-        message: 'No se puede eliminar el juego porque tiene relaciones',
-        relations: relations
+        message: "No se puede eliminar el juego porque tiene relaciones",
+        relations: relations,
       });
     }
-    
+
     // Si no hay relaciones, eliminar el juego
     await juego.destroy();
-    res.json({ message: 'Juego eliminado exitosamente' });
+    res.json({ message: "Juego eliminado exitosamente" });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -5299,85 +5741,96 @@ app.delete('/api/juegos/:id', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener todas las máquinas
-app.get('/api/maquinas', authenticateToken, async (req, res) => {
+app.get("/api/maquinas", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let maquinas;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       maquinas = await Maquina.findAll({
         where: { activo: 1 },
-        include: [{
-          model: Rango,
-          attributes: ['id', 'nombre']
-        }, {
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Rango,
+            attributes: ["id", "nombre"],
+          },
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       maquinas = await Maquina.findAll({
         where: {
           sala_id: userSalaIds,
-          activo: 1
+          activo: 1,
         },
-        include: [{
-          model: Rango,
-          attributes: ['id', 'nombre']
-        }, {
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['created_at', 'DESC']]
+        include: [
+          {
+            model: Rango,
+            attributes: ["id", "nombre"],
+          },
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(maquinas);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear una nueva máquina
-app.post('/api/maquinas', authenticateToken, async (req, res) => {
+app.post("/api/maquinas", authenticateToken, async (req, res) => {
   try {
     const { nombre, rango_id } = req.body;
-    
+
     if (!nombre || !rango_id) {
-      return res.status(400).json({ message: 'El nombre y el rango son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "El nombre y el rango son requeridos" });
     }
 
     const rango = await Rango.findByPk(rango_id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
-    
+
     if (!rango) {
-      return res.status(404).json({ message: 'Rango no encontrado' });
+      return res.status(404).json({ message: "Rango no encontrado" });
     }
 
     const ultimaMaquinaSala = await Maquina.findOne({
       where: { sala_id: rango.sala_id },
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     let fechaCreacion = new Date();
@@ -5392,351 +5845,369 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
       sala_id: rango.sala_id,
       rango_id: rango_id,
       created_at: fechaCreacion,
-      updated_at: fechaCreacion
+      updated_at: fechaCreacion,
     });
 
     const maquinaConRelaciones = await Maquina.findByPk(maquina.id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }, {
-        model: Rango,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+        {
+          model: Rango,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
     res.status(201).json(maquinaConRelaciones);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar una máquina
-app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
+app.put("/api/maquinas/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, rango_id } = req.body;
-    
+
     const maquina = await Maquina.findByPk(id);
-    
+
     if (!maquina) {
-      return res.status(404).json({ message: 'Máquina no encontrada' });
+      return res.status(404).json({ message: "Máquina no encontrada" });
     }
-    
+
     // Verificar permisos del usuario
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'super_admin') {
+
+    if (userLevel !== "super_admin") {
       // Verificar si el usuario tiene acceso a la sala de la máquina
       const rango = await Rango.findByPk(maquina.rango_id, {
-        include: [{ model: Sala, as: 'Sala' }]
+        include: [{ model: Sala, as: "Sala" }],
       });
-      
+
       if (!rango || !rango.Sala) {
-        return res.status(403).json({ message: 'No tienes permisos para actualizar esta máquina' });
+        return res
+          .status(403)
+          .json({ message: "No tienes permisos para actualizar esta máquina" });
       }
-      
+
       const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: rango.Sala.id }
+        where: { user_id: userId, sala_id: rango.Sala.id },
       });
-      
+
       if (!userSala) {
-        return res.status(403).json({ message: 'No tienes permisos para actualizar esta máquina' });
+        return res
+          .status(403)
+          .json({ message: "No tienes permisos para actualizar esta máquina" });
       }
     }
-    
+
     // Actualizar la máquina
     await maquina.update({
       nombre,
-      rango_id
+      rango_id,
     });
-    
-    res.json({ message: 'Máquina actualizada correctamente', maquina });
+
+    res.json({ message: "Máquina actualizada correctamente", maquina });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar una máquina
-app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
+app.delete("/api/maquinas/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const maquina = await Maquina.findByPk(id);
-    
+
     if (!maquina) {
-      return res.status(404).json({ message: 'Máquina no encontrada' });
+      return res.status(404).json({ message: "Máquina no encontrada" });
     }
-    
+
     // Verificar si la máquina tiene relaciones que impidan su eliminación
-    
-    const relations = await sequelize.query(`
+
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Novedades de Máquinas' as table_name, COUNT(*) as count FROM novedades_maquinas_registros WHERE maquina_id = ?
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id],
-      type: sequelize.QueryTypes.SELECT
-    });
-    
-    
+    `,
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
+
     if (relations.length > 0) {
       return res.status(400).json({
-        message: 'No se puede eliminar la máquina porque tiene relaciones',
-        relations: relations
+        message: "No se puede eliminar la máquina porque tiene relaciones",
+        relations: relations,
       });
     }
-    
+
     // Si no hay relaciones, eliminar físicamente de la base de datos
     await maquina.destroy();
-    res.json({ message: 'Máquina eliminada permanentemente de la base de datos' });
+    res.json({
+      message: "Máquina eliminada permanentemente de la base de datos",
+    });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // GET /api/maquinas/borradas - Obtener máquinas borradas (activo = 0)
-app.get('/api/maquinas/borradas', authenticateToken, async (req, res) => {
+app.get("/api/maquinas/borradas", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let maquinas;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       maquinas = await Maquina.findAll({
         where: { activo: 0 },
-        include: [{
-          model: Rango,
-          attributes: ['id', 'nombre']
-        }, {
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['updated_at', 'DESC']]
+        include: [
+          {
+            model: Rango,
+            attributes: ["id", "nombre"],
+          },
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["updated_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       maquinas = await Maquina.findAll({
         where: {
           sala_id: userSalaIds,
-          activo: 0
+          activo: 0,
         },
-        include: [{
-          model: Rango,
-          attributes: ['id', 'nombre']
-        }, {
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['updated_at', 'DESC']]
+        include: [
+          {
+            model: Rango,
+            attributes: ["id", "nombre"],
+          },
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["updated_at", "DESC"]],
       });
     }
-    
+
     res.json(maquinas);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/maquinas/:id/borrar - Borrar máquina (cambiar activo de 1 a 0 - soft delete)
-app.put('/api/maquinas/:id/borrar', authenticateToken, async (req, res) => {
+app.put("/api/maquinas/:id/borrar", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const maquina = await Maquina.findByPk(id);
     if (!maquina) {
-      return res.status(404).json({ message: 'Máquina no encontrada' });
+      return res.status(404).json({ message: "Máquina no encontrada" });
     }
 
     // Verificar que la máquina esté activa (activo = 1)
     if (maquina.activo !== 1) {
-      return res.status(400).json({ message: 'La máquina ya está borrada' });
+      return res.status(400).json({ message: "La máquina ya está borrada" });
     }
 
     // Borrar la máquina (soft delete) - NO verificar relaciones porque solo cambia activo
     await maquina.update({ activo: 0 });
 
-    res.json({ 
-      message: 'Máquina borrada exitosamente',
+    res.json({
+      message: "Máquina borrada exitosamente",
       maquina: {
         id: maquina.id,
         nombre: maquina.nombre,
-        activo: maquina.activo
-      }
+        activo: maquina.activo,
+      },
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/maquinas/:id/activar - Activar máquina (cambiar activo de 0 a 1)
-app.put('/api/maquinas/:id/activar', authenticateToken, async (req, res) => {
+app.put("/api/maquinas/:id/activar", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const maquina = await Maquina.findByPk(id);
     if (!maquina) {
-      return res.status(404).json({ message: 'Máquina no encontrada' });
+      return res.status(404).json({ message: "Máquina no encontrada" });
     }
 
     // Verificar que la máquina esté borrada (activo = 0)
     if (maquina.activo !== 0) {
-      return res.status(400).json({ message: 'La máquina ya está activa' });
+      return res.status(400).json({ message: "La máquina ya está activa" });
     }
 
     // Activar la máquina
     await maquina.update({ activo: 1 });
 
-    res.json({ 
-      message: 'Máquina activada exitosamente',
+    res.json({
+      message: "Máquina activada exitosamente",
       maquina: {
         id: maquina.id,
         nombre: maquina.nombre,
-        activo: maquina.activo
-      }
+        activo: maquina.activo,
+      },
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // GET /api/mesas/borradas - Obtener mesas borradas (activo = 0)
-app.get('/api/mesas/borradas', authenticateToken, async (req, res) => {
+app.get("/api/mesas/borradas", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let mesas;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       mesas = await Mesa.findAll({
         where: { activo: 0 },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }, {
-          model: Juego,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['updated_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+          {
+            model: Juego,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["updated_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          where: {}
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            where: {},
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       mesas = await Mesa.findAll({
         where: {
           sala_id: userSalaIds,
-          activo: 0
+          activo: 0,
         },
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-        }, {
-          model: Juego,
-          attributes: ['id', 'nombre']
-        }],
-        order: [['updated_at', 'DESC']]
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+          {
+            model: Juego,
+            attributes: ["id", "nombre"],
+          },
+        ],
+        order: [["updated_at", "DESC"]],
       });
     }
-    
+
     res.json(mesas);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/mesas/:id/borrar - Borrar mesa (cambiar activo de 1 a 0 - soft delete)
-app.put('/api/mesas/:id/borrar', authenticateToken, async (req, res) => {
+app.put("/api/mesas/:id/borrar", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const mesa = await Mesa.findByPk(id);
     if (!mesa) {
-      return res.status(404).json({ message: 'Mesa no encontrada' });
+      return res.status(404).json({ message: "Mesa no encontrada" });
     }
 
     // Verificar que la mesa esté activa (activo = 1)
     if (mesa.activo !== 1) {
-      return res.status(400).json({ message: 'La mesa ya está borrada' });
+      return res.status(400).json({ message: "La mesa ya está borrada" });
     }
 
     // Borrar la mesa (soft delete) - NO verificar relaciones porque solo cambia activo
     await mesa.update({ activo: 0 });
 
-    res.json({ 
-      message: 'Mesa borrada exitosamente',
+    res.json({
+      message: "Mesa borrada exitosamente",
       mesa: {
         id: mesa.id,
         nombre: mesa.nombre,
-        activo: mesa.activo
-      }
+        activo: mesa.activo,
+      },
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/mesas/:id/activar - Activar mesa (cambiar activo de 0 a 1)
-app.put('/api/mesas/:id/activar', authenticateToken, async (req, res) => {
+app.put("/api/mesas/:id/activar", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const mesa = await Mesa.findByPk(id);
     if (!mesa) {
-      return res.status(404).json({ message: 'Mesa no encontrada' });
+      return res.status(404).json({ message: "Mesa no encontrada" });
     }
 
     // Verificar que la mesa esté borrada (activo = 0)
     if (mesa.activo !== 0) {
-      return res.status(400).json({ message: 'La mesa ya está activa' });
+      return res.status(400).json({ message: "La mesa ya está activa" });
     }
 
     // Activar la mesa
     await mesa.update({ activo: 1 });
 
-    res.json({ 
-      message: 'Mesa activada exitosamente',
+    res.json({
+      message: "Mesa activada exitosamente",
       mesa: {
         id: mesa.id,
         nombre: mesa.nombre,
-        activo: mesa.activo
-      }
+        activo: mesa.activo,
+      },
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -5745,234 +6216,244 @@ app.put('/api/mesas/:id/activar', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener todas las llaves
-app.get('/api/llaves', authenticateToken, async (req, res) => {
+app.get("/api/llaves", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let llaves;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       // Superusuario ve todas las llaves
       llaves = await Llave.findAll({
         where: { activo: 1 },
         include: [
           {
             model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre']
-          }
+            as: "Sala",
+            attributes: ["id", "nombre"],
+          },
         ],
-        order: [['nombre', 'ASC']]
+        order: [["nombre", "ASC"]],
       });
     } else {
       // Usuario normal ve solo llaves de sus salas
       const userSalas = await UserSala.findAll({
         where: { user_id: userId },
-        include: [{ model: Sala, as: 'Sala' }]
+        include: [{ model: Sala, as: "Sala" }],
       });
-      
-      const salaIds = userSalas.map(us => us.sala_id);
-      
+
+      const salaIds = userSalas.map((us) => us.sala_id);
+
       llaves = await Llave.findAll({
-        where: { 
+        where: {
           activo: 1,
-          sala_id: salaIds
+          sala_id: salaIds,
         },
         include: [
           {
             model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre']
-          }
+            as: "Sala",
+            attributes: ["id", "nombre"],
+          },
         ],
-        order: [['nombre', 'ASC']]
+        order: [["nombre", "ASC"]],
       });
     }
-    
+
     res.json(llaves);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear una nueva llave
-app.post('/api/llaves', authenticateToken, async (req, res) => {
+app.post("/api/llaves", authenticateToken, async (req, res) => {
   try {
     const { nombre, sala_id } = req.body;
-    
+
     if (!nombre || !sala_id) {
-      return res.status(400).json({ message: 'Nombre y sala_id son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "Nombre y sala_id son requeridos" });
     }
-    
+
     // Verificar que la sala existe
     const sala = await Sala.findByPk(sala_id);
     if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+      return res.status(404).json({ message: "Sala no encontrada" });
     }
-    
+
     // Verificar que el usuario tiene acceso a la sala
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'TODO') {
+
+    if (userLevel !== "TODO") {
       const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: sala_id }
+        where: { user_id: userId, sala_id: sala_id },
       });
-      
+
       if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+        return res
+          .status(403)
+          .json({ message: "No tienes acceso a esta sala" });
       }
     }
-    
+
     // Verificar que no existe una llave con el mismo nombre en la misma sala
     const existingLlave = await Llave.findOne({
-      where: { 
+      where: {
         nombre: nombre,
         sala_id: sala_id,
-        activo: 1
-      }
+        activo: 1,
+      },
     });
-    
+
     if (existingLlave) {
-      return res.status(400).json({ message: 'Ya existe una llave con este nombre en esta sala' });
+      return res
+        .status(400)
+        .json({ message: "Ya existe una llave con este nombre en esta sala" });
     }
-    
+
     const llave = await Llave.create({
       nombre,
       sala_id,
-      activo: 1
+      activo: 1,
     });
-    
+
     // Obtener la llave con la sala
     const llaveWithSala = await Llave.findByPk(llave.id, {
       include: [
         {
           model: Sala,
-          as: 'Sala',
-          attributes: ['id', 'nombre']
-        }
-      ]
+          as: "Sala",
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
-    
+
     res.status(201).json(llaveWithSala);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Actualizar una llave
-app.put('/api/llaves/:id', authenticateToken, async (req, res) => {
+app.put("/api/llaves/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, sala_id } = req.body;
-    
+
     const llave = await Llave.findByPk(id);
     if (!llave) {
-      return res.status(404).json({ message: 'Llave no encontrada' });
+      return res.status(404).json({ message: "Llave no encontrada" });
     }
-    
+
     // Verificar que el usuario tiene acceso a la sala
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'TODO') {
+
+    if (userLevel !== "TODO") {
       const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: llave.sala_id }
+        where: { user_id: userId, sala_id: llave.sala_id },
       });
-      
+
       if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a esta llave' });
+        return res
+          .status(403)
+          .json({ message: "No tienes acceso a esta llave" });
       }
     }
-    
+
     // Verificar que la nueva sala existe
     if (sala_id && sala_id !== llave.sala_id) {
       const sala = await Sala.findByPk(sala_id);
       if (!sala) {
-        return res.status(404).json({ message: 'Sala no encontrada' });
+        return res.status(404).json({ message: "Sala no encontrada" });
       }
-      
+
       // Verificar acceso a la nueva sala
-      if (userLevel !== 'TODO') {
+      if (userLevel !== "TODO") {
         const userSala = await UserSala.findOne({
-          where: { user_id: userId, sala_id: sala_id }
+          where: { user_id: userId, sala_id: sala_id },
         });
-        
+
         if (!userSala) {
-          return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+          return res
+            .status(403)
+            .json({ message: "No tienes acceso a esta sala" });
         }
       }
     }
-    
+
     // Verificar que no existe otra llave con el mismo nombre en la misma sala
     if (nombre && nombre !== llave.nombre) {
       const existingLlave = await Llave.findOne({
-        where: { 
+        where: {
           nombre: nombre,
           sala_id: sala_id || llave.sala_id,
           activo: 1,
-          id: { [Op.ne]: id }
-        }
+          id: { [Op.ne]: id },
+        },
       });
-      
+
       if (existingLlave) {
-        return res.status(400).json({ message: 'Ya existe una llave con este nombre en esta sala' });
+        return res.status(400).json({
+          message: "Ya existe una llave con este nombre en esta sala",
+        });
       }
     }
-    
+
     await llave.update({
       nombre: nombre || llave.nombre,
-      sala_id: sala_id || llave.sala_id
+      sala_id: sala_id || llave.sala_id,
     });
-    
+
     // Obtener la llave actualizada con la sala
     const updatedLlave = await Llave.findByPk(llave.id, {
       include: [
         {
           model: Sala,
-          as: 'Sala',
-          attributes: ['id', 'nombre']
-        }
-      ]
+          as: "Sala",
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
-    
+
     res.json(updatedLlave);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar una llave (soft delete)
-app.delete('/api/llaves/:id', authenticateToken, async (req, res) => {
+app.delete("/api/llaves/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const llave = await Llave.findByPk(id);
-    
+
     if (!llave) {
-      return res.status(404).json({ message: 'Llave no encontrada' });
+      return res.status(404).json({ message: "Llave no encontrada" });
     }
-    
+
     // Verificar que el usuario tiene acceso a la llave
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'TODO') {
+
+    if (userLevel !== "TODO") {
       const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: llave.sala_id }
+        where: { user_id: userId, sala_id: llave.sala_id },
       });
-      
+
       if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a esta llave' });
+        return res
+          .status(403)
+          .json({ message: "No tienes acceso a esta llave" });
       }
     }
-    
+
     // Verificar si la llave tiene relaciones que impidan su eliminación
-    
-    
+
     // Por ahora no hay relaciones, pero se puede agregar en el futuro
     // const relations = await sequelize.query(`
     //   SELECT table_name, count FROM (
@@ -5982,165 +6463,167 @@ app.delete('/api/llaves/:id', authenticateToken, async (req, res) => {
     //   replacements: [id],
     //   type: sequelize.QueryTypes.SELECT
     // });
-    
+
     // if (relations.length > 0) {
     //   return res.status(400).json({
     //     message: 'No se puede eliminar la llave porque tiene relaciones',
     //     relations: relations
     //   });
     // }
-    
+
     // Si no hay relaciones, eliminar físicamente de la base de datos
     await llave.destroy();
-    res.json({ message: 'Llave eliminada permanentemente de la base de datos' });
+    res.json({
+      message: "Llave eliminada permanentemente de la base de datos",
+    });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // GET /api/llaves/borradas - Obtener llaves borradas (activo = 0)
-app.get('/api/llaves/borradas', authenticateToken, async (req, res) => {
+app.get("/api/llaves/borradas", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let llaves;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       // Superusuario ve todas las llaves borradas
       llaves = await Llave.findAll({
         where: { activo: 0 },
         include: [
           {
             model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre']
-          }
+            as: "Sala",
+            attributes: ["id", "nombre"],
+          },
         ],
-        order: [['nombre', 'ASC']]
+        order: [["nombre", "ASC"]],
       });
     } else {
       // Usuario normal ve solo llaves borradas de sus salas
       const userSalas = await UserSala.findAll({
         where: { user_id: userId },
-        include: [{ model: Sala, as: 'Sala' }]
+        include: [{ model: Sala, as: "Sala" }],
       });
-      
-      const salaIds = userSalas.map(us => us.sala_id);
-      
+
+      const salaIds = userSalas.map((us) => us.sala_id);
+
       llaves = await Llave.findAll({
-        where: { 
+        where: {
           activo: 0,
-          sala_id: salaIds
+          sala_id: salaIds,
         },
         include: [
           {
             model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre']
-          }
+            as: "Sala",
+            attributes: ["id", "nombre"],
+          },
         ],
-        order: [['nombre', 'ASC']]
+        order: [["nombre", "ASC"]],
       });
     }
-    
+
     res.json(llaves);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/llaves/:id/borrar - Borrar llave (cambiar activo a 0)
-app.put('/api/llaves/:id/borrar', authenticateToken, async (req, res) => {
+app.put("/api/llaves/:id/borrar", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const llave = await Llave.findByPk(id);
     if (!llave) {
-      return res.status(404).json({ message: 'Llave no encontrada' });
+      return res.status(404).json({ message: "Llave no encontrada" });
     }
-    
+
     // Verificar que el usuario tiene acceso a la llave
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'TODO') {
+
+    if (userLevel !== "TODO") {
       const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: llave.sala_id }
+        where: { user_id: userId, sala_id: llave.sala_id },
       });
-      
+
       if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a esta llave' });
+        return res
+          .status(403)
+          .json({ message: "No tienes acceso a esta llave" });
       }
     }
-    
+
     // Verificar que la llave esté activa (activo = 1)
     if (llave.activo !== 1) {
-      return res.status(400).json({ message: 'La llave ya está borrada' });
+      return res.status(400).json({ message: "La llave ya está borrada" });
     }
-    
+
     // Borrar la llave
     await llave.update({ activo: 0 });
-    
-    res.json({ 
-      message: 'Llave borrada exitosamente',
+
+    res.json({
+      message: "Llave borrada exitosamente",
       llave: {
         id: llave.id,
         nombre: llave.nombre,
-        activo: llave.activo
-      }
+        activo: llave.activo,
+      },
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/llaves/:id/activar - Activar llave (cambiar activo de 0 a 1)
-app.put('/api/llaves/:id/activar', authenticateToken, async (req, res) => {
+app.put("/api/llaves/:id/activar", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const llave = await Llave.findByPk(id);
     if (!llave) {
-      return res.status(404).json({ message: 'Llave no encontrada' });
+      return res.status(404).json({ message: "Llave no encontrada" });
     }
-    
+
     // Verificar que el usuario tiene acceso a la llave
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
-    if (userLevel !== 'TODO') {
+
+    if (userLevel !== "TODO") {
       const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: llave.sala_id }
+        where: { user_id: userId, sala_id: llave.sala_id },
       });
-      
+
       if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a esta llave' });
+        return res
+          .status(403)
+          .json({ message: "No tienes acceso a esta llave" });
       }
     }
-    
+
     // Verificar que la llave esté borrada (activo = 0)
     if (llave.activo !== 0) {
-      return res.status(400).json({ message: 'La llave ya está activa' });
+      return res.status(400).json({ message: "La llave ya está activa" });
     }
-    
+
     // Activar la llave
     await llave.update({ activo: 1 });
-    
-    res.json({ 
-      message: 'Llave activada exitosamente',
+
+    res.json({
+      message: "Llave activada exitosamente",
       llave: {
         id: llave.id,
         nombre: llave.nombre,
-        activo: llave.activo
-      }
+        activo: llave.activo,
+      },
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -6149,372 +6632,412 @@ app.put('/api/llaves/:id/activar', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener registros de control de llaves por libro
-app.get('/api/control-llaves-registros/:libroId', authenticateToken, async (req, res) => {
-  try {
-    const { libroId } = req.params;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    // Verificar que el usuario tiene acceso al libro
-    const libro = await Libro.findByPk(libroId, {
-      include: [{ model: Sala, as: 'Sala' }]
-    });
-    
-    if (!libro) {
-      return res.status(404).json({ message: 'Libro no encontrado' });
-    }
-    
-    // Verificar acceso a la sala del libro
-    if (userLevel !== 'TODO') {
-      const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: libro.sala_id }
+app.get(
+  "/api/control-llaves-registros/:libroId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { libroId } = req.params;
+      const userId = req.user.id;
+      const userLevel = req.user.nivel;
+
+      // Verificar que el usuario tiene acceso al libro
+      const libro = await Libro.findByPk(libroId, {
+        include: [{ model: Sala, as: "Sala" }],
       });
-      
-      if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a este libro' });
+
+      if (!libro) {
+        return res.status(404).json({ message: "Libro no encontrado" });
       }
-    }
-    
-    // Obtener registros de control de llaves con relaciones
-    const registros = await ControlLlaveRegistro.findAll({
-      where: { libro_id: libroId },
-      include: [
-        {
-          model: Llave,
-          as: 'Llave',
-          attributes: ['id', 'nombre', 'sala_id'],
-          include: [
-            {
-              model: Sala,
-              as: 'Sala',
-              attributes: ['id', 'nombre']
-            }
-          ]
-        },
-        {
-          model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula']
+
+      // Verificar acceso a la sala del libro
+      if (userLevel !== "TODO") {
+        const userSala = await UserSala.findOne({
+          where: { user_id: userId, sala_id: libro.sala_id },
+        });
+
+        if (!userSala) {
+          return res
+            .status(403)
+            .json({ message: "No tienes acceso a este libro" });
         }
-      ],
-      order: [['hora', 'ASC']]
-    });
-    
-    res.json(registros);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      }
+
+      // Obtener registros de control de llaves con relaciones
+      const registros = await ControlLlaveRegistro.findAll({
+        where: { libro_id: libroId },
+        include: [
+          {
+            model: Llave,
+            as: "Llave",
+            attributes: ["id", "nombre", "sala_id"],
+            include: [
+              {
+                model: Sala,
+                as: "Sala",
+                attributes: ["id", "nombre"],
+              },
+            ],
+          },
+          {
+            model: Empleado,
+            as: "Empleado",
+            attributes: ["id", "nombre", "cedula"],
+          },
+        ],
+        order: [["hora", "ASC"]],
+      });
+
+      res.json(registros);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Crear registro de control de llave
-app.post('/api/control-llaves-registros', authenticateToken, async (req, res) => {
-  try {
-    const { libro_id, llave_id, empleado_id, hora } = req.body;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
+app.post(
+  "/api/control-llaves-registros",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { libro_id, llave_id, empleado_id, hora } = req.body;
+      const userId = req.user.id;
+      const userLevel = req.user.nivel;
 
-    // Verificar que el libro existe
-    const libro = await Libro.findByPk(libro_id);
-    if (!libro) {
-      return res.status(404).json({ message: 'Libro no encontrado' });
-    }
-
-    // Verificar acceso a la sala del libro
-    if (userLevel !== 'TODO') {
-      const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: libro.sala_id }
-      });
-      
-      if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a este libro' });
+      // Verificar que el libro existe
+      const libro = await Libro.findByPk(libro_id);
+      if (!libro) {
+        return res.status(404).json({ message: "Libro no encontrado" });
       }
-    }
 
-    // Verificar que la llave existe y está activa
-    const llave = await Llave.findByPk(llave_id);
-    if (!llave || llave.activo !== 1) {
-      return res.status(404).json({ message: 'Llave no encontrada o inactiva' });
-    }
+      // Verificar acceso a la sala del libro
+      if (userLevel !== "TODO") {
+        const userSala = await UserSala.findOne({
+          where: { user_id: userId, sala_id: libro.sala_id },
+        });
 
-    // Verificar que el empleado existe y está activo
-    const empleado = await Empleado.findByPk(empleado_id);
-    if (!empleado || empleado.activo !== 1) {
-      return res.status(404).json({ message: 'Empleado no encontrado o inactivo' });
-    }
+        if (!userSala) {
+          return res
+            .status(403)
+            .json({ message: "No tienes acceso a este libro" });
+        }
+      }
 
-    // Crear el registro
-    const registro = await ControlLlaveRegistro.create({
-      libro_id,
-      llave_id,
-      empleado_id,
-      hora
-    });
+      // Verificar que la llave existe y está activa
+      const llave = await Llave.findByPk(llave_id);
+      if (!llave || llave.activo !== 1) {
+        return res
+          .status(404)
+          .json({ message: "Llave no encontrada o inactiva" });
+      }
 
-    // Obtener el registro con relaciones
-    const registroCompleto = await ControlLlaveRegistro.findByPk(registro.id, {
-      include: [
+      // Verificar que el empleado existe y está activo
+      const empleado = await Empleado.findByPk(empleado_id);
+      if (!empleado || empleado.activo !== 1) {
+        return res
+          .status(404)
+          .json({ message: "Empleado no encontrado o inactivo" });
+      }
+
+      // Crear el registro
+      const registro = await ControlLlaveRegistro.create({
+        libro_id,
+        llave_id,
+        empleado_id,
+        hora,
+      });
+
+      // Obtener el registro con relaciones
+      const registroCompleto = await ControlLlaveRegistro.findByPk(
+        registro.id,
         {
-          model: Llave,
-          as: 'Llave',
-          attributes: ['id', 'nombre', 'sala_id'],
           include: [
             {
-              model: Sala,
-              as: 'Sala',
-              attributes: ['id', 'nombre']
-            }
-          ]
+              model: Llave,
+              as: "Llave",
+              attributes: ["id", "nombre", "sala_id"],
+              include: [
+                {
+                  model: Sala,
+                  as: "Sala",
+                  attributes: ["id", "nombre"],
+                },
+              ],
+            },
+            {
+              model: Empleado,
+              as: "Empleado",
+              attributes: ["id", "nombre", "cedula"],
+            },
+          ],
         },
-        {
-          model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula']
-        }
-      ]
-    });
+      );
 
-    res.status(201).json(registroCompleto);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      res.status(201).json(registroCompleto);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Eliminar registro de control de llave
-app.delete('/api/control-llaves-registros/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    const registro = await ControlLlaveRegistro.findByPk(id, {
-      include: [
-        {
-          model: Libro,
-          as: 'Libro',
-          include: [{ model: Sala, as: 'Sala' }]
-        }
-      ]
-    });
-    
-    if (!registro) {
-      return res.status(404).json({ message: 'Registro no encontrado' });
-    }
-    
-    // Verificar acceso a la sala del libro
-    if (userLevel !== 'TODO') {
-      const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: registro.Libro.sala_id }
+app.delete(
+  "/api/control-llaves-registros/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+      const userLevel = req.user.nivel;
+
+      const registro = await ControlLlaveRegistro.findByPk(id, {
+        include: [
+          {
+            model: Libro,
+            as: "Libro",
+            include: [{ model: Sala, as: "Sala" }],
+          },
+        ],
       });
-      
-      if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a este registro' });
+
+      if (!registro) {
+        return res.status(404).json({ message: "Registro no encontrado" });
       }
+
+      // Verificar acceso a la sala del libro
+      if (userLevel !== "TODO") {
+        const userSala = await UserSala.findOne({
+          where: { user_id: userId, sala_id: registro.Libro.sala_id },
+        });
+
+        if (!userSala) {
+          return res
+            .status(403)
+            .json({ message: "No tienes acceso a este registro" });
+        }
+      }
+
+      await registro.destroy();
+      res.json({ message: "Registro eliminado correctamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-    
-    await registro.destroy();
-    res.json({ message: 'Registro eliminado correctamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // =============================================
 // RUTAS PARA NOVEDADES DE MESAS
 // =============================================
 
 // Obtener registros de novedades de mesas por libro
-app.get('/api/novedades-mesas-registros/:libroId', authenticateToken, async (req, res) => {
-  try {
-    const { libroId } = req.params;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    // Verificar que el usuario tiene acceso al libro
-    const libro = await Libro.findByPk(libroId, {
-      include: [{ model: Sala, as: 'Sala' }]
-    });
-    
-    if (!libro) {
-      return res.status(404).json({ message: 'Libro no encontrado' });
-    }
-    
-    // Verificar acceso a la sala del libro
-    if (userLevel !== 'TODO') {
-      const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: libro.sala_id }
+app.get(
+  "/api/novedades-mesas-registros/:libroId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { libroId } = req.params;
+      const userId = req.user.id;
+      const userLevel = req.user.nivel;
+
+      // Verificar que el usuario tiene acceso al libro
+      const libro = await Libro.findByPk(libroId, {
+        include: [{ model: Sala, as: "Sala" }],
       });
-      
-      if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a este libro' });
+
+      if (!libro) {
+        return res.status(404).json({ message: "Libro no encontrado" });
       }
-    }
-    
-    // Obtener registros de novedades de mesas con relaciones
-    const registros = await NovedadMesaRegistro.findAll({
-      where: { libro_id: libroId },
-      include: [
-        {
-          model: Mesa,
-          as: 'Mesa',
-          attributes: ['id', 'nombre'],
-          include: [
-            {
-              model: Juego,
-              as: 'Juego',
-              attributes: ['id', 'nombre']
-            }
-          ]
-        },
-        {
-          model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula']
+
+      // Verificar acceso a la sala del libro
+      if (userLevel !== "TODO") {
+        const userSala = await UserSala.findOne({
+          where: { user_id: userId, sala_id: libro.sala_id },
+        });
+
+        if (!userSala) {
+          return res
+            .status(403)
+            .json({ message: "No tienes acceso a este libro" });
         }
-      ],
-      order: [['hora', 'ASC']]
-    });
-    
-    res.json(registros);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      }
+
+      // Obtener registros de novedades de mesas con relaciones
+      const registros = await NovedadMesaRegistro.findAll({
+        where: { libro_id: libroId },
+        include: [
+          {
+            model: Mesa,
+            as: "Mesa",
+            attributes: ["id", "nombre"],
+            include: [
+              {
+                model: Juego,
+                as: "Juego",
+                attributes: ["id", "nombre"],
+              },
+            ],
+          },
+          {
+            model: Empleado,
+            as: "Empleado",
+            attributes: ["id", "nombre", "cedula"],
+          },
+        ],
+        order: [["hora", "ASC"]],
+      });
+
+      res.json(registros);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Crear registro de novedad de mesa
-app.post('/api/novedades-mesas-registros', authenticateToken, async (req, res) => {
-  try {
-    const { libro_id, mesa_id, empleado_id, descripcion, hora } = req.body;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
+app.post(
+  "/api/novedades-mesas-registros",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { libro_id, mesa_id, empleado_id, descripcion, hora } = req.body;
+      const userId = req.user.id;
+      const userLevel = req.user.nivel;
 
-    // Verificar que el libro existe
-    const libro = await Libro.findByPk(libro_id);
-    if (!libro) {
-      return res.status(404).json({ message: 'Libro no encontrado' });
-    }
-
-    // Verificar acceso a la sala del libro
-    if (userLevel !== 'TODO') {
-      const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: libro.sala_id }
-      });
-      
-      if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a este libro' });
+      // Verificar que el libro existe
+      const libro = await Libro.findByPk(libro_id);
+      if (!libro) {
+        return res.status(404).json({ message: "Libro no encontrado" });
       }
-    }
 
-    // Verificar que la mesa existe y está activa
-    const mesa = await Mesa.findByPk(mesa_id);
-    if (!mesa || mesa.activo !== 1) {
-      return res.status(404).json({ message: 'Mesa no encontrada o inactiva' });
-    }
+      // Verificar acceso a la sala del libro
+      if (userLevel !== "TODO") {
+        const userSala = await UserSala.findOne({
+          where: { user_id: userId, sala_id: libro.sala_id },
+        });
 
-    // Verificar que el empleado existe y está activo
-    const empleado = await Empleado.findByPk(empleado_id);
-    if (!empleado || empleado.activo !== 1) {
-      return res.status(404).json({ message: 'Empleado no encontrado o inactivo' });
-    }
-
-    // Crear el registro
-    const registro = await NovedadMesaRegistro.create({
-      libro_id,
-      mesa_id,
-      empleado_id,
-      descripcion,
-      hora
-    });
-
-    // Obtener el registro con relaciones
-    const registroCompleto = await NovedadMesaRegistro.findByPk(registro.id, {
-      include: [
-        {
-          model: Mesa,
-          as: 'Mesa',
-          include: [
-            {
-              model: Juego,
-              as: 'Juego',
-              attributes: ['id', 'nombre']
-            }
-          ]
-        },
-        {
-          model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula']
+        if (!userSala) {
+          return res
+            .status(403)
+            .json({ message: "No tienes acceso a este libro" });
         }
-      ]
-    });
+      }
 
-    res.status(201).json(registroCompleto);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      // Verificar que la mesa existe y está activa
+      const mesa = await Mesa.findByPk(mesa_id);
+      if (!mesa || mesa.activo !== 1) {
+        return res
+          .status(404)
+          .json({ message: "Mesa no encontrada o inactiva" });
+      }
+
+      // Verificar que el empleado existe y está activo
+      const empleado = await Empleado.findByPk(empleado_id);
+      if (!empleado || empleado.activo !== 1) {
+        return res
+          .status(404)
+          .json({ message: "Empleado no encontrado o inactivo" });
+      }
+
+      // Crear el registro
+      const registro = await NovedadMesaRegistro.create({
+        libro_id,
+        mesa_id,
+        empleado_id,
+        descripcion,
+        hora,
+      });
+
+      // Obtener el registro con relaciones
+      const registroCompleto = await NovedadMesaRegistro.findByPk(registro.id, {
+        include: [
+          {
+            model: Mesa,
+            as: "Mesa",
+            include: [
+              {
+                model: Juego,
+                as: "Juego",
+                attributes: ["id", "nombre"],
+              },
+            ],
+          },
+          {
+            model: Empleado,
+            as: "Empleado",
+            attributes: ["id", "nombre", "cedula"],
+          },
+        ],
+      });
+
+      res.status(201).json(registroCompleto);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Eliminar registro de novedad de mesa
-app.delete('/api/novedades-mesas-registros/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    const registro = await NovedadMesaRegistro.findByPk(id, {
-      include: [
-        {
-          model: Libro,
-          as: 'Libro',
-          include: [{ model: Sala, as: 'Sala' }]
-        }
-      ]
-    });
-    
-    if (!registro) {
-      return res.status(404).json({ message: 'Registro no encontrado' });
-    }
-    
-    // Verificar acceso a la sala del libro
-    if (userLevel !== 'TODO') {
-      const userSala = await UserSala.findOne({
-        where: { user_id: userId, sala_id: registro.Libro.sala_id }
-      });
-      
-      if (!userSala) {
-        return res.status(403).json({ message: 'No tienes acceso a este registro' });
-      }
-    }
-    
-    await registro.destroy();
-    res.json({ message: 'Registro eliminado correctamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+app.delete(
+  "/api/novedades-mesas-registros/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+      const userLevel = req.user.nivel;
 
+      const registro = await NovedadMesaRegistro.findByPk(id, {
+        include: [
+          {
+            model: Libro,
+            as: "Libro",
+            include: [{ model: Sala, as: "Sala" }],
+          },
+        ],
+      });
+
+      if (!registro) {
+        return res.status(404).json({ message: "Registro no encontrado" });
+      }
+
+      // Verificar acceso a la sala del libro
+      if (userLevel !== "TODO") {
+        const userSala = await UserSala.findOne({
+          where: { user_id: userId, sala_id: registro.Libro.sala_id },
+        });
+
+        if (!userSala) {
+          return res
+            .status(403)
+            .json({ message: "No tienes acceso a este registro" });
+        }
+      }
+
+      await registro.destroy();
+      res.json({ message: "Registro eliminado correctamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // =============================================
 // RUTAS PARA EMPLEADOS POR SALA
 // =============================================
 
 // Obtener cargos
-app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
+app.get("/api/empleados/cargos", authenticateToken, async (req, res) => {
   try {
     // Obtener las salas del usuario logueado
     const user = await User.findByPk(req.user.id, {
       include: [
         {
           model: Sala,
-          as: 'Salas',
-          attributes: ['id']
-        }
-      ]
+          as: "Salas",
+          attributes: ["id"],
+        },
+      ],
     });
 
     // Si el usuario no tiene salas asignadas, devolver array vacío
@@ -6522,60 +7045,70 @@ app.get('/api/empleados/cargos', authenticateToken, async (req, res) => {
       return res.json([]);
     }
 
-    const userSalaIds = user.Salas.map(sala => sala.id);
+    const userSalaIds = user.Salas.map((sala) => sala.id);
 
     const cargos = await Cargo.findAll({
-      include: [{
-        model: Area,
-        as: 'Area',
-        attributes: ['id', 'nombre'],
-        include: [{
-          model: Departamento,
-          as: 'Departamento',
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            as: 'Sala',
-            attributes: ['id', 'nombre'],
-            where: {
-              id: {
-                [Op.in]: userSalaIds
-              }
+      include: [
+        {
+          model: Area,
+          as: "Area",
+          attributes: ["id", "nombre"],
+          include: [
+            {
+              model: Departamento,
+              as: "Departamento",
+              attributes: ["id", "nombre"],
+              include: [
+                {
+                  model: Sala,
+                  as: "Sala",
+                  attributes: ["id", "nombre"],
+                  where: {
+                    id: {
+                      [Op.in]: userSalaIds,
+                    },
+                  },
+                  required: true,
+                },
+              ],
             },
-            required: true
-          }]
-        }]
-      }],
+          ],
+        },
+      ],
       where: {
-        '$Area.Departamento.Sala.id$': {
-          [Op.in]: userSalaIds
-        }
+        "$Area.Departamento.Sala.id$": {
+          [Op.in]: userSalaIds,
+        },
       },
-      order: [['nombre', 'ASC']]
+      order: [["nombre", "ASC"]],
     });
-    
+
     res.json(cargos);
   } catch (error) {
-    ;
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener tareas por usuario
-app.get('/api/empleados/tareas/:userId', authenticateToken, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const userLevel = req.user.nivel;
-    
-    // Verificar permisos
-    if (userLevel !== 'TODO' && req.user.id !== parseInt(userId)) {
-      return res.status(403).json({ message: 'No tienes permisos para ver estas tareas' });
-    }
-    
-    // Consultar tareas_dispositivo_usuarios
-    const tareas = await sequelize.query(`
-      SELECT 
+app.get(
+  "/api/empleados/tareas/:userId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const userLevel = req.user.nivel;
+
+      // Verificar permisos
+      if (userLevel !== "TODO" && req.user.id !== parseInt(userId)) {
+        return res
+          .status(403)
+          .json({ message: "No tienes permisos para ver estas tareas" });
+      }
+
+      // Consultar tareas_dispositivo_usuarios
+      const tareas = await sequelize.query(
+        `
+      SELECT
         tdu.*,
         e.nombre as empleado_nombre,
         e.cedula as empleado_cedula
@@ -6583,25 +7116,27 @@ app.get('/api/empleados/tareas/:userId', authenticateToken, async (req, res) => 
       LEFT JOIN empleados e ON tdu.numero_cedula_empleado = e.cedula
       WHERE tdu.user_id = ?
       ORDER BY tdu.created_at DESC
-    `, {
-      replacements: [userId],
-      type: sequelize.QueryTypes.SELECT
-    });
-    
-    res.json(tareas);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+    `,
+        {
+          replacements: [userId],
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
+
+      res.json(tareas);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Obtener horarios
-app.get('/api/empleados/horarios', authenticateToken, async (req, res) => {
+app.get("/api/empleados/horarios", authenticateToken, async (req, res) => {
   try {
     const { cargoId } = req.query;
-    
+
     if (!cargoId) {
-      return res.status(400).json({ message: 'cargoId es requerido' });
+      return res.status(400).json({ message: "cargoId es requerido" });
     }
 
     // Obtener el cargo con su sala
@@ -6615,17 +7150,17 @@ app.get('/api/empleados/horarios', authenticateToken, async (req, res) => {
               include: [
                 {
                   model: Sala,
-                  attributes: ['id']
-                }
-              ]
-            }
-          ]
-        }
-      ]
+                  attributes: ["id"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     if (!cargo) {
-      return res.status(404).json({ message: 'Cargo no encontrado' });
+      return res.status(404).json({ message: "Cargo no encontrado" });
     }
 
     // Obtener la sala del cargo
@@ -6636,48 +7171,49 @@ app.get('/api/empleados/horarios', authenticateToken, async (req, res) => {
       include: [
         {
           model: Sala,
-          as: 'Salas',
-          attributes: ['id']
-        }
-      ]
+          as: "Salas",
+          attributes: ["id"],
+        },
+      ],
     });
 
     // Verificar que el usuario tenga acceso a la sala del cargo
-    const userSalaIds = user.Salas.map(sala => sala.id);
+    const userSalaIds = user.Salas.map((sala) => sala.id);
     if (!userSalaIds.includes(salaId)) {
-      return res.status(403).json({ message: 'No tienes acceso a esta sala' });
+      return res.status(403).json({ message: "No tienes acceso a esta sala" });
     }
 
     const horarios = await Horario.findAll({
       where: {
-        sala_id: salaId
+        sala_id: salaId,
       },
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }],
-      order: [['nombre', 'ASC']]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
+      order: [["nombre", "ASC"]],
     });
-    
+
     res.json(horarios);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener dispositivos
-app.get('/api/empleados/dispositivos', authenticateToken, async (req, res) => {
+app.get("/api/empleados/dispositivos", authenticateToken, async (req, res) => {
   try {
     // Obtener las salas del usuario logueado
     const user = await User.findByPk(req.user.id, {
       include: [
         {
           model: Sala,
-          as: 'Salas',
-          attributes: ['id']
-        }
-      ]
+          as: "Salas",
+          attributes: ["id"],
+        },
+      ],
     });
 
     // Si el usuario no tiene salas asignadas, devolver array vacío
@@ -6685,164 +7221,179 @@ app.get('/api/empleados/dispositivos', authenticateToken, async (req, res) => {
       return res.json([]);
     }
 
-    const userSalaIds = user.Salas.map(sala => sala.id);
+    const userSalaIds = user.Salas.map((sala) => sala.id);
 
     const dispositivos = await Dispositivo.findAll({
       where: {
         sala_id: {
-          [Op.in]: userSalaIds
-        }
+          [Op.in]: userSalaIds,
+        },
       },
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }],
-      order: [['nombre', 'ASC']]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
+      order: [["nombre", "ASC"]],
     });
-    
+
     res.json(dispositivos);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Endpoint de debug para verificar filtrado de empleados
-app.get('/api/empleados/debug-filter', authenticateToken, async (req, res) => {
+app.get("/api/empleados/debug-filter", authenticateToken, async (req, res) => {
   try {
     // Obtener las salas del usuario logueado
     const user = await User.findByPk(req.user.id, {
       include: [
         {
           model: Sala,
-          as: 'Salas',
-          attributes: ['id', 'nombre']
-        }
-      ]
+          as: "Salas",
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
-    const userSalaIds = user.Salas.map(sala => sala.id);
+    const userSalaIds = user.Salas.map((sala) => sala.id);
 
     // Obtener todos los empleados sin filtro para comparar
     const allEmpleados = await Empleado.findAll({
       include: [
         {
           model: Cargo,
-          as: 'Cargo',
+          as: "Cargo",
           include: [
             {
               model: Departamento,
-              as: 'Departamento',
+              as: "Departamento",
               include: [
                 {
                   model: Area,
-                  as: 'Area',
+                  as: "Area",
                   include: [
                     {
                       model: Sala,
-                      as: 'Sala',
-                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono'],
-                      attributes: ['id', 'nombre']
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
+                      as: "Sala",
+                      attributes: [
+                        "id",
+                        "nombre",
+                        "nombre_comercial",
+                        "rif",
+                        "ubicacion",
+                        "correo",
+                        "telefono",
+                      ],
+                      attributes: ["id", "nombre"],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     res.json({
       userSalas: user.Salas,
       userSalaIds,
       totalEmpleados: allEmpleados.length,
-      empleados: allEmpleados.map(emp => ({
+      empleados: allEmpleados.map((emp) => ({
         id: emp.id,
         nombre: emp.nombre,
         cargo: emp.Cargo?.nombre,
         sala: emp.Cargo?.Area?.Departamento?.Sala?.nombre,
-        salaId: emp.Cargo?.Area?.Departamento?.Sala?.id
-      }))
+        salaId: emp.Cargo?.Area?.Departamento?.Sala?.id,
+      })),
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Endpoint de debug para verificar relaciones
-app.get('/api/empleados/debug-cargo/:cargoId', authenticateToken, async (req, res) => {
-  try {
-    const { cargoId } = req.params;
-    
-    const cargo = await Cargo.findByPk(cargoId, {
-      include: [
-        {
-          model: Departamento,
-          include: [
-            {
-              model: Area,
-              include: [
-                {
-                  model: Sala,
-                  attributes: ['id', 'nombre']
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    });
-    
-    res.json(cargo);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+app.get(
+  "/api/empleados/debug-cargo/:cargoId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { cargoId } = req.params;
+
+      const cargo = await Cargo.findByPk(cargoId, {
+        include: [
+          {
+            model: Departamento,
+            include: [
+              {
+                model: Area,
+                include: [
+                  {
+                    model: Sala,
+                    attributes: ["id", "nombre"],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+
+      res.json(cargo);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Obtener usuario actual
-app.get('/api/empleados/current-user', authenticateToken, async (req, res) => {
+app.get("/api/empleados/current-user", authenticateToken, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'nivel'],
-      include: [{
-        model: Sala,
-        through: { attributes: [] },
-        attributes: ['id', 'nombre']
-      }]
+      attributes: ["id", "username", "email", "nivel"],
+      include: [
+        {
+          model: Sala,
+          through: { attributes: [] },
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
     if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
+      return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    
+
     res.json(user);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Verificar cédula
-app.get('/api/empleados/verificar-cedula/:cedula', authenticateToken, async (req, res) => {
-  try {
-    const { cedula } = req.params;
-    
-    const empleado = await Empleado.findOne({
-      where: { cedula: cedula }
-    });
-    
-    res.json({ existe: !!empleado });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+app.get(
+  "/api/empleados/verificar-cedula/:cedula",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { cedula } = req.params;
+
+      const empleado = await Empleado.findOne({
+        where: { cedula: cedula },
+      });
+
+      res.json({ existe: !!empleado });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // Obtener empleados por sala
-app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
+app.get("/api/empleados/sala/:salaId", authenticateToken, async (req, res) => {
   try {
     const { salaId } = req.params;
     const { fechaDesde, fechaHasta } = req.query;
@@ -6852,86 +7403,136 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
     // Esto asegura que si mueves un equipo de sala, el sistema lo reconozca solo
     const dispositivosSala = await Dispositivo.findAll({
       where: { sala_id: salaId },
-      attributes: ['id']
+      attributes: ["id"],
     });
-    const idsDispositivos = dispositivosSala.map(d => d.id);
+    const idsDispositivos = dispositivosSala.map((d) => d.id);
 
     // 2. Obtener empleados (Filtro para usuarios normales o Willinthon)
     const empleados = await Empleado.findAll({
       where: { activo: 1 },
-      include: [{
-        model: Cargo, as: 'Cargo', required: usuario !== 'willinthon',
-        include: [{
-          model: Area, as: 'Area', required: usuario !== 'willinthon',
-          include: [{
-            model: Departamento, as: 'Departamento', required: usuario !== 'willinthon',
-            include: [{
-              model: Sala, as: 'Sala', where: { id: salaId }, required: true
-            }]
-          }]
-        }]
-      }],
-      order: [['nombre', 'ASC']]
+      include: [
+        {
+          model: Cargo,
+          as: "Cargo",
+          required: usuario !== "willinthon",
+          include: [
+            {
+              model: Area,
+              as: "Area",
+              required: usuario !== "willinthon",
+              include: [
+                {
+                  model: Departamento,
+                  as: "Departamento",
+                  required: usuario !== "willinthon",
+                  include: [
+                    {
+                      model: Sala,
+                      as: "Sala",
+                      where: { id: salaId },
+                      required: true,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      order: [["nombre", "ASC"]],
     });
 
     // 3. Procesar datos pesados en paralelo
-    const empleadosConTodo = await Promise.all(empleados.map(async (empleado) => {
-      const empData = empleado.toJSON();
+    const empleadosConTodo = await Promise.all(
+      empleados.map(async (empleado) => {
+        const empData = empleado.toJSON();
 
-      // Cargar Horarios
-      empData.horariosEmpleado = await HorarioEmpleado.findAll({
-        where: { empleado_id: empleado.id },
-        include: [{
-          model: Horario, as: 'Horario',
-          include: [{ 
-            model: Bloque, as: 'bloques',
-            include: [{ model: PlantillaHorario, as: 'PlantillaHorario' }]
-          }]
-        }]
-      });
-
-      if (fechaDesde && fechaHasta) {
-        const fInicio = new Date(fechaDesde); fInicio.setHours(0,0,0,0);
-        const fFin = new Date(fechaHasta); fFin.setHours(23,59,59,999);
-
-        // --- NORMALIZACIÓN DE RAÍZ ---
-        // Extraemos solo los números: "V25047058" -> "25047058"
-        const cedulaLimpia = empleado.cedula ? empleado.cedula.replace(/\D/g, '') : '';
-
-        const [excepciones, marcajes] = await Promise.all([
-          ExcepcionHorario.findAll({
-            where: { empleado_id: empleado.id, fecha: { [Op.between]: [fechaDesde, fechaHasta] } },
-            include: [{ model: PlantillaHorario, as: 'PlantillaHorario' }]
-          }),
-          Attlog.findAll({
-            where: {
-              // Búsqueda inteligente: coincide con el formato de la BD o solo números
-              [Op.or]: [
-                { employee_no: empleado.cedula },
-                { employee_no: cedulaLimpia },
-                { employee_no: { [Op.like]: `%${cedulaLimpia}` } }
+        // Cargar Horarios
+        empData.horariosEmpleado = await HorarioEmpleado.findAll({
+          where: { empleado_id: empleado.id },
+          include: [
+            {
+              model: Horario,
+              as: "Horario",
+              include: [
+                {
+                  model: Bloque,
+                  as: "bloques",
+                  include: [
+                    { model: PlantillaHorario, as: "PlantillaHorario" },
+                  ],
+                },
               ],
-              // FILTRO DINÁMICO: Solo marcajes de equipos de ESTA sala
-              dispositivo_id: { [Op.in]: idsDispositivos }, 
-              event_time: { [Op.between]: [fInicio.toISOString(), fFin.toISOString()] }
             },
-            include: [{ model: Dispositivo, as: 'Dispositivo', attributes: ['id', 'nombre'] }],
-            order: [['event_time', 'ASC']]
-          })
-        ]);
+          ],
+        });
 
-        empData.excepciones = excepciones;
-        empData.marcajes = marcajes;
-      }
+        if (fechaDesde && fechaHasta) {
 
-      return empData;
-    }));
+          /* const fInicio = new Date(fechaDesde);
+          fInicio.setHours(0, 0, 0, 0);
+          const fFin = new Date(fechaHasta);
+          fFin.setHours(23, 59, 59, 999); */
+
+           // Convertir a fecha inicio del día en UTC
+  const fInicio = new Date(fechaDesde + 'T00:00:00Z'); // Fuerza UTC
+  
+  // Convertir a fecha fin del día en UTC
+  const fFin = new Date(fechaHasta + 'T23:59:59.999Z'); // Fuerza UTC
+
+          // --- NORMALIZACIÓN DE RAÍZ ---
+          // Extraemos solo los números: "V25047058" -> "25047058"
+          const cedulaLimpia = empleado.cedula
+            ? empleado.cedula.replace(/\D/g, "")
+            : "";
+
+          const [excepciones, marcajes] = await Promise.all([
+            ExcepcionHorario.findAll({
+              where: {
+                empleado_id: empleado.id,
+                fecha: {
+                  [Op.between]: [fInicio.toISOString(), fFin.toISOString()],
+                },
+              },
+              include: [{ model: PlantillaHorario, as: "PlantillaHorario" }],
+            }),
+            Attlog.findAll({
+              where: {
+                // Búsqueda inteligente: coincide con el formato de la BD o solo números
+                [Op.or]: [
+                  { employee_no: empleado.cedula },
+                  { employee_no: cedulaLimpia },
+                  { employee_no: { [Op.like]: `%${cedulaLimpia}` } },
+                ],
+                // FILTRO DINÁMICO: Solo marcajes de equipos de ESTA sala
+                dispositivo_id: { [Op.in]: idsDispositivos },
+                event_time: {
+                  [Op.between]: [fInicio.toISOString(), fFin.toISOString()],
+                },
+              },
+              include: [
+                {
+                  model: Dispositivo,
+                  as: "Dispositivo",
+                  attributes: ["id", "nombre"],
+                },
+              ],
+              order: [["event_time", "ASC"]],
+            }),
+          ]);
+
+          empData.excepciones = excepciones;
+          empData.marcajes = marcajes;
+        }
+
+        return empData;
+      }),
+    );
 
     res.json(empleadosConTodo);
-
   } catch (error) {
-    console.error('Error en ruta dinámica de sala:', error);
-    res.status(500).json({ message: 'Error interno', error: error.message });
+    console.error("Error en ruta dinámica de sala:", error);
+    res.status(500).json({ message: "Error interno", error: error.message });
   }
 });
 
@@ -6940,90 +7541,96 @@ app.get('/api/empleados/sala/:salaId', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener libro para reporte (público)
-app.get('/api/public/libros/:id', async (req, res) => {
+app.get("/api/public/libros/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const libro = await Libro.findByPk(id, {
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
-    
+
     if (!libro) {
-      return res.status(404).json({ message: 'Libro no encontrado' });
+      return res.status(404).json({ message: "Libro no encontrado" });
     }
-    
+
     res.json(libro);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener drops por libro (público)
-app.get('/api/public/drops/:libroId', async (req, res) => {
+app.get("/api/public/drops/:libroId", async (req, res) => {
   try {
     const { libroId } = req.params;
     const drops = await Drop.findAll({
       where: { libro_id: libroId },
-      include: [{
-        model: Mesa,
-        attributes: ['id', 'nombre']
-      }],
-      order: [['created_at', 'ASC']]
+      include: [
+        {
+          model: Mesa,
+          attributes: ["id", "nombre"],
+        },
+      ],
+      order: [["created_at", "ASC"]],
     });
-    
+
     res.json(drops);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener novedades por libro (público)
-app.get('/api/public/novedades/:libroId', async (req, res) => {
+app.get("/api/public/novedades/:libroId", async (req, res) => {
   try {
     const { libroId } = req.params;
     const novedades = await NovedadMaquinaRegistro.findAll({
       where: { libro_id: libroId },
-      include: [{
-        model: Maquina,
-        attributes: ['id', 'nombre'],
-        include: [{
-          model: Rango,
-          attributes: ['id', 'nombre']
-        }]
-      }, {
-        model: NovedadMaquina,
-        attributes: ['id', 'nombre']
-      }, {
-        model: Empleado,
-        attributes: ['id', 'nombre']
-      }],
-      order: [['hora', 'ASC']]
+      include: [
+        {
+          model: Maquina,
+          attributes: ["id", "nombre"],
+          include: [
+            {
+              model: Rango,
+              attributes: ["id", "nombre"],
+            },
+          ],
+        },
+        {
+          model: NovedadMaquina,
+          attributes: ["id", "nombre"],
+        },
+        {
+          model: Empleado,
+          attributes: ["id", "nombre"],
+        },
+      ],
+      order: [["hora", "ASC"]],
     });
-    
+
     res.json(novedades);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener incidencias por libro (público)
-app.get('/api/public/incidencias/:libroId', async (req, res) => {
+app.get("/api/public/incidencias/:libroId", async (req, res) => {
   try {
     const { libroId } = req.params;
     const incidencias = await IncidenciaGeneral.findAll({
       where: { libro_id: libroId },
-      order: [['hora', 'ASC']]
+      order: [["hora", "ASC"]],
     });
-    
+
     res.json(incidencias);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -7031,29 +7638,32 @@ app.get('/api/public/incidencias/:libroId', async (req, res) => {
 // RUTA DE VERIFICACIÓN DE TOKEN
 // =============================================
 
-app.get('/api/auth/verify', authenticateToken, async (req, res) => {
+app.get("/api/auth/verify", authenticateToken, async (req, res) => {
   try {
     // Obtener información completa del usuario desde la base de datos
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'usuario', 'nivel', 'nombre_apellido']
+      attributes: ["id", "usuario", "nivel", "nombre_apellido"],
     });
 
     if (!user) {
-      return res.status(404).json({ valid: false, message: 'Usuario no encontrado' });
+      return res
+        .status(404)
+        .json({ valid: false, message: "Usuario no encontrado" });
     }
 
-    res.json({ 
-      valid: true, 
+    res.json({
+      valid: true,
       user: {
         id: user.id,
         usuario: user.usuario,
         nivel: user.nivel,
-        nombre_apellido: user.nombre_apellido
-      }
+        nombre_apellido: user.nombre_apellido,
+      },
     });
   } catch (error) {
-    
-    res.status(500).json({ valid: false, message: 'Error interno del servidor' });
+    res
+      .status(500)
+      .json({ valid: false, message: "Error interno del servidor" });
   }
 });
 
@@ -7063,7 +7673,7 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
 
 // Ruta de inicio comentada para permitir que el frontend se sirva correctamente
 // app.get('/', (req, res) => {
-//   res.json({ 
+//   res.json({
 //     message: 'Sistema WISI - API funcionando correctamente',
 //     version: '1.0.0',
 //     author: 'Willinthon Carriedo'
@@ -7073,173 +7683,212 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
 // ===== RUTAS PARA DROPS =====
 
 // Obtener drops del usuario por libro
-app.get('/api/drops/:libroId', authenticateToken, async (req, res) => {
+app.get("/api/drops/:libroId", authenticateToken, async (req, res) => {
   try {
     const { libroId } = req.params;
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let drops;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       drops = await Drop.findAll({
-        where: {libro_id: libroId},
-        include: [{
-          model: Libro,
-          attributes: ['id', 'created_at']
-        }, {
-          model: Mesa,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Juego,
-            attributes: ['id', 'nombre'],
-            include: [{
-              model: Sala,
-              attributes: ['id', 'nombre']
-            }]
-          }]
-        }],
-        order: [['created_at', 'DESC']]
+        where: { libro_id: libroId },
+        include: [
+          {
+            model: Libro,
+            attributes: ["id", "created_at"],
+          },
+          {
+            model: Mesa,
+            attributes: ["id", "nombre"],
+            include: [
+              {
+                model: Juego,
+                attributes: ["id", "nombre"],
+                include: [
+                  {
+                    model: Sala,
+                    attributes: ["id", "nombre"],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          attributes: ['id']
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            attributes: ["id"],
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       drops = await Drop.findAll({
-        where: {libro_id: libroId,
-          '$Mesa.Juego.Sala.id$': userSalaIds
-        },
-        include: [{
-          model: Libro,
-          attributes: ['id', 'created_at']
-        }, {
-          model: Mesa,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Juego,
-            attributes: ['id', 'nombre'],
-            include: [{
-              model: Sala,
-              attributes: ['id', 'nombre']
-            }]
-          }]
-        }],
-        order: [['created_at', 'DESC']]
+        where: { libro_id: libroId, "$Mesa.Juego.Sala.id$": userSalaIds },
+        include: [
+          {
+            model: Libro,
+            attributes: ["id", "created_at"],
+          },
+          {
+            model: Mesa,
+            attributes: ["id", "nombre"],
+            include: [
+              {
+                model: Juego,
+                attributes: ["id", "nombre"],
+                include: [
+                  {
+                    model: Sala,
+                    attributes: ["id", "nombre"],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        order: [["created_at", "DESC"]],
       });
     }
-    
+
     res.json(drops);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener mesas del usuario para el select
-app.get('/api/user/mesas', authenticateToken, async (req, res) => {
+app.get("/api/user/mesas", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
     const userLevel = req.user.nivel;
-    
+
     let mesas;
-    
-    if (userLevel === 'TODO') {
+
+    if (userLevel === "TODO") {
       mesas = await Mesa.findAll({
         where: { activo: 1 },
-        include: [{
-          model: Juego,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
-          }]
-        }],
-        order: [['nombre', 'ASC']]
+        include: [
+          {
+            model: Juego,
+            attributes: ["id", "nombre"],
+            include: [
+              {
+                model: Sala,
+                attributes: ["id", "nombre"],
+              },
+            ],
+          },
+        ],
+        order: [["nombre", "ASC"]],
       });
     } else {
       const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          attributes: ['id']
-        }]
+        include: [
+          {
+            model: Sala,
+            through: { attributes: [] },
+            attributes: ["id"],
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+        return res.status(404).json({ message: "Usuario no encontrado" });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       mesas = await Mesa.findAll({
         where: {
-          '$Juego.Sala.id$': userSalaIds,
-          activo: 1
+          "$Juego.Sala.id$": userSalaIds,
+          activo: 1,
         },
-        include: [{
-          model: Juego,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
-          }]
-        }],
-        order: [['nombre', 'ASC']]
+        include: [
+          {
+            model: Juego,
+            attributes: ["id", "nombre"],
+            include: [
+              {
+                model: Sala,
+                attributes: ["id", "nombre"],
+              },
+            ],
+          },
+        ],
+        order: [["nombre", "ASC"]],
       });
     }
-    
+
     res.json(mesas);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Crear o actualizar drop
-app.post('/api/drops', authenticateToken, async (req, res) => {
+app.post("/api/drops", authenticateToken, async (req, res) => {
   try {
-    const { libro_id, mesa_id, denominacion_100, denominacion_50, denominacion_20, denominacion_10, denominacion_5, denominacion_1 } = req.body;
-    
+    const {
+      libro_id,
+      mesa_id,
+      denominacion_100,
+      denominacion_50,
+      denominacion_20,
+      denominacion_10,
+      denominacion_5,
+      denominacion_1,
+    } = req.body;
+
     if (!libro_id || !mesa_id) {
-      return res.status(400).json({ message: 'El libro y la mesa son requeridos' });
+      return res
+        .status(400)
+        .json({ message: "El libro y la mesa son requeridos" });
     }
 
     // Verificar que la mesa existe
     const mesa = await Mesa.findByPk(mesa_id, {
-      include: [{
-        model: Juego,
-        include: [{
-          model: Sala
-        }]
-      }]
+      include: [
+        {
+          model: Juego,
+          include: [
+            {
+              model: Sala,
+            },
+          ],
+        },
+      ],
     });
 
     if (!mesa) {
-      return res.status(404).json({ message: 'Mesa no encontrada' });
+      return res.status(404).json({ message: "Mesa no encontrada" });
     }
 
     // Calcular total
-    const total = (denominacion_100 || 0) * 100 + 
-                  (denominacion_50 || 0) * 50 + 
-                  (denominacion_20 || 0) * 20 + 
-                  (denominacion_10 || 0) * 10 + 
-                  (denominacion_5 || 0) * 5 + 
-                  (denominacion_1 || 0) * 1;
+    const total =
+      (denominacion_100 || 0) * 100 +
+      (denominacion_50 || 0) * 50 +
+      (denominacion_20 || 0) * 20 +
+      (denominacion_10 || 0) * 10 +
+      (denominacion_5 || 0) * 5 +
+      (denominacion_1 || 0) * 1;
 
     // Buscar si ya existe un drop para esta mesa y libro
     let drop = await Drop.findOne({
-      where: { 
+      where: {
         libro_id: libro_id,
-        mesa_id: mesa_id}
+        mesa_id: mesa_id,
+      },
     });
 
     if (drop) {
@@ -7251,7 +7900,7 @@ app.post('/api/drops', authenticateToken, async (req, res) => {
         denominacion_10: denominacion_10 || 0,
         denominacion_5: denominacion_5 || 0,
         denominacion_1: denominacion_1 || 0,
-        total: total
+        total: total,
       });
     } else {
       // Crear nuevo drop
@@ -7264,458 +7913,547 @@ app.post('/api/drops', authenticateToken, async (req, res) => {
         denominacion_10: denominacion_10 || 0,
         denominacion_5: denominacion_5 || 0,
         denominacion_1: denominacion_1 || 0,
-        total: total});
+        total: total,
+      });
     }
 
     // Obtener el drop con sus relaciones
     const dropConMesa = await Drop.findByPk(drop.id, {
-      include: [{
-        model: Mesa,
-        attributes: ['id', 'nombre'],
-        include: [{
-          model: Juego,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
-          }]
-        }]
-      }]
+      include: [
+        {
+          model: Mesa,
+          attributes: ["id", "nombre"],
+          include: [
+            {
+              model: Juego,
+              attributes: ["id", "nombre"],
+              include: [
+                {
+                  model: Sala,
+                  attributes: ["id", "nombre"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     res.status(201).json(dropConMesa);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Eliminar drop
-app.delete('/api/drops/:id', authenticateToken, async (req, res) => {
+app.delete("/api/drops/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const drop = await Drop.findByPk(id);
     if (!drop) {
-      return res.status(404).json({ message: 'Drop no encontrado' });
+      return res.status(404).json({ message: "Drop no encontrado" });
     }
 
     // Verificar si el drop tiene relaciones que impidan su eliminación
-    
-    
+
     // No hay relaciones que verificar para drops ya que novedades_maquinas_registros no tiene drop_id
     const relations = [];
-    
 
     await drop.destroy();
-    res.json({ message: 'Drop eliminado correctamente' });
+    res.json({ message: "Drop eliminado correctamente" });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
-
-
 
 // ===== RUTAS PARA REGISTROS DE NOVEDADES DE MÁQUINAS =====
 
 // Obtener registros de novedades de máquinas por libro
-app.get('/api/novedades-maquinas-registros/:libroId', authenticateToken, async (req, res) => {
-  try {
-    const { libroId } = req.params;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    
-    
-    let registros;
-    
-    if (userLevel === 'TODO') {
-      
-      
-      // Verificar la estructura de la tabla primero
-      const tableInfo = await sequelize.query("PRAGMA table_info(novedades_maquinas_registros)", {
-        type: sequelize.QueryTypes.SELECT
-      });
-      
-      
-      registros = await NovedadMaquinaRegistro.findAll({
-        where: {libro_id: libroId},
-        include: [{
-          model: Libro,
-          attributes: ['id', 'created_at']
-        }, {
-          model: Maquina,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Rango,
-            attributes: ['id', 'nombre'],
-            include: [{
-              model: Sala,
-              attributes: ['id', 'nombre']
-            }]
-          }]
-        }, {
-          model: Empleado,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Cargo,
-            attributes: ['id', 'nombre'],
-            include: [{
-              model: Departamento,
-              attributes: ['id', 'nombre'],
-              include: [{
-                model: Area,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
-                }]
-              }]
-            }]
-          }]
-        }],
-        order: [['created_at', 'DESC']]
-      });
-    } else {
-      const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          attributes: ['id']
-        }]
-      });
+app.get(
+  "/api/novedades-maquinas-registros/:libroId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { libroId } = req.params;
+      const userId = req.user.id;
+      const userLevel = req.user.nivel;
 
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+      let registros;
+
+      if (userLevel === "TODO") {
+        // Verificar la estructura de la tabla primero
+        const tableInfo = await sequelize.query(
+          "PRAGMA table_info(novedades_maquinas_registros)",
+          {
+            type: sequelize.QueryTypes.SELECT,
+          },
+        );
+
+        registros = await NovedadMaquinaRegistro.findAll({
+          where: { libro_id: libroId },
+          include: [
+            {
+              model: Libro,
+              attributes: ["id", "created_at"],
+            },
+            {
+              model: Maquina,
+              attributes: ["id", "nombre"],
+              include: [
+                {
+                  model: Rango,
+                  attributes: ["id", "nombre"],
+                  include: [
+                    {
+                      model: Sala,
+                      attributes: ["id", "nombre"],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              model: Empleado,
+              attributes: ["id", "nombre"],
+              include: [
+                {
+                  model: Cargo,
+                  attributes: ["id", "nombre"],
+                  include: [
+                    {
+                      model: Departamento,
+                      attributes: ["id", "nombre"],
+                      include: [
+                        {
+                          model: Area,
+                          attributes: ["id", "nombre"],
+                          include: [
+                            {
+                              model: Sala,
+                              attributes: ["id", "nombre"],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+          order: [["created_at", "DESC"]],
+        });
+      } else {
+        const user = await User.findByPk(userId, {
+          include: [
+            {
+              model: Sala,
+              through: { attributes: [] },
+              attributes: ["id"],
+            },
+          ],
+        });
+
+        if (!user) {
+          return res.status(404).json({ message: "Usuario no encontrado" });
+        }
+
+        const userSalaIds = user.Salas.map((sala) => sala.id);
+
+        registros = await NovedadMaquinaRegistro.findAll({
+          where: { libro_id: libroId },
+          include: [
+            {
+              model: Libro,
+              attributes: ["id", "created_at"],
+            },
+            {
+              model: Maquina,
+              attributes: ["id", "nombre"],
+              include: [
+                {
+                  model: Rango,
+                  attributes: ["id", "nombre"],
+                  include: [
+                    {
+                      model: Sala,
+                      attributes: ["id", "nombre"],
+                      where: { id: userSalaIds },
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              model: Empleado,
+              attributes: ["id", "nombre"],
+              include: [
+                {
+                  model: Cargo,
+                  as: "Cargo",
+                  attributes: ["id", "nombre"],
+                  required: false,
+                  include: [
+                    {
+                      model: Area,
+                      as: "Area",
+                      attributes: ["id", "nombre"],
+                      required: false,
+                      include: [
+                        {
+                          model: Departamento,
+                          as: "Departamento",
+                          attributes: ["id", "nombre"],
+                          required: false,
+                          include: [
+                            {
+                              model: Sala,
+                              as: "Sala",
+                              attributes: ["id", "nombre"],
+                              where: { id: userSalaIds },
+                              required: false,
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+          order: [["created_at", "DESC"]],
+        });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
-      
-      registros = await NovedadMaquinaRegistro.findAll({
-        where: {libro_id: libroId},
-        include: [{
-          model: Libro,
-          attributes: ['id', 'created_at']
-        }, {
-          model: Maquina,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Rango,
-            attributes: ['id', 'nombre'],
-            include: [{
-              model: Sala,
-              attributes: ['id', 'nombre'],
-              where: { id: userSalaIds }
-            }]
-          }]
-        }, {
-          model: Empleado,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Cargo,
-            as: 'Cargo',
-            attributes: ['id', 'nombre'],
-            required: false,
-            include: [{
-              model: Area,
-              as: 'Area',
-              attributes: ['id', 'nombre'],
-              required: false,
-              include: [{
-                model: Departamento,
-                as: 'Departamento',
-                attributes: ['id', 'nombre'],
-                required: false,
-                include: [{
-                  model: Sala,
-                  as: 'Sala',
-                  attributes: ['id', 'nombre'],
-                  where: { id: userSalaIds },
-                  required: false
-                }]
-              }]
-            }]
-          }]
-        }],
-        order: [['created_at', 'DESC']]
-      });
+      res.json(registros);
+    } catch (error) {
+      res
+        .status(500)
+        .json({ message: "Error interno del servidor", error: error.message });
     }
-    
-    res.json(registros);
-  } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
-  }
-});
+  },
+);
 
 // Crear o actualizar registro de novedad de máquina
-app.post('/api/novedades-maquinas-registros', authenticateToken, async (req, res) => {
-  try {
-    const { libro_id, maquina_id, descripcion, empleado_id, hora } = req.body;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
+app.post(
+  "/api/novedades-maquinas-registros",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { libro_id, maquina_id, descripcion, empleado_id, hora } = req.body;
+      const userId = req.user.id;
+      const userLevel = req.user.nivel;
 
-    if (!libro_id || !maquina_id || !descripcion || !empleado_id || !hora) {
-      return res.status(400).json({ message: 'Todos los campos son requeridos' });
+      if (!libro_id || !maquina_id || !descripcion || !empleado_id || !hora) {
+        return res
+          .status(400)
+          .json({ message: "Todos los campos son requeridos" });
+      }
+
+      // Verificar que el libro existe
+      const libro = await Libro.findByPk(libro_id);
+      if (!libro) {
+        return res.status(404).json({ message: "Libro no encontrado" });
+      }
+
+      // Verificar que la máquina existe
+      const maquina = await Maquina.findByPk(maquina_id);
+      if (!maquina) {
+        return res.status(404).json({ message: "Máquina no encontrada" });
+      }
+
+      // Verificar que el empleado existe
+      const empleado = await Empleado.findByPk(empleado_id);
+      if (!empleado) {
+        return res.status(404).json({ message: "Empleado no encontrado" });
+      }
+
+      // Siempre crear un nuevo registro (no actualizar existentes)
+      const registro = await NovedadMaquinaRegistro.create({
+        libro_id: libro_id,
+        maquina_id: maquina_id,
+        descripcion: descripcion,
+        empleado_id: empleado_id,
+        hora: hora,
+      });
+
+      // Obtener el registro completo con todas las relaciones
+      const registroCompleto = await NovedadMaquinaRegistro.findByPk(
+        registro.id,
+        {
+          include: [
+            {
+              model: Libro,
+              attributes: ["id", "created_at"],
+            },
+            {
+              model: Maquina,
+              attributes: ["id", "nombre"],
+              include: [
+                {
+                  model: Rango,
+                  attributes: ["id", "nombre"],
+                  include: [
+                    {
+                      model: Sala,
+                      attributes: ["id", "nombre"],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              model: Empleado,
+              attributes: ["id", "nombre"],
+              include: [
+                {
+                  model: Cargo,
+                  attributes: ["id", "nombre"],
+                  include: [
+                    {
+                      model: Departamento,
+                      attributes: ["id", "nombre"],
+                      include: [
+                        {
+                          model: Area,
+                          attributes: ["id", "nombre"],
+                          include: [
+                            {
+                              model: Sala,
+                              attributes: ["id", "nombre"],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      );
+
+      res.status(201).json(registroCompleto);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    // Verificar que el libro existe
-    const libro = await Libro.findByPk(libro_id);
-    if (!libro) {
-      return res.status(404).json({ message: 'Libro no encontrado' });
-    }
-
-    // Verificar que la máquina existe
-    const maquina = await Maquina.findByPk(maquina_id);
-    if (!maquina) {
-      return res.status(404).json({ message: 'Máquina no encontrada' });
-    }
-
-
-    // Verificar que el empleado existe
-    const empleado = await Empleado.findByPk(empleado_id);
-    if (!empleado) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
-    }
-
-    // Siempre crear un nuevo registro (no actualizar existentes)
-    const registro = await NovedadMaquinaRegistro.create({
-      libro_id: libro_id,
-      maquina_id: maquina_id,
-      descripcion: descripcion,
-      empleado_id: empleado_id,
-      hora: hora});
-
-    // Obtener el registro completo con todas las relaciones
-    const registroCompleto = await NovedadMaquinaRegistro.findByPk(registro.id, {
-      include: [{
-        model: Libro,
-        attributes: ['id', 'created_at']
-      }, {
-        model: Maquina,
-        attributes: ['id', 'nombre'],
-        include: [{
-          model: Rango,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre']
-          }]
-        }]
-      }, {
-        model: Empleado,
-        attributes: ['id', 'nombre'],
-        include: [{
-          model: Cargo,
-          attributes: ['id', 'nombre'],
-          include: [{
-            model: Departamento,
-            attributes: ['id', 'nombre'],
-            include: [{
-              model: Area,
-        attributes: ['id', 'nombre'],
-        include: [{
-          model: Sala,
-          attributes: ['id', 'nombre']
-              }]
-            }]
-          }]
-        }]
-      }]
-    });
-
-    res.status(201).json(registroCompleto);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Eliminar registro de novedad de máquina
-app.delete('/api/novedades-maquinas-registros/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const registro = await NovedadMaquinaRegistro.findByPk(id);
-    if (!registro) {
-      return res.status(404).json({ message: 'Registro de novedad de máquina no encontrado' });
-    }
+app.delete(
+  "/api/novedades-maquinas-registros/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    await registro.destroy();
-    res.json({ message: 'Registro de novedad de máquina eliminado correctamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      const registro = await NovedadMaquinaRegistro.findByPk(id);
+      if (!registro) {
+        return res
+          .status(404)
+          .json({ message: "Registro de novedad de máquina no encontrado" });
+      }
+
+      await registro.destroy();
+      res.json({
+        message: "Registro de novedad de máquina eliminado correctamente",
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // ===== RUTAS PARA INCIDENCIAS GENERALES =====
 
 // GET /api/incidencias-generales/:libroId - Obtener incidencias de un libro
-app.get('/api/incidencias-generales/:libroId', authenticateToken, async (req, res) => {
-  try {
-    const { libroId } = req.params;
-    const userId = req.user.id;
-    const userLevel = req.user.nivel;
-    
-    let incidencias;
-    
-    if (userLevel === 'TODO') {
-      incidencias = await IncidenciaGeneral.findAll({
-        where: {libro_id: libroId},
-        include: [{
-          model: Libro,
-          attributes: ['id', 'created_at']
-        }],
-        order: [['created_at', 'DESC']]
-      });
-    } else {
-      const user = await User.findByPk(userId, {
-        include: [{
-          model: Sala,
-          through: { attributes: [] },
-          attributes: ['id']
-        }]
-      });
+app.get(
+  "/api/incidencias-generales/:libroId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { libroId } = req.params;
+      const userId = req.user.id;
+      const userLevel = req.user.nivel;
 
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
+      let incidencias;
+
+      if (userLevel === "TODO") {
+        incidencias = await IncidenciaGeneral.findAll({
+          where: { libro_id: libroId },
+          include: [
+            {
+              model: Libro,
+              attributes: ["id", "created_at"],
+            },
+          ],
+          order: [["created_at", "DESC"]],
+        });
+      } else {
+        const user = await User.findByPk(userId, {
+          include: [
+            {
+              model: Sala,
+              through: { attributes: [] },
+              attributes: ["id"],
+            },
+          ],
+        });
+
+        if (!user) {
+          return res.status(404).json({ message: "Usuario no encontrado" });
+        }
+
+        const userSalaIds = user.Salas.map((sala) => sala.id);
+
+        incidencias = await IncidenciaGeneral.findAll({
+          where: { libro_id: libroId },
+          include: [
+            {
+              model: Libro,
+              attributes: ["id", "created_at"],
+              include: [
+                {
+                  model: Sala,
+                  attributes: ["id", "nombre"],
+                  where: { id: userSalaIds },
+                },
+              ],
+            },
+          ],
+          order: [["created_at", "DESC"]],
+        });
       }
 
-      const userSalaIds = user.Salas.map(sala => sala.id);
-      
-      incidencias = await IncidenciaGeneral.findAll({
-        where: {libro_id: libroId},
-        include: [{
-          model: Libro,
-          attributes: ['id', 'created_at'],
-          include: [{
-            model: Sala,
-            attributes: ['id', 'nombre'],
-            where: { id: userSalaIds }
-          }]
-        }],
-        order: [['created_at', 'DESC']]
-      });
+      res.json(incidencias);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-    
-    res.json(incidencias);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // POST /api/incidencias-generales - Crear nueva incidencia
-app.post('/api/incidencias-generales', authenticateToken, async (req, res) => {
+app.post("/api/incidencias-generales", authenticateToken, async (req, res) => {
   try {
     const { libro_id, descripcion, hora } = req.body;
-    
+
     if (!libro_id || !descripcion || !hora) {
-      return res.status(400).json({ message: 'Faltan campos requeridos' });
+      return res.status(400).json({ message: "Faltan campos requeridos" });
     }
 
     const incidencia = await IncidenciaGeneral.create({
       libro_id,
       descripcion,
-      hora});
+      hora,
+    });
 
     res.status(201).json(incidencia);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // DELETE /api/incidencias-generales/:id - Eliminar incidencia
-app.delete('/api/incidencias-generales/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const incidencia = await IncidenciaGeneral.findByPk(id);
-    if (!incidencia) {
-      return res.status(404).json({ message: 'Incidencia no encontrada' });
+app.delete(
+  "/api/incidencias-generales/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const incidencia = await IncidenciaGeneral.findByPk(id);
+      if (!incidencia) {
+        return res.status(404).json({ message: "Incidencia no encontrada" });
+      }
+
+      // Verificar si la incidencia tiene relaciones que impidan su eliminación
+
+      // Por ahora no hay tablas relacionadas con incidencias_generales
+      // Si en el futuro se agregan relaciones, se puede verificar aquí
+      const relations = [];
+
+      await incidencia.destroy();
+      res.json({ message: "Incidencia eliminada correctamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-
-    // Verificar si la incidencia tiene relaciones que impidan su eliminación
-    
-    
-    // Por ahora no hay tablas relacionadas con incidencias_generales
-    // Si en el futuro se agregan relaciones, se puede verificar aquí
-    const relations = [];
-    
-
-    await incidencia.destroy();
-    res.json({ message: 'Incidencia eliminada correctamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // ==================== RUTAS DE EMPLEADOS ====================
 
 // GET /api/empleados - Obtener todos los empleados
-app.get('/api/empleados', authenticateToken, async (req, res) => {
+app.get("/api/empleados", authenticateToken, async (req, res) => {
   try {
     // Obtener las salas del usuario logueado
     const user = await User.findByPk(req.user.id, {
       include: [
         {
           model: Sala,
-          as: 'Salas',
-          attributes: ['id']
-        }
-      ]
+          as: "Salas",
+          attributes: ["id"],
+        },
+      ],
     });
 
     // Si es el usuario willinthon, devolver todos los empleados activos sin requerir relaciones
-    if (user.usuario === 'willinthon') {
+    if (user.usuario === "willinthon") {
       const empleados = await Empleado.findAll({
         where: { activo: 1 },
         include: [
           {
             model: Cargo,
-            as: 'Cargo',
+            as: "Cargo",
             required: false,
             include: [
               {
                 model: Area,
-                as: 'Area',
+                as: "Area",
                 required: false,
                 include: [
                   {
                     model: Departamento,
-                    as: 'Departamento',
+                    as: "Departamento",
                     required: false,
                     include: [
                       {
                         model: Sala,
-                        as: 'Sala',
+                        as: "Sala",
                         required: false,
-                        attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
+                        attributes: [
+                          "id",
+                          "nombre",
+                          "nombre_comercial",
+                          "rif",
+                          "ubicacion",
+                          "correo",
+                          "telefono",
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
         ],
-        order: [['nombre', 'ASC']]
+        order: [["nombre", "ASC"]],
       });
 
       // Agregar dispositivos a cada empleado para usuarios TODO
       for (let empleado of empleados) {
         const dispositivos = await sequelize.query(
-          'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id',
+          "SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id",
           {
             replacements: [empleado.id],
-            type: sequelize.QueryTypes.SELECT
-          }
+            type: sequelize.QueryTypes.SELECT,
+          },
         );
-        
+
         empleado.dataValues.dispositivos = dispositivos;
       }
 
@@ -7727,69 +8465,76 @@ app.get('/api/empleados', authenticateToken, async (req, res) => {
       return res.json([]);
     }
 
-    const userSalaIds = user.Salas.map(sala => sala.id);
+    const userSalaIds = user.Salas.map((sala) => sala.id);
 
     const empleados = await Empleado.findAll({
       include: [
         {
           model: Cargo,
-          as: 'Cargo',
+          as: "Cargo",
           required: true,
           include: [
             {
               model: Area,
-              as: 'Area',
+              as: "Area",
               required: true,
               include: [
                 {
                   model: Departamento,
-                  as: 'Departamento',
+                  as: "Departamento",
                   required: true,
                   include: [
                     {
                       model: Sala,
-                      as: 'Sala',
+                      as: "Sala",
                       required: true,
-                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
+                      attributes: [
+                        "id",
+                        "nombre",
+                        "nombre_comercial",
+                        "rif",
+                        "ubicacion",
+                        "correo",
+                        "telefono",
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       ],
       where: {
-        '$Cargo.Area.Departamento.Sala.id$': {
-          [Op.in]: userSalaIds
+        "$Cargo.Area.Departamento.Sala.id$": {
+          [Op.in]: userSalaIds,
         },
-        activo: 1
+        activo: 1,
       },
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     // Agregar dispositivos a cada empleado
     for (let empleado of empleados) {
       const dispositivos = await sequelize.query(
-        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id',
+        "SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id",
         {
           replacements: [empleado.id, userSalaIds],
-          type: sequelize.QueryTypes.SELECT
-        }
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
-      
+
       empleado.dataValues.dispositivos = dispositivos;
     }
 
     res.json(empleados);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // GET /api/empleados/borrados - Obtener empleados borrados (activo = 0)
-app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
+app.get("/api/empleados/borrados", authenticateToken, async (req, res) => {
   try {
     // Eliminamos la distinción de "willinthon" y el filtro de salas del usuario.
     // Ahora CUALQUIER usuario autenticado recibe la lista completa.
@@ -7798,98 +8543,131 @@ app.get('/api/empleados/borrados', authenticateToken, async (req, res) => {
       include: [
         {
           model: Cargo,
-          as: 'Cargo',
+          as: "Cargo",
           required: false,
-          include: [{
-            model: Area,
-            as: 'Area',
-            required: false,
-            include: [{
-              model: Departamento,
-              as: 'Departamento',
+          include: [
+            {
+              model: Area,
+              as: "Area",
               required: false,
-              include: [{
-                model: Sala,
-                as: 'Sala',
-                required: false,
-                attributes: ['id', 'nombre']
-              }]
-            }]
-          }]
-        }
+              include: [
+                {
+                  model: Departamento,
+                  as: "Departamento",
+                  required: false,
+                  include: [
+                    {
+                      model: Sala,
+                      as: "Sala",
+                      required: false,
+                      attributes: ["id", "nombre"],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       ],
-      order: [['updated_at', 'DESC']]
+      order: [["updated_at", "DESC"]],
     });
 
     res.json(empleados);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // GET /api/empleados/:id - Obtener empleado por ID
-app.get('/api/empleados/:id', authenticateToken, async (req, res) => {
+app.get("/api/empleados/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const empleado = await Empleado.findByPk(id, {
       include: [
         {
           model: Cargo,
-          as: 'Cargo',
+          as: "Cargo",
           include: [
             {
               model: Departamento,
-              as: 'Departamento',
+              as: "Departamento",
               include: [
                 {
                   model: Area,
-                  as: 'Area',
+                  as: "Area",
                   include: [
                     {
                       model: Sala,
-                      as: 'Sala',
-                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
+                      as: "Sala",
+                      attributes: [
+                        "id",
+                        "nombre",
+                        "nombre_comercial",
+                        "rif",
+                        "ubicacion",
+                        "correo",
+                        "telefono",
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     if (!empleado) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
+      return res.status(404).json({ message: "Empleado no encontrado" });
     }
 
     res.json(empleado);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // POST /api/empleados - Crear nuevo empleado
-app.post('/api/empleados', authenticateToken, async (req, res) => {
+app.post("/api/empleados", authenticateToken, async (req, res) => {
   try {
-    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, dispositivos } = req.body;
-    
-    if (!nombre || !cedula || !fecha_ingreso || !fecha_cumpleanos || !sexo || !cargo_id) {
-      return res.status(400).json({ message: 'Todos los campos son requeridos' });
+    const {
+      foto,
+      nombre,
+      cedula,
+      fecha_ingreso,
+      fecha_cumpleanos,
+      sexo,
+      cargo_id,
+      dispositivos,
+    } = req.body;
+
+    if (
+      !nombre ||
+      !cedula ||
+      !fecha_ingreso ||
+      !fecha_cumpleanos ||
+      !sexo ||
+      !cargo_id
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Todos los campos son requeridos" });
     }
 
     // Verificar que el cargo existe
     const cargo = await Cargo.findByPk(cargo_id);
     if (!cargo) {
-      return res.status(404).json({ message: 'Cargo no encontrado' });
+      return res.status(404).json({ message: "Cargo no encontrado" });
     }
 
     // Verificar que la cédula no esté duplicada
     const empleadoExistente = await Empleado.findOne({ where: { cedula } });
     if (empleadoExistente) {
-      return res.status(400).json({ message: 'Ya existe un empleado con esta cédula' });
+      return res
+        .status(400)
+        .json({ message: "Ya existe un empleado con esta cédula" });
     }
 
     const empleado = await Empleado.create({
@@ -7900,45 +8678,50 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
       fecha_cumpleanos,
       sexo,
       cargo_id,
-      activo: 1
+      activo: 1,
     });
 
     // Manejar dispositivos si se proporcionan
     if (dispositivos && dispositivos.length > 0) {
       // Logging para depuración
-      console.log('Dispositivos recibidos en el servidor (POST):', {
+      console.log("Dispositivos recibidos en el servidor (POST):", {
         empleadoId: empleado.id,
         dispositivosRecibidos: dispositivos,
         tipoDispositivos: typeof dispositivos,
-        esArray: Array.isArray(dispositivos)
+        esArray: Array.isArray(dispositivos),
       });
 
       // Normalizar y validar IDs de dispositivos
       const dispositivosIdsNormalizados = dispositivos
-        .map(id => Number(id))
-        .filter(id => !isNaN(id) && id > 0)
+        .map((id) => Number(id))
+        .filter((id) => !isNaN(id) && id > 0)
         .filter((id, index, self) => self.indexOf(id) === index); // Eliminar duplicados
 
       // Obtener información de los dispositivos antes de insertar para logging
       const dispositivosInfo = await sequelize.query(
-        'SELECT id, nombre, ip_local, ip_remota FROM dispositivos WHERE id IN (?)',
+        "SELECT id, nombre, ip_local, ip_remota FROM dispositivos WHERE id IN (?)",
         {
           replacements: [dispositivosIdsNormalizados],
-          type: sequelize.QueryTypes.SELECT
-        }
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
-      console.log('Dispositivos que se van a insertar (POST):', {
+      console.log("Dispositivos que se van a insertar (POST):", {
         idsRecibidos: dispositivos,
         idsNormalizados: dispositivosIdsNormalizados,
-        dispositivosInfo: dispositivosInfo
+        dispositivosInfo: dispositivosInfo,
       });
 
       // Verificar que todos los dispositivos existen
-      const dispositivosExistentesIds = dispositivosInfo.map(d => d.id);
-      const dispositivosNoEncontrados = dispositivosIdsNormalizados.filter(id => !dispositivosExistentesIds.includes(id));
-      
+      const dispositivosExistentesIds = dispositivosInfo.map((d) => d.id);
+      const dispositivosNoEncontrados = dispositivosIdsNormalizados.filter(
+        (id) => !dispositivosExistentesIds.includes(id),
+      );
+
       if (dispositivosNoEncontrados.length > 0) {
-        console.error('ERROR: Algunos dispositivos no se encontraron en la BD:', dispositivosNoEncontrados);
+        console.error(
+          "ERROR: Algunos dispositivos no se encontraron en la BD:",
+          dispositivosNoEncontrados,
+        );
       }
 
       // Insertar solo los dispositivos que existen
@@ -7946,23 +8729,28 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
         // Verificar que el dispositivo existe antes de insertar
         if (dispositivosExistentesIds.includes(dispositivoId)) {
           await sequelize.query(
-            'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
-            { replacements: [empleado.id, dispositivoId] }
+            "INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)",
+            { replacements: [empleado.id, dispositivoId] },
           );
         } else {
-          console.error(`ERROR: Intento de insertar dispositivo inexistente ID ${dispositivoId} para empleado ${empleado.id}`);
+          console.error(
+            `ERROR: Intento de insertar dispositivo inexistente ID ${dispositivoId} para empleado ${empleado.id}`,
+          );
         }
       }
 
       // Verificar qué se insertó realmente
       const dispositivosInsertados = await sequelize.query(
-        'SELECT ed.dispositivo_id, d.id, d.nombre, d.ip_local, d.ip_remota FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ? ORDER BY d.id',
+        "SELECT ed.dispositivo_id, d.id, d.nombre, d.ip_local, d.ip_remota FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ? ORDER BY d.id",
         {
           replacements: [empleado.id],
-          type: sequelize.QueryTypes.SELECT
-        }
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
-      console.log('Dispositivos insertados en la BD (POST):', dispositivosInsertados);
+      console.log(
+        "Dispositivos insertados en la BD (POST):",
+        dispositivosInsertados,
+      );
     }
 
     // Obtener el empleado con sus relaciones
@@ -7971,32 +8759,40 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
       include: [
         {
           model: Cargo,
-          as: 'Cargo',
+          as: "Cargo",
           required: false,
           include: [
             {
               model: Area,
-              as: 'Area',
+              as: "Area",
               required: false,
               include: [
                 {
                   model: Departamento,
-                  as: 'Departamento',
+                  as: "Departamento",
                   required: false,
                   include: [
                     {
                       model: Sala,
-                      as: 'Sala',
+                      as: "Sala",
                       required: false,
-                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
+                      attributes: [
+                        "id",
+                        "nombre",
+                        "nombre_comercial",
+                        "rif",
+                        "ubicacion",
+                        "correo",
+                        "telefono",
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     // Obtener las salas del usuario logueado para filtrar dispositivos
@@ -8004,35 +8800,35 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
       include: [
         {
           model: Sala,
-          as: 'Salas',
-          attributes: ['id']
-        }
-      ]
+          as: "Salas",
+          attributes: ["id"],
+        },
+      ],
     });
 
     // Agregar dispositivos al empleado completo
     if (user && user.Salas && user.Salas.length > 0) {
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       const dispositivos = await sequelize.query(
-        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id',
+        "SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id",
         {
           replacements: [empleado.id, userSalaIds],
-          type: sequelize.QueryTypes.SELECT
-        }
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
-      console.log('Dispositivos recuperados para empleado (POST):', {
+      console.log("Dispositivos recuperados para empleado (POST):", {
         empleadoId: empleado.id,
-        dispositivos: dispositivos
+        dispositivos: dispositivos,
       });
       empleadoCompleto.dataValues.dispositivos = dispositivos;
-    } else if (req.user.usuario === 'willinthon') {
+    } else if (req.user.usuario === "willinthon") {
       // Para el usuario willinthon, obtener todos los dispositivos sin filtrar por sala
       const dispositivos = await sequelize.query(
-        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id',
+        "SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id",
         {
           replacements: [empleado.id],
-          type: sequelize.QueryTypes.SELECT
-        }
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
       empleadoCompleto.dataValues.dispositivos = dispositivos;
     } else {
@@ -8041,73 +8837,81 @@ app.post('/api/empleados', authenticateToken, async (req, res) => {
 
     res.status(201).json(empleadoCompleto);
   } catch (error) {
-    ;
-    ;
-    res.status(500).json({ 
-      message: 'Error interno del servidor',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
 
 // PUT /api/empleados/:id/borrar - Borrar empleado (cambiar activo de 1 a 0 - soft delete)
-app.put('/api/empleados/:id/borrar', authenticateToken, async (req, res) => {
+app.put("/api/empleados/:id/borrar", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const empleado = await Empleado.findByPk(id);
     if (!empleado) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
+      return res.status(404).json({ message: "Empleado no encontrado" });
     }
 
     // Verificar que el empleado esté activo (activo = 1)
     if (empleado.activo !== 1) {
-      return res.status(400).json({ message: 'El empleado ya está borrado' });
+      return res.status(400).json({ message: "El empleado ya está borrado" });
     }
 
     // Borrar el empleado (soft delete) - NO verificar relaciones porque solo cambia activo
     await empleado.update({ activo: 0 });
 
-    res.json({ 
-      message: 'Empleado borrado exitosamente',
+    res.json({
+      message: "Empleado borrado exitosamente",
       empleado: {
         id: empleado.id,
         nombre: empleado.nombre,
-        activo: empleado.activo
-      }
+        activo: empleado.activo,
+      },
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/empleados/:id - Actualizar empleado
-app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
+app.put("/api/empleados/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { foto, nombre, cedula, fecha_ingreso, fecha_cumpleanos, sexo, cargo_id, dispositivos } = req.body;
-    
+    const {
+      foto,
+      nombre,
+      cedula,
+      fecha_ingreso,
+      fecha_cumpleanos,
+      sexo,
+      cargo_id,
+      dispositivos,
+    } = req.body;
+
     const empleado = await Empleado.findByPk(id);
     if (!empleado) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
+      return res.status(404).json({ message: "Empleado no encontrado" });
     }
 
     // Verificar que el cargo existe
     if (cargo_id) {
       const cargo = await Cargo.findByPk(cargo_id);
       if (!cargo) {
-        return res.status(404).json({ message: 'Cargo no encontrado' });
+        return res.status(404).json({ message: "Cargo no encontrado" });
       }
     }
 
     // Verificar que la cédula no esté duplicada (si se está cambiando)
     if (cedula && cedula !== empleado.cedula) {
-      const empleadoExistente = await Empleado.findOne({ 
-        where: { cedula, id: { [Op.ne]: id } } 
+      const empleadoExistente = await Empleado.findOne({
+        where: { cedula, id: { [Op.ne]: id } },
       });
       if (empleadoExistente) {
-        return res.status(400).json({ message: 'Ya existe un empleado con esta cédula' });
+        return res
+          .status(400)
+          .json({ message: "Ya existe un empleado con esta cédula" });
       }
     }
 
@@ -8119,52 +8923,60 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
       fecha_cumpleanos: fecha_cumpleanos || empleado.fecha_cumpleanos,
       sexo: sexo || empleado.sexo,
       cargo_id: cargo_id || empleado.cargo_id,
-      activo: 1
+      activo: 1,
     });
 
     // Manejar dispositivos si se proporcionan
     if (dispositivos !== undefined) {
       // Logging para depuración
-      console.log('Dispositivos recibidos en el servidor:', {
+      console.log("Dispositivos recibidos en el servidor:", {
         empleadoId: id,
         dispositivosRecibidos: dispositivos,
         tipoDispositivos: typeof dispositivos,
-        esArray: Array.isArray(dispositivos)
+        esArray: Array.isArray(dispositivos),
       });
 
       // Eliminar todas las relaciones existentes
-      await sequelize.query('DELETE FROM empleado_dispositivos WHERE empleado_id = ?', {
-        replacements: [id]
-      });
+      await sequelize.query(
+        "DELETE FROM empleado_dispositivos WHERE empleado_id = ?",
+        {
+          replacements: [id],
+        },
+      );
 
       // Crear nuevas relaciones si se proporcionan dispositivos
       if (dispositivos && dispositivos.length > 0) {
         // Normalizar y validar IDs de dispositivos
         const dispositivosIdsNormalizados = dispositivos
-          .map(id => Number(id))
-          .filter(id => !isNaN(id) && id > 0)
+          .map((id) => Number(id))
+          .filter((id) => !isNaN(id) && id > 0)
           .filter((id, index, self) => self.indexOf(id) === index); // Eliminar duplicados
 
         // Obtener información de los dispositivos antes de insertar para logging
         const dispositivosInfo = await sequelize.query(
-          'SELECT id, nombre, ip_local, ip_remota FROM dispositivos WHERE id IN (?)',
+          "SELECT id, nombre, ip_local, ip_remota FROM dispositivos WHERE id IN (?)",
           {
             replacements: [dispositivosIdsNormalizados],
-            type: sequelize.QueryTypes.SELECT
-          }
+            type: sequelize.QueryTypes.SELECT,
+          },
         );
-        console.log('Dispositivos que se van a insertar (PUT):', {
+        console.log("Dispositivos que se van a insertar (PUT):", {
           idsRecibidos: dispositivos,
           idsNormalizados: dispositivosIdsNormalizados,
-          dispositivosInfo: dispositivosInfo
+          dispositivosInfo: dispositivosInfo,
         });
 
         // Verificar que todos los dispositivos existen
-        const dispositivosExistentesIds = dispositivosInfo.map(d => d.id);
-        const dispositivosNoEncontrados = dispositivosIdsNormalizados.filter(id => !dispositivosExistentesIds.includes(id));
-        
+        const dispositivosExistentesIds = dispositivosInfo.map((d) => d.id);
+        const dispositivosNoEncontrados = dispositivosIdsNormalizados.filter(
+          (id) => !dispositivosExistentesIds.includes(id),
+        );
+
         if (dispositivosNoEncontrados.length > 0) {
-          console.error('ERROR: Algunos dispositivos no se encontraron en la BD:', dispositivosNoEncontrados);
+          console.error(
+            "ERROR: Algunos dispositivos no se encontraron en la BD:",
+            dispositivosNoEncontrados,
+          );
         }
 
         // Insertar solo los dispositivos que existen
@@ -8172,23 +8984,28 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
           // Verificar que el dispositivo existe antes de insertar
           if (dispositivosExistentesIds.includes(dispositivoId)) {
             await sequelize.query(
-              'INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)',
-              { replacements: [id, dispositivoId] }
+              "INSERT INTO empleado_dispositivos (empleado_id, dispositivo_id) VALUES (?, ?)",
+              { replacements: [id, dispositivoId] },
             );
           } else {
-            console.error(`ERROR: Intento de insertar dispositivo inexistente ID ${dispositivoId} para empleado ${id}`);
+            console.error(
+              `ERROR: Intento de insertar dispositivo inexistente ID ${dispositivoId} para empleado ${id}`,
+            );
           }
         }
 
         // Verificar qué se insertó realmente
         const dispositivosInsertados = await sequelize.query(
-          'SELECT ed.dispositivo_id, d.id, d.nombre, d.ip_local, d.ip_remota FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ? ORDER BY d.id',
+          "SELECT ed.dispositivo_id, d.id, d.nombre, d.ip_local, d.ip_remota FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id WHERE ed.empleado_id = ? ORDER BY d.id",
           {
             replacements: [id],
-            type: sequelize.QueryTypes.SELECT
-          }
+            type: sequelize.QueryTypes.SELECT,
+          },
         );
-        console.log('Dispositivos insertados en la BD (PUT):', dispositivosInsertados);
+        console.log(
+          "Dispositivos insertados en la BD (PUT):",
+          dispositivosInsertados,
+        );
       }
     }
 
@@ -8197,28 +9014,36 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
       include: [
         {
           model: Cargo,
-          as: 'Cargo',
+          as: "Cargo",
           include: [
             {
               model: Area,
-              as: 'Area',
+              as: "Area",
               include: [
                 {
                   model: Departamento,
-                  as: 'Departamento',
+                  as: "Departamento",
                   include: [
                     {
                       model: Sala,
-                      as: 'Sala',
-                      attributes: ['id', 'nombre', 'nombre_comercial', 'rif', 'ubicacion', 'correo', 'telefono']
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
+                      as: "Sala",
+                      attributes: [
+                        "id",
+                        "nombre",
+                        "nombre_comercial",
+                        "rif",
+                        "ubicacion",
+                        "correo",
+                        "telefono",
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     // Obtener las salas del usuario logueado para filtrar dispositivos
@@ -8226,31 +9051,31 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
       include: [
         {
           model: Sala,
-          as: 'Salas',
-          attributes: ['id']
-        }
-      ]
+          as: "Salas",
+          attributes: ["id"],
+        },
+      ],
     });
 
     // Agregar dispositivos al empleado actualizado
     if (user && user.Salas && user.Salas.length > 0) {
-      const userSalaIds = user.Salas.map(sala => sala.id);
+      const userSalaIds = user.Salas.map((sala) => sala.id);
       const dispositivos = await sequelize.query(
-        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id',
+        "SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? AND d.sala_id IN (?) ORDER BY d.id",
         {
           replacements: [id, userSalaIds],
-          type: sequelize.QueryTypes.SELECT
-        }
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
       empleadoActualizado.dataValues.dispositivos = dispositivos;
-    } else if (req.user.usuario === 'willinthon') {
+    } else if (req.user.usuario === "willinthon") {
       // Para el usuario willinthon, obtener todos los dispositivos sin filtrar por sala
       const dispositivos = await sequelize.query(
-        'SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id',
+        "SELECT DISTINCT d.id, d.nombre, d.ip_local, d.ip_remota, d.usuario, d.clave, s.nombre as sala_nombre FROM empleado_dispositivos ed JOIN dispositivos d ON ed.dispositivo_id = d.id LEFT JOIN salas s ON d.sala_id = s.id WHERE ed.empleado_id = ? ORDER BY d.id",
         {
           replacements: [id],
-          type: sequelize.QueryTypes.SELECT
-        }
+          type: sequelize.QueryTypes.SELECT,
+        },
       );
       empleadoActualizado.dataValues.dispositivos = dispositivos;
     } else {
@@ -8259,57 +9084,55 @@ app.put('/api/empleados/:id', authenticateToken, async (req, res) => {
 
     res.json(empleadoActualizado);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/empleados/:id/activar - Activar empleado (cambiar activo de 0 a 1)
-app.put('/api/empleados/:id/activar', authenticateToken, async (req, res) => {
+app.put("/api/empleados/:id/activar", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const empleado = await Empleado.findByPk(id);
     if (!empleado) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
+      return res.status(404).json({ message: "Empleado no encontrado" });
     }
 
     // Verificar que el empleado esté borrado (activo = 0)
     if (empleado.activo !== 0) {
-      return res.status(400).json({ message: 'El empleado ya está activo' });
+      return res.status(400).json({ message: "El empleado ya está activo" });
     }
 
     // Activar el empleado
     await empleado.update({ activo: 1 });
 
-    res.json({ 
-      message: 'Empleado activado exitosamente',
+    res.json({
+      message: "Empleado activado exitosamente",
       empleado: {
         id: empleado.id,
         nombre: empleado.nombre,
-        activo: empleado.activo
-      }
+        activo: empleado.activo,
+      },
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // DELETE /api/empleados/:id - Eliminar empleado
-app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
-    const { id } = req.params;
-    
+app.delete("/api/empleados/:id", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+
   try {
     const empleado = await Empleado.findByPk(id);
     if (!empleado) {
-      return res.status(404).json({ message: 'Empleado no encontrado' });
+      return res.status(404).json({ message: "Empleado no encontrado" });
     }
 
     // Verificar si el empleado tiene relaciones que impidan su eliminación
-    
-    
-    const relations = await sequelize.query(`
+
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Tareas Dispositivo Usuarios' as table_name, COUNT(*) as count FROM tareas_dispositivo_usuarios WHERE numero_cedula_empleado = ?
         UNION ALL
@@ -8321,1061 +9144,1201 @@ app.delete('/api/empleados/:id', authenticateToken, async (req, res) => {
         UNION ALL
         SELECT 'Marcajes' as table_name, COUNT(*) as count FROM attlogs WHERE employee_no = ?
       ) as relations WHERE count > 0
-    `, {
-      replacements: [empleado.cedula, id, id, id, empleado.cedula],
-      type: sequelize.QueryTypes.SELECT
-    });
-    
-    
+    `,
+      {
+        replacements: [empleado.cedula, id, id, id, empleado.cedula],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
 
     if (relations.length > 0) {
-      return res.status(400).json({ 
-        message: 'No se puede eliminar el empleado porque tiene elementos asociados.',
+      return res.status(400).json({
+        message:
+          "No se puede eliminar el empleado porque tiene elementos asociados.",
         relations: relations,
         empleado: {
           id: empleado.id,
           nombre: empleado.nombre,
-          cedula: empleado.cedula
-        }
+          cedula: empleado.cedula,
+        },
       });
     }
 
     // Si no hay relaciones, eliminar físicamente de la base de datos
     await empleado.destroy();
-    res.json({ message: 'Empleado eliminado permanentemente de la base de datos' });
+    res.json({
+      message: "Empleado eliminado permanentemente de la base de datos",
+    });
   } catch (error) {
-    
-    
-    
     // Si es un error de foreign key constraint, devolver información específica
-    if (error.name === 'SequelizeForeignKeyConstraintError') {
+    if (error.name === "SequelizeForeignKeyConstraintError") {
       return res.status(400).json({
-        message: 'No se puede eliminar el empleado porque tiene relaciones que impiden su eliminación',
+        message:
+          "No se puede eliminar el empleado porque tiene relaciones que impiden su eliminación",
         relations: [
-          { table_name: 'Relaciones de Base de Datos', count: 'Tiene registros asociados' }
+          {
+            table_name: "Relaciones de Base de Datos",
+            count: "Tiene registros asociados",
+          },
         ],
         empleado: {
           id: id,
-          nombre: 'Empleado',
-          tipo: 'empleado'
+          nombre: "Empleado",
+          tipo: "empleado",
         },
-        helpText: 'Para eliminar este empleado, primero debe eliminar o reasignar los elementos relacionados.'
+        helpText:
+          "Para eliminar este empleado, primero debe eliminar o reasignar los elementos relacionados.",
       });
     }
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // GET /api/empleados/verificar-cedula/:cedula - Verificar si una cédula ya existe
-app.get('/api/empleados/verificar-cedula/:cedula', authenticateToken, async (req, res) => {
-  try {
-    const { cedula } = req.params;
-    
-    const empleadoExistente = await Empleado.findOne({ 
-      where: { cedula },
-      attributes: ['id', 'cedula', 'nombre']
-    });
-    
-    res.json({ 
-      existe: !!empleadoExistente,
-      empleado: empleadoExistente
-    });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+app.get(
+  "/api/empleados/verificar-cedula/:cedula",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { cedula } = req.params;
+
+      const empleadoExistente = await Empleado.findOne({
+        where: { cedula },
+        attributes: ["id", "cedula", "nombre"],
+      });
+
+      res.json({
+        existe: !!empleadoExistente,
+        empleado: empleadoExistente,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // ==================== RUTAS DE TAREAS DISPOSITIVO USUARIOS ====================
 
 // GET /api/tareas-dispositivo-usuarios/user/:userId - Obtener tareas por usuario
-app.get('/api/tareas-dispositivo-usuarios/user/:userId', authenticateToken, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    
-    const tareas = await sequelize.query(
-      `SELECT * FROM tareas_dispositivo_usuarios WHERE user_id = ? 
-       ORDER BY 
-         CASE 
+app.get(
+  "/api/tareas-dispositivo-usuarios/user/:userId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const tareas = await sequelize.query(
+        `SELECT * FROM tareas_dispositivo_usuarios WHERE user_id = ?
+       ORDER BY
+         CASE
            WHEN accion_realizar LIKE '%Usuario%' THEN 1
            WHEN accion_realizar LIKE '%Foto%' THEN 2
            ELSE 3
          END,
          created_at ASC`,
-      {
-        replacements: [userId],
-        type: sequelize.QueryTypes.SELECT
-      }
-    );
+        {
+          replacements: [userId],
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
 
-    res.json(tareas);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      res.json(tareas);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // GET /api/tareas-dispositivo-usuarios - Obtener todas las tareas
-app.get('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res) => {
-  try {
-    const tareas = await sequelize.query(
-      `SELECT * FROM tareas_dispositivo_usuarios 
-       ORDER BY 
-         CASE 
+app.get(
+  "/api/tareas-dispositivo-usuarios",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const tareas = await sequelize.query(
+        `SELECT * FROM tareas_dispositivo_usuarios
+       ORDER BY
+         CASE
            WHEN accion_realizar LIKE '%Usuario%' THEN 1
            WHEN accion_realizar LIKE '%Foto%' THEN 2
            ELSE 3
          END,
          created_at ASC`,
-      {
-        type: sequelize.QueryTypes.SELECT
-      }
-    );
+        {
+          type: sequelize.QueryTypes.SELECT,
+        },
+      );
 
-    res.json(tareas);
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      res.json(tareas);
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // POST /api/tareas-dispositivo-usuarios - Crear nueva tarea
-app.post('/api/tareas-dispositivo-usuarios', authenticateToken, async (req, res) => {
-  try {
-    const {
-      user_id,
-      numero_cedula_empleado,
-      nombre_empleado,
-      nombre_genero,
-      nombre_cargo,
-      nombre_sala,
-      nombre_area,
-      nombre_departamento,
-      foto_empleado,
-      ip_publica_dispositivo,
-      ip_local_dispositivo,
-      usuario_login_dispositivo,
-      clave_login_dispositivo,
-      accion_realizar,
-      marcaje_empleado_inicio_dispositivo,
-      marcaje_empleado_fin_dispositivo
-    } = req.body;
+app.post(
+  "/api/tareas-dispositivo-usuarios",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const {
+        user_id,
+        numero_cedula_empleado,
+        nombre_empleado,
+        nombre_genero,
+        nombre_cargo,
+        nombre_sala,
+        nombre_area,
+        nombre_departamento,
+        foto_empleado,
+        ip_publica_dispositivo,
+        ip_local_dispositivo,
+        usuario_login_dispositivo,
+        clave_login_dispositivo,
+        accion_realizar,
+        marcaje_empleado_inicio_dispositivo,
+        marcaje_empleado_fin_dispositivo,
+      } = req.body;
 
-    // Logging para depuración
-    console.log('Creando tarea:', {
-      accion: accion_realizar,
-      empleado: nombre_empleado,
-      cedula: numero_cedula_empleado,
-      dispositivo_ip_publica: ip_publica_dispositivo,
-      dispositivo_ip_local: ip_local_dispositivo,
-      nombre_dispositivo: req.body.nombre_dispositivo || 'N/A'
-    });
+      // Logging para depuración
+      console.log("Creando tarea:", {
+        accion: accion_realizar,
+        empleado: nombre_empleado,
+        cedula: numero_cedula_empleado,
+        dispositivo_ip_publica: ip_publica_dispositivo,
+        dispositivo_ip_local: ip_local_dispositivo,
+        nombre_dispositivo: req.body.nombre_dispositivo || "N/A",
+      });
 
-    // Usar Sequelize con retry para manejar SQLITE_BUSY
-    let retries = 3;
-    let lastError = null;
-    
-    while (retries > 0) {
-      try {
-        const result = await sequelize.query(
-          `INSERT INTO tareas_dispositivo_usuarios (
+      // Usar Sequelize con retry para manejar SQLITE_BUSY
+      let retries = 3;
+      let lastError = null;
+
+      while (retries > 0) {
+        try {
+          const result = await sequelize.query(
+            `INSERT INTO tareas_dispositivo_usuarios (
             user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
             nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
-            usuario_login_dispositivo, clave_login_dispositivo, accion_realizar, 
+            usuario_login_dispositivo, clave_login_dispositivo, accion_realizar,
             marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          {
-            replacements: [
-              user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
-              nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
-              usuario_login_dispositivo, clave_login_dispositivo, accion_realizar,
-              marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
-            ],
-            type: sequelize.QueryTypes.INSERT
+            {
+              replacements: [
+                user_id,
+                numero_cedula_empleado,
+                nombre_empleado,
+                nombre_genero,
+                nombre_cargo,
+                nombre_sala,
+                nombre_area,
+                nombre_departamento,
+                foto_empleado,
+                ip_publica_dispositivo,
+                usuario_login_dispositivo,
+                clave_login_dispositivo,
+                accion_realizar,
+                marcaje_empleado_inicio_dispositivo,
+                marcaje_empleado_fin_dispositivo,
+                ip_local_dispositivo,
+              ],
+              type: sequelize.QueryTypes.INSERT,
+            },
+          );
+
+          // Obtener el ID insertado
+          const insertedId = result[0] || result;
+
+          res.status(201).json({
+            message: "Tarea creada correctamente",
+            id: insertedId,
+          });
+          return; // Salir del loop si fue exitoso
+        } catch (error) {
+          lastError = error;
+
+          // Si es SQLITE_BUSY y hay reintentos disponibles, esperar y reintentar
+          if (
+            (error.code === "SQLITE_BUSY" ||
+              error.message?.includes("SQLITE_BUSY")) &&
+            retries > 1
+          ) {
+            retries--;
+            console.log(
+              `SQLITE_BUSY detectado, reintentando... (${retries} intentos restantes)`,
+            );
+            await new Promise((resolve) =>
+              setTimeout(resolve, 100 * (4 - retries)),
+            ); // Backoff exponencial
+            continue;
           }
-        );
 
-        // Obtener el ID insertado
-        const insertedId = result[0] || result;
-
-        res.status(201).json({ 
-          message: 'Tarea creada correctamente',
-          id: insertedId
-        });
-        return; // Salir del loop si fue exitoso
-      } catch (error) {
-        lastError = error;
-        
-        // Si es SQLITE_BUSY y hay reintentos disponibles, esperar y reintentar
-        if ((error.code === 'SQLITE_BUSY' || error.message?.includes('SQLITE_BUSY')) && retries > 1) {
-          retries--;
-          console.log(`SQLITE_BUSY detectado, reintentando... (${retries} intentos restantes)`);
-          await new Promise(resolve => setTimeout(resolve, 100 * (4 - retries))); // Backoff exponencial
-          continue;
+          // Si no es SQLITE_BUSY o se agotaron los reintentos, lanzar el error
+          throw error;
         }
-        
-        // Si no es SQLITE_BUSY o se agotaron los reintentos, lanzar el error
-        throw error;
       }
+
+      // Si llegamos aquí, se agotaron los reintentos
+      throw lastError;
+    } catch (error) {
+      res.status(500).json({
+        message: "Error interno del servidor",
+        error: error.message,
+        code: error.code,
+      });
     }
-    
-    // Si llegamos aquí, se agotaron los reintentos
-    throw lastError;
-  } catch (error) {
-    
-    
-    
-    
-    
-    res.status(500).json({ 
-      message: 'Error interno del servidor',
-      error: error.message,
-      code: error.code
-    });
-  }
-});
+  },
+);
 
 // GET /api/test-tarea - Endpoint de prueba simple (sin autenticación)
-app.get('/api/test-tarea', async (req, res) => {
+app.get("/api/test-tarea", async (req, res) => {
   try {
-    
-    
     const result = await sequelize.query(
       `INSERT INTO tareas_dispositivo_usuarios (
         user_id, numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
         nombre_sala, nombre_area, nombre_departamento, foto_empleado, ip_publica_dispositivo,
-        usuario_login_dispositivo, clave_login_dispositivo, accion_realizar, 
+        usuario_login_dispositivo, clave_login_dispositivo, accion_realizar,
         marcaje_empleado_inicio_dispositivo, marcaje_empleado_fin_dispositivo, ip_local_dispositivo
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       {
         replacements: [
-          1, '123456', 'Test User', 'male', 'Test Cargo',
-          'Test Sala', 'Test Area', 'Test Dept', '', '192.168.1.1',
-          'admin', 'password', 'Test Action',
-          '2025-01-01T00:00:00', '2025-12-31T23:59:59', '192.168.1.1'
-        ]
-      }
+          1,
+          "123456",
+          "Test User",
+          "male",
+          "Test Cargo",
+          "Test Sala",
+          "Test Area",
+          "Test Dept",
+          "",
+          "192.168.1.1",
+          "admin",
+          "password",
+          "Test Action",
+          "2025-01-01T00:00:00",
+          "2025-12-31T23:59:59",
+          "192.168.1.1",
+        ],
+      },
     );
 
-    
-    res.status(201).json({ 
-      message: 'Tarea de prueba creada correctamente',
-      id: result[0]
+    res.status(201).json({
+      message: "Tarea de prueba creada correctamente",
+      id: result[0],
     });
   } catch (error) {
-    
-    
-    
-    res.status(500).json({ 
-      message: 'Error en tarea de prueba',
+    res.status(500).json({
+      message: "Error en tarea de prueba",
       error: error.message,
-      code: error.code
+      code: error.code,
     });
   }
 });
 
 // PUT /api/tareas-dispositivo-usuarios/:id - Actualizar tarea
-app.put('/api/tareas-dispositivo-usuarios/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      numero_cedula_empleado,
-      nombre_empleado,
-      nombre_genero,
-      nombre_cargo,
-      nombre_sala,
-      nombre_area,
-      nombre_departamento,
-      foto_empleado,
-      ip_publica_dispositivo,
-      ip_local_dispositivo,
-      usuario_login_dispositivo,
-      clave_login_dispositivo,
-      accion_realizar,
-      marcaje_empleado_inicio_dispositivo,
-      marcaje_empleado_fin_dispositivo
-    } = req.body;
+app.put(
+  "/api/tareas-dispositivo-usuarios/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        numero_cedula_empleado,
+        nombre_empleado,
+        nombre_genero,
+        nombre_cargo,
+        nombre_sala,
+        nombre_area,
+        nombre_departamento,
+        foto_empleado,
+        ip_publica_dispositivo,
+        ip_local_dispositivo,
+        usuario_login_dispositivo,
+        clave_login_dispositivo,
+        accion_realizar,
+        marcaje_empleado_inicio_dispositivo,
+        marcaje_empleado_fin_dispositivo,
+      } = req.body;
 
-    await sequelize.query(
-      `UPDATE tareas_dispositivo_usuarios SET 
+      await sequelize.query(
+        `UPDATE tareas_dispositivo_usuarios SET
         numero_cedula_empleado = ?, nombre_empleado = ?, nombre_genero = ?, nombre_cargo = ?,
         nombre_sala = ?, nombre_area = ?, nombre_departamento = ?, foto_empleado = ?,
         ip_publica_dispositivo = ?, ip_local_dispositivo = ?, usuario_login_dispositivo = ?,
         clave_login_dispositivo = ?, accion_realizar = ?, marcaje_empleado_inicio_dispositivo = ?,
         marcaje_empleado_fin_dispositivo = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?`,
-      {
-        replacements: [
-          numero_cedula_empleado, nombre_empleado, nombre_genero, nombre_cargo,
-          nombre_sala, nombre_area, nombre_departamento, foto_empleado,
-          ip_publica_dispositivo, ip_local_dispositivo, usuario_login_dispositivo,
-          clave_login_dispositivo, accion_realizar, marcaje_empleado_inicio_dispositivo,
-          marcaje_empleado_fin_dispositivo, id
-        ]
-      }
-    );
+        {
+          replacements: [
+            numero_cedula_empleado,
+            nombre_empleado,
+            nombre_genero,
+            nombre_cargo,
+            nombre_sala,
+            nombre_area,
+            nombre_departamento,
+            foto_empleado,
+            ip_publica_dispositivo,
+            ip_local_dispositivo,
+            usuario_login_dispositivo,
+            clave_login_dispositivo,
+            accion_realizar,
+            marcaje_empleado_inicio_dispositivo,
+            marcaje_empleado_fin_dispositivo,
+            id,
+          ],
+        },
+      );
 
-    res.json({ message: 'Tarea actualizada correctamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      res.json({ message: "Tarea actualizada correctamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // DELETE /api/tareas-dispositivo-usuarios/:id - Eliminar tarea
-app.delete('/api/tareas-dispositivo-usuarios/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    await sequelize.query(
-      `DELETE FROM tareas_dispositivo_usuarios WHERE id = ?`,
-      {
-        replacements: [id]
-      }
-    );
+app.delete(
+  "/api/tareas-dispositivo-usuarios/:id",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    res.json({ message: 'Tarea eliminada correctamente' });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      await sequelize.query(
+        `DELETE FROM tareas_dispositivo_usuarios WHERE id = ?`,
+        {
+          replacements: [id],
+        },
+      );
+
+      res.json({ message: "Tarea eliminada correctamente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // ==================== ENDPOINTS DE COMUNICACIÓN CON DISPOSITIVOS ====================
 
 // POST /api/tareas/dispositivo/borrar-usuario
-app.post('/api/tareas/dispositivo/borrar-usuario', authenticateToken, async (req, res) => {
-  
-  try {
-    const { tarea } = req.body;
-    
-    
-    
-    
-    
-    
-    
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/AccessControl/UserInfo/Delete?format=json';
-    const method = 'PUT';
-    const body = {
-      UserInfoDelCond: {
-        EmployeeNoList: [
-          {
-            employeeNo: tarea.numero_cedula_empleado
-          }
-        ]
-      }
-    };
+app.post(
+  "/api/tareas/dispositivo/borrar-usuario",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { tarea } = req.body;
 
-    // Usar la lógica de autenticación Digest del backend
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      
-      // Detectar si es panel para el mensaje
-      const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
-                     (tarea.ip_local_dispositivo && 
-                      tarea.ip_local_dispositivo.trim() !== '' && 
-                      tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
-      
-      res.json({
-        success: true,
-        message: `Usuario eliminado correctamente del ${esPanel ? 'panel' : 'dispositivo'}`,
-        deviceResponse: response.data
-      });
-    } else {
-      
-      
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const endpoint = "/ISAPI/AccessControl/UserInfo/Delete?format=json";
+      const method = "PUT";
+      const body = {
+        UserInfoDelCond: {
+          EmployeeNoList: [
+            {
+              employeeNo: tarea.numero_cedula_empleado,
+            },
+          ],
+        },
+      };
+
+      // Usar la lógica de autenticación Digest del backend
+      const response = await makeDigestRequest(
+        deviceUrl,
+        endpoint,
+        method,
+        body,
+        tarea,
+      );
+
+      // Verificar si la respuesta del dispositivo fue exitosa
+      if (response.status >= 200 && response.status < 300) {
+        // Detectar si es panel para el mensaje
+        const esPanel =
+          (tarea.accion_realizar && tarea.accion_realizar.includes("Panel")) ||
+          (tarea.ip_local_dispositivo &&
+            tarea.ip_local_dispositivo.trim() !== "" &&
+            tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+
+        res.json({
+          success: true,
+          message: `Usuario eliminado correctamente del ${esPanel ? "panel" : "dispositivo"}`,
+          deviceResponse: response.data,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+          deviceResponse: response.data,
+        });
+      }
+    } catch (error) {
       res.status(500).json({
         success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
+        message: error.message,
       });
     }
-    
-  } catch (error) {
-    
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+  },
+);
 
 // POST /api/tareas/dispositivo/agregar-usuario
-app.post('/api/tareas/dispositivo/agregar-usuario', authenticateToken, async (req, res) => {
-  
-  try {
-    const { tarea } = req.body;
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    // Detectar si es panel: si la acción incluye "Panel" o si ip_publica_dispositivo es igual a ip_local_dispositivo
-    const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
-                   (tarea.ip_local_dispositivo && 
-                    tarea.ip_local_dispositivo.trim() !== '' && 
-                    tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
-    
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
-    const method = 'PUT';
-    
-    // Estructura diferente para panel vs biométrico
-    let body;
-    if (esPanel) {
-      // Estructura para PANEL
-      body = {
-        UserInfo: {
-          employeeNo: tarea.numero_cedula_empleado,
-          name: tarea.nombre_empleado,
-          userType: 'normal',
-          closeDelayEnabled: false,
-          Valid: {
-            enable: true,
-            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2025-01-01T00:00:00',
-            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
-            timeType: 'local'
-          },
-          belongGroup: '',
-          password: '',
-          doorRight: "1,2",
-          RightPlan: [
-            {
-              doorNo: 1,
-              planTemplateNo: "1"
-            },
-            {
-              doorNo: 2,
-              planTemplateNo: "1"
-            }
-          ],
-          maxOpenDoorTime: 0,
-          openDoorTime: 0
-        }
-      };
-    } else {
-      // Estructura para BIOMÉTRICO 
-      body = {
-        UserInfo: {
-          employeeNo: tarea.numero_cedula_empleado,
-          name: tarea.nombre_empleado,
-          gender: tarea.nombre_genero,
-          userType: 'normal',
-          doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
-          belongGroup: "1",
-          localUIRight: false,
-          maxOpenDoorTime: 0,
-          Valid: {
-            enable: true,
-            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2024-01-01T00:00:00',
-            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
-            timeType: 'local'
-          },
-          doorRight: "1",
-          RightPlan: [
-            {
-              doorNo: 1,
-              planTemplateNo: "1"
-            }
-          ]
-        }
-      };
-    }
+app.post(
+  "/api/tareas/dispositivo/agregar-usuario",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { tarea } = req.body;
 
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      
-      res.json({
-        success: true,
-        message: `Usuario agregado correctamente al ${esPanel ? 'panel' : 'dispositivo'}`,
-        deviceResponse: response.data
-      });
-    } else {
-      
-      
+      // Detectar si es panel: si la acción incluye "Panel" o si ip_publica_dispositivo es igual a ip_local_dispositivo
+      const esPanel =
+        (tarea.accion_realizar && tarea.accion_realizar.includes("Panel")) ||
+        (tarea.ip_local_dispositivo &&
+          tarea.ip_local_dispositivo.trim() !== "" &&
+          tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const endpoint = "/ISAPI/AccessControl/UserInfo/SetUp?format=json";
+      const method = "PUT";
+
+      // Estructura diferente para panel vs biométrico
+      let body;
+      if (esPanel) {
+        // Estructura para PANEL
+        body = {
+          UserInfo: {
+            employeeNo: tarea.numero_cedula_empleado,
+            name: tarea.nombre_empleado,
+            userType: "normal",
+            closeDelayEnabled: false,
+            Valid: {
+              enable: true,
+              beginTime:
+                tarea.marcaje_empleado_inicio_dispositivo ||
+                "2025-01-01T00:00:00",
+              endTime:
+                tarea.marcaje_empleado_fin_dispositivo || "2030-12-31T23:59:59",
+              timeType: "local",
+            },
+            belongGroup: "",
+            password: "",
+            doorRight: "1,2",
+            RightPlan: [
+              {
+                doorNo: 1,
+                planTemplateNo: "1",
+              },
+              {
+                doorNo: 2,
+                planTemplateNo: "1",
+              },
+            ],
+            maxOpenDoorTime: 0,
+            openDoorTime: 0,
+          },
+        };
+      } else {
+        // Estructura para BIOMÉTRICO
+        body = {
+          UserInfo: {
+            employeeNo: tarea.numero_cedula_empleado,
+            name: tarea.nombre_empleado,
+            gender: tarea.nombre_genero,
+            userType: "normal",
+            doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
+            belongGroup: "1",
+            localUIRight: false,
+            maxOpenDoorTime: 0,
+            Valid: {
+              enable: true,
+              beginTime:
+                tarea.marcaje_empleado_inicio_dispositivo ||
+                "2024-01-01T00:00:00",
+              endTime:
+                tarea.marcaje_empleado_fin_dispositivo || "2030-12-31T23:59:59",
+              timeType: "local",
+            },
+            doorRight: "1",
+            RightPlan: [
+              {
+                doorNo: 1,
+                planTemplateNo: "1",
+              },
+            ],
+          },
+        };
+      }
+
+      const response = await makeDigestRequest(
+        deviceUrl,
+        endpoint,
+        method,
+        body,
+        tarea,
+      );
+
+      // Verificar si la respuesta del dispositivo fue exitosa
+      if (response.status >= 200 && response.status < 300) {
+        res.json({
+          success: true,
+          message: `Usuario agregado correctamente al ${esPanel ? "panel" : "dispositivo"}`,
+          deviceResponse: response.data,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+          deviceResponse: response.data,
+        });
+      }
+    } catch (error) {
       res.status(500).json({
         success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
+        message: error.message,
       });
     }
-    
-  } catch (error) {
-    
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+  },
+);
 
 // POST /api/tareas/dispositivo/editar-usuario
-app.post('/api/tareas/dispositivo/editar-usuario', authenticateToken, async (req, res) => {
-  try {
-    const { tarea } = req.body;
-    
-    // Detectar si es panel: si la acción incluye "Panel" o si ip_publica_dispositivo es igual a ip_local_dispositivo
-    const esPanel = tarea.accion_realizar && tarea.accion_realizar.includes('Panel') ||
-                   (tarea.ip_local_dispositivo && 
-                    tarea.ip_local_dispositivo.trim() !== '' && 
-                    tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
-    
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/AccessControl/UserInfo/SetUp?format=json';
-    const method = 'PUT';
-    
-    // Estructura diferente para panel vs biométrico
-    let body;
-    if (esPanel) {
-      // Estructura para PANEL
-      body = {
-        UserInfo: {
-          employeeNo: tarea.numero_cedula_empleado,
-          name: tarea.nombre_empleado,
-          userType: 'normal',
-          closeDelayEnabled: false,
-          Valid: {
-            enable: true,
-            beginTime: tarea.marcaje_empleado_inicio_dispositivo || '2025-01-01T00:00:00',
-            endTime: tarea.marcaje_empleado_fin_dispositivo || '2030-12-31T23:59:59',
-            timeType: 'local'
-          },
-          belongGroup: '',
-          password: '',
-          doorRight: "1,2",
-          RightPlan: [
-            {
-              doorNo: 1,
-              planTemplateNo: "1"
-            },
-            {
-              doorNo: 2,
-              planTemplateNo: "1"
-            }
-          ],
-          maxOpenDoorTime: 0,
-          openDoorTime: 0
-        }
-      };
-    } else {
-      // Estructura para BIOMÉTRICO
-      body = {
-        UserInfo: {
-          employeeNo: tarea.numero_cedula_empleado,
-          name: tarea.nombre_empleado,
-          gender: tarea.nombre_genero,
-          userType: 'normal',
-          doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
-          belongGroup: "1",
-          Valid: {
-            enable: true,
-            beginTime: tarea.marcaje_empleado_inicio_dispositivo || tarea.fecha_ingreso || '2024-01-01T00:00:00',
-            endTime: tarea.marcaje_empleado_fin_dispositivo || '2025-12-31T23:59:59',
-            timeType: 'local'
-          },
-          doorRight: "1",
-          RightPlan: [
-            {
-              doorNo: 1,
-              planTemplateNo: "1"
-            }
-          ]
-        }
-      };
-    }
+app.post(
+  "/api/tareas/dispositivo/editar-usuario",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { tarea } = req.body;
 
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      
-      res.json({
-        success: true,
-        message: `Usuario editado correctamente en el ${esPanel ? 'panel' : 'dispositivo'}`,
-        deviceResponse: response.data
-      });
-    } else {
-      
-      
+      // Detectar si es panel: si la acción incluye "Panel" o si ip_publica_dispositivo es igual a ip_local_dispositivo
+      const esPanel =
+        (tarea.accion_realizar && tarea.accion_realizar.includes("Panel")) ||
+        (tarea.ip_local_dispositivo &&
+          tarea.ip_local_dispositivo.trim() !== "" &&
+          tarea.ip_publica_dispositivo === tarea.ip_local_dispositivo);
+
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const endpoint = "/ISAPI/AccessControl/UserInfo/SetUp?format=json";
+      const method = "PUT";
+
+      // Estructura diferente para panel vs biométrico
+      let body;
+      if (esPanel) {
+        // Estructura para PANEL
+        body = {
+          UserInfo: {
+            employeeNo: tarea.numero_cedula_empleado,
+            name: tarea.nombre_empleado,
+            userType: "normal",
+            closeDelayEnabled: false,
+            Valid: {
+              enable: true,
+              beginTime:
+                tarea.marcaje_empleado_inicio_dispositivo ||
+                "2025-01-01T00:00:00",
+              endTime:
+                tarea.marcaje_empleado_fin_dispositivo || "2030-12-31T23:59:59",
+              timeType: "local",
+            },
+            belongGroup: "",
+            password: "",
+            doorRight: "1,2",
+            RightPlan: [
+              {
+                doorNo: 1,
+                planTemplateNo: "1",
+              },
+              {
+                doorNo: 2,
+                planTemplateNo: "1",
+              },
+            ],
+            maxOpenDoorTime: 0,
+            openDoorTime: 0,
+          },
+        };
+      } else {
+        // Estructura para BIOMÉTRICO
+        body = {
+          UserInfo: {
+            employeeNo: tarea.numero_cedula_empleado,
+            name: tarea.nombre_empleado,
+            gender: tarea.nombre_genero,
+            userType: "normal",
+            doorNo: 1, // <--- AGREGA ESTA LÍNEA AQUÍ BIOMETRICOS NUEVOS AL PARECER
+            belongGroup: "1",
+            Valid: {
+              enable: true,
+              beginTime:
+                tarea.marcaje_empleado_inicio_dispositivo ||
+                tarea.fecha_ingreso ||
+                "2024-01-01T00:00:00",
+              endTime:
+                tarea.marcaje_empleado_fin_dispositivo || "2025-12-31T23:59:59",
+              timeType: "local",
+            },
+            doorRight: "1",
+            RightPlan: [
+              {
+                doorNo: 1,
+                planTemplateNo: "1",
+              },
+            ],
+          },
+        };
+      }
+
+      const response = await makeDigestRequest(
+        deviceUrl,
+        endpoint,
+        method,
+        body,
+        tarea,
+      );
+
+      // Verificar si la respuesta del dispositivo fue exitosa
+      if (response.status >= 200 && response.status < 300) {
+        res.json({
+          success: true,
+          message: `Usuario editado correctamente en el ${esPanel ? "panel" : "dispositivo"}`,
+          deviceResponse: response.data,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+          deviceResponse: response.data,
+        });
+      }
+    } catch (error) {
       res.status(500).json({
         success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
+        message: error.message,
       });
     }
-    
-  } catch (error) {
-    
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+  },
+);
 
 // POST /api/tareas/dispositivo/borrar-foto
-app.post('/api/tareas/dispositivo/borrar-foto', authenticateToken, async (req, res) => {
-  try {
-    const { tarea } = req.body;
-    
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
-    const method = 'PUT';
-    const body = {
-      FPID: [
-        {
-          value: tarea.numero_cedula_empleado
-        }
-      ]
-    };
+app.post(
+  "/api/tareas/dispositivo/borrar-foto",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { tarea } = req.body;
 
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      
-      res.json({
-        success: true,
-        message: 'Foto eliminada correctamente del dispositivo',
-        deviceResponse: response.data
-      });
-    } else {
-      
-      
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const endpoint =
+        "/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD";
+      const method = "PUT";
+      const body = {
+        FPID: [
+          {
+            value: tarea.numero_cedula_empleado,
+          },
+        ],
+      };
+
+      const response = await makeDigestRequest(
+        deviceUrl,
+        endpoint,
+        method,
+        body,
+        tarea,
+      );
+
+      // Verificar si la respuesta del dispositivo fue exitosa
+      if (response.status >= 200 && response.status < 300) {
+        res.json({
+          success: true,
+          message: "Foto eliminada correctamente del dispositivo",
+          deviceResponse: response.data,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+          deviceResponse: response.data,
+        });
+      }
+    } catch (error) {
       res.status(500).json({
         success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
+        message: error.message,
       });
     }
-    
-  } catch (error) {
-    
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+  },
+);
 
 // POST /api/tareas/dispositivo/agregar-foto
-app.post('/api/tareas/dispositivo/agregar-foto', authenticateToken, async (req, res) => {
-  try {
-    const { tarea } = req.body;
-    
-    // Primero eliminar la foto existente del dispositivo (si existe)
+app.post(
+  "/api/tareas/dispositivo/agregar-foto",
+  authenticateToken,
+  async (req, res) => {
     try {
-      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-      const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
-      const deleteBody = {
-        FPID: [
-          {
-            value: tarea.numero_cedula_empleado
-          }
-        ]
-      };
-      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
-    } catch (deleteError) {
-      // Continuar aunque falle la eliminación (puede que no exista foto previa)
-    }
-    
-    // Subir la imagen al servidor interno (base64 -> URL)
-    console.log(`[Agregar Foto] Subiendo imagen para cédula: ${tarea.numero_cedula_empleado}`);
-    const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
-    if (!imageUrl) {
-      console.error(`[Agregar Foto] Error: No se pudo subir la imagen para cédula ${tarea.numero_cedula_empleado}`);
-      return res.status(500).json({
-        success: false,
-        message: 'Error al subir la imagen al servidor'
-      });
-    }
-    console.log(`[Agregar Foto] Imagen subida exitosamente. URL: ${imageUrl}`);
-    
-    // Agregar la nueva foto al dispositivo usando la URL
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
-    const method = 'POST';
-    const body = {
-      faceURL: imageUrl,
-      faceLibType: 'blackFD',
-      FDID: '1',
-      FPID: tarea.numero_cedula_empleado,
-      name: tarea.nombre_empleado,
-      gender: tarea.nombre_genero === 'Masculino' ? 'male' : 'female',
-      featurePointType: 'face'
-    };
+      const { tarea } = req.body;
 
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      
-      res.json({
-        success: true,
-        message: 'Foto agregada correctamente al dispositivo',
-        deviceResponse: response.data
-      });
-    } else {
-      
-      
+      // Primero eliminar la foto existente del dispositivo (si existe)
+      try {
+        const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+        const deleteEndpoint =
+          "/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD";
+        const deleteBody = {
+          FPID: [
+            {
+              value: tarea.numero_cedula_empleado,
+            },
+          ],
+        };
+        await makeDigestRequest(
+          deviceUrl,
+          deleteEndpoint,
+          "PUT",
+          deleteBody,
+          tarea,
+        );
+      } catch (deleteError) {
+        // Continuar aunque falle la eliminación (puede que no exista foto previa)
+      }
+
+      // Subir la imagen al servidor interno (base64 -> URL)
+      console.log(
+        `[Agregar Foto] Subiendo imagen para cédula: ${tarea.numero_cedula_empleado}`,
+      );
+      const imageUrl = await subirImagenAlServidor(
+        tarea.foto_empleado,
+        tarea.numero_cedula_empleado,
+      );
+      if (!imageUrl) {
+        console.error(
+          `[Agregar Foto] Error: No se pudo subir la imagen para cédula ${tarea.numero_cedula_empleado}`,
+        );
+        return res.status(500).json({
+          success: false,
+          message: "Error al subir la imagen al servidor",
+        });
+      }
+      console.log(
+        `[Agregar Foto] Imagen subida exitosamente. URL: ${imageUrl}`,
+      );
+
+      // Agregar la nueva foto al dispositivo usando la URL
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const endpoint = "/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json";
+      const method = "POST";
+      const body = {
+        faceURL: imageUrl,
+        faceLibType: "blackFD",
+        FDID: "1",
+        FPID: tarea.numero_cedula_empleado,
+        name: tarea.nombre_empleado,
+        gender: tarea.nombre_genero === "Masculino" ? "male" : "female",
+        featurePointType: "face",
+      };
+
+      const response = await makeDigestRequest(
+        deviceUrl,
+        endpoint,
+        method,
+        body,
+        tarea,
+      );
+
+      // Verificar si la respuesta del dispositivo fue exitosa
+      if (response.status >= 200 && response.status < 300) {
+        res.json({
+          success: true,
+          message: "Foto agregada correctamente al dispositivo",
+          deviceResponse: response.data,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+          deviceResponse: response.data,
+        });
+      }
+    } catch (error) {
       res.status(500).json({
         success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
+        message: error.message,
       });
     }
-    
-  } catch (error) {
-    
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+  },
+);
 
 // POST /api/tareas/dispositivo/editar-foto
-app.post('/api/tareas/dispositivo/editar-foto', authenticateToken, async (req, res) => {
-  try {
-    const { tarea } = req.body;
-    
-    // Primero borrar la foto existente
+app.post(
+  "/api/tareas/dispositivo/editar-foto",
+  authenticateToken,
+  async (req, res) => {
     try {
-      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-      const deleteEndpoint = '/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD';
-      const deleteBody = {
-        FPID: [
-          {
-            value: tarea.numero_cedula_empleado
-          }
-        ]
-      };
-      
-      await makeDigestRequest(deviceUrl, deleteEndpoint, 'PUT', deleteBody, tarea);
-    } catch (deleteError) {
-      
-    }
-    
-    // Luego agregar la nueva foto (subir al servidor interno: base64 -> URL)
-    console.log(`[Editar Foto] Subiendo nueva imagen para cédula: ${tarea.numero_cedula_empleado}`);
-    const imageUrl = await subirImagenAlServidor(tarea.foto_empleado, tarea.numero_cedula_empleado);
-    if (!imageUrl) {
-      console.error(`[Editar Foto] Error: No se pudo subir la nueva imagen para cédula ${tarea.numero_cedula_empleado}`);
-      return res.status(500).json({
-        success: false,
-        message: 'Error al subir la nueva imagen al servidor'
-      });
-    }
-    console.log(`[Editar Foto] Nueva imagen subida exitosamente. URL: ${imageUrl}`);
-    
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json';
-    const method = 'POST';
-    const body = {
-      faceURL: imageUrl,
-      faceLibType: 'blackFD',
-      FDID: '1',
-      FPID: tarea.numero_cedula_empleado,
-      name: tarea.nombre_empleado,
-      gender: tarea.nombre_genero === 'Masculino' ? 'male' : 'female',
-      featurePointType: 'face'
-    };
+      const { tarea } = req.body;
 
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      
-      res.json({
-        success: true,
-        message: 'Foto editada correctamente en el dispositivo',
-        deviceResponse: response.data
-      });
-    } else {
-      
-      
+      // Primero borrar la foto existente
+      try {
+        const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+        const deleteEndpoint =
+          "/ISAPI/Intelligent/FDLib/FDSearch/Delete?format=json&FDID=1&faceLibType=blackFD";
+        const deleteBody = {
+          FPID: [
+            {
+              value: tarea.numero_cedula_empleado,
+            },
+          ],
+        };
+
+        await makeDigestRequest(
+          deviceUrl,
+          deleteEndpoint,
+          "PUT",
+          deleteBody,
+          tarea,
+        );
+      } catch (deleteError) {}
+
+      // Luego agregar la nueva foto (subir al servidor interno: base64 -> URL)
+      console.log(
+        `[Editar Foto] Subiendo nueva imagen para cédula: ${tarea.numero_cedula_empleado}`,
+      );
+      const imageUrl = await subirImagenAlServidor(
+        tarea.foto_empleado,
+        tarea.numero_cedula_empleado,
+      );
+      if (!imageUrl) {
+        console.error(
+          `[Editar Foto] Error: No se pudo subir la nueva imagen para cédula ${tarea.numero_cedula_empleado}`,
+        );
+        return res.status(500).json({
+          success: false,
+          message: "Error al subir la nueva imagen al servidor",
+        });
+      }
+      console.log(
+        `[Editar Foto] Nueva imagen subida exitosamente. URL: ${imageUrl}`,
+      );
+
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const endpoint = "/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json";
+      const method = "POST";
+      const body = {
+        faceURL: imageUrl,
+        faceLibType: "blackFD",
+        FDID: "1",
+        FPID: tarea.numero_cedula_empleado,
+        name: tarea.nombre_empleado,
+        gender: tarea.nombre_genero === "Masculino" ? "male" : "female",
+        featurePointType: "face",
+      };
+
+      const response = await makeDigestRequest(
+        deviceUrl,
+        endpoint,
+        method,
+        body,
+        tarea,
+      );
+
+      // Verificar si la respuesta del dispositivo fue exitosa
+      if (response.status >= 200 && response.status < 300) {
+        res.json({
+          success: true,
+          message: "Foto editada correctamente en el dispositivo",
+          deviceResponse: response.data,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+          deviceResponse: response.data,
+        });
+      }
+    } catch (error) {
       res.status(500).json({
         success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
+        message: error.message,
       });
     }
-    
-  } catch (error) {
-    
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+  },
+);
 
 // Función helper para generar cardNo desde cédula
 // Convierte V -> 1, E -> 2 y mantiene el resto del número
 function generarCardNoDesdeCedula(cedula) {
-  if (!cedula) return '';
-  
+  if (!cedula) return "";
+
   // Convertir a string y remover espacios
   let cedulaStr = cedula.toString().trim().toUpperCase();
-  
+
   // Si empieza con V, reemplazar con 1
-  if (cedulaStr.startsWith('V')) {
-    return '1' + cedulaStr.substring(1);
+  if (cedulaStr.startsWith("V")) {
+    return "1" + cedulaStr.substring(1);
   }
-  
+
   // Si empieza con E, reemplazar con 2
-  if (cedulaStr.startsWith('E')) {
-    return '2' + cedulaStr.substring(1);
+  if (cedulaStr.startsWith("E")) {
+    return "2" + cedulaStr.substring(1);
   }
-  
+
   // Si no tiene prefijo, asumir V (Venezolano) por defecto
-  return '1' + cedulaStr;
+  return "1" + cedulaStr;
 }
 
 // POST /api/tareas/dispositivo/agregar-tarjeta
-app.post('/api/tareas/dispositivo/agregar-tarjeta', authenticateToken, async (req, res) => {
-  try {
-    const { tarea } = req.body;
-    
-    // Generar cardNo desde la cédula
-    const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
-    
-    if (!cardNo) {
-      return res.status(400).json({
-        success: false,
-        message: 'No se pudo generar el número de tarjeta desde la cédula'
-      });
-    }
-    
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/AccessControl/CardInfo/SetUp?format=json';
-    const method = 'PUT';
-    const body = {
-      CardInfo: {
-        employeeNo: tarea.numero_cedula_empleado,
-        cardNo: cardNo,
-        cardType: 'normalCard'
-      }
-    };
+app.post(
+  "/api/tareas/dispositivo/agregar-tarjeta",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { tarea } = req.body;
 
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      res.json({
-        success: true,
-        message: 'Tarjeta agregada correctamente al dispositivo',
-        deviceResponse: response.data
-      });
-    } else {
-      
-      res.status(500).json({
-        success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
-      });
-    }
-    
-  } catch (error) {
-    
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
+      // Generar cardNo desde la cédula
+      const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
 
-// POST /api/tareas/dispositivo/editar-tarjeta
-app.post('/api/tareas/dispositivo/editar-tarjeta', authenticateToken, async (req, res) => {
-  try {
-    const { tarea } = req.body;
-    
-    // Generar cardNo desde la cédula
-    const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
-    
-    if (!cardNo) {
-      return res.status(400).json({
-        success: false,
-        message: 'No se pudo generar el número de tarjeta desde la cédula'
-      });
-    }
-    
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/AccessControl/CardInfo/SetUp?format=json';
-    const method = 'PUT';
-    const body = {
-      CardInfo: {
-        employeeNo: tarea.numero_cedula_empleado,
-        cardNo: cardNo,
-        cardType: 'normalCard'
-      }
-    };
-
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    if (response.status >= 200 && response.status < 300) {
-      
-      res.json({
-        success: true,
-        message: 'Tarjeta editada correctamente en el dispositivo',
-        deviceResponse: response.data
-      });
-    } else {
-      
-      res.status(500).json({
-        success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
-        deviceResponse: response.data
-      });
-    }
-    
-  } catch (error) {
-    
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-// POST /api/tareas/dispositivo/eliminar-tarjeta
-app.post('/api/tareas/dispositivo/eliminar-tarjeta', authenticateToken, async (req, res) => {
-  try {
-    const { tarea } = req.body;
-    
-    // Validar que tenemos la cédula
-    if (!tarea.numero_cedula_empleado) {
-      return res.status(400).json({
-        success: false,
-        message: 'No se proporcionó el número de cédula del empleado'
-      });
-    }
-    
-    // Generar cardNo desde la cédula
-    // V -> 1, E -> 2 (ejemplo: V25047058 -> 125047058, E25047058 -> 225047058)
-    const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
-    
-    if (!cardNo) {
-      return res.status(400).json({
-        success: false,
-        message: 'No se pudo generar el número de tarjeta desde la cédula'
-      });
-    }
-    
-    const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
-    const endpoint = '/ISAPI/AccessControl/CardInfo/Delete?format=json';
-    const method = 'PUT';
-    
-    // Asegurar que cardNo sea string (ya debería serlo, pero por seguridad)
-    const cardNoStr = String(cardNo);
-    
-    const body = {
-      CardInfoDelCond: {
-        CardNoList: [
-          {
-            cardNo: cardNoStr
-          }
-        ]
-      }
-    };
-
-    const response = await makeDigestRequest(deviceUrl, endpoint, method, body, tarea);
-    
-    // Verificar si la respuesta del dispositivo fue exitosa
-    // Hikvision puede responder con 200 incluso si hay errores, hay que verificar el statusCode en data
-    if (response && response.status >= 200 && response.status < 300) {
-      // Verificar el statusCode en la respuesta del dispositivo
-      if (response.data) {
-        // statusCode === 1 significa éxito en Hikvision
-        if (response.data.statusCode === 1) {
-          res.json({
-            success: true,
-            message: 'Tarjeta eliminada correctamente del dispositivo',
-            deviceResponse: response.data
-          });
-        } else if (response.data.statusCode === 2) {
-          // statusCode === 2 puede significar que no existe, pero lo consideramos éxito
-          res.json({
-            success: true,
-            message: 'La tarjeta no existe en el dispositivo (ya estaba eliminada)',
-            deviceResponse: response.data
-          });
-        } else if (response.data.subStatusCode === 'notExist' || response.data.subStatusCode === 'invalidOperation') {
-          // La tarjeta no existe o la operación es inválida
-          res.json({
-            success: true,
-            message: 'La tarjeta no existe en el dispositivo (ya estaba eliminada)',
-            deviceResponse: response.data
-          });
-        } else {
-          // Cualquier otro statusCode, verificar el mensaje
-          const statusString = response.data.statusString || response.data.subStatusCode || 'Desconocido';
-          // Si hay un error específico, devolverlo
-          if (response.data.subStatusCode) {
-            res.status(400).json({
-              success: false,
-              message: `Error del dispositivo: ${statusString}`,
-              deviceResponse: response.data
-            });
-          } else {
-            res.json({
-              success: true,
-              message: `Tarjeta procesada: ${statusString}`,
-              deviceResponse: response.data
-            });
-          }
-        }
-      } else {
-        // Si no hay data pero el status es 200-299, considerarlo éxito
-        res.json({
-          success: true,
-          message: 'Tarjeta eliminada correctamente del dispositivo',
-          deviceResponse: response.data
+      if (!cardNo) {
+        return res.status(400).json({
+          success: false,
+          message: "No se pudo generar el número de tarjeta desde la cédula",
         });
       }
-    } else if (response && response.status) {
-      // El dispositivo respondió con un error HTTP
-      res.status(response.status).json({
-        success: false,
-        message: `El dispositivo respondió con error: ${response.status} - ${response.statusText || 'Error desconocido'}`,
-        deviceResponse: response.data
-      });
-    } else {
-      // No hay respuesta válida
+
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const endpoint = "/ISAPI/AccessControl/CardInfo/SetUp?format=json";
+      const method = "PUT";
+      const body = {
+        CardInfo: {
+          employeeNo: tarea.numero_cedula_empleado,
+          cardNo: cardNo,
+          cardType: "normalCard",
+        },
+      };
+
+      const response = await makeDigestRequest(
+        deviceUrl,
+        endpoint,
+        method,
+        body,
+        tarea,
+      );
+
+      // Verificar si la respuesta del dispositivo fue exitosa
+      if (response.status >= 200 && response.status < 300) {
+        res.json({
+          success: true,
+          message: "Tarjeta agregada correctamente al dispositivo",
+          deviceResponse: response.data,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+          deviceResponse: response.data,
+        });
+      }
+    } catch (error) {
       res.status(500).json({
         success: false,
-        message: 'El dispositivo no respondió correctamente',
-        deviceResponse: response
+        message: error.message,
       });
     }
-    
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Error al eliminar la tarjeta',
-      error: error.message
-    });
-  }
-});
+  },
+);
+
+// POST /api/tareas/dispositivo/editar-tarjeta
+app.post(
+  "/api/tareas/dispositivo/editar-tarjeta",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { tarea } = req.body;
+
+      // Generar cardNo desde la cédula
+      const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
+
+      if (!cardNo) {
+        return res.status(400).json({
+          success: false,
+          message: "No se pudo generar el número de tarjeta desde la cédula",
+        });
+      }
+
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const endpoint = "/ISAPI/AccessControl/CardInfo/SetUp?format=json";
+      const method = "PUT";
+      const body = {
+        CardInfo: {
+          employeeNo: tarea.numero_cedula_empleado,
+          cardNo: cardNo,
+          cardType: "normalCard",
+        },
+      };
+
+      const response = await makeDigestRequest(
+        deviceUrl,
+        endpoint,
+        method,
+        body,
+        tarea,
+      );
+
+      // Verificar si la respuesta del dispositivo fue exitosa
+      if (response.status >= 200 && response.status < 300) {
+        res.json({
+          success: true,
+          message: "Tarjeta editada correctamente en el dispositivo",
+          deviceResponse: response.data,
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: `El dispositivo respondió con error: ${response.status} - ${response.statusText}`,
+          deviceResponse: response.data,
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+  },
+);
+
+// POST /api/tareas/dispositivo/eliminar-tarjeta
+app.post(
+  "/api/tareas/dispositivo/eliminar-tarjeta",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { tarea } = req.body;
+
+      // Validar que tenemos la cédula
+      if (!tarea.numero_cedula_empleado) {
+        return res.status(400).json({
+          success: false,
+          message: "No se proporcionó el número de cédula del empleado",
+        });
+      }
+
+      // Generar cardNo desde la cédula
+      // V -> 1, E -> 2 (ejemplo: V25047058 -> 125047058, E25047058 -> 225047058)
+      const cardNo = generarCardNoDesdeCedula(tarea.numero_cedula_empleado);
+
+      if (!cardNo) {
+        return res.status(400).json({
+          success: false,
+          message: "No se pudo generar el número de tarjeta desde la cédula",
+        });
+      }
+
+      const deviceUrl = `http://${tarea.ip_publica_dispositivo}`;
+      const endpoint = "/ISAPI/AccessControl/CardInfo/Delete?format=json";
+      const method = "PUT";
+
+      // Asegurar que cardNo sea string (ya debería serlo, pero por seguridad)
+      const cardNoStr = String(cardNo);
+
+      const body = {
+        CardInfoDelCond: {
+          CardNoList: [
+            {
+              cardNo: cardNoStr,
+            },
+          ],
+        },
+      };
+
+      const response = await makeDigestRequest(
+        deviceUrl,
+        endpoint,
+        method,
+        body,
+        tarea,
+      );
+
+      // Verificar si la respuesta del dispositivo fue exitosa
+      // Hikvision puede responder con 200 incluso si hay errores, hay que verificar el statusCode en data
+      if (response && response.status >= 200 && response.status < 300) {
+        // Verificar el statusCode en la respuesta del dispositivo
+        if (response.data) {
+          // statusCode === 1 significa éxito en Hikvision
+          if (response.data.statusCode === 1) {
+            res.json({
+              success: true,
+              message: "Tarjeta eliminada correctamente del dispositivo",
+              deviceResponse: response.data,
+            });
+          } else if (response.data.statusCode === 2) {
+            // statusCode === 2 puede significar que no existe, pero lo consideramos éxito
+            res.json({
+              success: true,
+              message:
+                "La tarjeta no existe en el dispositivo (ya estaba eliminada)",
+              deviceResponse: response.data,
+            });
+          } else if (
+            response.data.subStatusCode === "notExist" ||
+            response.data.subStatusCode === "invalidOperation"
+          ) {
+            // La tarjeta no existe o la operación es inválida
+            res.json({
+              success: true,
+              message:
+                "La tarjeta no existe en el dispositivo (ya estaba eliminada)",
+              deviceResponse: response.data,
+            });
+          } else {
+            // Cualquier otro statusCode, verificar el mensaje
+            const statusString =
+              response.data.statusString ||
+              response.data.subStatusCode ||
+              "Desconocido";
+            // Si hay un error específico, devolverlo
+            if (response.data.subStatusCode) {
+              res.status(400).json({
+                success: false,
+                message: `Error del dispositivo: ${statusString}`,
+                deviceResponse: response.data,
+              });
+            } else {
+              res.json({
+                success: true,
+                message: `Tarjeta procesada: ${statusString}`,
+                deviceResponse: response.data,
+              });
+            }
+          }
+        } else {
+          // Si no hay data pero el status es 200-299, considerarlo éxito
+          res.json({
+            success: true,
+            message: "Tarjeta eliminada correctamente del dispositivo",
+            deviceResponse: response.data,
+          });
+        }
+      } else if (response && response.status) {
+        // El dispositivo respondió con un error HTTP
+        res.status(response.status).json({
+          success: false,
+          message: `El dispositivo respondió con error: ${response.status} - ${response.statusText || "Error desconocido"}`,
+          deviceResponse: response.data,
+        });
+      } else {
+        // No hay respuesta válida
+        res.status(500).json({
+          success: false,
+          message: "El dispositivo no respondió correctamente",
+          deviceResponse: response,
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error.message || "Error al eliminar la tarjeta",
+        error: error.message,
+      });
+    }
+  },
+);
 
 // Función para subir imagen al servidor PHP
 // ACTUALIZADA: Ahora usa el servidor interno
@@ -9385,12 +10348,12 @@ async function subirImagenAlServidor(base64Image, cedula = null) {
     if (cedula) {
       return await uploadImageToInternalServer(base64Image, cedula);
     }
-    
+
     // Si no hay cédula, generar un ID único temporal
     const tempCedula = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     return await uploadImageToInternalServer(base64Image, tempCedula);
   } catch (error) {
-    console.error('Error en subirImagenAlServidor:', error);
+    console.error("Error en subirImagenAlServidor:", error);
     return null;
   }
 }
@@ -9398,177 +10361,164 @@ async function subirImagenAlServidor(base64Image, cedula = null) {
 // Función para hacer peticiones con autenticación Digest (igual que en gestión biométrica)
 // Función específica para descargar imágenes con Digest Authentication
 async function makeDigestRequestForImage(deviceUrl, endpoint, credentials) {
-  const axios = require('axios');
-  const crypto = require('crypto');
-  
+  const axios = require("axios");
+  const crypto = require("crypto");
+
   const username = credentials.usuario_login_dispositivo;
   const password = credentials.clave_login_dispositivo;
   const fullUrl = `${deviceUrl}${endpoint}`;
-  
-  
-  
-  
-  
+
   try {
     // Primera petición para obtener challenge digest
-    
-    
+
     const firstResponse = await axios({
-      method: 'GET',
+      method: "GET",
       url: fullUrl,
       headers: {
-        'Accept': 'image/jpeg, image/png, */*'
+        Accept: "image/jpeg, image/png, */*",
       },
       timeout: 30000,
-      validateStatus: (status) => status === 401
+      validateStatus: (status) => status === 401,
     });
-    
-    
+
     const directResponse = await axios({
-      method: 'GET',
+      method: "GET",
       url: fullUrl,
       headers: {
-        'Accept': 'image/jpeg, image/png, */*'
+        Accept: "image/jpeg, image/png, */*",
       },
       timeout: 30000,
-      responseType: 'arraybuffer' // Importante para imágenes binarias
+      responseType: "arraybuffer", // Importante para imágenes binarias
     });
-    
-    
+
     return directResponse;
-    
   } catch (error) {
     if (error.response && error.response.status === 401) {
-      
-      
-      
-      
       // Extraer información del challenge digest
-      const wwwAuthenticate = error.response.headers['www-authenticate'];
-      
-      if (wwwAuthenticate && wwwAuthenticate.includes('Digest')) {
+      const wwwAuthenticate = error.response.headers["www-authenticate"];
+
+      if (wwwAuthenticate && wwwAuthenticate.includes("Digest")) {
         // Parsear el challenge digest
         const challenge = parseDigestChallenge(wwwAuthenticate);
-        
+
         // Generar respuesta digest
-        
-        const digestResponse = generateDigestResponse(challenge, username, password, fullUrl, 'GET');
-        
-        
+
+        const digestResponse = generateDigestResponse(
+          challenge,
+          username,
+          password,
+          fullUrl,
+          "GET",
+        );
+
         // Segunda petición con la respuesta digest
         try {
           const secondResponse = await axios({
-            method: 'GET',
+            method: "GET",
             url: fullUrl,
             headers: {
-              'Accept': 'image/jpeg, image/png, */*',
-              'Authorization': `Digest ${digestResponse}`
+              Accept: "image/jpeg, image/png, */*",
+              Authorization: `Digest ${digestResponse}`,
             },
             timeout: 30000,
-            responseType: 'arraybuffer' // Importante para imágenes binarias
+            responseType: "arraybuffer", // Importante para imágenes binarias
           });
-          
-          
-          
+
           return secondResponse;
-          
         } catch (secondError) {
-          
           if (secondError.response?.data) {
-            
           }
           throw secondError;
         }
       } else {
-        
         throw error;
       }
     } else {
-      
       throw error;
     }
   }
 }
 
-async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials) {
-  const axios = require('axios');
-  const crypto = require('crypto');
-  
+async function makeDigestRequest(
+  deviceUrl,
+  endpoint,
+  method,
+  body,
+  credentials,
+) {
+  const axios = require("axios");
+  const crypto = require("crypto");
+
   // Manejar tanto objeto tarea como credenciales directas
   let username, password, requestBody;
-  
-  if (typeof credentials === 'object' && credentials.usuario_login_dispositivo) {
+
+  if (
+    typeof credentials === "object" &&
+    credentials.usuario_login_dispositivo
+  ) {
     // Es un objeto tarea o authObject
     username = credentials.usuario_login_dispositivo;
     password = credentials.clave_login_dispositivo;
     requestBody = body; // body contiene el JSON del POST
-  } else if (typeof credentials === 'string') {
+  } else if (typeof credentials === "string") {
     // Es credenciales directas: credentials = clave, body = usuario
-    username = body;  // body contiene el usuario
-    password = credentials;  // credentials contiene la clave
+    username = body; // body contiene el usuario
+    password = credentials; // credentials contiene la clave
     requestBody = null; // No hay body JSON
   } else {
-    throw new Error('Formato de credenciales no válido');
+    throw new Error("Formato de credenciales no válido");
   }
-  
+
   const fullUrl = `${deviceUrl}${endpoint}`;
-  
-  
-  
-  
-  
-  
-  
+
   // Primera petición para obtener challenge digest
-  
-  
+
   try {
     const firstResponse = await axios({
       method: method,
       url: fullUrl,
       data: requestBody ? JSON.stringify(requestBody) : undefined,
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       },
       timeout: 10000, // 10 segundos para health check
-      validateStatus: (status) => status === 401
+      validateStatus: (status) => status === 401,
     });
-    
+
     // Si llegamos aquí, no hubo error 401, intentar sin autenticación
-    
+
     const directResponse = await axios({
       method: method,
       url: fullUrl,
       data: requestBody ? JSON.stringify(requestBody) : undefined,
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       },
-      timeout: 30000 // 30 segundos
+      timeout: 30000, // 30 segundos
     });
-    
-    
+
     return directResponse;
-    
   } catch (error) {
     if (error.response && error.response.status === 401) {
-      
-      
-      
-      
       // Extraer información del challenge digest
-      const wwwAuthenticate = error.response.headers['www-authenticate'];
-      
-      if (wwwAuthenticate && wwwAuthenticate.includes('Digest')) {
+      const wwwAuthenticate = error.response.headers["www-authenticate"];
+
+      if (wwwAuthenticate && wwwAuthenticate.includes("Digest")) {
         // Parsear el challenge digest
         const challenge = parseDigestChallenge(wwwAuthenticate);
-        
+
         // Generar respuesta digest
-        
-        const digestResponse = generateDigestResponse(challenge, username, password, fullUrl, method);
-        
-        
+
+        const digestResponse = generateDigestResponse(
+          challenge,
+          username,
+          password,
+          fullUrl,
+          method,
+        );
+
         // Segunda petición con la respuesta digest
         try {
           const secondResponse = await axios({
@@ -9576,33 +10526,30 @@ async function makeDigestRequest(deviceUrl, endpoint, method, body, credentials)
             url: fullUrl,
             data: requestBody ? JSON.stringify(requestBody) : undefined,
             headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Authorization': `Digest ${digestResponse}`
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Digest ${digestResponse}`,
             },
-            timeout: 30000 // 30 segundos
+            timeout: 30000, // 30 segundos
           });
-          
-          
-          
+
           return secondResponse;
         } catch (secondError) {
           // Devolver la respuesta del error para que el frontend pueda manejarla
-          
+
           if (secondError.response) {
-            
             return secondError.response;
           } else {
             // Si no hay respuesta, crear una respuesta de error
-            
+
             return {
               status: 500,
-              data: { error: 'Error en autenticación Digest' }
+              data: { error: "Error en autenticación Digest" },
             };
           }
         }
       } else {
-        throw new Error('No se encontró challenge digest válido');
+        throw new Error("No se encontró challenge digest válido");
       }
     } else {
       throw error;
@@ -9614,35 +10561,35 @@ function parseDigestChallenge(wwwAuthenticate) {
   const challenge = {};
   const regex = /(\w+)="([^"]+)"/g;
   let match;
-  
+
   while ((match = regex.exec(wwwAuthenticate)) !== null) {
     challenge[match[1]] = match[2];
   }
-  
+
   return challenge;
 }
 
 function generateDigestResponse(challenge, username, password, uri, method) {
-  const crypto = require('crypto');
-  const realm = challenge.realm || '';
-  const nonce = challenge.nonce || '';
-  const qop = challenge.qop || '';
+  const crypto = require("crypto");
+  const realm = challenge.realm || "";
+  const nonce = challenge.nonce || "";
+  const qop = challenge.qop || "";
 
-  const cnonce = crypto.randomBytes(16).toString('hex');
+  const cnonce = crypto.randomBytes(16).toString("hex");
 
   const ha1String = `${username}:${realm}:${password}`;
-  const ha1 = crypto.createHash('md5').update(ha1String).digest('hex');
+  const ha1 = crypto.createHash("md5").update(ha1String).digest("hex");
 
   const ha2String = `${method}:${uri}`;
-  const ha2 = crypto.createHash('md5').update(ha2String).digest('hex');
+  const ha2 = crypto.createHash("md5").update(ha2String).digest("hex");
 
   let response;
-  if (qop === 'auth') {
+  if (qop === "auth") {
     const responseString = `${ha1}:${nonce}:00000001:${cnonce}:${qop}:${ha2}`;
-    response = crypto.createHash('md5').update(responseString).digest('hex');
+    response = crypto.createHash("md5").update(responseString).digest("hex");
   } else {
     const responseString = `${ha1}:${nonce}:${ha2}`;
-    response = crypto.createHash('md5').update(responseString).digest('hex');
+    response = crypto.createHash("md5").update(responseString).digest("hex");
   }
 
   let digestResponse = `username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}"`;
@@ -9660,33 +10607,34 @@ function generateDigestResponse(challenge, username, password, uri, method) {
 
 // ==================== RUTAS DE HIKVISION ISAPI ====================
 
-const HikvisionISAPI = require('./hikvision-isapi');
+const HikvisionISAPI = require("./hikvision-isapi");
 
 // Función para parsear información del dispositivo desde XML
 function parseDeviceInfo(xmlData) {
   try {
     // Extraer información básica del XML
     const modelMatch = xmlData.match(/<modelName>(.*?)<\/modelName>/);
-    const versionMatch = xmlData.match(/<firmwareVersion>(.*?)<\/firmwareVersion>/);
+    const versionMatch = xmlData.match(
+      /<firmwareVersion>(.*?)<\/firmwareVersion>/,
+    );
     const serialMatch = xmlData.match(/<serialNumber>(.*?)<\/serialNumber>/);
-    
+
     return {
-      model: modelMatch ? modelMatch[1] : 'N/A',
-      version: versionMatch ? versionMatch[1] : 'N/A',
-      serial: serialMatch ? serialMatch[1] : 'N/A',
-      status: 'Online',
-      manufacturer: 'Hikvision',
-      protocol: 'ISAPI'
+      model: modelMatch ? modelMatch[1] : "N/A",
+      version: versionMatch ? versionMatch[1] : "N/A",
+      serial: serialMatch ? serialMatch[1] : "N/A",
+      status: "Online",
+      manufacturer: "Hikvision",
+      protocol: "ISAPI",
     };
   } catch (error) {
-    
     return {
-      model: 'N/A',
-      version: 'N/A',
-      serial: 'N/A',
-      status: 'Unknown',
-      manufacturer: 'Hikvision',
-      protocol: 'ISAPI'
+      model: "N/A",
+      version: "N/A",
+      serial: "N/A",
+      status: "Unknown",
+      manufacturer: "Hikvision",
+      protocol: "ISAPI",
     };
   }
 }
@@ -9695,51 +10643,58 @@ function parseDeviceInfo(xmlData) {
 function parseUsers(data) {
   try {
     const users = [];
-    
+
     // Verificar si es JSON o XML
-    if (typeof data === 'object' && data.UserInfoSearch && data.UserInfoSearch.UserInfo) {
+    if (
+      typeof data === "object" &&
+      data.UserInfoSearch &&
+      data.UserInfoSearch.UserInfo
+    ) {
       // Es JSON - parsear directamente
-      const userInfoArray = Array.isArray(data.UserInfoSearch.UserInfo) 
-        ? data.UserInfoSearch.UserInfo 
+      const userInfoArray = Array.isArray(data.UserInfoSearch.UserInfo)
+        ? data.UserInfoSearch.UserInfo
         : [data.UserInfoSearch.UserInfo];
-      
-      userInfoArray.forEach(user => {
+
+      userInfoArray.forEach((user) => {
         users.push({
           id: user.id || user.employeeNo,
           name: user.name || user.userName,
           employeeNo: user.employeeNo,
-          status: user.status || (user.Valid && user.Valid.enable ? 'active' : 'inactive'),
-          userType: user.userType || 'normal',
-          doorRight: user.doorRight || '1',
-          valid: user.Valid || null
+          status:
+            user.status ||
+            (user.Valid && user.Valid.enable ? "active" : "inactive"),
+          userType: user.userType || "normal",
+          doorRight: user.doorRight || "1",
+          valid: user.Valid || null,
         });
       });
-      
+
       return users;
-    } else if (typeof data === 'string' && data.includes('<?xml')) {
+    } else if (typeof data === "string" && data.includes("<?xml")) {
       // Es XML - parsear con regex
       const userMatches = data.match(/<UserInfo>(.*?)<\/UserInfo>/gs);
-      
+
       if (userMatches) {
-        userMatches.forEach(userXml => {
+        userMatches.forEach((userXml) => {
           const idMatch = userXml.match(/<id>(.*?)<\/id>/);
           const nameMatch = userXml.match(/<name>(.*?)<\/name>/);
-          const employeeNoMatch = userXml.match(/<employeeNo>(.*?)<\/employeeNo>/);
+          const employeeNoMatch = userXml.match(
+            /<employeeNo>(.*?)<\/employeeNo>/,
+          );
           const statusMatch = userXml.match(/<status>(.*?)<\/status>/);
-        
+
           users.push({
-            id: idMatch ? idMatch[1] : 'N/A',
-            name: nameMatch ? nameMatch[1] : 'Sin nombre',
-            employeeNo: employeeNoMatch ? employeeNoMatch[1] : 'N/A',
-            status: statusMatch ? statusMatch[1] : 'Active'
+            id: idMatch ? idMatch[1] : "N/A",
+            name: nameMatch ? nameMatch[1] : "Sin nombre",
+            employeeNo: employeeNoMatch ? employeeNoMatch[1] : "N/A",
+            status: statusMatch ? statusMatch[1] : "Active",
           });
         });
       }
     }
-    
+
     return users;
   } catch (error) {
-    
     return [];
   }
 }
@@ -9749,255 +10704,247 @@ function parseEvents(xmlData) {
   try {
     const events = [];
     const eventMatches = xmlData.match(/<AcsEvent>(.*?)<\/AcsEvent>/gs);
-    
+
     if (eventMatches) {
-      eventMatches.forEach(eventXml => {
+      eventMatches.forEach((eventXml) => {
         const idMatch = eventXml.match(/<id>(.*?)<\/id>/);
-        const employeeNoMatch = eventXml.match(/<employeeNo>(.*?)<\/employeeNo>/);
+        const employeeNoMatch = eventXml.match(
+          /<employeeNo>(.*?)<\/employeeNo>/,
+        );
         const timeMatch = eventXml.match(/<time>(.*?)<\/time>/);
         const eventTypeMatch = eventXml.match(/<eventType>(.*?)<\/eventType>/);
-        
+
         events.push({
-          id: idMatch ? idMatch[1] : 'N/A',
-          employeeNo: employeeNoMatch ? employeeNoMatch[1] : 'N/A',
+          id: idMatch ? idMatch[1] : "N/A",
+          employeeNo: employeeNoMatch ? employeeNoMatch[1] : "N/A",
           eventTime: timeMatch ? timeMatch[1] : new Date().toISOString(),
-          eventType: eventTypeMatch ? eventTypeMatch[1] : 'Access'
+          eventType: eventTypeMatch ? eventTypeMatch[1] : "Access",
         });
       });
     }
-    
+
     return events;
   } catch (error) {
-    
     return [];
   }
 }
 
 // POST /api/hikvision/test-connection - Probar conexión con biométrico
-app.post('/api/hikvision/test-connection', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave } = req.body;
-    
-    
-    
-    
-    
-    
-    // Probar credenciales comunes de Hikvision si las actuales fallan
-    const commonCredentials = [
-      { user: 'admin', pass: '12345' },
-      { user: 'admin', pass: 'admin' },
-      { user: 'admin', pass: '123456' },
-      { user: 'root', pass: '12345' },
-      { user: 'admin', pass: 'hikvision' }
-    ];
-    
-    if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
-    }
+app.post(
+  "/api/hikvision/test-connection",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave } = req.body;
 
-    // Intentar primero con las credenciales proporcionadas
-    let hikvision = new HikvisionISAPI(ip, usuario, clave);
-    let result = await hikvision.getDeviceInfo();
-    
-    if (!result.success) {
-      
-      
-      // Probar credenciales comunes
-      for (const cred of commonCredentials) {
-        
-        hikvision = new HikvisionISAPI(ip, cred.user, cred.pass);
-        result = await hikvision.getDeviceInfo();
-        
-        if (result.success) {
-          
-          break;
+      // Probar credenciales comunes de Hikvision si las actuales fallan
+      const commonCredentials = [
+        { user: "admin", pass: "12345" },
+        { user: "admin", pass: "admin" },
+        { user: "admin", pass: "123456" },
+        { user: "root", pass: "12345" },
+        { user: "admin", pass: "hikvision" },
+      ];
+
+      if (!ip || !usuario || !clave) {
+        return res.status(400).json({
+          success: false,
+          error: "IP, usuario y clave son requeridos",
+        });
+      }
+
+      // Intentar primero con las credenciales proporcionadas
+      let hikvision = new HikvisionISAPI(ip, usuario, clave);
+      let result = await hikvision.getDeviceInfo();
+
+      if (!result.success) {
+        // Probar credenciales comunes
+        for (const cred of commonCredentials) {
+          hikvision = new HikvisionISAPI(ip, cred.user, cred.pass);
+          result = await hikvision.getDeviceInfo();
+
+          if (result.success) {
+            break;
+          }
+        }
+
+        if (!result.success) {
+          result = {
+            success: false,
+            error: "Todas las credenciales probadas fallaron",
+          };
         }
       }
-      
-      if (!result.success) {
-        
-        result = { success: false, error: 'Todas las credenciales probadas fallaron' };
+
+      if (result.success) {
+        // Parsear XML de respuesta para extraer información del dispositivo
+        const deviceInfo = parseDeviceInfo(result.data);
+        res.json({
+          success: true,
+          data: deviceInfo,
+        });
+      } else {
+        res.json({
+          success: false,
+          error: result.error,
+        });
       }
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
-    
-    if (result.success) {
-      // Parsear XML de respuesta para extraer información del dispositivo
-      const deviceInfo = parseDeviceInfo(result.data);
-      res.json({
-        success: true,
-        data: deviceInfo
-      });
-    } else {
-      res.json({
-        success: false,
-        error: result.error
-      });
-    }
-    
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+  },
+);
 
 // POST /api/hikvision/device-info - Obtener información del dispositivo
-app.post('/api/hikvision/device-info', authenticateToken, async (req, res) => {
+app.post("/api/hikvision/device-info", authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave } = req.body;
-    
+
     if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+      return res
+        .status(400)
+        .json({ success: false, error: "IP, usuario y clave son requeridos" });
     }
 
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.getDeviceInfo();
-    
+
     if (result.success) {
       const deviceInfo = parseDeviceInfo(result.data);
       res.json({
         success: true,
-        data: deviceInfo
+        data: deviceInfo,
       });
     } else {
       res.json({
         success: false,
-        error: result.error
+        error: result.error,
       });
     }
-    
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // POST /api/hikvision/users - Obtener usuarios registrados
-app.post('/api/hikvision/users', authenticateToken, async (req, res) => {
+app.post("/api/hikvision/users", authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave } = req.body;
-    
-    
-    
-    
-    
-    
+
     if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+      return res
+        .status(400)
+        .json({ success: false, error: "IP, usuario y clave son requeridos" });
     }
 
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.getUsers();
-    
-    
-    
+
     if (result.success) {
       // result.data ya es el objeto JSON parseado, no necesita parseUsers()
       res.json({
         success: true,
-        data: result.data
+        data: result.data,
       });
     } else {
       res.json({
         success: false,
-        error: result.error
+        error: result.error,
       });
     }
-    
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // POST /api/hikvision/events - Obtener eventos de acceso
-app.post('/api/hikvision/events', authenticateToken, async (req, res) => {
+app.post("/api/hikvision/events", authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave, startTime, endTime } = req.body;
-    
+
     if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+      return res
+        .status(400)
+        .json({ success: false, error: "IP, usuario y clave son requeridos" });
     }
 
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.getEvents(startTime, endTime);
-    
+
     if (result.success) {
       // result.data ya es el objeto JSON parseado, no necesita parseEvents()
       res.json({
         success: true,
-        data: result.data
+        data: result.data,
       });
     } else {
       res.json({
         success: false,
-        error: result.error
+        error: result.error,
       });
     }
-    
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // POST /api/hikvision/photos - Obtener fotos registradas
-app.post('/api/hikvision/photos', authenticateToken, async (req, res) => {
+app.post("/api/hikvision/photos", authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave } = req.body;
-    
+
     if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+      return res
+        .status(400)
+        .json({ success: false, error: "IP, usuario y clave son requeridos" });
     }
 
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.getPhotos();
-    
+
     if (result.success) {
       // Por ahora devolvemos un array vacío ya que las fotos se manejan de forma diferente
       res.json({
         success: true,
-        data: []
+        data: [],
       });
     } else {
       res.json({
         success: false,
-        error: result.error
+        error: result.error,
       });
     }
-    
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // POST /api/hikvision/sync - Sincronizar datos
-app.post('/api/hikvision/sync', authenticateToken, async (req, res) => {
+app.post("/api/hikvision/sync", authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave } = req.body;
-    
+
     if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+      return res
+        .status(400)
+        .json({ success: false, error: "IP, usuario y clave son requeridos" });
     }
 
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.syncData();
-    
+
     if (result.success) {
       res.json({
         success: true,
-        data: result.data
+        data: result.data,
       });
     } else {
       res.json({
         success: false,
-        error: result.error
+        error: result.error,
       });
     }
-    
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -10005,173 +10952,204 @@ app.post('/api/hikvision/sync', authenticateToken, async (req, res) => {
 // ==================== RUTAS DE DISPOSITIVOS ====================
 
 // GET /api/dispositivos - Obtener todos los dispositivos
-app.get('/api/dispositivos', authenticateToken, async (req, res) => {
+app.get("/api/dispositivos", authenticateToken, async (req, res) => {
   try {
     const dispositivos = await Dispositivo.findAll({
       where: {},
       include: [
         {
           model: Sala,
-          as: 'Sala'
-        }
+          as: "Sala",
+        },
       ],
-      order: [['created_at', 'DESC']]
+      order: [["created_at", "DESC"]],
     });
 
     res.json(dispositivos);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // POST /api/dispositivos/by-ids - Obtener dispositivos por IDs
-app.post('/api/dispositivos/by-ids', authenticateToken, async (req, res) => {
+app.post("/api/dispositivos/by-ids", authenticateToken, async (req, res) => {
   try {
     const { ids } = req.body;
-    
+
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ message: 'IDs de dispositivos requeridos' });
+      return res
+        .status(400)
+        .json({ message: "IDs de dispositivos requeridos" });
     }
 
     // Normalizar IDs a números
-    const idsNormalizados = ids.map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
-    
-    console.log('Dispositivos solicitados por IDs:', {
+    const idsNormalizados = ids
+      .map((id) => Number(id))
+      .filter((id) => !isNaN(id) && id > 0);
+
+    console.log("Dispositivos solicitados por IDs:", {
       idsRecibidos: ids,
-      idsNormalizados: idsNormalizados
+      idsNormalizados: idsNormalizados,
     });
 
     const dispositivos = await Dispositivo.findAll({
-      where: { 
-        id: { [Op.in]: idsNormalizados }},
+      where: {
+        id: { [Op.in]: idsNormalizados },
+      },
       include: [
         {
           model: Sala,
-          as: 'Sala'
-        }
+          as: "Sala",
+        },
       ],
-      order: [['id', 'ASC']]
+      order: [["id", "ASC"]],
     });
 
     // Crear un mapa de dispositivos por ID para mantener el orden solicitado
     const dispositivosMap = {};
-    dispositivos.forEach(d => {
+    dispositivos.forEach((d) => {
       dispositivosMap[d.id] = d;
     });
 
     // Ordenar los dispositivos según el orden de los IDs solicitados
     const dispositivosOrdenados = idsNormalizados
-      .map(id => dispositivosMap[id])
-      .filter(d => d !== undefined); // Filtrar dispositivos no encontrados
+      .map((id) => dispositivosMap[id])
+      .filter((d) => d !== undefined); // Filtrar dispositivos no encontrados
 
-    console.log('Dispositivos devueltos:', {
+    console.log("Dispositivos devueltos:", {
       idsSolicitados: idsNormalizados,
-      dispositivosEncontrados: dispositivosOrdenados.map(d => ({ id: d.id, nombre: d.nombre, ip_remota: d.ip_remota, ip_local: d.ip_local }))
+      dispositivosEncontrados: dispositivosOrdenados.map((d) => ({
+        id: d.id,
+        nombre: d.nombre,
+        ip_remota: d.ip_remota,
+        ip_local: d.ip_local,
+      })),
     });
 
     res.json(dispositivosOrdenados);
   } catch (error) {
-    console.error('Error al obtener dispositivos por IDs:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error("Error al obtener dispositivos por IDs:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // GET /api/dispositivos/:id - Obtener dispositivo por ID
-app.get('/api/dispositivos/:id', authenticateToken, async (req, res) => {
+app.get("/api/dispositivos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const dispositivo = await Dispositivo.findByPk(id, {
       include: [
         {
           model: Sala,
-          as: 'Sala'
-        }
-      ]
+          as: "Sala",
+        },
+      ],
     });
 
     if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+      return res.status(404).json({ message: "Dispositivo no encontrado" });
     }
 
     res.json(dispositivo);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // POST /api/dispositivos - Crear nuevo dispositivo
-app.post('/api/dispositivos', authenticateToken, async (req, res) => {
+app.post("/api/dispositivos", authenticateToken, async (req, res) => {
   try {
-    const { nombre, sala_id, ip_local, ip_remota, usuario, clave, marcaje_inicio, marcaje_fin } = req.body;
-    
+    const {
+      nombre,
+      sala_id,
+      ip_local,
+      ip_remota,
+      usuario,
+      clave,
+      marcaje_inicio,
+      marcaje_fin,
+    } = req.body;
+
     if (!nombre || !sala_id) {
-      return res.status(400).json({ message: 'Nombre y sala son requeridos' });
+      return res.status(400).json({ message: "Nombre y sala son requeridos" });
     }
 
     // Verificar que la sala existe
     const sala = await Sala.findByPk(sala_id);
     if (!sala) {
-      return res.status(404).json({ message: 'Sala no encontrada' });
+      return res.status(404).json({ message: "Sala no encontrada" });
     }
 
     const dispositivo = await Dispositivo.create({
       nombre,
       sala_id,
-      ip_local: ip_local || '',
-      ip_remota: ip_remota || '',
-      usuario: usuario || '',
-      clave: clave || '',
+      ip_local: ip_local || "",
+      ip_remota: ip_remota || "",
+      usuario: usuario || "",
+      clave: clave || "",
       marcaje_inicio: marcaje_inicio || null,
-      marcaje_fin: marcaje_fin || null});
+      marcaje_fin: marcaje_fin || null,
+    });
 
     // Obtener el dispositivo con sus relaciones
     const dispositivoCompleto = await Dispositivo.findByPk(dispositivo.id, {
       include: [
         {
           model: Sala,
-          as: 'Sala'
-        }
-      ]
+          as: "Sala",
+        },
+      ],
     });
 
     res.status(201).json(dispositivoCompleto);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/dispositivos/:id - Actualizar dispositivo
-app.put('/api/dispositivos/:id', authenticateToken, async (req, res) => {
+app.put("/api/dispositivos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, sala_id, ip_local, ip_remota, usuario, clave, marcaje_inicio, marcaje_fin } = req.body;
-    
+    const {
+      nombre,
+      sala_id,
+      ip_local,
+      ip_remota,
+      usuario,
+      clave,
+      marcaje_inicio,
+      marcaje_fin,
+    } = req.body;
+
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+      return res.status(404).json({ message: "Dispositivo no encontrado" });
     }
 
     // Verificar que la sala existe
     if (sala_id) {
       const sala = await Sala.findByPk(sala_id);
       if (!sala) {
-        return res.status(404).json({ message: 'Sala no encontrada' });
+        return res.status(404).json({ message: "Sala no encontrada" });
       }
     }
 
     await dispositivo.update({
       nombre: nombre || dispositivo.nombre,
       sala_id: sala_id || dispositivo.sala_id,
-      ip_local: ip_local !== undefined ? (ip_local || '') : dispositivo.ip_local,
-      ip_remota: ip_remota !== undefined ? (ip_remota || '') : dispositivo.ip_remota,
-      usuario: usuario !== undefined ? (usuario || '') : dispositivo.usuario,
-      clave: clave !== undefined ? (clave || '') : dispositivo.clave,
-      marcaje_inicio: marcaje_inicio !== undefined ? marcaje_inicio : dispositivo.marcaje_inicio,
-      marcaje_fin: marcaje_fin !== undefined ? marcaje_fin : dispositivo.marcaje_fin
+      ip_local: ip_local !== undefined ? ip_local || "" : dispositivo.ip_local,
+      ip_remota:
+        ip_remota !== undefined ? ip_remota || "" : dispositivo.ip_remota,
+      usuario: usuario !== undefined ? usuario || "" : dispositivo.usuario,
+      clave: clave !== undefined ? clave || "" : dispositivo.clave,
+      marcaje_inicio:
+        marcaje_inicio !== undefined
+          ? marcaje_inicio
+          : dispositivo.marcaje_inicio,
+      marcaje_fin:
+        marcaje_fin !== undefined ? marcaje_fin : dispositivo.marcaje_fin,
     });
 
     // Obtener el dispositivo actualizado con sus relaciones
@@ -10179,37 +11157,48 @@ app.put('/api/dispositivos/:id', authenticateToken, async (req, res) => {
       include: [
         {
           model: Sala,
-          as: 'Sala'
-        }
-      ]
+          as: "Sala",
+        },
+      ],
     });
 
     res.json(dispositivoActualizado);
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // PUT /api/dispositivos/:id/cron - Actualizar configuración CRON del dispositivo
-app.put('/api/dispositivos/:id/cron', authenticateToken, async (req, res) => {
+app.put("/api/dispositivos/:id/cron", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { cron_activo, cron_tiempo } = req.body;
-    
+
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+      return res.status(404).json({ message: "Dispositivo no encontrado" });
     }
 
     // Validar valores
     if (cron_activo !== undefined && ![0, 1].includes(cron_activo)) {
-      return res.status(400).json({ message: 'cron_activo debe ser 0 o 1' });
+      return res.status(400).json({ message: "cron_activo debe ser 0 o 1" });
     }
 
-    const tiempoValidos = ['10s', '1m', '5m', '10m', '30m', '1h', '6h', '12h', '24h'];
+    const tiempoValidos = [
+      "10s",
+      "1m",
+      "5m",
+      "10m",
+      "30m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+    ];
     if (cron_tiempo && !tiempoValidos.includes(cron_tiempo)) {
-      return res.status(400).json({ message: 'cron_tiempo debe ser uno de: ' + tiempoValidos.join(', ') });
+      return res.status(400).json({
+        message: "cron_tiempo debe ser uno de: " + tiempoValidos.join(", "),
+      });
     }
 
     // Guardar valores anteriores para comparación
@@ -10218,951 +11207,1014 @@ app.put('/api/dispositivos/:id/cron', authenticateToken, async (req, res) => {
 
     // Actualizar solo los campos CRON
     await dispositivo.update({
-      cron_activo: cron_activo !== undefined ? cron_activo : dispositivo.cron_activo,
-      cron_tiempo: cron_tiempo || dispositivo.cron_tiempo
+      cron_activo:
+        cron_activo !== undefined ? cron_activo : dispositivo.cron_activo,
+      cron_tiempo: cron_tiempo || dispositivo.cron_tiempo,
     });
 
     // Obtener el dispositivo actualizado con todos los campos necesarios
     const dispositivoActualizado = await Dispositivo.findByPk(id, {
-      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'cron_activo', 'cron_tiempo', 'marcaje_inicio', 'marcaje_fin']
+      attributes: [
+        "id",
+        "nombre",
+        "ip_remota",
+        "usuario",
+        "clave",
+        "cron_activo",
+        "cron_tiempo",
+        "marcaje_inicio",
+        "marcaje_fin",
+      ],
     });
 
     // Gestionar CRON automáticamente
-    const newCronActivo = cron_activo !== undefined ? cron_activo : dispositivo.cron_activo;
+    const newCronActivo =
+      cron_activo !== undefined ? cron_activo : dispositivo.cron_activo;
     const newCronTiempo = cron_tiempo || dispositivo.cron_tiempo;
 
     // Si cambió la configuración CRON, actualizar el trabajo programado
-    if (previousCronActivo !== newCronActivo || previousCronTiempo !== newCronTiempo) {
+    if (
+      previousCronActivo !== newCronActivo ||
+      previousCronTiempo !== newCronTiempo
+    ) {
       if (newCronActivo === 1) {
         // Activar o actualizar CRON
         startCronForDevice(dispositivoActualizado);
-        
       } else {
         // Desactivar CRON
         stopCronForDevice(id);
-        
       }
     }
 
     res.json({
       success: true,
-      message: 'Configuración CRON actualizada correctamente',
-      dispositivo: dispositivoActualizado
+      message: "Configuración CRON actualizada correctamente",
+      dispositivo: dispositivoActualizado,
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // POST /api/dispositivos/:id/sync-attendance - Sincronizar marcajes del dispositivo
-app.post('/api/dispositivos/:id/sync-attendance', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const dispositivo = await Dispositivo.findByPk(id);
-    if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
-    }
+app.post(
+  "/api/dispositivos/:id/sync-attendance",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
 
-    if (!dispositivo.ip_remota || !dispositivo.usuario || !dispositivo.clave) {
-      return res.status(400).json({ message: 'Dispositivo no tiene credenciales completas' });
-    }
+      const dispositivo = await Dispositivo.findByPk(id);
+      if (!dispositivo) {
+        return res.status(404).json({ message: "Dispositivo no encontrado" });
+      }
 
-    // Sincronizar marcajes
-    const result = await syncAttendanceFromDevice(dispositivo);
-    
-    res.json({
-      success: true,
-      message: 'Sincronización completada',
-      data: result
-    });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+      if (
+        !dispositivo.ip_remota ||
+        !dispositivo.usuario ||
+        !dispositivo.clave
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Dispositivo no tiene credenciales completas" });
+      }
+
+      // Sincronizar marcajes
+      const result = await syncAttendanceFromDevice(dispositivo);
+
+      res.json({
+        success: true,
+        message: "Sincronización completada",
+        data: result,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
 
 // POST /api/test-sync/:id - Endpoint de prueba para sincronización (sin autenticación)
-app.post('/api/test-sync/:id', async (req, res) => {
+app.post("/api/test-sync/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    
-    
-    
+
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+      return res.status(404).json({ message: "Dispositivo no encontrado" });
     }
 
     if (!dispositivo.ip_remota || !dispositivo.usuario || !dispositivo.clave) {
-      return res.status(400).json({ message: 'Dispositivo no tiene credenciales completas' });
+      return res
+        .status(400)
+        .json({ message: "Dispositivo no tiene credenciales completas" });
     }
 
     // Sincronizar marcajes
     const result = await syncAttendanceFromDevice(dispositivo);
-    
+
     res.json({
       success: true,
-      message: 'Test de sincronización completado',
-      data: result
+      message: "Test de sincronización completado",
+      data: result,
     });
   } catch (error) {
-    
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error en test de sincronización',
-      error: error.message 
+      message: "Error en test de sincronización",
+      error: error.message,
     });
   }
 });
 
 // GET /api/verify-img-device/:id - Verificar descarga de imagen del dispositivo
-app.get('/api/verify-img-device/:id', async (req, res) => {
+app.get("/api/verify-img-device/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    
-    
-    
+
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+      return res.status(404).json({ message: "Dispositivo no encontrado" });
     }
 
     if (!dispositivo.ip_remota || !dispositivo.usuario || !dispositivo.clave) {
-      return res.status(400).json({ message: 'Dispositivo no tiene credenciales completas' });
+      return res
+        .status(400)
+        .json({ message: "Dispositivo no tiene credenciales completas" });
     }
 
     // Crear objeto de autenticación
     const authObject = {
       usuario_login_dispositivo: dispositivo.usuario,
-      clave_login_dispositivo: dispositivo.clave
+      clave_login_dispositivo: dispositivo.clave,
     };
 
     // URL completa de imagen de prueba (como llega del evento)
     const fullImageUrl = `http://${dispositivo.ip_remota}/LOCALS/pic/acsLinkCap/202509_00/21_003420_30075_0.jpeg@WEB000000001502`;
-    
-    
+
     // Extraer solo la ruta para makeDigestRequest
-    const imagePath = fullImageUrl.replace(`http://${dispositivo.ip_remota}`, '').split('@')[0];
-    
-    
+    const imagePath = fullImageUrl
+      .replace(`http://${dispositivo.ip_remota}`, "")
+      .split("@")[0];
+
     // Descargar imagen usando Digest Authentication
-    const imageResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imagePath, 'GET', null, authObject);
-    
-    
-    
-    
-    
+    const imageResponse = await makeDigestRequest(
+      `http://${dispositivo.ip_remota}`,
+      imagePath,
+      "GET",
+      null,
+      authObject,
+    );
+
     if (imageResponse.status === 200 && imageResponse.data) {
       let imageBuffer;
-      
+
       if (Buffer.isBuffer(imageResponse.data)) {
         imageBuffer = imageResponse.data;
-        
-      } else if (typeof imageResponse.data === 'string') {
+      } else if (typeof imageResponse.data === "string") {
         // Limpiar el prefijo data:image/jpeg;base64, si existe
         let base64Data = imageResponse.data;
-        if (base64Data.startsWith('data:image/')) {
-          base64Data = base64Data.split(',')[1]; // Remover prefijo data:image/jpeg;base64,
-          
+        if (base64Data.startsWith("data:image/")) {
+          base64Data = base64Data.split(",")[1]; // Remover prefijo data:image/jpeg;base64,
         }
-        imageBuffer = Buffer.from(base64Data, 'base64');
-        
+        imageBuffer = Buffer.from(base64Data, "base64");
       } else {
-        
         return res.json({
           success: false,
-          message: 'Formato de respuesta no reconocido',
-          data: imageResponse.data
+          message: "Formato de respuesta no reconocido",
+          data: imageResponse.data,
         });
       }
-      
+
       // Guardar imagen en carpeta attlogs con ID de attlogs
-      const fs = require('fs');
-      const path = require('path');
-      const attlogsDir = path.join(__dirname, 'attlogs');
-      
+      const fs = require("fs");
+      const path = require("path");
+      const attlogsDir = path.join(__dirname, "attlogs");
+
       // Crear directorio si no existe
       if (!fs.existsSync(attlogsDir)) {
         fs.mkdirSync(attlogsDir, { recursive: true });
       }
-      
+
       // Usar un ID de prueba (por ejemplo, 99999)
-      const testImagePath = path.join(attlogsDir, '99999.jpg');
+      const testImagePath = path.join(attlogsDir, "99999.jpg");
       fs.writeFileSync(testImagePath, imageBuffer);
-      
+
       res.json({
         success: true,
-        message: 'Imagen verificada y descargada correctamente',
+        message: "Imagen verificada y descargada correctamente",
         bufferLength: imageBuffer.length,
         savedTo: testImagePath,
         imagePath: imagePath,
-        fullUrl: fullImageUrl
+        fullUrl: fullImageUrl,
       });
     } else {
       res.json({
         success: false,
-        message: 'Error descargando imagen',
+        message: "Error descargando imagen",
         status: imageResponse.status,
-        data: imageResponse.data
+        data: imageResponse.data,
       });
     }
   } catch (error) {
-    
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error verificando imagen',
-      error: error.message 
+      message: "Error verificando imagen",
+      error: error.message,
     });
   }
 });
 
 // GET /api/attlogs/:id/data - Obtener datos de un marcaje específico (REQUIERE AUTENTICACIÓN)
-app.get('/api/attlogs/:id/data', authenticateToken, async (req, res) => {
+app.get("/api/attlogs/:id/data", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const attlog = await Attlog.findByPk(id, {
       include: [
         {
           model: Dispositivo,
-          as: 'Dispositivo',
-          attributes: ['id', 'nombre', 'ip_remota']
-        }
-      ]
+          as: "Dispositivo",
+          attributes: ["id", "nombre", "ip_remota"],
+        },
+      ],
     });
-    
+
     if (!attlog) {
-      return res.status(404).json({ message: 'Marcaje no encontrado' });
+      return res.status(404).json({ message: "Marcaje no encontrado" });
     }
-    
+
     res.json({
       success: true,
-      data: attlog
+      data: attlog,
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // GET /api/attlogs/:id/image - Obtener imagen de un marcaje específico (SIN autenticación)
-app.get('/api/attlogs/:id/image', async (req, res) => {
+app.get("/api/attlogs/:id/image", async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Buscar el marcaje
     const attlog = await Attlog.findByPk(id, {
       include: [
         {
           model: Dispositivo,
-          as: 'Dispositivo',
-          attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave']
-        }
-      ]
+          as: "Dispositivo",
+          attributes: ["id", "nombre", "ip_remota", "usuario", "clave"],
+        },
+      ],
     });
-    
+
     if (!attlog) {
-      return res.status(404).json({ message: 'Marcaje no encontrado' });
+      return res.status(404).json({ message: "Marcaje no encontrado" });
     }
-    
+
     // Verificar si la imagen existe localmente
-    const fs = require('fs');
-    const path = require('path');
-    const attlogsDir = path.join(__dirname, 'attlogs');
+    const fs = require("fs");
+    const path = require("path");
+    const attlogsDir = path.join(__dirname, "attlogs");
     const imagePath = path.join(attlogsDir, `${id}.jpg`);
-    
+
     if (fs.existsSync(imagePath)) {
       // Si existe, enviar la imagen con headers CORS
       const imageBuffer = fs.readFileSync(imagePath);
-      res.setHeader('Content-Type', 'image/jpeg');
-      res.setHeader('Content-Length', imageBuffer.length);
-      res.setHeader('Content-Disposition', `inline; filename="${id}.jpg"`);
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader("Content-Type", "image/jpeg");
+      res.setHeader("Content-Length", imageBuffer.length);
+      res.setHeader("Content-Disposition", `inline; filename="${id}.jpg"`);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization",
+      );
       res.send(imageBuffer);
     } else {
       // Si no existe, intentar descargarla del dispositivo
       if (!attlog.Dispositivo.usuario || !attlog.Dispositivo.clave) {
-        return res.status(400).json({ message: 'Dispositivo no tiene credenciales para descargar imagen' });
+        return res.status(400).json({
+          message: "Dispositivo no tiene credenciales para descargar imagen",
+        });
       }
-      
+
       // Crear objeto de autenticación
       const authObject = {
         usuario_login_dispositivo: attlog.Dispositivo.usuario,
-        clave_login_dispositivo: attlog.Dispositivo.clave
+        clave_login_dispositivo: attlog.Dispositivo.clave,
       };
-      
+
       // Construir URL de imagen (necesitarías tener la pictureURL original)
       // Por ahora, retornar que no está disponible
-      res.status(404).json({ 
-        message: 'Imagen no disponible localmente',
-        suggestion: 'La imagen no se ha descargado aún'
+      res.status(404).json({
+        message: "Imagen no disponible localmente",
+        suggestion: "La imagen no se ha descargado aún",
       });
     }
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // GET /api/dispositivos/:id/download-image/:imageId - Descargar imagen de marcaje
-app.get('/api/dispositivos/:id/download-image/:imageId', authenticateToken, async (req, res) => {
-  try {
-    const { id, imageId } = req.params;
-    
-    
-    
-    const dispositivo = await Dispositivo.findByPk(id);
-    if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
-    }
+app.get(
+  "/api/dispositivos/:id/download-image/:imageId",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id, imageId } = req.params;
 
-    if (!dispositivo.ip_remota || !dispositivo.usuario || !dispositivo.clave) {
-      return res.status(400).json({ message: 'Dispositivo no tiene credenciales completas' });
-    }
-
-    // Verificar si la imagen ya existe localmente
-    const fs = require('fs');
-    const path = require('path');
-    const attlogsDir = path.join(__dirname, 'attlogs');
-    const localImagePath = path.join(attlogsDir, `${imageId}.jpg`);
-    
-    if (fs.existsSync(localImagePath)) {
-      
-      return res.json({
-        success: true,
-        message: 'Imagen ya existe localmente',
-        imagePath: localImagePath,
-        imageId: imageId,
-        local: true
-      });
-    }
-
-    // Construir URL para descargar imagen del dispositivo
-    const imageUrl = `/ISAPI/Intelligent/FDLib/FDSearch/DownloadPicture?format=json&FDID=1&faceLibType=blackFD&faceID=${imageId}`;
-    
-    
-    
-    
-    // Crear objeto similar a tarea para la autenticación
-    const authObject = {
-      usuario_login_dispositivo: dispositivo.usuario,
-      clave_login_dispositivo: dispositivo.clave
-    };
-    
-    const response = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imageUrl, 'GET', null, authObject);
-    
-    
-    
-    
-    if (response.status === 200 && response.data) {
-      // La respuesta debería contener la imagen en base64
-      let imageData = null;
-      
-      // Intentar diferentes formatos de respuesta
-      if (response.data.pictureInfo?.picData) {
-        imageData = response.data.pictureInfo.picData;
-        
-      } else if (typeof response.data === 'string') {
-        imageData = response.data;
-        
-      } else if (response.data.picData) {
-        imageData = response.data.picData;
-        
+      const dispositivo = await Dispositivo.findByPk(id);
+      if (!dispositivo) {
+        return res.status(404).json({ message: "Dispositivo no encontrado" });
       }
-      
-      if (imageData) {
-        // Convertir base64 a buffer
-        const imageBuffer = Buffer.from(imageData, 'base64');
-        
-        // Crear directorio si no existe
-        if (!fs.existsSync(attlogsDir)) {
-          fs.mkdirSync(attlogsDir, { recursive: true });
-        }
-        
-        // Guardar imagen
-        fs.writeFileSync(localImagePath, imageBuffer);
-        
-        
-        
-        res.json({
+
+      if (
+        !dispositivo.ip_remota ||
+        !dispositivo.usuario ||
+        !dispositivo.clave
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Dispositivo no tiene credenciales completas" });
+      }
+
+      // Verificar si la imagen ya existe localmente
+      const fs = require("fs");
+      const path = require("path");
+      const attlogsDir = path.join(__dirname, "attlogs");
+      const localImagePath = path.join(attlogsDir, `${imageId}.jpg`);
+
+      if (fs.existsSync(localImagePath)) {
+        return res.json({
           success: true,
-          message: 'Imagen descargada y guardada correctamente',
+          message: "Imagen ya existe localmente",
           imagePath: localImagePath,
           imageId: imageId,
-          local: false
+          local: true,
         });
-      } else {
-        
-        
-        res.status(404).json({ message: 'No se encontró imagen en la respuesta del dispositivo' });
       }
-    } else {
-      
-      res.status(response.status || 500).json({ 
-        message: 'Error descargando imagen del dispositivo',
-        status: response.status
-      });
+
+      // Construir URL para descargar imagen del dispositivo
+      const imageUrl = `/ISAPI/Intelligent/FDLib/FDSearch/DownloadPicture?format=json&FDID=1&faceLibType=blackFD&faceID=${imageId}`;
+
+      // Crear objeto similar a tarea para la autenticación
+      const authObject = {
+        usuario_login_dispositivo: dispositivo.usuario,
+        clave_login_dispositivo: dispositivo.clave,
+      };
+
+      const response = await makeDigestRequest(
+        `http://${dispositivo.ip_remota}`,
+        imageUrl,
+        "GET",
+        null,
+        authObject,
+      );
+
+      if (response.status === 200 && response.data) {
+        // La respuesta debería contener la imagen en base64
+        let imageData = null;
+
+        // Intentar diferentes formatos de respuesta
+        if (response.data.pictureInfo?.picData) {
+          imageData = response.data.pictureInfo.picData;
+        } else if (typeof response.data === "string") {
+          imageData = response.data;
+        } else if (response.data.picData) {
+          imageData = response.data.picData;
+        }
+
+        if (imageData) {
+          // Convertir base64 a buffer
+          const imageBuffer = Buffer.from(imageData, "base64");
+
+          // Crear directorio si no existe
+          if (!fs.existsSync(attlogsDir)) {
+            fs.mkdirSync(attlogsDir, { recursive: true });
+          }
+
+          // Guardar imagen
+          fs.writeFileSync(localImagePath, imageBuffer);
+
+          res.json({
+            success: true,
+            message: "Imagen descargada y guardada correctamente",
+            imagePath: localImagePath,
+            imageId: imageId,
+            local: false,
+          });
+        } else {
+          res.status(404).json({
+            message: "No se encontró imagen en la respuesta del dispositivo",
+          });
+        }
+      } else {
+        res.status(response.status || 500).json({
+          message: "Error descargando imagen del dispositivo",
+          status: response.status,
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // DELETE /api/dispositivos/:id - Eliminar dispositivo (soft delete)
-app.delete('/api/dispositivos/:id', authenticateToken, async (req, res) => {
+app.delete("/api/dispositivos/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+      return res.status(404).json({ message: "Dispositivo no encontrado" });
     }
 
     // Verificar si el dispositivo tiene relaciones que impidan su eliminación
-    const relations = await sequelize.query(`
+    const relations = await sequelize.query(
+      `
       SELECT table_name, count FROM (
         SELECT 'Empleado Dispositivos' as table_name, COUNT(*) as count FROM empleado_dispositivos WHERE dispositivo_id = ?
         UNION ALL
         SELECT 'Tareas Dispositivo Usuarios' as table_name, COUNT(*) as count FROM tareas_dispositivo_usuarios WHERE ip_publica_dispositivo = ? OR ip_local_dispositivo = ?
       ) as relations WHERE count > 0
-    `, {
-      replacements: [id, dispositivo.ip_remota || '', dispositivo.ip_local || ''],
-      type: sequelize.QueryTypes.SELECT
-    });
+    `,
+      {
+        replacements: [
+          id,
+          dispositivo.ip_remota || "",
+          dispositivo.ip_local || "",
+        ],
+        type: sequelize.QueryTypes.SELECT,
+      },
+    );
 
     if (relations.length > 0) {
-      return res.status(400).json({ 
-        message: 'No se puede eliminar el dispositivo porque tiene elementos asociados.',
+      return res.status(400).json({
+        message:
+          "No se puede eliminar el dispositivo porque tiene elementos asociados.",
         relations: relations,
         dispositivo: {
           id: dispositivo.id,
           nombre: dispositivo.nombre,
-          ip_publica: dispositivo.ip_publica
-        }
+          ip_publica: dispositivo.ip_publica,
+        },
       });
     }
 
     await dispositivo.destroy();
-    res.json({ message: 'Dispositivo eliminado correctamente' });
+    res.json({ message: "Dispositivo eliminado correctamente" });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Iniciar servidor
 // Ruta para descubrir endpoints disponibles
-app.post('/api/hikvision/discover', authenticateToken, async (req, res) => {
+app.post("/api/hikvision/discover", authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave } = req.body;
-    
+
     if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+      return res
+        .status(400)
+        .json({ success: false, error: "IP, usuario y clave son requeridos" });
     }
 
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.discoverEndpoints();
-    
+
     res.json(result);
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Ruta para obtener capacidades de usuarios
-app.post('/api/hikvision/user-capabilities', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave } = req.body;
-    
-    if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
-    }
+app.post(
+  "/api/hikvision/user-capabilities",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave } = req.body;
 
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.getUserCapabilities();
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+      if (!ip || !usuario || !clave) {
+        return res.status(400).json({
+          success: false,
+          error: "IP, usuario y clave son requeridos",
+        });
+      }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.getUserCapabilities();
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
 
 // Ruta para obtener capacidades del dispositivo
-app.post('/api/hikvision/device-capabilities', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave } = req.body;
-    
-    if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
-    }
+app.post(
+  "/api/hikvision/device-capabilities",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave } = req.body;
 
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.getDeviceCapabilities();
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+      if (!ip || !usuario || !clave) {
+        return res.status(400).json({
+          success: false,
+          error: "IP, usuario y clave son requeridos",
+        });
+      }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.getDeviceCapabilities();
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
 
 // Ruta para obtener stream de cámara
-app.post('/api/hikvision/camera-stream', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave, streamType = 'preview' } = req.body;
-    
-    if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
-    }
+app.post(
+  "/api/hikvision/camera-stream",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave, streamType = "preview" } = req.body;
 
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.getCameraStream(streamType);
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+      if (!ip || !usuario || !clave) {
+        return res.status(400).json({
+          success: false,
+          error: "IP, usuario y clave son requeridos",
+        });
+      }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.getCameraStream(streamType);
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
 
 // Ruta para obtener foto del usuario
-app.post('/api/hikvision/user-photo', authenticateToken, async (req, res) => {
+app.post("/api/hikvision/user-photo", authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave, fpid } = req.body;
-    
+
     if (!ip || !usuario || !clave || !fpid) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave y FPID son requeridos' });
+      return res.status(400).json({
+        success: false,
+        error: "IP, usuario, clave y FPID son requeridos",
+      });
     }
 
-    
-    
-    
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.getUserPhoto(fpid);
-    
-    
+
     res.json(result);
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Ruta para obtener información específica de un usuario
-app.post('/api/hikvision/get-user-info', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave, employeeNo } = req.body;
-    
-    if (!ip || !usuario || !clave || !employeeNo) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave y employeeNo son requeridos' });
-    }
+app.post(
+  "/api/hikvision/get-user-info",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave, employeeNo } = req.body;
 
-    
-    
-    
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.getUserInfo(employeeNo);
-    
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+      if (!ip || !usuario || !clave || !employeeNo) {
+        return res.status(400).json({
+          success: false,
+          error: "IP, usuario, clave y employeeNo son requeridos",
+        });
+      }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.getUserInfo(employeeNo);
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
 
 // Ruta para eliminar rostro de usuario
-app.post('/api/hikvision/delete-user-face', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave, employeeNo } = req.body;
-    
-    if (!ip || !usuario || !clave || !employeeNo) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave y employeeNo son requeridos' });
-    }
+app.post(
+  "/api/hikvision/delete-user-face",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave, employeeNo } = req.body;
 
-    
-    
-    
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.deleteUserFace(employeeNo);
-    
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+      if (!ip || !usuario || !clave || !employeeNo) {
+        return res.status(400).json({
+          success: false,
+          error: "IP, usuario, clave y employeeNo son requeridos",
+        });
+      }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.deleteUserFace(employeeNo);
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
 
 // Ruta para eliminar usuario completo
-app.post('/api/hikvision/delete-user', authenticateToken, async (req, res) => {
+app.post("/api/hikvision/delete-user", authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave, employeeNo } = req.body;
-    
-    
-    
+
     if (!ip || !usuario || !clave || !employeeNo) {
-      
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave y employeeNo son requeridos' });
+      return res.status(400).json({
+        success: false,
+        error: "IP, usuario, clave y employeeNo son requeridos",
+      });
     }
-    
-    
-    
-    
+
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.deleteUser(employeeNo);
-    
-    
+
     res.json(result);
   } catch (error) {
-    
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Ruta para eliminar solo la foto del usuario
-app.post('/api/hikvision/delete-user-photo-only', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave, deletePhotoPayload } = req.body;
-    
-    if (!ip || !usuario || !clave || !deletePhotoPayload) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave y deletePhotoPayload son requeridos' });
+app.post(
+  "/api/hikvision/delete-user-photo-only",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave, deletePhotoPayload } = req.body;
+
+      if (!ip || !usuario || !clave || !deletePhotoPayload) {
+        return res.status(400).json({
+          success: false,
+          error: "IP, usuario, clave y deletePhotoPayload son requeridos",
+        });
+      }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.deleteUserPhotoOnly(deletePhotoPayload);
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
-
-    
-    
-    
-
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.deleteUserPhotoOnly(deletePhotoPayload);
-
-    
-    res.json(result);
-  } catch (error) {
-    
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+  },
+);
 
 // Ruta para registrar rostro de usuario con payload completo
-app.post('/api/hikvision/register-user-face-payload', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave, facePayload } = req.body;
-    
-    if (!ip || !usuario || !clave || !facePayload) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave y facePayload son requeridos' });
+app.post(
+  "/api/hikvision/register-user-face-payload",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave, facePayload } = req.body;
+
+      if (!ip || !usuario || !clave || !facePayload) {
+        return res.status(400).json({
+          success: false,
+          error: "IP, usuario, clave y facePayload son requeridos",
+        });
+      }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.registerUserFaceWithPayload(facePayload);
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
-
-    
-    
-    
-
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.registerUserFaceWithPayload(facePayload);
-
-    
-    res.json(result);
-  } catch (error) {
-    
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+  },
+);
 
 // Ruta para registrar rostro de usuario
-app.post('/api/hikvision/register-user-face', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave, employeeNo, name, gender, faceDataBase64 } = req.body;
-    
-    if (!ip || !usuario || !clave || !employeeNo || !name || !faceDataBase64) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name y faceDataBase64 son requeridos' });
+app.post(
+  "/api/hikvision/register-user-face",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave, employeeNo, name, gender, faceDataBase64 } =
+        req.body;
+
+      if (
+        !ip ||
+        !usuario ||
+        !clave ||
+        !employeeNo ||
+        !name ||
+        !faceDataBase64
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "IP, usuario, clave, employeeNo, name y faceDataBase64 son requeridos",
+        });
+      }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.registerUserFace(
+        employeeNo,
+        name,
+        gender,
+        faceDataBase64,
+      );
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
-
-    
-    
-    
-    
-    
-    
-    
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.registerUserFace(employeeNo, name, gender, faceDataBase64);
-    
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
+  },
+);
 
 // Ruta para probar límites del campo faceURL
-app.post('/api/hikvision/test-faceurl-limit', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave } = req.body;
-    
-    if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
-    }
+app.post(
+  "/api/hikvision/test-faceurl-limit",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave } = req.body;
 
-    
-    
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    
-    // Probar con diferentes tamaños de base64
-    const testSizes = [
-      { size: 1000, description: '1KB' },
-      { size: 5000, description: '5KB' },
-      { size: 10000, description: '10KB' },
-      { size: 20000, description: '20KB' },
-      { size: 50000, description: '50KB' },
-      { size: 100000, description: '100KB' }
-    ];
-    
-    const results = [];
-    
-    for (const test of testSizes) {
-      // Generar base64 de prueba del tamaño especificado
-      const testBase64 = 'data:image/jpeg;base64,' + 'A'.repeat(test.size);
-      
-      
-      
-      const testPayload = {
-        "faceURL": testBase64,
-        "faceLibType": "blackFD",
-        "FDID": "1",
-        "FPID": "TEST123",
-        "name": "Test User",
-        "gender": "male",
-        "featurePointType": "face"
-      };
-      
-      try {
-        const result = await hikvision.makeRequest('/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json', 'POST', testPayload);
-        
-        results.push({
-          size: test.size,
-          description: test.description,
-          characters: testBase64.length,
-          success: result.success,
-          statusCode: result.data?.statusCode,
-          statusString: result.data?.statusString,
-          errorMsg: result.data?.errorMsg
-        });
-        
-        
-        
-      } catch (error) {
-        results.push({
-          size: test.size,
-          description: test.description,
-          characters: testBase64.length,
+      if (!ip || !usuario || !clave) {
+        return res.status(400).json({
           success: false,
-          error: error.message
+          error: "IP, usuario y clave son requeridos",
         });
-        
-        
       }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+
+      // Probar con diferentes tamaños de base64
+      const testSizes = [
+        { size: 1000, description: "1KB" },
+        { size: 5000, description: "5KB" },
+        { size: 10000, description: "10KB" },
+        { size: 20000, description: "20KB" },
+        { size: 50000, description: "50KB" },
+        { size: 100000, description: "100KB" },
+      ];
+
+      const results = [];
+
+      for (const test of testSizes) {
+        // Generar base64 de prueba del tamaño especificado
+        const testBase64 = "data:image/jpeg;base64," + "A".repeat(test.size);
+
+        const testPayload = {
+          faceURL: testBase64,
+          faceLibType: "blackFD",
+          FDID: "1",
+          FPID: "TEST123",
+          name: "Test User",
+          gender: "male",
+          featurePointType: "face",
+        };
+
+        try {
+          const result = await hikvision.makeRequest(
+            "/ISAPI/Intelligent/FDLib/FaceDataRecord?format=json",
+            "POST",
+            testPayload,
+          );
+
+          results.push({
+            size: test.size,
+            description: test.description,
+            characters: testBase64.length,
+            success: result.success,
+            statusCode: result.data?.statusCode,
+            statusString: result.data?.statusString,
+            errorMsg: result.data?.errorMsg,
+          });
+        } catch (error) {
+          results.push({
+            size: test.size,
+            description: test.description,
+            characters: testBase64.length,
+            success: false,
+            error: error.message,
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          message: "Prueba de límites completada",
+          results: results,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
-    
-    res.json({
-      success: true,
-      data: {
-        message: 'Prueba de límites completada',
-        results: results
-      }
-    });
-    
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+  },
+);
 
 // Map para almacenar imágenes temporales con URLs cortas
 const tempImages = new Map();
 
 // ==================== SERVIDOR INTERNO DE IMÁGENES ====================
 // Crear carpeta imguploadserver si no existe (compatible con Linux y Windows)
-const imguploadserverDir = path.join(__dirname, 'imguploadserver');
+const imguploadserverDir = path.join(__dirname, "imguploadserver");
 if (!fs.existsSync(imguploadserverDir)) {
   try {
     fs.mkdirSync(imguploadserverDir, { recursive: true, mode: 0o755 }); // Permisos para Linux
   } catch (mkdirError) {
-    console.error('Error al crear carpeta imguploadserver:', mkdirError);
+    console.error("Error al crear carpeta imguploadserver:", mkdirError);
   }
 }
 
 // Función interna para subir imagen (base64 -> guardar -> retornar URL)
 async function uploadImageToInternalServer(base64Image, cedula) {
   try {
-    if (!base64Image || typeof base64Image !== 'string') {
-      console.error('Error: base64Image no es válido');
+    if (!base64Image || typeof base64Image !== "string") {
+      console.error("Error: base64Image no es válido");
       return null;
     }
-    
+
     // Remover el prefijo data:image/...;base64, del base64 (si existe)
     // Maneja tanto base64 con prefijo como sin prefijo
     let base64Data = base64Image.trim();
-    if (base64Data.startsWith('data:image/')) {
+    if (base64Data.startsWith("data:image/")) {
       // Si tiene prefijo, extraer solo la parte base64
-      const commaIndex = base64Data.indexOf(',');
+      const commaIndex = base64Data.indexOf(",");
       if (commaIndex !== -1) {
         base64Data = base64Data.substring(commaIndex + 1);
       } else {
         // Si tiene prefijo pero no tiene coma, remover solo el prefijo
-        base64Data = base64Data.replace(/^data:image\/[a-z]+;base64,?/, '');
+        base64Data = base64Data.replace(/^data:image\/[a-z]+;base64,?/, "");
       }
     }
-    
+
     // Validar que el base64 no esté vacío
     if (!base64Data || base64Data.length < 100) {
-      console.error('Error: base64Data está vacío o es muy corto');
+      console.error("Error: base64Data está vacío o es muy corto");
       return null;
     }
-    
+
     // Convertir base64 a Buffer
-    const imageBuffer = Buffer.from(base64Data, 'base64');
-    
+    const imageBuffer = Buffer.from(base64Data, "base64");
+
     // Validar que el buffer no esté vacío
     if (!imageBuffer || imageBuffer.length === 0) {
-      console.error('Error: No se pudo convertir base64 a Buffer');
+      console.error("Error: No se pudo convertir base64 a Buffer");
       return null;
     }
-    
+
     // Limpiar la cédula para usarla como nombre de archivo (solo números y letras)
-    const cleanCedula = cedula.toString().replace(/[^a-zA-Z0-9]/g, '_');
+    const cleanCedula = cedula.toString().replace(/[^a-zA-Z0-9]/g, "_");
     const filename = `${cleanCedula}.jpg`;
     const filePath = path.join(imguploadserverDir, filename);
-    
+
     // Guardar la imagen en el servidor
     fs.writeFileSync(filePath, imageBuffer);
-    
+
     // Verificar que el archivo se guardó correctamente
     if (!fs.existsSync(filePath)) {
-      console.error(`Error: No se pudo verificar que el archivo se guardó: ${filePath}`);
+      console.error(
+        `Error: No se pudo verificar que el archivo se guardó: ${filePath}`,
+      );
       return null;
     }
-    
+
     const fileStats = fs.statSync(filePath);
     if (fileStats.size === 0) {
       console.error(`Error: El archivo guardado está vacío: ${filePath}`);
       return null;
     }
-    
+
     // Retornar URL pública (usar HTTP en lugar de HTTPS para compatibilidad con dispositivos)
     // Algunos dispositivos Hikvision no pueden acceder a URLs HTTPS o no resuelven dominios
     const publicURL = `http://wisi.space/imguploadserver/${filename}`;
-    console.log(`Imagen guardada exitosamente: ${publicURL} (Tamaño: ${fileStats.size} bytes)`);
+    console.log(
+      `Imagen guardada exitosamente: ${publicURL} (Tamaño: ${fileStats.size} bytes)`,
+    );
     return publicURL;
   } catch (error) {
-    console.error('Error al subir imagen al servidor interno:', error);
+    console.error("Error al subir imagen al servidor interno:", error);
     return null;
   }
 }
 
 // Endpoint POST para subir imágenes
-app.post('/api/imguploadserver/upload', authenticateToken, async (req, res) => {
+app.post("/api/imguploadserver/upload", authenticateToken, async (req, res) => {
   try {
     const { imageBase64, cedula } = req.body;
-    
+
     if (!imageBase64 || !cedula) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'imageBase64 y cedula son requeridos' 
+      return res.status(400).json({
+        success: false,
+        error: "imageBase64 y cedula son requeridos",
       });
     }
-    
+
     const publicURL = await uploadImageToInternalServer(imageBase64, cedula);
-    
+
     if (!publicURL) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'No se pudo subir la imagen al servidor interno' 
+      return res.status(500).json({
+        success: false,
+        error: "No se pudo subir la imagen al servidor interno",
       });
     }
-    
+
     res.json({
       success: true,
-      url: publicURL
+      url: publicURL,
     });
   } catch (error) {
-    console.error('Error en endpoint de upload:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
+    console.error("Error en endpoint de upload:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
     });
   }
 });
 
 // Endpoint GET para servir imágenes (SIN autenticación, acceso público completo)
-app.get('/imguploadserver/:filename', (req, res) => {
+app.get("/imguploadserver/:filename", (req, res) => {
   try {
     const { filename } = req.params;
-    
+
     // Validar que el filename solo contenga caracteres seguros
     if (!/^[a-zA-Z0-9_]+\.jpg$/.test(filename)) {
-      return res.status(400).json({ 
-        message: 'Nombre de archivo inválido' 
+      return res.status(400).json({
+        message: "Nombre de archivo inválido",
       });
     }
-    
+
     const filePath = path.join(imguploadserverDir, filename);
-    
+
     if (fs.existsSync(filePath)) {
       // Si existe, enviar la imagen con headers CORS completos para acceso público
       const imageBuffer = fs.readFileSync(filePath);
-      
+
       // Headers CORS para permitir acceso desde cualquier origen
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
-      
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization",
+      );
+      res.setHeader(
+        "Access-Control-Expose-Headers",
+        "Content-Length, Content-Type",
+      );
+
       // Headers de contenido
-      res.setHeader('Content-Type', 'image/jpeg');
-      res.setHeader('Content-Length', imageBuffer.length);
-      
+      res.setHeader("Content-Type", "image/jpeg");
+      res.setHeader("Content-Length", imageBuffer.length);
+
       // Headers de caché (no cachear para asegurar que siempre se obtenga la última versión)
-      res.setHeader('Cache-Control', 'public, max-age=3600'); // Cachear por 1 hora pero permitir revalidación
-      res.setHeader('Pragma', 'public');
-      res.setHeader('Expires', new Date(Date.now() + 3600000).toUTCString());
-      
+      res.setHeader("Cache-Control", "public, max-age=3600"); // Cachear por 1 hora pero permitir revalidación
+      res.setHeader("Pragma", "public");
+      res.setHeader("Expires", new Date(Date.now() + 3600000).toUTCString());
+
       res.send(imageBuffer);
     } else {
       // Si no existe, devolver 404 con headers CORS
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.status(404).json({ 
-        message: 'Imagen no encontrada',
-        path: filePath
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.status(404).json({
+        message: "Imagen no encontrada",
+        path: filePath,
       });
     }
   } catch (error) {
     // Error con headers CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.status(500).json({ 
-      message: 'Error interno del servidor',
-      error: error.message 
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.status(500).json({
+      message: "Error interno del servidor",
+      error: error.message,
     });
   }
 });
 
 // Endpoint OPTIONS para CORS preflight (necesario para algunos navegadores/dispositivos)
-app.options('/imguploadserver/:filename', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24 horas
+app.options("/imguploadserver/:filename", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Max-Age", "86400"); // 24 horas
   res.sendStatus(200);
 });
 
@@ -11173,12 +12225,12 @@ async function uploadToPhpServer(base64Image, cedula = null) {
     if (cedula) {
       return await uploadImageToInternalServer(base64Image, cedula);
     }
-    
+
     // Si no hay cédula, generar un ID único temporal
     const tempCedula = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     return await uploadImageToInternalServer(base64Image, tempCedula);
   } catch (error) {
-    console.error('Error en uploadToPhpServer:', error);
+    console.error("Error en uploadToPhpServer:", error);
     return null;
   }
 }
@@ -11186,26 +12238,26 @@ async function uploadToPhpServer(base64Image, cedula = null) {
 // ==================== ENDPOINTS DE CRON ====================
 
 // GET /api/cron/config - Obtener configuración del CRON
-app.get('/api/cron/config', authenticateToken, async (req, res) => {
+app.get("/api/cron/config", authenticateToken, async (req, res) => {
   try {
     // Obtener configuración real de la base de datos
     const cronConfig = await Cron.findOne();
-    const currentValue = cronConfig ? cronConfig.value : 'Desactivado';
-    
+    const currentValue = cronConfig ? cronConfig.value : "Desactivado";
+
     // Obtener dispositivos reales
     const dispositivos = await Dispositivo.findAll({
-      where: { 
+      where: {
         ip_remota: { [Op.ne]: null },
         usuario: { [Op.ne]: null },
-        clave: { [Op.ne]: null }
-      }
+        clave: { [Op.ne]: null },
+      },
     });
-    
+
     // Calcular información real del sistema
-    const isActive = currentValue !== 'Desactivado';
+    const isActive = currentValue !== "Desactivado";
     const intervalMs = timeToMs(currentValue);
     const totalDevices = dispositivos.length;
-    
+
     res.json({
       currentValue: currentValue,
       isActive: isActive,
@@ -11213,35 +12265,38 @@ app.get('/api/cron/config', authenticateToken, async (req, res) => {
       totalDevices: totalDevices,
       timeoutPerDevice: CRON_TIMEOUT,
       lastRun: cronConfig ? cronConfig.updated_at : null,
-      nextRun: isActive ? new Date(Date.now() + intervalMs).toISOString() : null
+      nextRun: isActive
+        ? new Date(Date.now() + intervalMs).toISOString()
+        : null,
     });
   } catch (error) {
-    ;
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error interno del servidor',
-      error: error.message 
+      message: "Error interno del servidor",
+      error: error.message,
     });
   }
 });
 
 // GET /api/cron/queue-status - Obtener estado de la cola de descarga
-app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
+app.get("/api/cron/queue-status", authenticateToken, async (req, res) => {
   try {
     // Obtener información real del sistema
     const dispositivos = await Dispositivo.findAll({
-      where: { 
+      where: {
         ip_remota: { [Op.ne]: null },
         usuario: { [Op.ne]: null },
-        clave: { [Op.ne]: null }
+        clave: { [Op.ne]: null },
       },
-      include: [{
-        model: Sala,
-        as: 'Sala',
-        attributes: ['id', 'nombre']
-      }]
+      include: [
+        {
+          model: Sala,
+          as: "Sala",
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
-    
+
     // Información detallada del dispositivo actual
     let currentDeviceInfo = null;
     if (currentProcessingDevice) {
@@ -11249,12 +12304,12 @@ app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
         id: currentProcessingDevice.id,
         nombre: currentProcessingDevice.nombre,
         ip: currentProcessingDevice.ip_remota,
-        sala: currentProcessingDevice.Sala?.nombre || 'Sin sala',
-        estado: 'Procesando',
-        tiempoInicio: new Date().toISOString()
+        sala: currentProcessingDevice.Sala?.nombre || "Sin sala",
+        estado: "Procesando",
+        tiempoInicio: new Date().toISOString(),
       };
     }
-    
+
     // Información detallada de la cola
     const queueDetails = cronQueue.map((item, index) => ({
       position: index + 1,
@@ -11262,56 +12317,57 @@ app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
         id: item.dispositivo.id,
         nombre: item.dispositivo.nombre,
         ip: item.dispositivo.ip_remota,
-        sala: item.dispositivo.Sala?.nombre || 'Sin sala'
+        sala: item.dispositivo.Sala?.nombre || "Sin sala",
       },
       timestamp: item.timestamp,
-      waitTime: Math.floor((Date.now() - new Date(item.timestamp).getTime()) / 1000 / 60) // minutos de espera
+      waitTime: Math.floor(
+        (Date.now() - new Date(item.timestamp).getTime()) / 1000 / 60,
+      ), // minutos de espera
     }));
-    
+
     // Calcular estadísticas
     const totalDevices = dispositivos.length;
     const processedToday = await Attlog.count({
       where: {
         created_at: {
-          [Op.gte]: new Date().setHours(0, 0, 0, 0)
-        }
-      }
+          [Op.gte]: new Date().setHours(0, 0, 0, 0),
+        },
+      },
     });
-    
+
     res.json({
       // Estado básico
       queueLength: cronQueue.length,
       isProcessing: isProcessingCron,
       activeCronJobs: activeCronJobs.size,
-      
+
       // Dispositivo actual (detallado)
       currentProcessingDevice: currentDeviceInfo,
-      
+
       // Cola (detallada)
       queue: queueDetails,
-      
+
       // Configuración
-      delayBetweenDevices: '1m',
+      delayBetweenDevices: "1m",
       timeoutPerDevice: CRON_TIMEOUT,
       maxConcurrentDevices: 1,
-      
+
       // Estadísticas
       totalDevices: totalDevices,
       processedToday: processedToday,
-      
+
       // Estado del sistema
       systemStatus: {
         lastSync: cronConfig.lastRun,
         nextSync: cronConfig.nextRun,
-        isHealthy: true
-      }
+        isHealthy: true,
+      },
     });
   } catch (error) {
-    ;
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Error interno del servidor',
-      error: error.message 
+      message: "Error interno del servidor",
+      error: error.message,
     });
   }
 });
@@ -11324,27 +12380,24 @@ let cronConfig = {
   enabled: false,
   interval: 300000, // 5 minutos por defecto
   lastRun: null,
-  nextRun: null
+  nextRun: null,
 };
 
 // Función para ejecutar la descarga de imágenes
 async function executeImageDownload() {
   try {
-    ;
-    
     // Obtener todos los dispositivos (sin filtro de activo)
     const dispositivos = await Dispositivo.findAll({
       include: [
         {
           model: Sala,
-          as: 'Sala',
-          attributes: ['id', 'nombre']
-        }
-      ]
+          as: "Sala",
+          attributes: ["id", "nombre"],
+        },
+      ],
     });
 
     if (dispositivos.length === 0) {
-      ;
       return;
     }
 
@@ -11354,35 +12407,30 @@ async function executeImageDownload() {
     // Procesar cada dispositivo
     for (const dispositivo of dispositivos) {
       try {
-        ;
-        
         // Obtener marcajes recientes (últimas 24 horas)
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        
+
         const marcajes = await Attlog.findAll({
           where: {
             dispositivo_id: dispositivo.id,
             created_at: {
-              [Op.gte]: yesterday
-            }
+              [Op.gte]: yesterday,
+            },
           },
-          limit: 10 // Limitar a 10 marcajes por dispositivo
+          limit: 10, // Limitar a 10 marcajes por dispositivo
         });
-
-        ;
 
         // Descargar imagen para cada marcaje
         for (const marcaje of marcajes) {
           try {
             // Verificar si la imagen ya existe
-            const fs = require('fs');
-            const path = require('path');
-            const attlogsDir = path.join(__dirname, 'attlogs');
+            const fs = require("fs");
+            const path = require("path");
+            const attlogsDir = path.join(__dirname, "attlogs");
             const imagePath = path.join(attlogsDir, `${marcaje.id}.jpg`);
-            
+
             if (fs.existsSync(imagePath)) {
-              ;
               continue;
             }
 
@@ -11390,27 +12438,36 @@ async function executeImageDownload() {
             if (dispositivo.usuario && dispositivo.clave) {
               const authObject = {
                 usuario_login_dispositivo: dispositivo.usuario,
-                clave_login_dispositivo: dispositivo.clave
+                clave_login_dispositivo: dispositivo.clave,
               };
 
               // Construir URL de imagen (esto depende de tu API del dispositivo)
               const imageUrl = `/ISAPI/Intelligent/FDLib/FDSearch/DownloadPicture?format=json&FDID=1&faceLibType=blackFD&faceID=${marcaje.id}`;
-              
-              const imageResponse = await makeDigestRequest(`http://${dispositivo.ip_remota}`, imageUrl, 'GET', null, authObject);
-              
+
+              const imageResponse = await makeDigestRequest(
+                `http://${dispositivo.ip_remota}`,
+                imageUrl,
+                "GET",
+                null,
+                authObject,
+              );
+
               if (imageResponse.status === 200 && imageResponse.data) {
                 let imageBuffer;
-                
+
                 if (Buffer.isBuffer(imageResponse.data)) {
                   imageBuffer = imageResponse.data;
-                } else if (typeof imageResponse.data === 'string') {
+                } else if (typeof imageResponse.data === "string") {
                   let base64Data = imageResponse.data;
-                  if (base64Data.startsWith('data:image/')) {
-                    base64Data = base64Data.split(',')[1];
+                  if (base64Data.startsWith("data:image/")) {
+                    base64Data = base64Data.split(",")[1];
                   }
-                  imageBuffer = Buffer.from(base64Data, 'base64');
+                  imageBuffer = Buffer.from(base64Data, "base64");
                 } else if (imageResponse.data.pictureInfo?.picData) {
-                  imageBuffer = Buffer.from(imageResponse.data.pictureInfo.picData, 'base64');
+                  imageBuffer = Buffer.from(
+                    imageResponse.data.pictureInfo.picData,
+                    "base64",
+                  );
                 }
 
                 if (imageBuffer && imageBuffer.length > 0) {
@@ -11418,41 +12475,29 @@ async function executeImageDownload() {
                   if (!fs.existsSync(attlogsDir)) {
                     fs.mkdirSync(attlogsDir, { recursive: true });
                   }
-                  
+
                   // Guardar imagen
                   fs.writeFileSync(imagePath, imageBuffer);
                   imagesDownloaded++;
-                  ;
                 } else {
                   imagesErrors++;
-                  ;
                 }
               } else {
                 imagesErrors++;
-                ;
               }
             } else {
-              ;
             }
           } catch (imageError) {
             imagesErrors++;
-            ;
           }
         }
-      } catch (deviceError) {
-        ;
-      }
+      } catch (deviceError) {}
     }
 
-    ;
-    
     // Actualizar configuración
     cronConfig.lastRun = new Date();
     cronConfig.nextRun = new Date(Date.now() + cronConfig.interval);
-    
-  } catch (error) {
-    ;
-  }
+  } catch (error) {}
 }
 
 // Función para iniciar el CRON
@@ -11460,11 +12505,10 @@ function startCron() {
   if (cronInterval) {
     clearInterval(cronInterval);
   }
-  
+
   if (cronConfig.enabled) {
-    ;
     cronInterval = setInterval(executeImageDownload, cronConfig.interval);
-    
+
     // Ejecutar inmediatamente la primera vez
     executeImageDownload();
   }
@@ -11475,479 +12519,467 @@ function stopCron() {
   if (cronInterval) {
     clearInterval(cronInterval);
     cronInterval = null;
-    ;
   }
 }
 
 // POST /api/cron/start - Iniciar CRON
-app.post('/api/cron/start', authenticateToken, async (req, res) => {
+app.post("/api/cron/start", authenticateToken, async (req, res) => {
   try {
     const { interval } = req.body;
-    
+
     cronConfig.enabled = true;
     cronConfig.interval = interval || 300000; // 5 minutos por defecto
     cronConfig.lastRun = null;
     cronConfig.nextRun = new Date(Date.now() + cronConfig.interval);
-    
+
     startCron();
-    
+
     res.json({
       success: true,
-      message: 'CRON iniciado correctamente',
-      config: cronConfig
+      message: "CRON iniciado correctamente",
+      config: cronConfig,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error iniciando CRON',
-      error: error.message
+      message: "Error iniciando CRON",
+      error: error.message,
     });
   }
 });
 
 // POST /api/cron/stop - Detener CRON
-app.post('/api/cron/stop', authenticateToken, async (req, res) => {
+app.post("/api/cron/stop", authenticateToken, async (req, res) => {
   try {
     cronConfig.enabled = false;
     stopCron();
-    
+
     res.json({
       success: true,
-      message: 'CRON detenido correctamente'
+      message: "CRON detenido correctamente",
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Error deteniendo CRON',
-      error: error.message
+      message: "Error deteniendo CRON",
+      error: error.message,
     });
   }
 });
 
 // Iniciar CRON automáticamente al arrancar el servidor
-;
 cronConfig.enabled = true;
 cronConfig.interval = 300000; // 5 minutos
 startCron();
 
 // Ruta para registrar rostro de usuario con ImgBB (URL pública gratuita)
-app.post('/api/hikvision/register-user-face-imgbb', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave, employeeNo, name, gender, imageBase64 } = req.body;
-    
-    if (!ip || !usuario || !clave || !employeeNo || !name || !imageBase64) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name e imageBase64 son requeridos' });
-    }
+app.post(
+  "/api/hikvision/register-user-face-imgbb",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave, employeeNo, name, gender, imageBase64 } =
+        req.body;
 
-    
-    
-    
-    
-    
-    // Subir imagen a servidor interno y obtener URL
-    const publicURL = await uploadToPhpServer(imageBase64, employeeNo);
-    
-    if (!publicURL) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'No se pudo subir la imagen al servidor interno' 
-      });
+      if (!ip || !usuario || !clave || !employeeNo || !name || !imageBase64) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "IP, usuario, clave, employeeNo, name e imageBase64 son requeridos",
+        });
+      }
+
+      // Subir imagen a servidor interno y obtener URL
+      const publicURL = await uploadToPhpServer(imageBase64, employeeNo);
+
+      if (!publicURL) {
+        return res.status(500).json({
+          success: false,
+          error: "No se pudo subir la imagen al servidor interno",
+        });
+      }
+
+      // Crear el payload que se enviará al dispositivo
+      const payloadToDevice = {
+        faceURL: publicURL,
+        faceLibType: "blackFD",
+        FDID: "1",
+        FPID: employeeNo,
+        name: name,
+        gender: gender || "male",
+        featurePointType: "face",
+      };
+
+      // 🧪 CONSOLE PARA COPIAR Y PEGAR LA URL EN EL NAVEGADOR
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.registerUserFace(
+        employeeNo,
+        name,
+        gender,
+        publicURL,
+      );
+
+      // Agregar el payload a la respuesta para verificación
+      if (result.success) {
+        result.data.payloadToDevice = payloadToDevice;
+        result.data.publicURL = publicURL;
+        result.data.faceURL = publicURL;
+      } else {
+        result.payloadToDevice = payloadToDevice;
+        result.publicURL = publicURL;
+        result.faceURL = publicURL;
+      }
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
-    
-    
-    
-    
-    
-    
-    
-    // Crear el payload que se enviará al dispositivo
-    const payloadToDevice = {
-      "faceURL": publicURL,
-      "faceLibType": "blackFD",
-      "FDID": "1",
-      "FPID": employeeNo,
-      "name": name,
-      "gender": gender || "male",
-      "featurePointType": "face"
-    };
-    
-    
-    
-    
-    
-    
-    
-    // 🧪 CONSOLE PARA COPIAR Y PEGAR LA URL EN EL NAVEGADOR
-    
-    
-    
-    
-    
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.registerUserFace(employeeNo, name, gender, publicURL);
-    
-    
-    
-    // Agregar el payload a la respuesta para verificación
-    if (result.success) {
-      result.data.payloadToDevice = payloadToDevice;
-      result.data.publicURL = publicURL;
-      result.data.faceURL = publicURL;
-    } else {
-      result.payloadToDevice = payloadToDevice;
-      result.publicURL = publicURL;
-      result.faceURL = publicURL;
-    }
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+  },
+);
 
 // Ruta para registrar rostro de usuario con URL externa (mantener compatibilidad)
-app.post('/api/hikvision/register-user-face-url', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave, employeeNo, name, gender, imageBase64 } = req.body;
-    
-    if (!ip || !usuario || !clave || !employeeNo || !name || !imageBase64) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name e imageBase64 son requeridos' });
-    }
+app.post(
+  "/api/hikvision/register-user-face-url",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave, employeeNo, name, gender, imageBase64 } =
+        req.body;
 
-    
-    
-    
-    
-    
-    // Generar ID único para la imagen
-    const imageId = `face_${employeeNo}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Almacenar imagen en memoria
-    tempImages.set(imageId, imageBase64);
-    
-    // Crear URL externa corta
-    const faceURL = `http://${ip.split(':')[0]}:3000/img/${imageId}`;
-    
-    
-    
-    
-    
-    // Crear el payload que se enviará al dispositivo
-    const payloadToDevice = {
-      "faceURL": faceURL,
-      "faceLibType": "blackFD",
-      "FDID": "1",
-      "FPID": employeeNo,
-      "name": name,
-      "gender": gender || "male",
-      "featurePointType": "face"
-    };
-    
-    
-    
-    
-    
-    
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.registerUserFace(employeeNo, name, gender, faceURL);
-    
-    
-    
-    // Limpiar imagen temporal después de 5 minutos
-    setTimeout(() => {
-      tempImages.delete(imageId);
-      
-    }, 5 * 60 * 1000);
-    
-    // Agregar el payload a la respuesta para verificación
-    if (result.success) {
-      result.data.payloadToDevice = payloadToDevice;
-      result.data.imageId = imageId;
-      result.data.faceURL = faceURL;
-    } else {
-      result.payloadToDevice = payloadToDevice;
-      result.imageId = imageId;
-      result.faceURL = faceURL;
+      if (!ip || !usuario || !clave || !employeeNo || !name || !imageBase64) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "IP, usuario, clave, employeeNo, name e imageBase64 son requeridos",
+        });
+      }
+
+      // Generar ID único para la imagen
+      const imageId = `face_${employeeNo}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      // Almacenar imagen en memoria
+      tempImages.set(imageId, imageBase64);
+
+      // Crear URL externa corta
+      const faceURL = `http://${ip.split(":")[0]}:3000/img/${imageId}`;
+
+      // Crear el payload que se enviará al dispositivo
+      const payloadToDevice = {
+        faceURL: faceURL,
+        faceLibType: "blackFD",
+        FDID: "1",
+        FPID: employeeNo,
+        name: name,
+        gender: gender || "male",
+        featurePointType: "face",
+      };
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.registerUserFace(
+        employeeNo,
+        name,
+        gender,
+        faceURL,
+      );
+
+      // Limpiar imagen temporal después de 5 minutos
+      setTimeout(
+        () => {
+          tempImages.delete(imageId);
+        },
+        5 * 60 * 1000,
+      );
+
+      // Agregar el payload a la respuesta para verificación
+      if (result.success) {
+        result.data.payloadToDevice = payloadToDevice;
+        result.data.imageId = imageId;
+        result.data.faceURL = faceURL;
+      } else {
+        result.payloadToDevice = payloadToDevice;
+        result.imageId = imageId;
+        result.faceURL = faceURL;
+      }
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+  },
+);
 
 // Ruta para registrar rostro de usuario con base64 comprimido (mantener compatibilidad)
-app.post('/api/hikvision/register-user-face-compressed', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave, employeeNo, name, gender, compressedBase64 } = req.body;
-    
-    if (!ip || !usuario || !clave || !employeeNo || !name || !compressedBase64) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave, employeeNo, name y compressedBase64 son requeridos' });
-    }
+app.post(
+  "/api/hikvision/register-user-face-compressed",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave, employeeNo, name, gender, compressedBase64 } =
+        req.body;
 
-    
-    
-    
-    
-    
-    // Usar directamente el base64 optimizado que viene del frontend (WebP/PNG/JPEG)
-    const faceURL = compressedBase64;
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    // Crear el payload que se enviará al dispositivo
-    const payloadToDevice = {
-      "faceURL": faceURL,
-      "faceLibType": "blackFD",
-      "FDID": "1",
-      "FPID": employeeNo,
-      "name": name,
-      "gender": gender || "male",
-      "featurePointType": "face"
-    };
-    
-    
-    
-    
-    
-    
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.registerUserFace(employeeNo, name, gender, faceURL);
-    
-    
-    
-    // Agregar el payload a la respuesta para verificación
-    if (result.success) {
-      result.data.payloadToDevice = payloadToDevice;
-      result.data.base64Length = faceURL.length;
-    } else {
-      result.payloadToDevice = payloadToDevice;
-      result.base64Length = faceURL.length;
+      if (
+        !ip ||
+        !usuario ||
+        !clave ||
+        !employeeNo ||
+        !name ||
+        !compressedBase64
+      ) {
+        return res.status(400).json({
+          success: false,
+          error:
+            "IP, usuario, clave, employeeNo, name y compressedBase64 son requeridos",
+        });
+      }
+
+      // Usar directamente el base64 optimizado que viene del frontend (WebP/PNG/JPEG)
+      const faceURL = compressedBase64;
+
+      // Crear el payload que se enviará al dispositivo
+      const payloadToDevice = {
+        faceURL: faceURL,
+        faceLibType: "blackFD",
+        FDID: "1",
+        FPID: employeeNo,
+        name: name,
+        gender: gender || "male",
+        featurePointType: "face",
+      };
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.registerUserFace(
+        employeeNo,
+        name,
+        gender,
+        faceURL,
+      );
+
+      // Agregar el payload a la respuesta para verificación
+      if (result.success) {
+        result.data.payloadToDevice = payloadToDevice;
+        result.data.base64Length = faceURL.length;
+      } else {
+        result.payloadToDevice = payloadToDevice;
+        result.base64Length = faceURL.length;
+      }
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+  },
+);
 
 // Ruta para actualizar usuario
-app.post('/api/hikvision/update-user', authenticateToken, async (req, res) => {
+app.post("/api/hikvision/update-user", authenticateToken, async (req, res) => {
   try {
     const { ip, usuario, clave, userData } = req.body;
-    
+
     if (!ip || !usuario || !clave || !userData) {
-      return res.status(400).json({ success: false, error: 'IP, usuario, clave y userData son requeridos' });
+      return res.status(400).json({
+        success: false,
+        error: "IP, usuario, clave y userData son requeridos",
+      });
     }
 
-    
-    
-    
-    
     const hikvision = new HikvisionISAPI(ip, usuario, clave);
     const result = await hikvision.updateUser(userData);
-    
-    
+
     res.json(result);
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Ruta para servir imágenes como proxy (evitar CORS)
-app.get('/api/hikvision/image-proxy', async (req, res) => {
+app.get("/api/hikvision/image-proxy", async (req, res) => {
   try {
     const { url, ip, usuario, clave } = req.query;
-    
+
     if (!url) {
-      return res.status(400).json({ success: false, error: 'URL es requerida' });
+      return res
+        .status(400)
+        .json({ success: false, error: "URL es requerida" });
     }
 
-    
-    
-    
     // Si tenemos credenciales del dispositivo, usar autenticación digest
     if (ip && usuario && clave) {
       try {
         // Implementar digest authentication manualmente para imágenes
-        const crypto = require('crypto');
-        
+        const crypto = require("crypto");
+
         // Primera petición para obtener el challenge
         const challengeResponse = await axios.get(url, {
           timeout: 10000,
           validateStatus: function (status) {
             return status === 401; // Solo aceptar 401
-          }
+          },
         });
-        
-        const wwwAuthenticate = challengeResponse.headers['www-authenticate'];
-        if (wwwAuthenticate && wwwAuthenticate.includes('Digest')) {
+
+        const wwwAuthenticate = challengeResponse.headers["www-authenticate"];
+        if (wwwAuthenticate && wwwAuthenticate.includes("Digest")) {
           // Parsear el challenge
           const realm = wwwAuthenticate.match(/realm="([^"]+)"/)?.[1];
           const nonce = wwwAuthenticate.match(/nonce="([^"]+)"/)?.[1];
           const qop = wwwAuthenticate.match(/qop="([^"]+)"/)?.[1];
-          
+
           if (realm && nonce) {
             // Generar respuesta digest
-            const ha1 = crypto.createHash('md5').update(`${usuario}:${realm}:${clave}`).digest('hex');
-            const ha2 = crypto.createHash('md5').update(`GET:${url}`).digest('hex');
-            const response = crypto.createHash('md5').update(`${ha1}:${nonce}:${ha2}`).digest('hex');
-            
+            const ha1 = crypto
+              .createHash("md5")
+              .update(`${usuario}:${realm}:${clave}`)
+              .digest("hex");
+            const ha2 = crypto
+              .createHash("md5")
+              .update(`GET:${url}`)
+              .digest("hex");
+            const response = crypto
+              .createHash("md5")
+              .update(`${ha1}:${nonce}:${ha2}`)
+              .digest("hex");
+
             // Segunda petición con digest
             const digestResponse = await axios.get(url, {
-              responseType: 'stream',
+              responseType: "stream",
               timeout: 15000,
               headers: {
-                'Authorization': `Digest username="${usuario}", realm="${realm}", nonce="${nonce}", uri="${url}", response="${response}"`,
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'image/*'
-              }
+                Authorization: `Digest username="${usuario}", realm="${realm}", nonce="${nonce}", uri="${url}", response="${response}"`,
+                "User-Agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                Accept: "image/*",
+              },
             });
-            
+
             // Enviar la imagen
             res.set({
-              'Content-Type': digestResponse.headers['content-type'] || 'image/jpeg',
-              'Content-Length': digestResponse.headers['content-length'],
-              'Cache-Control': 'public, max-age=3600',
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Allow-Methods': 'GET',
-              'Access-Control-Allow-Headers': 'Content-Type'
+              "Content-Type":
+                digestResponse.headers["content-type"] || "image/jpeg",
+              "Content-Length": digestResponse.headers["content-length"],
+              "Cache-Control": "public, max-age=3600",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET",
+              "Access-Control-Allow-Headers": "Content-Type",
             });
-            
+
             return digestResponse.data.pipe(res);
           }
         }
-      } catch (digestError) {
-        
-      }
+      } catch (digestError) {}
     }
-    
+
     // Fallback a autenticación básica
     try {
       const response = await axios.get(url, {
-        responseType: 'stream',
+        responseType: "stream",
         timeout: 15000,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'image/*',
-          'Accept-Encoding': 'identity'
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          Accept: "image/*",
+          "Accept-Encoding": "identity",
         },
         auth: {
-          username: usuario || 'admin',
-          password: clave || 'admin123'
-        }
+          username: usuario || "admin",
+          password: clave || "admin123",
+        },
       });
-      
+
       // Copiar headers de la respuesta original
       res.set({
-        'Content-Type': response.headers['content-type'] || 'image/jpeg',
-        'Content-Length': response.headers['content-length'],
-        'Cache-Control': 'public, max-age=3600',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Headers': 'Content-Type'
+        "Content-Type": response.headers["content-type"] || "image/jpeg",
+        "Content-Length": response.headers["content-length"],
+        "Cache-Control": "public, max-age=3600",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET",
+        "Access-Control-Allow-Headers": "Content-Type",
       });
-      
+
       // Pipe la imagen al response
       response.data.pipe(res);
-      
     } catch (basicError) {
-      
       throw basicError;
     }
-    
   } catch (error) {
-    
-    
-    res.status(500).json({ 
-      success: false, 
-      error: 'Error cargando imagen',
+    res.status(500).json({
+      success: false,
+      error: "Error cargando imagen",
       details: error.message,
-      status: error.response?.status
+      status: error.response?.status,
     });
   }
 });
 
 // Ruta para descubrir canales de streaming
-app.post('/api/hikvision/discover-channels', authenticateToken, async (req, res) => {
-  try {
-    const { ip, usuario, clave } = req.body;
-    
-    if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
-    }
+app.post(
+  "/api/hikvision/discover-channels",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { ip, usuario, clave } = req.body;
 
-    const hikvision = new HikvisionISAPI(ip, usuario, clave);
-    const result = await hikvision.discoverStreamingChannels();
-    
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+      if (!ip || !usuario || !clave) {
+        return res.status(400).json({
+          success: false,
+          error: "IP, usuario y clave son requeridos",
+        });
+      }
+
+      const hikvision = new HikvisionISAPI(ip, usuario, clave);
+      const result = await hikvision.discoverStreamingChannels();
+
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
 
 // ==================== RUTAS DE ATTLOGS (MARCJES) ====================
 
 // GET /api/attlogs - Obtener todos los marcajes (DataTables server-side)
-app.get('/api/attlogs', authenticateToken, async (req, res) => {
+app.get("/api/attlogs", authenticateToken, async (req, res) => {
   try {
-    const { 
-      dispositivo_id, 
-      employee_no, 
-      fecha_inicio, 
-      fecha_fin
-    } = req.query;
-    
+    const { dispositivo_id, employee_no, fecha_inicio, fecha_fin } = req.query;
+
     // Construir filtros
     const whereClause = {};
-    
+
     if (dispositivo_id) {
       whereClause.dispositivo_id = dispositivo_id;
     }
-    
+
     if (employee_no) {
       whereClause.employee_no = { [Op.like]: `%${employee_no}%` };
     }
-    
+
     if (fecha_inicio && fecha_fin) {
       whereClause.event_time = {
-        [Op.between]: [fecha_inicio, fecha_fin]
+        [Op.between]: [fecha_inicio, fecha_fin],
       };
     }
-    
+
     const queryOptions = {
       where: whereClause,
       include: [
         {
           model: Dispositivo,
-          as: 'Dispositivo',
-          attributes: ['id', 'nombre', 'ip_remota']
-        }
+          as: "Dispositivo",
+          attributes: ["id", "nombre", "ip_remota"],
+        },
       ],
-      order: [['event_time', 'DESC']]
+      order: [["event_time", "DESC"]],
     };
-    
+
     const attlogs = await Attlog.findAll(queryOptions);
-    
+
     // Respuesta simple con todos los datos
     res.json({
       attlogs: attlogs,
-      total: attlogs.length
+      total: attlogs.length,
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
@@ -11956,92 +12988,104 @@ app.get('/api/attlogs', authenticateToken, async (req, res) => {
 // ==================== RUTAS DE HIK-CONNECT ====================
 
 // Usar las rutas de Hik-Connect
-app.use('/api/hik-connect', hikConnectRoutes);
+app.use("/api/hik-connect", hikConnectRoutes);
 
 // ==================== RUTAS HÍBRIDAS WISI-HIKVISION ====================
 // Usar las rutas híbridas
-app.use('/api/wisi-hikvision', hybridRoutes);
+app.use("/api/wisi-hikvision", hybridRoutes);
 
 // ==================== RUTAS TPP HIKVISION ====================
 // Inicializar cliente TPP
 const tppClient = new TPPHikvisionAPI();
 
 // Ruta para autenticar con TPP
-app.post('/api/tpp/authenticate', authenticateToken, async (req, res) => {
+app.post("/api/tpp/authenticate", authenticateToken, async (req, res) => {
   try {
     const result = await tppClient.authenticate();
     res.json(result);
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Ruta para obtener dispositivos TPP
-app.get('/api/tpp/devices', authenticateToken, async (req, res) => {
+app.get("/api/tpp/devices", authenticateToken, async (req, res) => {
   try {
     const result = await tppClient.getDevices();
     res.json(result);
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Ruta para obtener usuarios de un dispositivo TPP
-app.get('/api/tpp/devices/:deviceId/users', authenticateToken, async (req, res) => {
-  try {
-    const { deviceId } = req.params;
-    const result = await tppClient.getDeviceUsers(deviceId);
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+app.get(
+  "/api/tpp/devices/:deviceId/users",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { deviceId } = req.params;
+      const result = await tppClient.getDeviceUsers(deviceId);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
 
 // Ruta para obtener eventos de un dispositivo TPP
-app.get('/api/tpp/devices/:deviceId/events', authenticateToken, async (req, res) => {
-  try {
-    const { deviceId } = req.params;
-    const { startTime, endTime } = req.query;
-    const result = await tppClient.getDeviceEvents(deviceId, startTime, endTime);
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+app.get(
+  "/api/tpp/devices/:deviceId/events",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { deviceId } = req.params;
+      const { startTime, endTime } = req.query;
+      const result = await tppClient.getDeviceEvents(
+        deviceId,
+        startTime,
+        endTime,
+      );
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
 
 // Ruta para obtener foto de usuario desde TPP
-app.get('/api/tpp/devices/:deviceId/users/:userId/photo', authenticateToken, async (req, res) => {
-  try {
-    const { deviceId, userId } = req.params;
-    const result = await tppClient.getUserPhoto(deviceId, userId);
-    res.json(result);
-  } catch (error) {
-    
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+app.get(
+  "/api/tpp/devices/:deviceId/users/:userId/photo",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { deviceId, userId } = req.params;
+      const result = await tppClient.getUserPhoto(deviceId, userId);
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  },
+);
 
 // Ruta para sincronizar TPP con ISAPI
-app.post('/api/tpp/sync/:deviceId', authenticateToken, async (req, res) => {
+app.post("/api/tpp/sync/:deviceId", authenticateToken, async (req, res) => {
   try {
     const { deviceId } = req.params;
     const { ip, usuario, clave } = req.body;
-    
+
     if (!ip || !usuario || !clave) {
-      return res.status(400).json({ success: false, error: 'IP, usuario y clave son requeridos' });
+      return res
+        .status(400)
+        .json({ success: false, error: "IP, usuario y clave son requeridos" });
     }
 
-    const HikvisionISAPI = require('./hikvision-isapi');
+    const HikvisionISAPI = require("./hikvision-isapi");
     const isapiClient = new HikvisionISAPI(ip, usuario, clave);
-    
+
     const result = await tppClient.syncWithISAPI(deviceId, isapiClient);
     res.json(result);
   } catch (error) {
-    
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -12053,514 +13097,536 @@ app.post('/api/tpp/sync/:deviceId', authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener novedades de máquinas por libro (público)
-app.get('/api/public/novedades-maquinas/:libroId', async (req, res) => {
+app.get("/api/public/novedades-maquinas/:libroId", async (req, res) => {
   try {
     const { libroId } = req.params;
-    
+
     // Verificar que el modelo existe
     if (!NovedadMaquinaRegistro) {
-      return res.status(500).json({ message: 'Modelo no encontrado' });
+      return res.status(500).json({ message: "Modelo no encontrado" });
     }
-    
+
     // Consulta con includes para obtener datos completos
     const novedades = await NovedadMaquinaRegistro.findAll({
       where: { libro_id: libroId },
       include: [
         {
           model: Maquina,
-          as: 'Maquina',
+          as: "Maquina",
           include: [
             {
               model: Rango,
-              as: 'Rango',
-              attributes: ['id', 'nombre']
-            }
-          ]
+              as: "Rango",
+              attributes: ["id", "nombre"],
+            },
+          ],
         },
         {
           model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
-        }
+          as: "Empleado",
+          attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+        },
       ],
-      order: [['created_at', 'ASC']]
+      order: [["created_at", "ASC"]],
     });
-    
+
     res.json(novedades);
   } catch (error) {
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Obtener novedades de mesas por libro (público)
-app.get('/api/public/novedades-mesas/:libroId', async (req, res) => {
+app.get("/api/public/novedades-mesas/:libroId", async (req, res) => {
   try {
     const { libroId } = req.params;
-    ;
     const novedades = await NovedadMesaRegistro.findAll({
       where: { libro_id: libroId },
       include: [
         {
           model: Mesa,
-          as: 'Mesa',
-          attributes: ['id', 'nombre']
+          as: "Mesa",
+          attributes: ["id", "nombre"],
         },
         {
           model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
-        }
+          as: "Empleado",
+          attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+        },
       ],
-      order: [['created_at', 'ASC']]
+      order: [["created_at", "ASC"]],
     });
-    
-    ;
+
     res.json(novedades);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error interno del servidor", error: error.message });
   }
 });
 
 // Obtener control de llaves por libro (público)
-app.get('/api/public/control-llaves/:libroId', async (req, res) => {
+app.get("/api/public/control-llaves/:libroId", async (req, res) => {
   try {
     const { libroId } = req.params;
-    ;
     const controles = await ControlLlaveRegistro.findAll({
       where: { libro_id: libroId },
       include: [
         {
           model: Llave,
-          as: 'Llave',
-          attributes: ['id', 'nombre']
+          as: "Llave",
+          attributes: ["id", "nombre"],
         },
         {
           model: Empleado,
-          as: 'Empleado',
-          attributes: ['id', 'nombre', 'cedula', 'foto', 'sexo']
-        }
+          as: "Empleado",
+          attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+        },
       ],
-      order: [['created_at', 'ASC']]
+      order: [["created_at", "ASC"]],
     });
-    
-    ;
+
     res.json(controles);
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+    res
+      .status(500)
+      .json({ message: "Error interno del servidor", error: error.message });
   }
 });
 
 // Ruta catch-all: devolver index.html para todas las rutas no encontradas (SPA)
 // IMPORTANTE: Esta ruta debe estar AL FINAL, después de todas las rutas de API
-app.get('*', (req, res) => {
+app.get("*", (req, res) => {
   // Solo servir index.html para rutas que no sean de API
-  if (!req.path.startsWith('/api/')) {
-    res.sendFile(path.join(__dirname, 'wisi-frontend/dist/wisi-frontend/browser/index.html'));
+  if (!req.path.startsWith("/api/")) {
+    res.sendFile(
+      path.join(
+        __dirname,
+        "wisi-frontend/dist/wisi-frontend/browser/index.html",
+      ),
+    );
   } else {
-    res.status(404).json({ message: 'Ruta de API no encontrada' });
+    res.status(404).json({ message: "Ruta de API no encontrada" });
   }
 });
 
 app.listen(PORT, () => {
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
   // Inicializar trabajos CRON después de que el servidor esté listo
   setTimeout(async () => {
-    
     // Intentar restaurar cola desde disco
     const restored = loadQueueFromDisk();
     if (restored && cronQueue.length > 0) {
-      ;
       // Procesar cola restaurada si no está en proceso
       if (!isProcessingCron) {
         processCronQueue();
       }
     }
-    
+
     await initializeAllCronJobs();
-    
   }, 2000); // Esperar 2 segundos para que la base de datos esté lista
 });
 
 // Ruta para verificar salud de un dispositivo específico
-app.get('/api/dispositivos/:id/health', authenticateToken, async (req, res) => {
+app.get("/api/dispositivos/:id/health", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const dispositivo = await Dispositivo.findByPk(id);
     if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+      return res.status(404).json({ message: "Dispositivo no encontrado" });
     }
-    
+
     const isHealthy = await checkDeviceHealth(dispositivo);
-    
+
     res.json({
       device: dispositivo.nombre,
       ip: dispositivo.ip_remota,
       healthy: isHealthy,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta para deshabilitar dispositivos problemáticos automáticamente
-app.post('/api/dispositivos/:id/disable-problematic', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { reason } = req.body;
-    
-    const dispositivo = await Dispositivo.findByPk(id);
-    if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo no encontrado' });
+app.post(
+  "/api/dispositivos/:id/disable-problematic",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body;
+
+      const dispositivo = await Dispositivo.findByPk(id);
+      if (!dispositivo) {
+        return res.status(404).json({ message: "Dispositivo no encontrado" });
+      }
+
+      // Deshabilitar CRON
+      await dispositivo.update({
+        cron_activo: false,
+      });
+
+      // Detener el job de CRON si existe
+      if (cronJobs[id]) {
+        cronJobs[id].destroy();
+        delete cronJobs[id];
+      }
+
+      res.json({
+        message: "Dispositivo problemático deshabilitado exitosamente",
+        reason: reason || "Timeout/Connectivity issues",
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
     }
-    
-    // Deshabilitar CRON
-    await dispositivo.update({ 
-      cron_activo: false
-    });
-    
-    // Detener el job de CRON si existe
-    if (cronJobs[id]) {
-      cronJobs[id].destroy();
-      delete cronJobs[id];
-      
-    }
-    
-    res.json({ 
-      message: 'Dispositivo problemático deshabilitado exitosamente',
-      reason: reason || 'Timeout/Connectivity issues'
-    });
-  } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
+  },
+);
 
 // Ruta para monitorear el estado de la cola de CRON
-app.get('/api/cron/queue-status', authenticateToken, async (req, res) => {
+app.get("/api/cron/queue-status", authenticateToken, async (req, res) => {
   try {
     // Obtener configuración actual del CRON para mostrar el delay dinámico
     const cronConfig = await Cron.findOne();
-    const cronValue = cronConfig ? cronConfig.value : '1m';
+    const cronValue = cronConfig ? cronConfig.value : "1m";
     const delayMs = timeToMs(cronValue);
-    
+
     res.json({
       queueLength: cronQueue.length,
       isProcessing: isProcessingCron,
-      currentProcessingDevice: currentProcessingDevice ? {
-        id: currentProcessingDevice.id,
-        nombre: currentProcessingDevice.nombre,
-        ip_remota: currentProcessingDevice.ip_remota
-      } : null,
+      currentProcessingDevice: currentProcessingDevice
+        ? {
+            id: currentProcessingDevice.id,
+            nombre: currentProcessingDevice.nombre,
+            ip_remota: currentProcessingDevice.ip_remota,
+          }
+        : null,
       maxConcurrentDevices: MAX_CONCURRENT_DEVICES,
       delayBetweenDevices: cronValue,
       delayMs: delayMs,
       timeoutPerDevice: CRON_TIMEOUT,
-      queue: cronQueue.map(item => ({
+      queue: cronQueue.map((item) => ({
         device: item.dispositivo.nombre,
         timestamp: item.timestamp,
-        priority: item.priority
+        priority: item.priority,
       })),
-      activeCronJobs: activeCronJobs.size
+      activeCronJobs: activeCronJobs.size,
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta para limpiar la cola de CRON
-app.post('/api/cron/clear-queue', authenticateToken, async (req, res) => {
+app.post("/api/cron/clear-queue", authenticateToken, async (req, res) => {
   try {
     const clearedCount = cronQueue.length;
     cronQueue = [];
     isProcessingCron = false;
-    
+
     // Limpiar tracking y archivos de persistencia
     processedDevices.clear();
     pendingDevices.clear();
     clearPersistenceFiles();
-    
-    res.json({ 
-      message: 'Cola de CRON limpiada exitosamente',
-      clearedCount: clearedCount
+
+    res.json({
+      message: "Cola de CRON limpiada exitosamente",
+      clearedCount: clearedCount,
     });
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta para forzar guardado de cola
-app.post('/api/cron/save-queue', authenticateToken, async (req, res) => {
+app.post("/api/cron/save-queue", authenticateToken, async (req, res) => {
   try {
     saveQueueToDisk();
-    res.json({ 
-      message: 'Cola guardada exitosamente',
+    res.json({
+      message: "Cola guardada exitosamente",
       queueLength: cronQueue.length,
       processedCount: processedDevices.size,
-      pendingCount: pendingDevices.size
+      pendingCount: pendingDevices.size,
     });
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta para restaurar cola desde disco
-app.post('/api/cron/restore-queue', authenticateToken, async (req, res) => {
+app.post("/api/cron/restore-queue", authenticateToken, async (req, res) => {
   try {
     const restored = loadQueueFromDisk();
     if (restored) {
-      res.json({ 
-        message: 'Cola restaurada exitosamente',
+      res.json({
+        message: "Cola restaurada exitosamente",
         queueLength: cronQueue.length,
         processedCount: processedDevices.size,
-        pendingCount: pendingDevices.size
+        pendingCount: pendingDevices.size,
       });
     } else {
-      res.json({ 
-        message: 'No hay datos de cola para restaurar',
-        queueLength: 0
+      res.json({
+        message: "No hay datos de cola para restaurar",
+        queueLength: 0,
       });
     }
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta para forzar reset completo del sistema CRON
-app.post('/api/cron/reset-system', authenticateToken, async (req, res) => {
+app.post("/api/cron/reset-system", authenticateToken, async (req, res) => {
   try {
     // Detener procesamiento actual
     isProcessingCron = false;
     currentProcessingDevice = null;
-    
+
     // Limpiar cola y tracking
     cronQueue = [];
     processedDevices.clear();
     pendingDevices.clear();
-    
+
     // Limpiar archivos de persistencia
     clearPersistenceFiles();
-    
-    ;
-    
-    res.json({ 
-      message: 'Sistema CRON reseteado exitosamente',
+
+    res.json({
+      message: "Sistema CRON reseteado exitosamente",
       queueLength: 0,
       processedCount: 0,
-      pendingCount: 0
+      pendingCount: 0,
     });
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta para debug de sincronización - verificar configuración de dispositivos
-app.get('/api/debug/sync-config', authenticateToken, async (req, res) => {
+app.get("/api/debug/sync-config", authenticateToken, async (req, res) => {
   try {
     const dispositivos = await Dispositivo.findAll({
-      where: { 
+      where: {
         ip_remota: { [Op.ne]: null },
         usuario: { [Op.ne]: null },
-        clave: { [Op.ne]: null }
+        clave: { [Op.ne]: null },
       },
-      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'marcaje_inicio', 'marcaje_fin']
+      attributes: [
+        "id",
+        "nombre",
+        "ip_remota",
+        "usuario",
+        "clave",
+        "marcaje_inicio",
+        "marcaje_fin",
+      ],
     });
-    
-    const debugInfo = await Promise.all(dispositivos.map(async (dispositivo) => {
-      // Obtener último evento para este dispositivo
-      const lastEvent = await Attlog.findOne({
-        where: { dispositivo_id: dispositivo.id },
-        order: [['event_time', 'DESC']]
-      });
-      
-      // Función para formatear fechas (misma que en syncAttendanceFromDevice)
-      function formatDateForHikvision(dateInput) {
-        if (!dateInput) return null;
-        const date = new Date(dateInput);
-        if (isNaN(date.getTime())) return null;
-        
-        // Convertir de UTC a GMT-04:00 (zona horaria del dispositivo)
-        // Restar 4 horas para ajustar a la zona horaria del dispositivo
-        const adjustedDate = new Date(date.getTime() - (4 * 60 * 60 * 1000));
-        
-        const year = adjustedDate.getFullYear();
-        const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
-        const day = String(adjustedDate.getDate()).padStart(2, '0');
-        const hours = String(adjustedDate.getHours()).padStart(2, '0');
-        const minutes = String(adjustedDate.getMinutes()).padStart(2, '0');
-        const seconds = String(adjustedDate.getSeconds()).padStart(2, '0');
-        
-        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-04:00`;
-      }
-      
-      const startTimeForQuery = formatDateForHikvision(lastEvent?.event_time || dispositivo.marcaje_inicio);
-      const endTimeForQuery = formatDateForHikvision(dispositivo.marcaje_fin);
-      
-      return {
-        id: dispositivo.id,
-        nombre: dispositivo.nombre,
-        ip_remota: dispositivo.ip_remota,
-        marcaje_inicio: dispositivo.marcaje_inicio,
-        marcaje_fin: dispositivo.marcaje_fin,
-        lastEventTime: lastEvent?.event_time || null,
-        startTimeForQuery: startTimeForQuery,
-        endTimeForQuery: endTimeForQuery,
-        hasValidDates: !!(startTimeForQuery && endTimeForQuery),
-        lastEventId: lastEvent?.id || null,
-        totalEventsInDB: await Attlog.count({ where: { dispositivo_id: dispositivo.id } })
-      };
-    }));
-    
+
+    const debugInfo = await Promise.all(
+      dispositivos.map(async (dispositivo) => {
+        // Obtener último evento para este dispositivo
+        const lastEvent = await Attlog.findOne({
+          where: { dispositivo_id: dispositivo.id },
+          order: [["event_time", "DESC"]],
+        });
+
+        // Función para formatear fechas (misma que en syncAttendanceFromDevice)
+        function formatDateForHikvision(dateInput) {
+          if (!dateInput) return null;
+          const date = new Date(dateInput);
+          if (isNaN(date.getTime())) return null;
+
+          // Convertir de UTC a GMT-04:00 (zona horaria del dispositivo)
+          // Restar 4 horas para ajustar a la zona horaria del dispositivo
+          const adjustedDate = new Date(date.getTime() - 4 * 60 * 60 * 1000);
+
+          const year = adjustedDate.getFullYear();
+          const month = String(adjustedDate.getMonth() + 1).padStart(2, "0");
+          const day = String(adjustedDate.getDate()).padStart(2, "0");
+          const hours = String(adjustedDate.getHours()).padStart(2, "0");
+          const minutes = String(adjustedDate.getMinutes()).padStart(2, "0");
+          const seconds = String(adjustedDate.getSeconds()).padStart(2, "0");
+
+          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-04:00`;
+        }
+
+        const startTimeForQuery = formatDateForHikvision(
+          lastEvent?.event_time || dispositivo.marcaje_inicio,
+        );
+        const endTimeForQuery = formatDateForHikvision(dispositivo.marcaje_fin);
+
+        return {
+          id: dispositivo.id,
+          nombre: dispositivo.nombre,
+          ip_remota: dispositivo.ip_remota,
+          marcaje_inicio: dispositivo.marcaje_inicio,
+          marcaje_fin: dispositivo.marcaje_fin,
+          lastEventTime: lastEvent?.event_time || null,
+          startTimeForQuery: startTimeForQuery,
+          endTimeForQuery: endTimeForQuery,
+          hasValidDates: !!(startTimeForQuery && endTimeForQuery),
+          lastEventId: lastEvent?.id || null,
+          totalEventsInDB: await Attlog.count({
+            where: { dispositivo_id: dispositivo.id },
+          }),
+        };
+      }),
+    );
+
     res.json({
       dispositivos: debugInfo,
       totalDispositivos: debugInfo.length,
-      dispositivosConFechasValidas: debugInfo.filter(d => d.hasValidDates).length
+      dispositivosConFechasValidas: debugInfo.filter((d) => d.hasValidDates)
+        .length,
     });
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta específica para debug del dispositivo Marques
-app.get('/api/debug/marques-sync', authenticateToken, async (req, res) => {
+app.get("/api/debug/marques-sync", authenticateToken, async (req, res) => {
   try {
     // Buscar el dispositivo Marques
     const dispositivo = await Dispositivo.findOne({
-      where: { 
-        nombre: { [Op.like]: '%Marques%' }
+      where: {
+        nombre: { [Op.like]: "%Marques%" },
       },
-      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave', 'marcaje_inicio', 'marcaje_fin']
+      attributes: [
+        "id",
+        "nombre",
+        "ip_remota",
+        "usuario",
+        "clave",
+        "marcaje_inicio",
+        "marcaje_fin",
+      ],
     });
-    
+
     if (!dispositivo) {
-      return res.status(404).json({ message: 'Dispositivo Marques no encontrado' });
+      return res
+        .status(404)
+        .json({ message: "Dispositivo Marques no encontrado" });
     }
-    
+
     // Obtener último evento para este dispositivo
     const lastEvent = await Attlog.findOne({
       where: { dispositivo_id: dispositivo.id },
-      order: [['event_time', 'DESC']]
+      order: [["event_time", "DESC"]],
     });
-    
+
     // Obtener todos los eventos de este dispositivo
     const allEvents = await Attlog.findAll({
       where: { dispositivo_id: dispositivo.id },
-      order: [['event_time', 'DESC']],
-      limit: 10
+      order: [["event_time", "DESC"]],
+      limit: 10,
     });
-    
+
     // Función para formatear fechas (misma que en syncAttendanceFromDevice)
     function formatDateForHikvision(dateInput) {
       if (!dateInput) return null;
       const date = new Date(dateInput);
       if (isNaN(date.getTime())) return null;
-      
+
       // Convertir de UTC a GMT-04:00 (zona horaria del dispositivo)
       // Restar 4 horas para ajustar a la zona horaria del dispositivo
-      const adjustedDate = new Date(date.getTime() - (4 * 60 * 60 * 1000));
-      
+      const adjustedDate = new Date(date.getTime() - 4 * 60 * 60 * 1000);
+
       const year = adjustedDate.getFullYear();
-      const month = String(adjustedDate.getMonth() + 1).padStart(2, '0');
-      const day = String(adjustedDate.getDate()).padStart(2, '0');
-      const hours = String(adjustedDate.getHours()).padStart(2, '0');
-      const minutes = String(adjustedDate.getMinutes()).padStart(2, '0');
-      const seconds = String(adjustedDate.getSeconds()).padStart(2, '0');
-      
+      const month = String(adjustedDate.getMonth() + 1).padStart(2, "0");
+      const day = String(adjustedDate.getDate()).padStart(2, "0");
+      const hours = String(adjustedDate.getHours()).padStart(2, "0");
+      const minutes = String(adjustedDate.getMinutes()).padStart(2, "0");
+      const seconds = String(adjustedDate.getSeconds()).padStart(2, "0");
+
       return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}-04:00`;
     }
-    
-    const startTimeForQuery = formatDateForHikvision(lastEvent?.event_time || dispositivo.marcaje_inicio);
+
+    const startTimeForQuery = formatDateForHikvision(
+      lastEvent?.event_time || dispositivo.marcaje_inicio,
+    );
     const endTimeForQuery = formatDateForHikvision(dispositivo.marcaje_fin);
-    
+
     res.json({
       dispositivo: {
         id: dispositivo.id,
         nombre: dispositivo.nombre,
         ip_remota: dispositivo.ip_remota,
         marcaje_inicio: dispositivo.marcaje_inicio,
-        marcaje_fin: dispositivo.marcaje_fin
+        marcaje_fin: dispositivo.marcaje_fin,
       },
-      lastEvent: lastEvent ? {
-        id: lastEvent.id,
-        event_time: lastEvent.event_time,
-        employee_id: lastEvent.employee_id
-      } : null,
+      lastEvent: lastEvent
+        ? {
+            id: lastEvent.id,
+            event_time: lastEvent.event_time,
+            employee_id: lastEvent.employee_id,
+          }
+        : null,
       startTimeForQuery: startTimeForQuery,
       endTimeForQuery: endTimeForQuery,
       hasValidDates: !!(startTimeForQuery && endTimeForQuery),
       totalEventsInDB: allEvents.length,
-      recentEvents: allEvents.map(event => ({
+      recentEvents: allEvents.map((event) => ({
         id: event.id,
         event_time: event.event_time,
-        employee_id: event.employee_id
-      }))
+        employee_id: event.employee_id,
+      })),
     });
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta para obtener configuración de CRON global
-app.get('/api/cron/config', authenticateToken, async (req, res) => {
+app.get("/api/cron/config", authenticateToken, async (req, res) => {
   try {
     const cronConfig = await Cron.findOne();
-    const currentValue = cronConfig ? cronConfig.value : 'Desactivado';
-    
+    const currentValue = cronConfig ? cronConfig.value : "Desactivado";
+
     const options = [
-      'Desactivado',
-      '1m',
-      '5m', 
-      '10m',
-      '30m',
-      '1h',
-      '6h',
-      '12h',
-      '24h'
+      "Desactivado",
+      "1m",
+      "5m",
+      "10m",
+      "30m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
     ];
-    
+
     res.json({
       currentValue: currentValue,
       options: options,
-      isActive: currentValue !== 'Desactivado'
+      isActive: currentValue !== "Desactivado",
     });
   } catch (error) {
-    
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta para actualizar configuración de CRON global
-app.put('/api/cron/config', authenticateToken, async (req, res) => {
+app.put("/api/cron/config", authenticateToken, async (req, res) => {
   try {
     const { value } = req.body;
-    
-    const validValues = ['Desactivado', '10s', '30s', '1m', '5m', '10m', '30m', '1h', '6h', '12h', '24h'];
+
+    const validValues = [
+      "Desactivado",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "10m",
+      "30m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+    ];
     if (!validValues.includes(value)) {
-      return res.status(400).json({ message: 'Valor de CRON inválido' });
+      return res.status(400).json({ message: "Valor de CRON inválido" });
     }
-    
+
     // Actualizar o crear configuración
     let cronConfig = await Cron.findOne();
     if (cronConfig) {
@@ -12568,55 +13634,60 @@ app.put('/api/cron/config', authenticateToken, async (req, res) => {
     } else {
       cronConfig = await Cron.create({ value });
     }
-    
+
     // Reinicializar CRON global
     await initializeAllCronJobs();
-    
-    ;
-    
-    res.json({ 
-      message: 'Configuración de CRON actualizada exitosamente',
-      value: value
+
+    res.json({
+      message: "Configuración de CRON actualizada exitosamente",
+      value: value,
     });
   } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 });
 
 // Ruta para obtener estado de sincronización de dispositivos
-app.get('/api/dispositivos/sync-status', authenticateToken, async (req, res) => {
-  try {
-    const dispositivos = await Dispositivo.findAll({
-      attributes: ['id', 'nombre', 'ip_remota', 'usuario', 'clave'],
-      include: [{
-        model: Sala,
-        attributes: ['id', 'nombre']
-      }]
-    });
+app.get(
+  "/api/dispositivos/sync-status",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const dispositivos = await Dispositivo.findAll({
+        attributes: ["id", "nombre", "ip_remota", "usuario", "clave"],
+        include: [
+          {
+            model: Sala,
+            attributes: ["id", "nombre"],
+          },
+        ],
+      });
 
-    const syncStatus = dispositivos.map(dispositivo => ({
-      id: dispositivo.id,
-      nombre: dispositivo.nombre,
-      ip_remota: dispositivo.ip_remota,
-      sala: dispositivo.Sala?.nombre || 'Sin asignar',
-      hasCredentials: !!(dispositivo.ip_remota && dispositivo.usuario && dispositivo.clave),
-      isCurrentlyProcessing: currentProcessingDevice?.id === dispositivo.id,
-      lastSyncTime: null, // TODO: Implementar tracking de última sincronización
-      status: 'unknown' // TODO: Implementar estado de salud del dispositivo
-    }));
+      const syncStatus = dispositivos.map((dispositivo) => ({
+        id: dispositivo.id,
+        nombre: dispositivo.nombre,
+        ip_remota: dispositivo.ip_remota,
+        sala: dispositivo.Sala?.nombre || "Sin asignar",
+        hasCredentials: !!(
+          dispositivo.ip_remota &&
+          dispositivo.usuario &&
+          dispositivo.clave
+        ),
+        isCurrentlyProcessing: currentProcessingDevice?.id === dispositivo.id,
+        lastSyncTime: null, // TODO: Implementar tracking de última sincronización
+        status: "unknown", // TODO: Implementar estado de salud del dispositivo
+      }));
 
-    res.json({
-      dispositivos: syncStatus,
-      queueStatus: {
-        queueLength: cronQueue.length,
-        isProcessing: isProcessingCron,
-        currentProcessingDevice: currentProcessingDevice?.nombre || null
-      }
-    });
-  } catch (error) {
-    ;
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
+      res.json({
+        dispositivos: syncStatus,
+        queueStatus: {
+          queueLength: cronQueue.length,
+          isProcessing: isProcessingCron,
+          currentProcessingDevice: currentProcessingDevice?.nombre || null,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+);
