@@ -2,6 +2,136 @@
   "queue": [
     {
       "dispositivo": {
+        "id": 4,
+        "nombre": "Marcaje Personal ( Charaima )",
+        "ip_remota": "170.81.146.200:8069",
+        "usuario": "admin",
+        "clave": "S0p0rt3S0p0rt3",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-10-06T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.027Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
+        "id": 18,
+        "nombre": "Marcaje Personal ( Marques )",
+        "ip_remota": "190.153.101.14:8046",
+        "usuario": "admin",
+        "clave": "Sigma2025",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-12-31T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.027Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
+        "id": 19,
+        "nombre": "Marcaje Personal ( PLC )",
+        "ip_remota": "186.167.71.162:8061",
+        "usuario": "admin",
+        "clave": "Cas1n01234",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-10-07T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.028Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
+        "id": 21,
+        "nombre": "Marcaje Personal ( SC )",
+        "ip_remota": "190.6.52.103:8039",
+        "usuario": "admin",
+        "clave": "Raijenny2011*",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-10-09T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.028Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
+        "id": 24,
+        "nombre": "Puerta Cecom ( Marques )",
+        "ip_remota": "190.153.101.14:8087",
+        "usuario": "admin",
+        "clave": "Sigma2025",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-12-31T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.028Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
+        "id": 25,
+        "nombre": "Puerta Boveda ( Marques )",
+        "ip_remota": "190.153.101.14:8035",
+        "usuario": "admin",
+        "clave": "Sigma2025",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-12-31T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.029Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
+        "id": 26,
+        "nombre": "Puerta Caja ( Marques )",
+        "ip_remota": "190.153.101.14:8036",
+        "usuario": "admin",
+        "clave": "Sigma2025",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-12-31T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.029Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
+        "id": 31,
+        "nombre": "Marcaje CECOM ( Roraima )",
+        "ip_remota": "190.72.102.210:8091",
+        "usuario": "admin",
+        "clave": "Jjnc0412",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-11-30T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.029Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
+        "id": 32,
+        "nombre": "Puerta Arco ( Marques )",
+        "ip_remota": "190.153.101.14:8008",
+        "usuario": "admin",
+        "clave": "Sigma2025",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-12-31T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.030Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
+        "id": 34,
+        "nombre": "Puerta Pasillo ( Marques )",
+        "ip_remota": "190.153.101.14:8009",
+        "usuario": "admin",
+        "clave": "Sigma2025",
+        "marcaje_inicio": "2025-01-01T00:00:00",
+        "marcaje_fin": "2030-12-31T23:59:59"
+      },
+      "timestamp": "2026-04-17T23:00:00.030Z",
+      "priority": 1
+    },
+    {
+      "dispositivo": {
         "id": 35,
         "nombre": "Puerta KFC ( Marques )",
         "ip_remota": "190.153.101.14:8037",
@@ -10,7 +140,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T18:50:00.040Z",
+      "timestamp": "2026-04-17T23:00:00.031Z",
       "priority": 1
     },
     {
@@ -23,7 +153,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T18:50:00.041Z",
+      "timestamp": "2026-04-17T23:00:00.031Z",
       "priority": 1
     },
     {
@@ -36,7 +166,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T18:50:00.041Z",
+      "timestamp": "2026-04-17T23:00:00.031Z",
       "priority": 1
     },
     {
@@ -49,7 +179,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T18:50:00.041Z",
+      "timestamp": "2026-04-17T23:00:00.032Z",
       "priority": 1
     },
     {
@@ -62,12 +192,14 @@
         "marcaje_inicio": "2026-01-01T00:00:00",
         "marcaje_fin": "2031-01-31T23:59:59"
       },
-      "timestamp": "2026-04-17T18:50:00.042Z",
+      "timestamp": "2026-04-17T23:00:00.032Z",
       "priority": 1
     }
   ],
   "processedDevices": [
-    3,
+    3
+  ],
+  "pendingDevices": [
     4,
     18,
     19,
@@ -77,15 +209,13 @@
     26,
     31,
     32,
-    34
-  ],
-  "pendingDevices": [
+    34,
     35,
     36,
     37,
     38,
     39
   ],
-  "lastSyncCycle": "2026-04-17T18:50:00.032Z",
-  "timestamp": "2026-04-17T20:03:01.558Z"
+  "lastSyncCycle": "2026-04-17T23:00:00.021Z",
+  "timestamp": "2026-04-17T23:01:11.427Z"
 }

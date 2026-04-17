@@ -279,7 +279,7 @@ import { DispositivosService } from "../../../services/dispositivos.service";
       >
         <div
           class="grupo-card"
-          *ngFor="let grupo of grupos; let i = index"
+          *ngFor="let grupo of grupos; let i = index; trackBy: trackByGrupoNombre"
           [attr.data-grupo-index]="i"
         >
           <div class="grupo-header">
@@ -354,7 +354,7 @@ import { DispositivosService } from "../../../services/dispositivos.service";
                   </tr>
                 </thead>
                 <tbody>
-                  <ng-container *ngFor="let empleado of grupo.empleados">
+                  <ng-container *ngFor="let empleado of grupo.empleados; trackBy: trackByEmpleadoId">
                     <tr>
                       <td class="empleado-completo-cell">
                         <div class="empleado-completo">
@@ -471,7 +471,7 @@ import { DispositivosService } from "../../../services/dispositivos.service";
                   </tr>
                 </thead>
                 <tbody>
-                  <ng-container *ngFor="let empleado of grupo.empleados">
+                  <ng-container *ngFor="let empleado of grupo.empleados; trackBy: trackByEmpleadoId">
                     <!-- Fila de Entrada -->
                     <tr>
                       <td
@@ -3885,6 +3885,14 @@ export class MarcajePersonalComponent implements OnInit {
     return item?.id || index;
   }
 
+  trackByGrupoNombre(index: number, grupo: any): string {
+    return grupo?.nombre || index.toString();
+  }
+
+  trackByEmpleadoId(index: number, empleado: any): any {
+    return empleado?.id || index;
+  }
+
   guardarExcepcion() {
     if (!this.modalEmpleado || !this.modalFecha || !this.selectedPlantillaId)
       return;
@@ -6466,8 +6474,10 @@ export class MarcajePersonalComponent implements OnInit {
           }
         });
 
-        this.agruparEmpleados();
-        this.cdr.detectChanges();
+        //this.agruparEmpleados();
+        //this.cdr.detectChanges();
+        // NO llamar agruparEmpleados() ni detectChanges() aquí
+        // Ya se llama desde guardarExcepcionYcerrar() / onPlantillaSeleccionChange()
       }, 50); // Aumentamos ligeramente el tiempo para asegurar estabilidad
     }
   }
@@ -7213,6 +7223,7 @@ export class MarcajePersonalComponent implements OnInit {
   }
 
   agruparEmpleados() {
+    const gruposAnteriores = this.grupos;
     this.grupos = [];
 
     if (this.grupoSeleccionado === "salas") {
@@ -7224,6 +7235,27 @@ export class MarcajePersonalComponent implements OnInit {
     } else if (this.grupoSeleccionado === "cargos") {
       this.agruparPorCargos();
     }
+
+    const nuevosGrupos = this.grupos;
+
+    // Si la estructura es la misma, actualizar IN-PLACE para no destruir el DOM
+    if (gruposAnteriores.length === nuevosGrupos.length) {
+      let mismaEstructura = true;
+      for (let i = 0; i < gruposAnteriores.length; i++) {
+        if (gruposAnteriores[i].nombre !== nuevosGrupos[i].nombre) {
+          mismaEstructura = false;
+          break;
+        }
+      }
+      if (mismaEstructura) {
+        for (let i = 0; i < gruposAnteriores.length; i++) {
+          gruposAnteriores[i].empleados = nuevosGrupos[i].empleados;
+        }
+        this.grupos = gruposAnteriores;
+        return;
+      }
+    }
+    this.grupos = nuevosGrupos;
   }
 
   // Función auxiliar para ordenar empleados: Departamento > Área > Cargo > Nombre
