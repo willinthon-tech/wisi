@@ -107,7 +107,7 @@ import { DispositivosService } from "../../../services/dispositivos.service";
       <div class="sala-selector-section">
         <div class="sala-selector-container">
           <label class="sala-selector-label"
-            >Seleccionar Dispositivos Biométricos:</label
+            >Dispositivos Biométricos - ( Por defecto si no esta seleccionado traera todos los empleados con o sin registros de marcajes que existan en la sala, SI LO MARCAN traera solo los registros de empleados que solo existan en los equipos biometrico seleccionados )</label
           >
           <div
             class="checkbox-buttons-group"
@@ -6776,7 +6776,7 @@ export class MarcajePersonalComponent implements OnInit {
       .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
 
     // Seleccionar automáticamente los dispositivos que contengan "Marcaje" en el nombre
-    if (this.dispositivosSala.length > 0) {
+    /* if (this.dispositivosSala.length > 0) {
       const dispositivosConMarcaje = this.dispositivosSala.filter(
         (d) => d.nombre && d.nombre.toLowerCase().includes("marcaje"),
       );
@@ -6792,7 +6792,7 @@ export class MarcajePersonalComponent implements OnInit {
           Number(d.id),
         );
       }
-    }
+    } */
 
     this.cdr.detectChanges();
   }

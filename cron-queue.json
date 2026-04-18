@@ -2,58 +2,6 @@
   "queue": [
     {
       "dispositivo": {
-        "id": 32,
-        "nombre": "Puerta Arco ( Marques )",
-        "ip_remota": "190.153.101.14:8008",
-        "usuario": "admin",
-        "clave": "Sigma2025",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-12-31T23:59:59"
-      },
-      "timestamp": "2026-04-18T12:20:00.038Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
-        "id": 34,
-        "nombre": "Puerta Pasillo ( Marques )",
-        "ip_remota": "190.153.101.14:8009",
-        "usuario": "admin",
-        "clave": "Sigma2025",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-12-31T23:59:59"
-      },
-      "timestamp": "2026-04-18T12:20:00.039Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
-        "id": 35,
-        "nombre": "Puerta KFC ( Marques )",
-        "ip_remota": "190.153.101.14:8037",
-        "usuario": "admin",
-        "clave": "Sigma2025",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-12-31T23:59:59"
-      },
-      "timestamp": "2026-04-18T12:20:00.039Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
-        "id": 36,
-        "nombre": "Puerta Servidores ( Marques )",
-        "ip_remota": "190.153.101.14:8088",
-        "usuario": "admin",
-        "clave": "Sigma2025",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-12-31T23:59:59"
-      },
-      "timestamp": "2026-04-18T12:20:00.039Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
         "id": 37,
         "nombre": "Puerta Cecom ( SC )",
         "ip_remota": "190.6.52.103:8040",
@@ -101,17 +49,17 @@
     24,
     25,
     26,
-    31
-  ],
-  "pendingDevices": [
+    31,
     32,
     34,
     35,
-    36,
+    36
+  ],
+  "pendingDevices": [
     37,
     38,
     39
   ],
   "lastSyncCycle": "2026-04-18T12:20:00.030Z",
-  "timestamp": "2026-04-18T13:46:24.082Z"
+  "timestamp": "2026-04-18T14:26:36.213Z"
 }
