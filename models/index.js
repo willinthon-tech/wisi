@@ -8,7 +8,9 @@ const path = require("path");
 //  logging: false, // Cambiar a console.log para ver las consultas SQL
 //});
 
-const sequelize = new Sequelize("wisi", "root", "$0p0rt3R0y", {
+//$0p0rt3R0y
+
+const sequelize = new Sequelize("wisi", "root", "", {
   host: "localhost", // o la IP de tu servidor MySQL
   dialect: "mysql",
   logging: false, // Opcional, para limpiar la consola

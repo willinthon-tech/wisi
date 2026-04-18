@@ -2,71 +2,6 @@
   "queue": [
     {
       "dispositivo": {
-        "id": 4,
-        "nombre": "Marcaje Personal ( Charaima )",
-        "ip_remota": "170.81.146.200:8069",
-        "usuario": "admin",
-        "clave": "S0p0rt3S0p0rt3",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-10-06T23:59:59"
-      },
-      "timestamp": "2026-04-17T23:00:00.027Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
-        "id": 18,
-        "nombre": "Marcaje Personal ( Marques )",
-        "ip_remota": "190.153.101.14:8046",
-        "usuario": "admin",
-        "clave": "Sigma2025",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-12-31T23:59:59"
-      },
-      "timestamp": "2026-04-17T23:00:00.027Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
-        "id": 19,
-        "nombre": "Marcaje Personal ( PLC )",
-        "ip_remota": "186.167.71.162:8061",
-        "usuario": "admin",
-        "clave": "Cas1n01234",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-10-07T23:59:59"
-      },
-      "timestamp": "2026-04-17T23:00:00.028Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
-        "id": 21,
-        "nombre": "Marcaje Personal ( SC )",
-        "ip_remota": "190.6.52.103:8039",
-        "usuario": "admin",
-        "clave": "Raijenny2011*",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-10-09T23:59:59"
-      },
-      "timestamp": "2026-04-17T23:00:00.028Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
-        "id": 24,
-        "nombre": "Puerta Cecom ( Marques )",
-        "ip_remota": "190.153.101.14:8087",
-        "usuario": "admin",
-        "clave": "Sigma2025",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-12-31T23:59:59"
-      },
-      "timestamp": "2026-04-17T23:00:00.028Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
         "id": 25,
         "nombre": "Puerta Boveda ( Marques )",
         "ip_remota": "190.153.101.14:8035",
@@ -75,7 +10,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.029Z",
+      "timestamp": "2026-04-18T12:20:00.038Z",
       "priority": 1
     },
     {
@@ -88,7 +23,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.029Z",
+      "timestamp": "2026-04-18T12:20:00.038Z",
       "priority": 1
     },
     {
@@ -101,7 +36,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-11-30T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.029Z",
+      "timestamp": "2026-04-18T12:20:00.038Z",
       "priority": 1
     },
     {
@@ -114,7 +49,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.030Z",
+      "timestamp": "2026-04-18T12:20:00.038Z",
       "priority": 1
     },
     {
@@ -127,7 +62,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.030Z",
+      "timestamp": "2026-04-18T12:20:00.039Z",
       "priority": 1
     },
     {
@@ -140,7 +75,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.031Z",
+      "timestamp": "2026-04-18T12:20:00.039Z",
       "priority": 1
     },
     {
@@ -153,7 +88,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.031Z",
+      "timestamp": "2026-04-18T12:20:00.039Z",
       "priority": 1
     },
     {
@@ -166,7 +101,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.031Z",
+      "timestamp": "2026-04-18T12:20:00.040Z",
       "priority": 1
     },
     {
@@ -179,7 +114,7 @@
         "marcaje_inicio": "2025-01-01T00:00:00",
         "marcaje_fin": "2030-12-31T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.032Z",
+      "timestamp": "2026-04-18T12:20:00.040Z",
       "priority": 1
     },
     {
@@ -192,19 +127,19 @@
         "marcaje_inicio": "2026-01-01T00:00:00",
         "marcaje_fin": "2031-01-31T23:59:59"
       },
-      "timestamp": "2026-04-17T23:00:00.032Z",
+      "timestamp": "2026-04-18T12:20:00.040Z",
       "priority": 1
     }
   ],
   "processedDevices": [
-    3
-  ],
-  "pendingDevices": [
+    3,
     4,
     18,
     19,
     21,
-    24,
+    24
+  ],
+  "pendingDevices": [
     25,
     26,
     31,
@@ -216,6 +151,6 @@
     38,
     39
   ],
-  "lastSyncCycle": "2026-04-17T23:00:00.021Z",
-  "timestamp": "2026-04-17T23:01:11.427Z"
+  "lastSyncCycle": "2026-04-18T12:20:00.030Z",
+  "timestamp": "2026-04-18T13:16:02.024Z"
 }

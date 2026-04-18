@@ -10529,7 +10529,7 @@ export class MarcajePersonalComponent implements OnInit {
       // Comparar horas trabajadas (ya descontadas) vs horas esperadas a trabajar (descontadas)
       if (horasTrabajadas < horasEsperadasTrabajadas) {
         claseFondoTrabajadas = "bg-calculo-danger";
-      } else if (horasTrabajadas > horasEsperadasTrabajadas) {
+      } else if (horasTrabajadas >= horasEsperadasTrabajadas) {
         claseFondoTrabajadas = "bg-calculo-success";
       }
 
@@ -10549,7 +10549,7 @@ export class MarcajePersonalComponent implements OnInit {
           // Para descanso manual, comparar como antes
           if (horasDescansadas > horasDeDescanso) {
             claseFondoDescansadas = "bg-calculo-danger";
-          } else if (horasDescansadas < horasDeDescanso) {
+          } else if (horasDescansadas <= horasDeDescanso) {
             claseFondoDescansadas = "bg-calculo-success";
           }
         }
