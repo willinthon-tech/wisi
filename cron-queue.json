@@ -2,45 +2,6 @@
   "queue": [
     {
       "dispositivo": {
-        "id": 25,
-        "nombre": "Puerta Boveda ( Marques )",
-        "ip_remota": "190.153.101.14:8035",
-        "usuario": "admin",
-        "clave": "Sigma2025",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-12-31T23:59:59"
-      },
-      "timestamp": "2026-04-18T12:20:00.038Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
-        "id": 26,
-        "nombre": "Puerta Caja ( Marques )",
-        "ip_remota": "190.153.101.14:8036",
-        "usuario": "admin",
-        "clave": "Sigma2025",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-12-31T23:59:59"
-      },
-      "timestamp": "2026-04-18T12:20:00.038Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
-        "id": 31,
-        "nombre": "Marcaje CECOM ( Roraima )",
-        "ip_remota": "190.72.102.210:8091",
-        "usuario": "admin",
-        "clave": "Jjnc0412",
-        "marcaje_inicio": "2025-01-01T00:00:00",
-        "marcaje_fin": "2030-11-30T23:59:59"
-      },
-      "timestamp": "2026-04-18T12:20:00.038Z",
-      "priority": 1
-    },
-    {
-      "dispositivo": {
         "id": 32,
         "nombre": "Puerta Arco ( Marques )",
         "ip_remota": "190.153.101.14:8008",
@@ -137,12 +98,12 @@
     18,
     19,
     21,
-    24
-  ],
-  "pendingDevices": [
+    24,
     25,
     26,
-    31,
+    31
+  ],
+  "pendingDevices": [
     32,
     34,
     35,
@@ -152,5 +113,5 @@
     39
   ],
   "lastSyncCycle": "2026-04-18T12:20:00.030Z",
-  "timestamp": "2026-04-18T13:16:02.024Z"
+  "timestamp": "2026-04-18T13:46:24.082Z"
 }

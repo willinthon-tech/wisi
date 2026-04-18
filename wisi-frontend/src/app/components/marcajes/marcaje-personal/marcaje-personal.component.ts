@@ -2125,15 +2125,17 @@ import { DispositivosService } from "../../../services/dispositivos.service";
 
       .grupo-header h3 {
         margin: 0;
-        font-size: 18px;
+        font-size: 24px;
         font-weight: 600;
+        color: black;
       }
 
       .filtros-activos {
-        font-size: 12px;
-        font-weight: 400;
+        font-size: 20px;
+        font-weight: 600;
         opacity: 0.9;
         line-height: 1.4;
+        color: black;
       }
 
       .empleados-count {
