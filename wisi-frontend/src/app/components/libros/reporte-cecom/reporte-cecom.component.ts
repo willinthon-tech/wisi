@@ -143,7 +143,8 @@ import { environment } from '../../../../environments/environment';
                 <th>N°</th>
                 <th>Llave</th>
                 <th>Empleado</th>
-                <th>Hora</th>
+                <th>Hora de Entrega</th>
+                <th>Hora de Resguardo</th>
               </tr>
             </thead>
             <tbody>
@@ -166,6 +167,7 @@ import { environment } from '../../../../environments/environment';
                   <span *ngIf="!evento.empleado">Sin empleado</span>
                 </td>
                 <td>{{ evento.hora }}</td>
+                <td>{{ evento.hora_out }}</td>
               </tr>
             </tbody>
           </table>
@@ -258,7 +260,7 @@ import { environment } from '../../../../environments/environment';
     <div class="modal-overlay" *ngIf="showEmpleadoModal" (click)="cerrarEmpleadoModal()">
       <div class="modal-content empleado-modal" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h4>Gran Casino San Cristobal</h4>
+          <h4>{{ empleadoSeleccionado?.Sala?.nombre || 'N/A' }}</h4>
           <button class="btn-close" (click)="cerrarEmpleadoModal()">&times;</button>
         </div>
         <div class="modal-body empleado-info">
@@ -280,16 +282,16 @@ import { environment } from '../../../../environments/environment';
                   <strong>Cédula:</strong> {{ empleadoSeleccionado?.cedula }}
                 </div>
                 <div class="dato-item">
-                  <strong>Área:</strong> {{ empleadoSeleccionado?.Area?.nombre || 'General' }}
+                  <strong>Área:</strong> {{ empleadoSeleccionado?.Area?.nombre || 'N/A' }}
                 </div>
                 <div class="dato-item">
-                  <strong>Departamento:</strong> {{ empleadoSeleccionado?.Departamento?.nombre || 'Sistemas' }}
+                  <strong>Departamento:</strong> {{ empleadoSeleccionado?.Departamento?.nombre || 'N/A' }}
                 </div>
                 <div class="dato-item">
-                  <strong>Cargo:</strong> {{ empleadoSeleccionado?.Cargo?.nombre || 'Jefe de Sistemas' }}
+                  <strong>Cargo:</strong> {{ empleadoSeleccionado?.Cargo?.nombre || 'N/A' }}
                 </div>
                 <div class="dato-item">
-                  <strong>Sexo:</strong> {{ empleadoSeleccionado?.sexo || 'Masculino' }}
+                  <strong>Sexo:</strong> {{ empleadoSeleccionado?.sexo || 'N/A' }}
                 </div>
               </div>
             </div>
@@ -1069,6 +1071,8 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
     
     this.empleadoSeleccionado = empleado;
     this.showEmpleadoModal = true;
+
+    console.log(this.empleadoSeleccionado)
   }
 
   cerrarEmpleadoModal() {

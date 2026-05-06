@@ -6732,8 +6732,41 @@ app.get(
           {
             model: Empleado,
             as: "Empleado",
-            attributes: ["id", "nombre", "cedula"],
-          },
+            attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+            include: [
+              {
+                model: Cargo,
+                as: "Cargo",
+                attributes: ["id", "nombre"],
+                required: false, // <-- Explicación abajo
+                include: [
+                  {
+                    model: Area,
+                    as: "Area",
+                    attributes: ["id", "nombre"],
+                    required: false,
+                    include: [
+                      {
+                        model: Departamento,
+                        as: "Departamento",
+                        attributes: ["id", "nombre"],
+                        required: false,
+                        include: [
+                          {
+                            model: Sala,
+                            as: "Sala",
+                            attributes: ["id", "nombre"],
+                            where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                            required: false // <-- OJO con este
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
         ],
         order: [["hora", "ASC"]],
       });
@@ -6818,7 +6851,40 @@ app.post(
             {
               model: Empleado,
               as: "Empleado",
-              attributes: ["id", "nombre", "cedula"],
+              attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+              include: [
+                {
+                  model: Cargo,
+                  as: "Cargo",
+                  attributes: ["id", "nombre"],
+                  required: false, // <-- Explicación abajo
+                  include: [
+                    {
+                      model: Area,
+                      as: "Area",
+                      attributes: ["id", "nombre"],
+                      required: false,
+                      include: [
+                        {
+                          model: Departamento,
+                          as: "Departamento",
+                          attributes: ["id", "nombre"],
+                          required: false,
+                          include: [
+                            {
+                              model: Sala,
+                              as: "Sala",
+                              attributes: ["id", "nombre"],
+                              where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                              required: false // <-- OJO con este
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             },
           ],
         },
@@ -6931,7 +6997,40 @@ app.get(
           {
             model: Empleado,
             as: "Empleado",
-            attributes: ["id", "nombre", "cedula"],
+            attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+            include: [
+              {
+                model: Cargo,
+                as: "Cargo",
+                attributes: ["id", "nombre"],
+                required: false, // <-- Explicación abajo
+                include: [
+                  {
+                    model: Area,
+                    as: "Area",
+                    attributes: ["id", "nombre"],
+                    required: false,
+                    include: [
+                      {
+                        model: Departamento,
+                        as: "Departamento",
+                        attributes: ["id", "nombre"],
+                        required: false,
+                        include: [
+                          {
+                            model: Sala,
+                            as: "Sala",
+                            attributes: ["id", "nombre"],
+                            where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                            required: false // <-- OJO con este
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           },
         ],
         order: [["hora", "ASC"]],
@@ -7015,7 +7114,40 @@ app.post(
           {
             model: Empleado,
             as: "Empleado",
-            attributes: ["id", "nombre", "cedula"],
+            attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+            include: [
+              {
+                model: Cargo,
+                as: "Cargo",
+                attributes: ["id", "nombre"],
+                required: false, // <-- Explicación abajo
+                include: [
+                  {
+                    model: Area,
+                    as: "Area",
+                    attributes: ["id", "nombre"],
+                    required: false,
+                    include: [
+                      {
+                        model: Departamento,
+                        as: "Departamento",
+                        attributes: ["id", "nombre"],
+                        required: false,
+                        include: [
+                          {
+                            model: Sala,
+                            as: "Sala",
+                            attributes: ["id", "nombre"],
+                            where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                            required: false // <-- OJO con este
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
           },
         ],
       });
@@ -7657,7 +7789,41 @@ app.get("/api/public/novedades/:libroId", async (req, res) => {
         },
         {
           model: Empleado,
-          attributes: ["id", "nombre"],
+          as: "Empleado",
+          attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+          include: [
+            {
+              model: Cargo,
+              as: "Cargo",
+              attributes: ["id", "nombre"],
+              required: false, // <-- Explicación abajo
+              include: [
+                {
+                  model: Area,
+                  as: "Area",
+                  attributes: ["id", "nombre"],
+                  required: false,
+                  include: [
+                    {
+                      model: Departamento,
+                      as: "Departamento",
+                      attributes: ["id", "nombre"],
+                      required: false,
+                      include: [
+                        {
+                          model: Sala,
+                          as: "Sala",
+                          attributes: ["id", "nombre"],
+                          where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                          required: false // <-- OJO con este
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         },
       ],
       order: [["hora", "ASC"]],
@@ -8065,31 +8231,41 @@ app.get(
             },
             {
               model: Empleado,
-              attributes: ["id", "nombre"],
+              as: "Empleado",
+              attributes: ["id", "nombre", "cedula", "foto", "sexo"],
               include: [
                 {
                   model: Cargo,
+                  as: "Cargo",
                   attributes: ["id", "nombre"],
+                  required: false, // <-- Explicación abajo
                   include: [
                     {
-                      model: Departamento,
+                      model: Area,
+                      as: "Area",
                       attributes: ["id", "nombre"],
+                      required: false,
                       include: [
                         {
-                          model: Area,
+                          model: Departamento,
+                          as: "Departamento",
                           attributes: ["id", "nombre"],
+                          required: false,
                           include: [
                             {
                               model: Sala,
+                              as: "Sala",
                               attributes: ["id", "nombre"],
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
+                              where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                              required: false // <-- OJO con este
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             },
           ],
           order: [["created_at", "DESC"]],
@@ -8137,13 +8313,14 @@ app.get(
             },
             {
               model: Empleado,
-              attributes: ["id", "nombre"],
+              as: "Empleado",
+              attributes: ["id", "nombre", "cedula", "foto", "sexo"],
               include: [
                 {
                   model: Cargo,
                   as: "Cargo",
                   attributes: ["id", "nombre"],
-                  required: false,
+                  required: false, // <-- Explicación abajo
                   include: [
                     {
                       model: Area,
@@ -8161,16 +8338,16 @@ app.get(
                               model: Sala,
                               as: "Sala",
                               attributes: ["id", "nombre"],
-                              where: { id: userSalaIds },
-                              required: false,
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
+                              where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                              required: false // <-- OJO con este
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             },
           ],
           order: [["created_at", "DESC"]],
@@ -8256,31 +8433,41 @@ app.post(
             },
             {
               model: Empleado,
-              attributes: ["id", "nombre"],
+              as: "Empleado",
+              attributes: ["id", "nombre", "cedula", "foto", "sexo"],
               include: [
                 {
                   model: Cargo,
+                  as: "Cargo",
                   attributes: ["id", "nombre"],
+                  required: false, // <-- Explicación abajo
                   include: [
                     {
-                      model: Departamento,
+                      model: Area,
+                      as: "Area",
                       attributes: ["id", "nombre"],
+                      required: false,
                       include: [
                         {
-                          model: Area,
+                          model: Departamento,
+                          as: "Departamento",
                           attributes: ["id", "nombre"],
+                          required: false,
                           include: [
                             {
                               model: Sala,
+                              as: "Sala",
                               attributes: ["id", "nombre"],
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
+                              where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                              required: false // <-- OJO con este
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             },
           ],
         },
@@ -13175,6 +13362,39 @@ app.get("/api/public/novedades-maquinas/:libroId", async (req, res) => {
           model: Empleado,
           as: "Empleado",
           attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+          include: [
+            {
+              model: Cargo,
+              as: "Cargo",
+              attributes: ["id", "nombre"],
+              required: false, // <-- Explicación abajo
+              include: [
+                {
+                  model: Area,
+                  as: "Area",
+                  attributes: ["id", "nombre"],
+                  required: false,
+                  include: [
+                    {
+                      model: Departamento,
+                      as: "Departamento",
+                      attributes: ["id", "nombre"],
+                      required: false,
+                      include: [
+                        {
+                          model: Sala,
+                          as: "Sala",
+                          attributes: ["id", "nombre"],
+                          where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                          required: false // <-- OJO con este
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         },
       ],
       order: [["created_at", "ASC"]],
@@ -13202,6 +13422,39 @@ app.get("/api/public/novedades-mesas/:libroId", async (req, res) => {
           model: Empleado,
           as: "Empleado",
           attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+          include: [
+            {
+              model: Cargo,
+              as: "Cargo",
+              attributes: ["id", "nombre"],
+              required: false, // <-- Explicación abajo
+              include: [
+                {
+                  model: Area,
+                  as: "Area",
+                  attributes: ["id", "nombre"],
+                  required: false,
+                  include: [
+                    {
+                      model: Departamento,
+                      as: "Departamento",
+                      attributes: ["id", "nombre"],
+                      required: false,
+                      include: [
+                        {
+                          model: Sala,
+                          as: "Sala",
+                          attributes: ["id", "nombre"],
+                          where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                          required: false // <-- OJO con este
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         },
       ],
       order: [["created_at", "ASC"]],
@@ -13231,6 +13484,39 @@ app.get("/api/public/control-llaves/:libroId", async (req, res) => {
           model: Empleado,
           as: "Empleado",
           attributes: ["id", "nombre", "cedula", "foto", "sexo"],
+          include: [
+            {
+              model: Cargo,
+              as: "Cargo",
+              attributes: ["id", "nombre"],
+              required: false, // <-- Explicación abajo
+              include: [
+                {
+                  model: Area,
+                  as: "Area",
+                  attributes: ["id", "nombre"],
+                  required: false,
+                  include: [
+                    {
+                      model: Departamento,
+                      as: "Departamento",
+                      attributes: ["id", "nombre"],
+                      required: false,
+                      include: [
+                        {
+                          model: Sala,
+                          as: "Sala",
+                          attributes: ["id", "nombre"],
+                          where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                          required: false // <-- OJO con este
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         },
       ],
       order: [["created_at", "ASC"]],
