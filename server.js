@@ -6632,6 +6632,56 @@ app.put("/api/llaves/:id/activar", authenticateToken, async (req, res) => {
 // =============================================
 
 // Obtener registros de control de llaves por libro
+// PUT /api/llaves/:id/borrar - Borrar llave (cambiar activo a 0)
+
+app.put("/api/control-llaves-registros/set-hora-out/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const userLevel = req.user.nivel;
+
+    const registro = await ControlLlaveRegistro.findByPk(id, {
+      include: [
+        {
+          model: Libro,
+          as: "Libro",
+          include: [{ model: Sala, as: "Sala" }],
+        },
+      ],
+    });
+
+    if (!registro) {
+      return res.status(404).json({ message: "Registro no encontrado" });
+    }
+
+
+
+
+
+
+    if (userLevel !== "TODO") {
+      const userSala = await UserSala.findOne({
+        where: { user_id: userId, sala_id: llave.sala_id },
+      });
+
+      if (!userSala) {
+        return res
+          .status(403)
+          .json({ message: "No tienes acceso a esta llave" });
+      }
+    }
+
+
+    // Actualizar
+    await registro.update({ hora_out: req.body.hora_out });
+
+    res.json({
+      message: "Registro Actualizado",
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+});
 app.get(
   "/api/control-llaves-registros/:libroId",
   authenticateToken,

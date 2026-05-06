@@ -18,6 +18,7 @@ interface ControlLlaveRegistro {
   llave_id: number;
   empleado_id: number;
   hora: string;
+  hora_out: string;
   created_at?: string;
   updated_at?: string;
   Llave?: {
@@ -46,6 +47,7 @@ interface Llave {
 
 interface ControlData {
   hora: string;
+  hora_out: string;
 }
 
 interface Sala {
@@ -145,13 +147,14 @@ interface Sala {
             <table class="data-table">
               <thead>
                 <tr class="sala-header">
-                  <th colspan="5" class="sala-title">{{ getSalaName() }} - {{ getLibroFecha() }}</th>
+                  <th colspan="6" class="sala-title">{{ getSalaName() }} - {{ getLibroFecha() }}</th>
                 </tr>
                 <tr>
                   <th class="text-center">N°</th>
                   <th class="text-left">Llave</th>
                   <th class="text-center">Empleado</th>
-                  <th class="text-center">Hora</th>
+                  <th class="text-center">Hora de Entrega</th>
+                  <th class="text-center">Hora de Resguardo</th>
                   <th class="text-center">Acciones</th>
                 </tr>
               </thead>
@@ -168,8 +171,12 @@ interface Sala {
                   </td>
                   <td class="text-center">{{ evento.empleado?.nombre }}</td>
                   <td class="text-center">{{ evento.hora }}</td>
+                  <td class="text-center">{{ evento.hora_out }}</td>
                   <td class="text-center">
-                    <button class="btn btn-danger btn-sm" (click)="deleteControl(evento)">
+                    <button class="btn btn-info btn-sm mx-1" (click)="editModalHoraLlaves(evento)">
+                      Editar
+                    </button>
+                    <button class="btn btn-danger btn-sm mx-1" (click)="deleteControl(evento)">
                       Eliminar
                     </button>
                   </td>
@@ -205,6 +212,35 @@ interface Sala {
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" (click)="cerrarModal()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para editar llave para entrega -->
+    <div class="modal-overlay" *ngIf="editLlavesModal" (click)="cerrarModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h4>Resguardo de Llaves</h4>
+          <button class="btn-close" (click)="cerrarModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form >
+              <div class="form-group" *ngIf="eventoSeleccionado">
+                <label for="edit_hora_out">Hora de Resguardo:</label>
+                <input 
+                  type="time" 
+                  id="edit_hora_out" 
+                  name="edit_hora_out"
+                  [(ngModel)]="eventoSeleccionado.hora_out"
+                  class="form-control"
+                  placeholder="Ingrese el nombre del cargo"
+                  required
+                />
+              </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-success" (click)="horaOutModalSuccess()" [disabled]="!eventoSeleccionado?.hora_out || eventoSeleccionado?.hora >= eventoSeleccionado?.hora_out">Guardar</button>
         </div>
       </div>
     </div>
@@ -670,7 +706,8 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
   empleadoSearchText: string = '';
   empleadoSelected: any = null;
   controlData: ControlData = {
-    hora: this.getCurrentTime()
+    hora: this.getCurrentTime(),
+    hora_out: this.getCurrentTime()
   };
   libroId: number | null = null;
   salaId: number | null = null;
@@ -680,6 +717,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
   
   // Modal para mostrar llaves afectadas
   showLlavesModal = false;
+  editLlavesModal = false;
   llavesAfectadas: any[] = [];
   eventoSeleccionado: any = null;
   
@@ -834,7 +872,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
   }
 
   saveControl() {
-    if (this.selectedLlaveIds.length === 0 || !this.selectedEmpleadoId || !this.controlData.hora) {
+    if (this.selectedLlaveIds.length === 0 || !this.selectedEmpleadoId || !this.controlData.hora || !this.controlData.hora_out) {
       return;
     }
 
@@ -851,7 +889,8 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
         libro_id: this.libroId!,
         llave_id: llaveId,
         empleado_id: this.selectedEmpleadoId!,
-        hora: this.controlData.hora
+        hora: this.controlData.hora,
+        hora_out: this.controlData.hora_out
       };
 
       this.controlLlavesRegistrosService.createControlLlaveRegistro(controlData).subscribe({
@@ -878,6 +917,17 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
     });
   }
 
+  horaOutModalSuccess(){
+    this.controlLlavesRegistrosService.updateHoraOutControlLlaveRegistro(this.eventoSeleccionado.ids,{ hora_out: this.eventoSeleccionado?.hora_out }).subscribe({
+      next: (control: ControlLlaveRegistro) => {
+        this.cerrarModal()
+      },
+      error: (error: any) => {
+       
+      }
+    });
+  }
+
   agruparControles() {
     // Agrupar controles por empleado, hora y llaves
     const grupos = new Map();
@@ -889,6 +939,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
         grupos.set(key, {
           empleado: control.Empleado,
           hora: control.hora,
+          hora_out: control.hora_out,
           llaves: [],
           ids: [],
           esLote: false
@@ -905,6 +956,13 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
       ...grupo,
       esLote: grupo.llaves.length > 1
     }));
+  }
+
+  editModalHoraLlaves(evento: any) {
+    this.eventoSeleccionado = evento;
+    this.editLlavesModal = true;
+    this.showLlavesModal = false;
+    this.llavesAfectadas = evento.llaves;
   }
 
   deleteControl(evento: any) {
@@ -930,6 +988,7 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
     this.selectedEmpleadoId = null;
     this.selectedLlaveIds = [];
     this.controlData.hora = this.getCurrentTime();
+    this.controlData.hora_out = this.getCurrentTime();
     this.empleadoSearchText = '';
     this.empleadoSelected = null;
   }
@@ -1015,10 +1074,12 @@ export class ControlLlavesComponent implements OnInit, OnDestroy {
   mostrarLlavesAfectadas(evento: any) {
     this.eventoSeleccionado = evento;
     this.llavesAfectadas = evento.llaves;
+    this.editLlavesModal = false;
     this.showLlavesModal = true;
   }
 
   cerrarModal() {
+    this.editLlavesModal = false;
     this.showLlavesModal = false;
     this.llavesAfectadas = [];
     this.eventoSeleccionado = null;

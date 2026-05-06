@@ -22,6 +22,10 @@ export class ControlLlavesRegistrosService {
   updateControlLlaveRegistro(id: number, controlData: any): Observable<any> {
     return this.http.put<any>(`${this.apiUrl}/${id}`, controlData);
   }
+  updateHoraOutControlLlaveRegistro(id: number, controlData: any): Observable<any> {
+    console.log(id, controlData)
+    return this.http.put<any>(`${this.apiUrl}/set-hora-out/${id}`, controlData);
+  }
 
   deleteControlLlaveRegistro(id: number): Observable<any> {
     return this.http.delete<any>(`${this.apiUrl}/${id}`);

@@ -38,6 +38,10 @@ module.exports = (sequelize) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+    hora_out: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
   }, {
     tableName: 'control_llaves_registros',
     timestamps: true,
