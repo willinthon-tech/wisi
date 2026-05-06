@@ -6756,7 +6756,7 @@ app.get(
                             model: Sala,
                             as: "Sala",
                             attributes: ["id", "nombre"],
-                            where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                            //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                             required: false // <-- OJO con este
                           }
                         ]
@@ -6875,7 +6875,7 @@ app.post(
                               model: Sala,
                               as: "Sala",
                               attributes: ["id", "nombre"],
-                              where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                              //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                               required: false // <-- OJO con este
                             }
                           ]
@@ -7021,7 +7021,7 @@ app.get(
                             model: Sala,
                             as: "Sala",
                             attributes: ["id", "nombre"],
-                            where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                            //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                             required: false // <-- OJO con este
                           }
                         ]
@@ -7138,7 +7138,7 @@ app.post(
                             model: Sala,
                             as: "Sala",
                             attributes: ["id", "nombre"],
-                            where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                            //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                             required: false // <-- OJO con este
                           }
                         ]
@@ -7814,7 +7814,7 @@ app.get("/api/public/novedades/:libroId", async (req, res) => {
                           model: Sala,
                           as: "Sala",
                           attributes: ["id", "nombre"],
-                          where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                          //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                           required: false // <-- OJO con este
                         }
                       ]
@@ -8256,7 +8256,7 @@ app.get(
                               model: Sala,
                               as: "Sala",
                               attributes: ["id", "nombre"],
-                              where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                              //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                               required: false // <-- OJO con este
                             }
                           ]
@@ -8338,7 +8338,7 @@ app.get(
                               model: Sala,
                               as: "Sala",
                               attributes: ["id", "nombre"],
-                              where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                              //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                               required: false // <-- OJO con este
                             }
                           ]
@@ -8458,7 +8458,7 @@ app.post(
                               model: Sala,
                               as: "Sala",
                               attributes: ["id", "nombre"],
-                              where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                              //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                               required: false // <-- OJO con este
                             }
                           ]
@@ -13385,7 +13385,7 @@ app.get("/api/public/novedades-maquinas/:libroId", async (req, res) => {
                           model: Sala,
                           as: "Sala",
                           attributes: ["id", "nombre"],
-                          where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                          //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                           required: false // <-- OJO con este
                         }
                       ]
@@ -13445,7 +13445,7 @@ app.get("/api/public/novedades-mesas/:libroId", async (req, res) => {
                           model: Sala,
                           as: "Sala",
                           attributes: ["id", "nombre"],
-                          where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                          //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                           required: false // <-- OJO con este
                         }
                       ]
@@ -13507,7 +13507,7 @@ app.get("/api/public/control-llaves/:libroId", async (req, res) => {
                           model: Sala,
                           as: "Sala",
                           attributes: ["id", "nombre"],
-                          where: { id: userSalaIds }, // <-- Filtro de salas descomentado
+                          //where: { id: userSalaIds }, // <-- Filtro de salas descomentado
                           required: false // <-- OJO con este
                         }
                       ]
