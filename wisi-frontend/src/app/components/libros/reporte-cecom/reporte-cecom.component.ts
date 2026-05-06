@@ -260,7 +260,7 @@ import { environment } from '../../../../environments/environment';
     <div class="modal-overlay" *ngIf="showEmpleadoModal" (click)="cerrarEmpleadoModal()">
       <div class="modal-content empleado-modal" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h4>{{ empleadoSeleccionado?.Sala?.nombre || 'N/A' }}</h4>
+          <h4>{{ empleadoSeleccionado?.Cargo?.Area?.Departamento?.Sala?.nombre || 'N/A' }}</h4>
           <button class="btn-close" (click)="cerrarEmpleadoModal()">&times;</button>
         </div>
         <div class="modal-body empleado-info">
@@ -282,10 +282,10 @@ import { environment } from '../../../../environments/environment';
                   <strong>Cédula:</strong> {{ empleadoSeleccionado?.cedula }}
                 </div>
                 <div class="dato-item">
-                  <strong>Área:</strong> {{ empleadoSeleccionado?.Area?.nombre || 'N/A' }}
+                  <strong>Área:</strong> {{ empleadoSeleccionado?.Cargo?.Area?.nombre || 'N/A' }}
                 </div>
                 <div class="dato-item">
-                  <strong>Departamento:</strong> {{ empleadoSeleccionado?.Departamento?.nombre || 'N/A' }}
+                  <strong>Departamento:</strong> {{ empleadoSeleccionado?.Cargo?.Area?.Departamento?.nombre || 'N/A' }}
                 </div>
                 <div class="dato-item">
                   <strong>Cargo:</strong> {{ empleadoSeleccionado?.Cargo?.nombre || 'N/A' }}
@@ -1026,6 +1026,7 @@ export class ReporteCecomComponent implements OnInit, AfterViewInit {
         grupos.set(clave, {
           empleado: control.Empleado,
           hora: control.hora,
+          hora_out: control.hora_out,
           llaves: [control.Llave],
           ids: [control.id],
           esLote: false

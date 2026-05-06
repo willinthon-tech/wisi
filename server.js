@@ -6828,7 +6828,7 @@ app.post(
         libro_id,
         llave_id,
         empleado_id,
-        hora,
+        hora
       });
 
       // Obtener el registro con relaciones
