@@ -237,7 +237,7 @@ export class EmpleadosBorradosComponent implements OnInit {
     private permissionsService: PermissionsService,
     private errorModalService: ErrorModalService,
     private confirmModalService: ConfirmModalService
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.loadData();
@@ -249,7 +249,7 @@ export class EmpleadosBorradosComponent implements OnInit {
       this.empleados = res;
       this.aplicarFiltro();
     });
-    
+
     // Carga de cargos para el selector
     this.cargosService.getCargos().subscribe(res => {
       this.todosLosCargos = res.sort((a, b) => {
@@ -265,7 +265,7 @@ export class EmpleadosBorradosComponent implements OnInit {
       this.empleadosFiltrados = [...this.empleados];
     } else {
       const texto = this.filtroTexto.toLowerCase().trim();
-      this.empleadosFiltrados = this.empleados.filter(e => 
+      this.empleadosFiltrados = this.empleados.filter(e =>
         e.nombre.toLowerCase().includes(texto) || e.cedula.includes(texto)
       );
     }
@@ -278,7 +278,10 @@ export class EmpleadosBorradosComponent implements OnInit {
     this.showModal = true;
   }
 
-  closeModal() { this.showModal = false; this.selectedEmpleado = null; }
+  closeModal() {
+    this.showModal = false;
+    //this.selectedEmpleado = null; 
+  }
 
   verFotoGrande(empleado: any) {
     this.selectedEmpleadoParaFoto = empleado;
@@ -288,6 +291,7 @@ export class EmpleadosBorradosComponent implements OnInit {
   closePhotoModal() { this.showPhotoModal = false; this.selectedEmpleadoParaFoto = null; }
 
   confirmarIncorporacion() {
+    this.showModal = false;
     this.confirmModalService.showConfirmModal({
       title: 'Confirmar Reincorporación',
       message: `¿Deseas activar formalmente a "${this.selectedEmpleado.nombre}"?`,
@@ -298,7 +302,7 @@ export class EmpleadosBorradosComponent implements OnInit {
           activo: 1,
           cargo_id: Number(this.form.cargo_id),
           fecha_ingreso: this.form.fecha_ingreso,
-          dispositivos: [] 
+          dispositivos: []
         };
 
         this.empleadosService.updateEmpleado(this.selectedEmpleado.id, payload).subscribe({

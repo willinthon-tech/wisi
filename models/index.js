@@ -378,7 +378,7 @@ const syncDatabase = async () => {
 
     // Insertar datos iniciales si no existen
     await insertInitialData();
-  } catch (error) {}
+  } catch (error) { }
 };
 
 // Función para insertar datos iniciales
@@ -515,7 +515,7 @@ const insertInitialData = async () => {
     // Asignar módulos a las salas (excepto SUPER CONFIGURACION)
     await sala1.addModules([moduleRRHH, moduleMaquinas, moduleCecom]);
     await sala2.addModules([moduleRRHH, moduleMaquinas, moduleCecom]);
-  } catch (error) {}
+  } catch (error) { }
 };
 
 module.exports = {

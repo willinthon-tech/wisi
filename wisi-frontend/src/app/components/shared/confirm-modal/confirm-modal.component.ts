@@ -175,10 +175,10 @@ import { ConfirmModalService, ConfirmModalData } from '../../../services/confirm
 export class ConfirmModalComponent implements OnInit, OnDestroy {
   showModal = false;
   modalData: ConfirmModalData | null = null;
-  
+
   private subscriptions: Subscription[] = [];
 
-  constructor(private confirmModalService: ConfirmModalService) {}
+  constructor(private confirmModalService: ConfirmModalService) { }
 
   ngOnInit() {
     this.subscriptions.push(
@@ -211,9 +211,9 @@ export class ConfirmModalComponent implements OnInit, OnDestroy {
 
   getConfirmButtonText(): string {
     if (!this.modalData?.title) return 'Sí, Eliminar';
-    
+
     const title = this.modalData.title.toLowerCase();
-    
+
     if (title.includes('activar')) {
       return 'Sí, Activar';
     } else if (title.includes('borrar')) {
